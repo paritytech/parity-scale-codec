@@ -1,8 +1,9 @@
 [package]
 name = "parity-codec"
-description = "Serialization and deserialization codec for runtime values"
-version = "0.1.0"
+description = "Lightweight, efficient, binary serialization and deserialization codec"
+version = "1.0.0"
 authors = ["Parity Technologies <admin@parity.io>"]
+license = "Apache-2.0"
 
 [dependencies]
 arrayvec = { version = "0.4", default_features = false }
@@ -10,3 +11,8 @@ arrayvec = { version = "0.4", default_features = false }
 [features]
 default = ["std"]
 std = []
+
+[workspace]
+members = [
+	"derive"
+]
