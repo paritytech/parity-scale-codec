@@ -259,9 +259,15 @@ impl<'a> Encode for &'a str {
 }
 
 #[cfg(feature = "std")]
-impl<'a, T: Encode + Clone + ?Sized> Encode for ::std::borrow::Cow<'a, T> {
+impl<'a, T: ToOwned + ?Sized + 'a> Encode for ::std::borrow::Cow<'a, T> where
+	&'a T: Encode,
+	<T as ToOwned>::Owned: Encode
+{
 	fn encode_to<W: Output>(&self, dest: &mut W) {
-		<T as Encode>::encode_to(&self, dest)
+		match self {
+			::std::borrow::Cow::Owned(ref x) => x.encode_to(dest),
+			::std::borrow::Cow::Borrowed(x) => x.encode_to(dest),
+		}
 	}
 }
 
