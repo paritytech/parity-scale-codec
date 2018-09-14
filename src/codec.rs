@@ -259,16 +259,18 @@ impl<'a> Encode for &'a str {
 }
 
 #[cfg(feature = "std")]
-impl<'a > Encode for ::std::borrow::Cow<'a, str> {
+impl<'a, T: Encode + Clone + ?Sized> Encode for ::std::borrow::Cow<'a, T> {
 	fn encode_to<W: Output>(&self, dest: &mut W) {
-		self.as_bytes().encode_to(dest)
+		<T as Encode>::encode_to(&self, dest)
 	}
 }
 
 #[cfg(feature = "std")]
-impl<'a> Decode for ::std::borrow::Cow<'a, str> {
+impl<'a, T: ToOwned + ?Sized> Decode for ::std::borrow::Cow<'a, T> where
+	<T as ToOwned>::Owned: Decode
+{
 	fn decode<I: Input>(input: &mut I) -> Option<Self> {
-		Some(::std::borrow::Cow::Owned(String::from_utf8_lossy(&Vec::decode(input)?).into()))
+		Some(::std::borrow::Cow::Owned(Decode::decode(input)?))
 	}
 }
 
@@ -517,6 +519,7 @@ impl_non_endians!(i8, [u8; 1], [u8; 2], [u8; 3], [u8; 4], [u8; 5], [u8; 6], [u8;
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use std::borrow::Cow;
 
 	#[test]
 	fn vec_is_slicable() {
@@ -534,5 +537,25 @@ mod tests {
 		let encoded = (&x, &y).encode();
 
 		assert_eq!((x, y), Decode::decode(&mut &encoded[..]).unwrap());
+	}
+
+	#[test]
+	fn cow_works() {
+		let x = &[1u32, 2, 3, 4, 5, 6][..];
+		let y = Cow::Borrowed(&x);
+		assert_eq!(x.encode(), y.encode());
+
+		let z: Cow<[u32]> = Cow::decode(&mut &x.encode()[..]).unwrap();
+		assert_eq!(*z, *x);
+	}
+
+	#[test]
+	fn cow_string_works() {
+		let x = "Hello world!";
+		let y = Cow::Borrowed(&x);
+		assert_eq!(x.encode(), y.encode());
+
+		let z: Cow<str> = Cow::decode(&mut &x.encode()[..]).unwrap();
+		assert_eq!(*z, *x);
 	}
 }
