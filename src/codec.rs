@@ -16,6 +16,8 @@
 
 use alloc::vec::Vec;
 use alloc::boxed::Box;
+use alloc::borrow::{Cow, ToOwned};
+use alloc::string::String;
 use core::{mem, slice};
 use arrayvec::ArrayVec;
 
@@ -258,36 +260,32 @@ impl<'a> Encode for &'a str {
 	}
 }
 
-#[cfg(feature = "std")]
-impl<'a, T: ToOwned + ?Sized + 'a> Encode for ::std::borrow::Cow<'a, T> where
+impl<'a, T: ToOwned + ?Sized + 'a> Encode for Cow<'a, T> where
 	&'a T: Encode,
 	<T as ToOwned>::Owned: Encode
 {
 	fn encode_to<W: Output>(&self, dest: &mut W) {
 		match self {
-			::std::borrow::Cow::Owned(ref x) => x.encode_to(dest),
-			::std::borrow::Cow::Borrowed(x) => x.encode_to(dest),
+			Cow::Owned(ref x) => x.encode_to(dest),
+			Cow::Borrowed(x) => x.encode_to(dest),
 		}
 	}
 }
 
-#[cfg(feature = "std")]
-impl<'a, T: ToOwned + ?Sized> Decode for ::std::borrow::Cow<'a, T> where
+impl<'a, T: ToOwned + ?Sized> Decode for Cow<'a, T> where
 	<T as ToOwned>::Owned: Decode
 {
 	fn decode<I: Input>(input: &mut I) -> Option<Self> {
-		Some(::std::borrow::Cow::Owned(Decode::decode(input)?))
+		Some(Cow::Owned(Decode::decode(input)?))
 	}
 }
 
-#[cfg(feature = "std")]
 impl Encode for String {
 	fn encode_to<W: Output>(&self, dest: &mut W) {
 		self.as_bytes().encode_to(dest)
 	}
 }
 
-#[cfg(feature = "std")]
 impl Decode for String {
 	fn decode<I: Input>(input: &mut I) -> Option<Self> {
 		Some(Self::from_utf8_lossy(&Vec::decode(input)?).into())
