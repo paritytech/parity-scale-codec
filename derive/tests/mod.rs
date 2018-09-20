@@ -32,6 +32,14 @@ struct Struct<A, B, C> {
 	pub c: C,
 }
 
+
+#[derive(Debug, PartialEq, Encode, Decode)]
+struct StructWithPhantom {
+	pub a: u32,
+	pub b: u64,
+	_c: ::std::marker::PhantomData<u8>,
+}
+
 type TestType = Struct<u32, u64, Vec<u8>>;
 
 impl <A, B, C> Struct<A, B, C> {
