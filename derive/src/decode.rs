@@ -77,7 +77,7 @@ fn create_instance(call_site: Span, name: TokenStream, input: &TokenStream, fiel
 				let field = quote_spanned!(call_site => #name);
 
 				quote_spanned! { f.span() =>
-					#field: ::codec::Decode::decode(#input)?
+					#field: _parity_codec::Decode::decode(#input)?
 				}
 			});
 
@@ -90,7 +90,7 @@ fn create_instance(call_site: Span, name: TokenStream, input: &TokenStream, fiel
 		Fields::Unnamed(ref fields) => {
 			let recurse = fields.unnamed.iter().map(|f| {
 				quote_spanned! { f.span() =>
-					::codec::Decode::decode(#input)?
+					_parity_codec::Decode::decode(#input)?
 				}
 			});
 
