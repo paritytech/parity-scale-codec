@@ -132,7 +132,7 @@ pub trait Decode: Sized {
 pub trait Codec: Decode + Encode {}
 
 /// Compact-encoded variant of T. This is more space-efficient but less compute-efficient.
-pub struct Compact<T>(T);
+pub struct Compact<T>(pub T);
 
 // compact encoding:
 // 0b00 00 00 00 / 00 00 00 00 / 00 00 00 00 / 00 00 00 00
