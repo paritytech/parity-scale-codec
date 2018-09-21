@@ -137,9 +137,9 @@ pub struct Compact<T>(T);
 // compact encoding:
 // 0b00 00 00 00 / 00 00 00 00 / 00 00 00 00 / 00 00 00 00
 //   xx xx xx 00															(0 ... 2**6 - 1)		(u8)
-//   yH yH yH 01 / yL yL yL yL												(2**6 ... 2**14 - 1)	(u8, u16)
-//   zH zH zH 10 / zM zM zM zM / zM zM zM zM / zL zL zL zL					(2**14 ... 2**30 - 1)	(u16, u32)
-//   nn nn nn 11 [ / zz zz zz zz ]{4 + n}									(2**30 ... 2**536 - 1)	(u32, u64, u128, U256, U512, U520)
+//   yL yL yL 01 / yH yH yH yL												(2**6 ... 2**14 - 1)	(u8, u16)  low LH high
+//   zL zL zL 10 / zM zM zM zL / zM zM zM zM / zH zH zH zM					(2**14 ... 2**30 - 1)	(u16, u32)  low LMMH high
+//   nn nn nn 11 [ / zz zz zz zz ]{4 + n}									(2**30 ... 2**536 - 1)	(u32, u64, u128, U256, U512, U520) straight LE-encoded
 
 // Note: we use *LOW BITS* of the LSB in LE encoding to encode the 2 bit key. 
 
