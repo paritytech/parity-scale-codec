@@ -20,7 +20,7 @@ dependencies = [
 
 [[package]]
 name = "parity-codec-derive"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "parity-codec 2.0.0",
  "proc-macro2 0.4.19 (registry+https://github.com/rust-lang/crates.io-index)",
