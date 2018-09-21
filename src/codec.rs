@@ -55,6 +55,24 @@ impl<R: ::std::io::Read> Input for R {
 	}
 }
 
+/// Prefix another input with a byte.
+struct PrefixInput<'a, T: 'a> {
+	prefix: Option<u8>,
+	input: &'a mut T,
+}
+
+impl<'a, T: 'a + Input> Input for PrefixInput<'a, T> {
+	fn read(&mut self, buffer: &mut [u8]) -> usize {
+		match self.prefix.take() {
+			Some(v) if buffer.len() > 0 => {
+				buffer[0] = v;
+				1 + self.input.read(&mut buffer[1..])
+			}
+			_ => self.input.read(buffer)
+		}
+	}
+}
+
 /// Trait that allows writing of data.
 pub trait Output: Sized {
 	/// Write to the output.
@@ -112,6 +130,121 @@ pub trait Decode: Sized {
 
 /// Trait that allows zero-copy read/write of value-references to/from slices in LE format.
 pub trait Codec: Decode + Encode {}
+
+/// Compact-encoded variant of T. This is more space-efficient but less compute-efficient.
+pub struct Compact<T>(pub T);
+
+impl<T> From<T> for Compact<T> {
+	fn from(x: T) -> Compact<T> { Compact(x) }
+}
+impl From<Compact<u8>> for u8 {
+	fn from(x: Compact<u8>) -> u8 { x.0 }
+}
+impl From<Compact<u16>> for u16 {
+	fn from(x: Compact<u16>) -> u16 { x.0 }
+}
+impl From<Compact<u32>> for u32 {
+	fn from(x: Compact<u32>) -> u32 { x.0 }
+}
+
+// compact encoding:
+// 0b00 00 00 00 / 00 00 00 00 / 00 00 00 00 / 00 00 00 00
+//   xx xx xx 00															(0 ... 2**6 - 1)		(u8)
+//   yL yL yL 01 / yH yH yH yL												(2**6 ... 2**14 - 1)	(u8, u16)  low LH high
+//   zL zL zL 10 / zM zM zM zL / zM zM zM zM / zH zH zH zM					(2**14 ... 2**30 - 1)	(u16, u32)  low LMMH high
+//   nn nn nn 11 [ / zz zz zz zz ]{4 + n}									(2**30 ... 2**536 - 1)	(u32, u64, u128, U256, U512, U520) straight LE-encoded
+
+// Note: we use *LOW BITS* of the LSB in LE encoding to encode the 2 bit key. 
+
+impl Encode for Compact<u8> {
+	fn encode_to<W: Output>(&self, dest: &mut W) {
+		match self.0 {
+			0...0b00111111 => dest.push_byte(self.0 << 2),
+			_ => (((self.0 as u16) << 2) | 0b01).encode_to(dest),
+		}
+	}
+}
+
+impl Encode for Compact<u16> {
+	fn encode_to<W: Output>(&self, dest: &mut W) {
+		match self.0 {
+			0...0b00111111 => dest.push_byte((self.0 as u8) << 2),
+			0...0b00111111_11111111 => ((self.0 << 2) | 0b01).encode_to(dest),
+			_ => (((self.0 as u32) << 2) | 0b10).encode_to(dest),
+		}
+	}
+}
+
+impl Encode for Compact<u32> {
+	fn encode_to<W: Output>(&self, dest: &mut W) {
+		match self.0 {
+			0...0b00111111 => dest.push_byte((self.0 as u8) << 2),
+			0...0b00111111_11111111 => (((self.0 as u16) << 2) | 0b01).encode_to(dest),
+			0...0b00111111_11111111_11111111_11111111 => ((self.0 << 2) | 0b10).encode_to(dest),
+			_ => {
+				dest.push_byte(0b11);
+				self.0.encode_to(dest);
+			}
+		}
+	}
+}
+
+impl Decode for Compact<u8> {
+	fn decode<I: Input>(input: &mut I) -> Option<Self> {
+		let prefix = input.read_byte()?;
+		Some(Compact(match prefix % 4 {
+			0 => prefix as u8 >> 2,
+			1 => {
+				let x = u16::decode(&mut PrefixInput{prefix: Some(prefix), input})? >> 2;
+				if x < 256 {
+					x as u8
+				} else {
+					return None
+				}
+			}
+			_ => return None,
+		}))
+	}
+}
+
+impl Decode for Compact<u16> {
+	fn decode<I: Input>(input: &mut I) -> Option<Self> {
+		let prefix = input.read_byte()?;
+		Some(Compact(match prefix % 4 {
+			0 => prefix as u16 >> 2,
+			1 => u16::decode(&mut PrefixInput{prefix: Some(prefix), input})? as u16 >> 2,
+			2 => {
+				let x = u32::decode(&mut PrefixInput{prefix: Some(prefix), input})? >> 2;
+				if x < 65536 {
+					x as u16
+				} else {
+					return None
+				}
+			}
+			_ => return None,
+		}))
+	}
+}
+
+impl Decode for Compact<u32> {
+	fn decode<I: Input>(input: &mut I) -> Option<Self> {
+		let prefix = input.read_byte()?;
+		Some(Compact(match prefix % 4 {
+			0 => prefix as u32 >> 2,
+			1 => u16::decode(&mut PrefixInput{prefix: Some(prefix), input})? as u32 >> 2,
+			2 => u32::decode(&mut PrefixInput{prefix: Some(prefix), input})? as u32 >> 2,
+			3|_ => {	// |_. yeah, i know.
+				if prefix >> 2 == 0 {
+					// just 4 bytes. ok.
+					u32::decode(input)?
+				} else {
+					// Out of range for a 32-bit quantity.
+					return None
+				}
+			}
+		}))
+	}
+}
 
 impl<S: Decode + Encode> Codec for S {}
 
@@ -227,7 +360,7 @@ impl Encode for [u8] {
 	fn encode_to<W: Output>(&self, dest: &mut W) {
 		let len = self.len();
 		assert!(len <= u32::max_value() as usize, "Attempted to serialize a collection with too many elements.");
-		(len as u32).encode_to(dest);
+		Compact(len as u32).encode_to(dest);
 		dest.write(self)
 	}
 }
@@ -240,7 +373,7 @@ impl Encode for Vec<u8> {
 
 impl Decode for Vec<u8> {
 	fn decode<I: Input>(input: &mut I) -> Option<Self> {
-		u32::decode(input).and_then(move |len| {
+		<Compact<u32>>::decode(input).and_then(move |Compact(len)| {
 			let len = len as usize;
 			let mut vec = vec![0; len];
 			if input.read(&mut vec[..len]) != len {
@@ -298,7 +431,7 @@ impl<T: Encode> Encode for [T] {
 	fn encode_to<W: Output>(&self, dest: &mut W) {
 		let len = self.len();
 		assert!(len <= u32::max_value() as usize, "Attempted to serialize a collection with too many elements.");
-		(len as u32).encode_to(dest);
+		Compact(len as u32).encode_to(dest);
 		for item in self {
 			item.encode_to(dest);
 		}
@@ -313,7 +446,7 @@ impl<T: Encode> Encode for Vec<T> {
 
 impl<T: Decode> Decode for Vec<T> {
 	fn decode<I: Input>(input: &mut I) -> Option<Self> {
-		u32::decode(input).and_then(move |len| {
+		<Compact<u32>>::decode(input).and_then(move |Compact(len)| {
 			let mut r = Vec::with_capacity(len as usize);
 			for _ in 0..len {
 				r.push(T::decode(input)?);
@@ -531,7 +664,7 @@ mod tests {
 	fn vec_is_slicable() {
 		let v = b"Hello world".to_vec();
 		v.using_encoded(|ref slice|
-			assert_eq!(slice, &b"\x0b\0\0\0Hello world")
+			assert_eq!(slice, &b"\x2cHello world")
 		);
 	}
 
@@ -563,5 +696,37 @@ mod tests {
 
 		let z: Cow<str> = Cow::decode(&mut &x.encode()[..]).unwrap();
 		assert_eq!(*z, *x);
+	}
+
+	#[test]
+	fn compact_encoding_works() {
+		let tests = [(0u32, 1usize), (63, 1), (64, 2), (16383, 2), (16384, 4), (1073741823, 4), (1073741824, 5), (u32::max_value(), 5)];
+		for &(n, l) in &tests {
+			let encoded = Compact(n as u32).encode();
+			assert_eq!(encoded.len(), l);
+			assert_eq!(<Compact<u32>>::decode(&mut &encoded[..]).unwrap().0, n);
+		}
+	}
+
+	#[test]
+	fn compact_16_encoding_works() {
+		let tests = [(0u16, 1usize), (63, 1), (64, 2), (16383, 2), (16384, 4), (65535, 4)];
+		for &(n, l) in &tests {
+			let encoded = Compact(n as u16).encode();
+			assert_eq!(encoded.len(), l);
+			assert_eq!(<Compact<u16>>::decode(&mut &encoded[..]).unwrap().0, n);
+		}
+		assert!(<Compact<u16>>::decode(&mut &Compact(65536u32).encode()[..]).is_none());
+	}
+
+	#[test]
+	fn compact_8_encoding_works() {
+		let tests = [(0u8, 1usize), (63, 1), (64, 2), (255, 2)];
+		for &(n, l) in &tests {
+			let encoded = Compact(n as u8).encode();
+			assert_eq!(encoded.len(), l);
+			assert_eq!(<Compact<u8>>::decode(&mut &encoded[..]).unwrap().0, n);
+		}
+		assert!(<Compact<u8>>::decode(&mut &Compact(256u32).encode()[..]).is_none());
 	}
 }
