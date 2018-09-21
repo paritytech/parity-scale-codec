@@ -134,6 +134,19 @@ pub trait Codec: Decode + Encode {}
 /// Compact-encoded variant of T. This is more space-efficient but less compute-efficient.
 pub struct Compact<T>(pub T);
 
+impl<T> From<T> for Compact<T> {
+	fn from(x: T) -> Compact<T> { Compact(x) }
+}
+impl From<Compact<u8>> for u8 {
+	fn from(x: Compact<u8>) -> u8 { x.0 }
+}
+impl From<Compact<u16>> for u16 {
+	fn from(x: Compact<u16>) -> u16 { x.0 }
+}
+impl From<Compact<u32>> for u32 {
+	fn from(x: Compact<u32>) -> u32 { x.0 }
+}
+
 // compact encoding:
 // 0b00 00 00 00 / 00 00 00 00 / 00 00 00 00 / 00 00 00 00
 //   xx xx xx 00															(0 ... 2**6 - 1)		(u8)
