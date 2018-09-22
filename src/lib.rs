@@ -38,6 +38,6 @@ mod codec;
 mod joiner;
 mod keyedvec;
 
-pub use self::codec::{Input, Output, Encode, Decode, Codec};
+pub use self::codec::{Input, Output, Encode, Decode, Codec, Compact};
 pub use self::joiner::Joiner;
 pub use self::keyedvec::KeyedVec;

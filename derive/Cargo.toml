@@ -14,7 +14,7 @@ quote = "0.6"
 proc-macro2 = "0.4"
 
 [dev-dependencies]
-parity-codec = { path = "../", version = "2.0.0" }
+parity-codec = { path = "../", version = "2.0.1" }
 
 [features]
 default = ["std"]
