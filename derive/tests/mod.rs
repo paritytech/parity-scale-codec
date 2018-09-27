@@ -119,13 +119,13 @@ fn should_derive_encode() {
 	let v = TestType::new(15, 9, b"Hello world".to_vec());
 
 	v.using_encoded(|ref slice| {
-		assert_eq!(slice, &b"\x0f\0\0\0\x09\0\0\0\0\0\0\0\x0b\0\0\0Hello world")
+		assert_eq!(slice, &b"\x0f\0\0\0\x09\0\0\0\0\0\0\0\x2cHello world")
 	});
 }
 
 #[test]
 fn should_derive_decode() {
-	let slice = b"\x0f\0\0\0\x09\0\0\0\0\0\0\0\x0b\0\0\0Hello world".to_vec();
+	let slice = b"\x0f\0\0\0\x09\0\0\0\0\0\0\0\x2cHello world".to_vec();
 
 	let v = TestType::decode(&mut &*slice);
 
