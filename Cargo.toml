@@ -6,7 +6,7 @@ authors = ["Parity Technologies <admin@parity.io>"]
 license = "Apache-2.0"
 
 [dependencies]
-arrayvec = { version = "0.4", default_features = false }
+arrayvec = { version = "0.4", default-features = false }
 
 [features]
 default = ["std"]
