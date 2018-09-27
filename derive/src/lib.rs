@@ -26,6 +26,7 @@ extern crate syn;
 extern crate quote;
 
 use proc_macro::TokenStream;
+use proc_macro2::Span;
 use syn::{DeriveInput, Generics, GenericParam, Ident};
 
 mod decode;
@@ -38,22 +39,39 @@ pub fn encode_derive(input: TokenStream) -> TokenStream {
 	let input: DeriveInput = syn::parse(input).expect(ENCODE_ERR);
 	let name = &input.ident;
 
-	let generics = add_trait_bounds(input.generics, parse_quote!(::codec::Encode));
+	let generics = add_trait_bounds(input.generics, parse_quote!(_parity_codec::Encode));
 	let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
 	let self_ = quote!(self);
 	let dest_ = quote!(dest);
 	let encoding = encode::quote(&input.data, name, &self_, &dest_);
 
-	let expanded = quote! {
-		impl #impl_generics ::codec::Encode for #name #ty_generics #where_clause {
-			fn encode_to<EncOut: ::codec::Output>(&#self_, #dest_: &mut EncOut) {
+	let impl_block = quote! {
+		impl #impl_generics _parity_codec::Encode for #name #ty_generics #where_clause {
+			fn encode_to<EncOut: _parity_codec::Output>(&#self_, #dest_: &mut EncOut) {
 				#encoding
 			}
 		}
 	};
 
-	expanded.into()
+	let suffix = name.to_string().trim_left_matches("r#").to_owned();
+	let dummy_const = Ident::new(
+		&format!("_IMPL_ENCODE_FOR_{}", suffix),
+		Span::call_site(),
+	);
+
+	let generated = quote! {
+		#[allow(non_upper_case_globals, unused_attributes, unused_qualifications)]
+		const #dummy_const: () = {
+			#[allow(unknown_lints)]
+			#[cfg_attr(feature = "cargo-clippy", allow(useless_attribute))]
+			#[allow(rust_2018_idioms)]
+			extern crate parity_codec as _parity_codec;
+			#impl_block
+		};
+	};
+
+	generated.into()
 }
 
 #[proc_macro_derive(Decode, attributes(codec))]
@@ -61,21 +79,38 @@ pub fn decode_derive(input: TokenStream) -> TokenStream {
 	let input: DeriveInput = syn::parse(input).expect(ENCODE_ERR);
 	let name = &input.ident;
 
-	let generics = add_trait_bounds(input.generics, parse_quote!(::codec::Decode));
+	let generics = add_trait_bounds(input.generics, parse_quote!(_parity_codec::Decode));
 	let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
 	let input_ = quote!(input);
 	let decoding = decode::quote(&input.data, name, &input_);
 
-	let expanded = quote! {
-		impl #impl_generics ::codec::Decode for #name #ty_generics #where_clause {
-			fn decode<DecIn: ::codec::Input>(#input_: &mut DecIn) -> Option<Self> {
+	let impl_block = quote! {
+		impl #impl_generics _parity_codec::Decode for #name #ty_generics #where_clause {
+			fn decode<DecIn: _parity_codec::Input>(#input_: &mut DecIn) -> Option<Self> {
 				#decoding
 			}
 		}
 	};
 
-	expanded.into()
+	let suffix = name.to_string().trim_left_matches("r#").to_owned();
+	let dummy_const = Ident::new(
+		&format!("_IMPL_DECODE_FOR_{}", suffix),
+		Span::call_site(),
+	);
+
+	let generated = quote! {
+		#[allow(non_upper_case_globals, unused_attributes, unused_qualifications)]
+		const #dummy_const: () = {
+			#[allow(unknown_lints)]
+			#[cfg_attr(feature = "cargo-clippy", allow(useless_attribute))]
+			#[allow(rust_2018_idioms)]
+			extern crate parity_codec as _parity_codec;
+			#impl_block
+		};
+	};
+
+	generated.into()
 }
 
 fn add_trait_bounds(mut generics: Generics, bounds: syn::TypeParamBound) -> Generics {
