@@ -15,6 +15,11 @@
 //! Derives serialization and deserialization codec for complex structs for simple marshalling.
 
 #![cfg_attr(not(feature = "std"), no_std)]
+#![cfg_attr(not(feature = "std"), feature(core_intrinsics))]
+#![cfg_attr(not(feature = "std"), feature(alloc))]
+
+#[cfg(not(feature = "std"))]
+extern crate alloc;
 
 extern crate proc_macro;
 extern crate proc_macro2;
@@ -28,6 +33,9 @@ extern crate quote;
 use proc_macro::TokenStream;
 use proc_macro2::Span;
 use syn::{DeriveInput, Generics, GenericParam, Ident};
+
+#[cfg(not(feature = "std"))]
+use alloc::string::ToString;
 
 mod decode;
 mod encode;
@@ -54,11 +62,9 @@ pub fn encode_derive(input: TokenStream) -> TokenStream {
 		}
 	};
 
-	let suffix = name.to_string().trim_left_matches("r#").to_owned();
-	let dummy_const = Ident::new(
-		&format!("_IMPL_ENCODE_FOR_{}", suffix),
-		Span::call_site(),
-	);
+	let mut new_name = "_IMPL_ENCODE_FOR_".to_string();
+	new_name.push_str(name.to_string().trim_left_matches("r#"));
+	let dummy_const = Ident::new(&new_name, Span::call_site());
 
 	let generated = quote! {
 		#[allow(non_upper_case_globals, unused_attributes, unused_qualifications)]
@@ -93,11 +99,9 @@ pub fn decode_derive(input: TokenStream) -> TokenStream {
 		}
 	};
 
-	let suffix = name.to_string().trim_left_matches("r#").to_owned();
-	let dummy_const = Ident::new(
-		&format!("_IMPL_DECODE_FOR_{}", suffix),
-		Span::call_site(),
-	);
+	let mut new_name = "_IMPL_DECODE_FOR_".to_string();
+	new_name.push_str(name.to_string().trim_left_matches("r#"));
+	let dummy_const = Ident::new(&new_name, Span::call_site());
 
 	let generated = quote! {
 		#[allow(non_upper_case_globals, unused_attributes, unused_qualifications)]
