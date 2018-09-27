@@ -1,7 +1,7 @@
 [package]
 name = "parity-codec-derive"
 description = "Serialization and deserialization derive macro for Parity Codec"
-version = "2.0.0"
+version = "2.0.2"
 authors = ["Parity Technologies <admin@parity.io>"]
 license = "Apache-2.0"
 
@@ -14,7 +14,7 @@ quote = "0.6"
 proc-macro2 = "0.4"
 
 [dev-dependencies]
-parity-codec = { path = "../", version = "2.0.0" }
+parity-codec = { path = "../", version = "2.0.2" }
 
 [features]
 default = ["std"]
