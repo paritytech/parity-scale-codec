@@ -415,18 +415,16 @@ impl<'a, T: ToOwned + ?Sized> Decode for ::std::borrow::Cow<'a, T> where
 
 #[cfg(feature = "std")]
 impl<T> Encode for ::std::marker::PhantomData<T> {
-       fn encode_to<W: Output>(&self, _dest: &mut W) {
-       }
+	fn encode_to<W: Output>(&self, _dest: &mut W) {
+	}
 }
 
 #[cfg(feature = "std")]
 impl<T> Decode for ::std::marker::PhantomData<T> {
-       fn decode<I: Input>(_input: &mut I) -> Option<Self> {
-               Some(::std::marker::PhantomData)
-       }
+	fn decode<I: Input>(_input: &mut I) -> Option<Self> {
+		Some(::std::marker::PhantomData)
+	}
 }
-
-
 
 #[cfg(feature = "std")]
 impl Encode for String {
