@@ -13,7 +13,7 @@ variables:
 test:rust:stable:
   stage:                           test
   script:
-    - time cargo test --all --release
+    - time cargo test --all
   tags:
     - rust-stable
 
@@ -23,7 +23,7 @@ test:rust:stable:
 build:linux:ubuntu:amd64:
   stage:                           build
   script:
-    - cargo build --release
+    - cargo build
   tags:
     - rust-stable
 
