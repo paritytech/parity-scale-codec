@@ -15,7 +15,7 @@ test:rust:stable:
   script:
     - time cargo test --all
   tags:
-    - rust-stable
+    - rust
 
 
 #### stage:                        build
@@ -25,5 +25,5 @@ build:linux:ubuntu:amd64:
   script:
     - cargo build
   tags:
-    - rust-stable
+    - rust
 
