@@ -1,0 +1,29 @@
+stages:
+  - test
+  - build
+
+image:                             parity/rust:nightly
+
+variables:
+  CI_SERVER_NAME:                  "GitLab CI"
+  CARGO_HOME:                      "${CI_PROJECT_DIR}/.cargo"
+
+#### stage:                        test
+
+test:rust:stable:
+  stage:                           test
+  script:
+    - time cargo test --all
+  tags:
+    - rust
+
+
+#### stage:                        build
+
+build:linux:ubuntu:amd64:
+  stage:                           build
+  script:
+    - cargo build
+  tags:
+    - rust
+
