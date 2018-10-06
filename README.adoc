@@ -11,3 +11,4 @@ include::Cargo.toml[lines=2..5]
 ----
 include::src/lib.rs[tag=description]
 ----
+
