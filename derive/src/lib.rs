@@ -166,14 +166,14 @@ fn get_encode_type(field_entry: &syn::Field) -> Option<String> {
 	let encoder_type = field_entry.attrs.iter().filter_map(|attr| {
 		let pair = attr.path.segments.first()?;
 		let seg = pair.value();
-
+		println!("Seg Ident: {}", seg.ident);
 		if seg.ident == Ident::new("codec", seg.ident.span()) {
 			assert_eq!(attr.path.segments.len(), 1);
 
 			let meta = attr.interpret_meta();
 			if let Some(syn::Meta::List(ref l)) = meta {
 				if let syn::NestedMeta::Meta(syn::Meta::NameValue(ref nv)) = l.nested.last().unwrap().value() {
-					assert_eq!(nv.ident, Ident::new("encode_as", nv.ident.span()));
+					assert_eq!(nv.ident, Ident::new("encoded_as", nv.ident.span()));
 					if let syn::Lit::Str(ref s) = nv.lit {
 						let encoding: String = s.value();
 						return Some(encoding)

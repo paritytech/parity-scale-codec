@@ -17,7 +17,7 @@ extern crate parity_codec;
 #[macro_use]
 extern crate parity_codec_derive;
 
-use parity_codec::{Encode, Decode};
+use parity_codec::{Encode, Decode, Compact};
 
 #[derive(Debug, PartialEq, Encode, Decode)]
 struct Unit;
@@ -64,6 +64,20 @@ enum EnumWithDiscriminant {
 	A = 1,
 	B = 15,
 	C = 255,
+}
+
+trait HasCompact {
+  type Type: Encode + Decode;
+}
+
+impl HasCompact for u64 {
+  type Type = Compact<u64>;
+}
+
+#[derive(Debug, PartialEq, Encode, Decode)]
+struct Something<Foo: HasCompact> {
+  #[codec(encoded_as = "<Foo as HasCompact>::Type")]
+  bar: Foo,
 }
 
 #[test]
@@ -154,4 +168,29 @@ fn should_work_for_indexed() {
 
 	let mut v: &[u8] = b"\x01\0\0\0\x02\0\0\0\0\0\0\0";
 	assert_eq!(Indexed::decode(&mut v), Some(Indexed(1, 2)));
+}
+
+#[test]
+fn compact_64_encoding_works() {
+	let n = 64;
+	let v: Something<u64> = Something {bar: n};
+	let encoded = Compact(n as u64).encode();
+
+	println!("Compact: {}", v.bar);
+
+	assert_eq!(encoded, v.bar);
+	/*
+
+	let tests = [
+		(0u64, 1usize), (63, 1), (64, 2), (16383, 2),
+		(16384, 4), (1073741823, 4),
+		(1073741824, 9), (u32::max_value() as u64, 9), (u64::max_value(), 9),
+	];
+
+	for &(n, l) in &tests {
+		let encoded = Compact(n as u64).encode();
+		assert_eq!(encoded.len(), l);
+		assert_eq!(<Compact<u64>>::decode(&mut &encoded[..]).unwrap().0, n);
+	}
+	*/
 }

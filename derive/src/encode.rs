@@ -59,23 +59,25 @@ fn encode_fields<F>(
 pub fn quote(data: &Data, type_name: &Ident, self_: &TokenStream, dest: &TokenStream) -> TokenStream {
 	let call_site = Span::call_site();
 	match *data {
-		Data::Struct(ref data) => match data.fields {
-			Fields::Named(ref fields) => encode_fields(
-				dest,
-				&fields.named,
-				|_, name| quote_spanned!(call_site => &#self_.#name),
-			),
-			Fields::Unnamed(ref fields) => encode_fields(
-				dest,
-				&fields.unnamed,
-				|i, _| {
-					let index = Index { index: i as u32, span: call_site };
-					quote_spanned!(call_site => &#self_.#index)
+		Data::Struct(ref data) => {
+			match data.fields {
+				Fields::Named(ref fields) => encode_fields(
+					dest,
+					&fields.named,
+					|_, name| quote_spanned!(call_site => &#self_.#name),
+				),
+				Fields::Unnamed(ref fields) => encode_fields(
+					dest,
+					&fields.unnamed,
+					|i, _| {
+						let index = Index { index: i as u32, span: call_site };
+						quote_spanned!(call_site => &#self_.#index)
+					},
+				),
+				Fields::Unit => quote_spanned! { call_site =>
+					drop(#dest);
 				},
-			),
-			Fields::Unit => quote_spanned! { call_site =>
-				drop(#dest);
-			},
+			}
 		},
 		Data::Enum(ref data) => {
 			assert!(data.variants.len() < 256, "Currently only enums with at most 256 variants are encodable.");
