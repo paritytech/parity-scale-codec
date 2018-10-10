@@ -36,9 +36,18 @@ fn encode_fields<F>(
 {
 	let recurse = fields.iter().enumerate().map(|(i, f)| {
 		let field = field_name(i, &f.ident);
+		let encode_as = super::get_encode_type(f);
 
-		quote_spanned! { f.span() =>
-			#dest.push(#field);
+		if encode_as.is_some() {
+			quote_spanned! { f.span() => {
+					let r = #encode_as::from(#field).encode();
+					#dest.write(&r);
+				}
+			}
+		} else {
+			quote_spanned! { f.span() =>
+					#dest.push(#field);
+			}
 		}
 	});
 

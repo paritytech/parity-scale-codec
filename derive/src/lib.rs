@@ -161,3 +161,31 @@ fn index(v: &syn::Variant, i: usize) -> proc_macro2::TokenStream {
 		)
 }
 
+fn get_encode_type(field_entry: &syn::Field) -> Option<String> {
+	// look for an encode_as in attributes
+	let encoder_type = field_entry.attrs.iter().filter_map(|attr| {
+		let pair = attr.path.segments.first()?;
+		let seg = pair.value();
+
+		if seg.ident == Ident::new("codec", seg.ident.span()) {
+			assert_eq!(attr.path.segments.len(), 1);
+
+			let meta = attr.interpret_meta();
+			if let Some(syn::Meta::List(ref l)) = meta {
+				if let syn::NestedMeta::Meta(syn::Meta::NameValue(ref nv)) = l.nested.last().unwrap().value() {
+					assert_eq!(nv.ident, Ident::new("encode_as", nv.ident.span()));
+					if let syn::Lit::Str(ref s) = nv.lit {
+						let encoding: String = s.value();
+						return Some(encoding)
+					}
+					panic!("Invalid syntax for `codec` attribute: Expected string literal.")
+				}
+			}
+			panic!("Invalid syntax for `codec` attribute: Expected `name = value` pair.")
+		} else {
+			None
+		}
+	}).next();
+
+	encoder_type
+}
