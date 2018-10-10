@@ -173,9 +173,11 @@ fn get_encode_type(field_entry: &syn::Field) -> Option<String> {
 			let meta = attr.interpret_meta();
 			if let Some(syn::Meta::List(ref l)) = meta {
 				if let syn::NestedMeta::Meta(syn::Meta::NameValue(ref nv)) = l.nested.last().unwrap().value() {
+					println!("NV Ident: {}", nv.ident);
 					assert_eq!(nv.ident, Ident::new("encoded_as", nv.ident.span()));
 					if let syn::Lit::Str(ref s) = nv.lit {
 						let encoding: String = s.value();
+						println!("Encoding: {}", encoding);
 						return Some(encoding)
 					}
 					panic!("Invalid syntax for `codec` attribute: Expected string literal.")
