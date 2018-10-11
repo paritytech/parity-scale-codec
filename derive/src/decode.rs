@@ -17,6 +17,7 @@ use syn::{
 	Data, Fields,
 	spanned::Spanned,
 };
+use utils;
 
 pub fn quote(data: &Data, type_name: &Ident, input: &TokenStream) -> TokenStream {
 	let call_site = Span::call_site();
@@ -40,7 +41,7 @@ pub fn quote(data: &Data, type_name: &Ident, input: &TokenStream) -> TokenStream
 
 			let recurse = data.variants.iter().enumerate().map(|(i, v)| {
 				let name = &v.ident;
-				let index = super::index(v, i);
+				let index = utils::index(v, i);
 
 				let create = create_instance(
 					call_site,

@@ -13,10 +13,9 @@
 // limitations under the License.
 
 #[cfg(not(feature = "std"))]
-use core::str::from_utf8;
+use core::str::{from_utf8, FromStr};
 #[cfg(feature = "std")]
-use std::str::from_utf8;
-use std::str::FromStr;
+use std::str::{from_utf8, FromStr};
 
 use proc_macro2::{Span, TokenStream};
 use syn::{
@@ -25,6 +24,7 @@ use syn::{
 	spanned::Spanned,
 	token::Comma,
 };
+use utils;
 
 type FieldsList = Punctuated<Field, Comma>;
 
@@ -37,28 +37,20 @@ fn encode_fields<F>(
 {
 	let recurse = fields.iter().enumerate().map(|(i, f)| {
 		let field = field_name(i, &f.ident);
-		let encode_as = super::get_encode_type(f);
-		let compact = super::get_compact_type(f);
+		let encoded_as = utils::get_encoded_as_type(f);
+		let compact = utils::get_enable_compact(f);
 
-		// if compact.is_some() {
-		// 	quote_spanned! { f.span() => {
-		// 		let x: Compact<Foo> = Compact::<Foo>::from(#field);
-		// 			#dest.push(&x);
-		// 		}
-		// 	}
-		// }
-		// else
-		if encode_as.is_some() {
-			let ts = TokenStream::from_str(&encode_as.unwrap()).unwrap();
-			//let test = Ident::new(&encode_as.unwrap(), Span::call_site());
+		if encoded_as.is_some() && compact {
+			panic!("`encoded_as` and `compact` can not be used at the same time!");
+		}
 
-			let x = quote_spanned! { f.span() => {
-					let lol= #ts::from(*#field);
-					#dest.push(&lol);
-				}
-			};
-
-			x
+		if compact {
+			let field_type = &f.ty;
+			quote_spanned! { f.span() => { #dest.push(&Compact::<#field_type>::from(#field)); } }
+		} else if encoded_as.is_some() {
+			let encoded_as = TokenStream::from_str(&encoded_as.unwrap())
+				.expect("`encoded_as` should be a valid rust type!");
+			quote_spanned! { f.span() => { #dest.push(&#encoded_as::from(*#field)); } }
 		} else {
 			quote_spanned! { f.span() =>
 					#dest.push(#field);
@@ -99,7 +91,7 @@ pub fn quote(data: &Data, type_name: &Ident, self_: &TokenStream, dest: &TokenSt
 
 			let recurse = data.variants.iter().enumerate().map(|(i, f)| {
 				let name = &f.ident;
-				let index = super::index(f, i);
+				let index = utils::index(f, i);
 
 				match f.fields {
 					Fields::Named(ref fields) => {

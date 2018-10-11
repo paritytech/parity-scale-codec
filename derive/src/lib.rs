@@ -1,4 +1,4 @@
-// Copyright 2017, 2018 Parity Technologies
+// Copyright 2017-2018 Parity Technologies
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -39,6 +39,7 @@ use alloc::string::ToString;
 
 mod decode;
 mod encode;
+mod utils;
 
 const ENCODE_ERR: &str = "derive(Encode) failed";
 
@@ -124,95 +125,4 @@ fn add_trait_bounds(mut generics: Generics, bounds: syn::TypeParamBound) -> Gene
 		}
 	}
 	generics
-}
-
-fn index(v: &syn::Variant, i: usize) -> proc_macro2::TokenStream {
-	// look for an index in attributes
-	let index = v.attrs.iter().filter_map(|attr| {
-		let pair = attr.path.segments.first()?;
-		let seg = pair.value();
-
-		if seg.ident == Ident::new("codec", seg.ident.span()) {
-			assert_eq!(attr.path.segments.len(), 1);
-
-			let meta = attr.interpret_meta();
-			if let Some(syn::Meta::List(ref l)) = meta {
-				if let syn::NestedMeta::Meta(syn::Meta::NameValue(ref nv)) = l.nested.last().unwrap().value() {
-					assert_eq!(nv.ident, Ident::new("index", nv.ident.span()));
-					if let syn::Lit::Str(ref s) = nv.lit {
-						let byte: u8 = s.value().parse().expect("Numeric index expected.");
-						return Some(byte)
-					}
-					panic!("Invalid syntax for `codec` attribute: Expected string literal.")
-				}
-			}
-			panic!("Invalid syntax for `codec` attribute: Expected `name = value` pair.")
-		} else {
-			None
-		}
-	}).next();
-
-	// then fallback to discriminant or just index
-	index.map(|i| quote! { #i })
-		.unwrap_or_else(|| v.discriminant
-			.as_ref()
-			.map(|&(_, ref expr)| quote! { #expr })
-			.unwrap_or_else(|| quote! { #i })
-		)
-}
-
-fn get_encode_type(field_entry: &syn::Field) -> Option<String> {
-	// look for an encode_as in attributes
-	let encoder_type = field_entry.attrs.iter().filter_map(|attr| {
-		let pair = attr.path.segments.first()?;
-		let seg = pair.value();
-		// println!("Seg Ident: {}", seg.ident);
-		if seg.ident == Ident::new("codec", seg.ident.span()) {
-			assert_eq!(attr.path.segments.len(), 1);
-
-			let meta = attr.interpret_meta();
-			if let Some(syn::Meta::List(ref l)) = meta {
-				if let syn::NestedMeta::Meta(syn::Meta::NameValue(ref nv)) = l.nested.last().unwrap().value() {
-					if let syn::Lit::Str(ref s) = nv.lit {
-						let encoding: String = s.value();
-						// println!("Encoding: {}", encoding);
-						return Some(encoding)
-					}
-					panic!("Invalid syntax for `codec` attribute: Expected string literal.")
-				}
-			}
-			panic!("Invalid syntax for `codec` attribute: Expected `name = value` pair.")
-		} else {
-			None
-		}
-	}).next();
-
-	encoder_type
-}
-
-fn get_compact_type(field_entry: &syn::Field) -> Option<bool> {
-	// look for an encode_as in attributes
-	let encoder_type = field_entry.attrs.iter().filter_map(|attr| {
-		let pair = attr.path.segments.first()?;
-		let seg = pair.value();
-		if seg.ident == Ident::new("codec", seg.ident.span()) {
-			assert_eq!(attr.path.segments.len(), 1);
-
-			let meta = attr.interpret_meta();
-			if let Some(syn::Meta::List(ref l)) = meta {
-				if let syn::NestedMeta::Meta(syn::Meta::NameValue(ref nv)) = l.nested.last().unwrap().value() {
-					if let syn::Lit::Str(ref s) = nv.lit {
-						let encoding: String = s.value();
-						return Some(true)
-					}
-					panic!("Invalid syntax for `codec` attribute: Expected string literal.")
-				}
-			}
-			panic!("Invalid syntax for `codec` attribute: Expected `name = value` pair.")
-		} else {
-			None
-		}
-	}).next();
-
-	encoder_type
 }

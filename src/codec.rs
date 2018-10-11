@@ -150,6 +150,15 @@ impl From<Compact<u32>> for u32 {
 	fn from(x: Compact<u32>) -> u32 { x.0 }
 }
 
+/// Trait that tells you if a given type can be encoded/decoded as `Compact<T>`.
+pub trait HasCompact: Copy {
+	type Type: Encode + Decode + From<Self>;
+}
+
+impl<T> HasCompact for T where T: Encode + Decode + Copy, Compact<T>: Encode + Decode + From<T> {
+	type Type = Compact<T>;
+}
+
 // compact encoding:
 // 0b00 00 00 00 / 00 00 00 00 / 00 00 00 00 / 00 00 00 00
 //   xx xx xx 00															(0 ... 2**6 - 1)		(u8)
