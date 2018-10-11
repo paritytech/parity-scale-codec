@@ -62,6 +62,8 @@ pub fn encode_derive(input: TokenStream) -> TokenStream {
 		}
 	};
 
+	println!("imp_block: {}", impl_block);
+
 	let mut new_name = "_IMPL_ENCODE_FOR_".to_string();
 	new_name.push_str(name.to_string().trim_left_matches("r#"));
 	let dummy_const = Ident::new(&new_name, Span::call_site());

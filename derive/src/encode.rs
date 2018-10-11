@@ -39,7 +39,7 @@ fn encode_fields<F>(
 		let encode_as = super::get_encode_type(f);
 
 		if encode_as.is_some() {
-			let ts = quote!{ <Compact<u64>> };
+			let ts = quote!{ <<Foo as HasCompact>::Type> };
 			//let test = Ident::new(&encode_as.unwrap(), Span::call_site());
 
 			let x = quote_spanned! { f.span() => {
