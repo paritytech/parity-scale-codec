@@ -62,8 +62,6 @@ pub fn encode_derive(input: TokenStream) -> TokenStream {
 		}
 	};
 
-	println!("imp_block: {}", impl_block);
-
 	let mut new_name = "_IMPL_ENCODE_FOR_".to_string();
 	new_name.push_str(name.to_string().trim_left_matches("r#"));
 	let dummy_const = Ident::new(&new_name, Span::call_site());
@@ -168,19 +166,44 @@ fn get_encode_type(field_entry: &syn::Field) -> Option<String> {
 	let encoder_type = field_entry.attrs.iter().filter_map(|attr| {
 		let pair = attr.path.segments.first()?;
 		let seg = pair.value();
-		println!("Seg Ident: {}", seg.ident);
+		// println!("Seg Ident: {}", seg.ident);
 		if seg.ident == Ident::new("codec", seg.ident.span()) {
 			assert_eq!(attr.path.segments.len(), 1);
 
 			let meta = attr.interpret_meta();
 			if let Some(syn::Meta::List(ref l)) = meta {
 				if let syn::NestedMeta::Meta(syn::Meta::NameValue(ref nv)) = l.nested.last().unwrap().value() {
-					println!("NV Ident: {}", nv.ident);
-					assert_eq!(nv.ident, Ident::new("encoded_as", nv.ident.span()));
 					if let syn::Lit::Str(ref s) = nv.lit {
 						let encoding: String = s.value();
-						println!("Encoding: {}", encoding);
+						// println!("Encoding: {}", encoding);
 						return Some(encoding)
+					}
+					panic!("Invalid syntax for `codec` attribute: Expected string literal.")
+				}
+			}
+			panic!("Invalid syntax for `codec` attribute: Expected `name = value` pair.")
+		} else {
+			None
+		}
+	}).next();
+
+	encoder_type
+}
+
+fn get_compact_type(field_entry: &syn::Field) -> Option<bool> {
+	// look for an encode_as in attributes
+	let encoder_type = field_entry.attrs.iter().filter_map(|attr| {
+		let pair = attr.path.segments.first()?;
+		let seg = pair.value();
+		if seg.ident == Ident::new("codec", seg.ident.span()) {
+			assert_eq!(attr.path.segments.len(), 1);
+
+			let meta = attr.interpret_meta();
+			if let Some(syn::Meta::List(ref l)) = meta {
+				if let syn::NestedMeta::Meta(syn::Meta::NameValue(ref nv)) = l.nested.last().unwrap().value() {
+					if let syn::Lit::Str(ref s) = nv.lit {
+						let encoding: String = s.value();
+						return Some(true)
 					}
 					panic!("Invalid syntax for `codec` attribute: Expected string literal.")
 				}

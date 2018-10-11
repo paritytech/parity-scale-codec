@@ -66,18 +66,20 @@ enum EnumWithDiscriminant {
 	C = 255,
 }
 
-trait HasCompact {
-  type Type: Encode + Decode;
+trait HasCompact: Copy {
+	type Type: Encode + Decode + From<Self>;
 }
 
-impl HasCompact for u64 {
-  type Type = Compact<u64>;
+impl<T> HasCompact for T where T: Encode + Decode + Copy, Compact<T>: Encode + Decode + From<T> {
+	type Type = Compact<T>;
 }
 
 #[derive(Debug, PartialEq, Encode, Decode)]
 struct Something<Foo: HasCompact> {
-  #[codec(encoded_as = "<Foo as HasCompact>::Type")]
-  bar: Foo,
+	#[codec(encoded_as = "<Foo as HasCompact>::Type")]
+	// #[codec(compact)]
+	bar: Foo,
+	// test: u64,
 }
 
 #[test]

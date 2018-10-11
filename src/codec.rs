@@ -137,6 +137,9 @@ pub struct Compact<T>(pub T);
 impl<T> From<T> for Compact<T> {
 	fn from(x: T) -> Compact<T> { Compact(x) }
 }
+impl<'a, T: Copy> From<&'a T> for Compact<T> {
+	fn from(x: &'a T) -> Compact<T> { Compact(*x) }
+}
 impl From<Compact<u8>> for u8 {
 	fn from(x: Compact<u8>) -> u8 { x.0 }
 }

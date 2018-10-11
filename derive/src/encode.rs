@@ -16,6 +16,7 @@
 use core::str::from_utf8;
 #[cfg(feature = "std")]
 use std::str::from_utf8;
+use std::str::FromStr;
 
 use proc_macro2::{Span, TokenStream};
 use syn::{
@@ -37,18 +38,25 @@ fn encode_fields<F>(
 	let recurse = fields.iter().enumerate().map(|(i, f)| {
 		let field = field_name(i, &f.ident);
 		let encode_as = super::get_encode_type(f);
+		let compact = super::get_compact_type(f);
 
+		// if compact.is_some() {
+		// 	quote_spanned! { f.span() => {
+		// 		let x: Compact<Foo> = Compact::<Foo>::from(#field);
+		// 			#dest.push(&x);
+		// 		}
+		// 	}
+		// }
+		// else
 		if encode_as.is_some() {
-			let ts = quote!{ <<Foo as HasCompact>::Type> };
+			let ts = TokenStream::from_str(&encode_as.unwrap()).unwrap();
 			//let test = Ident::new(&encode_as.unwrap(), Span::call_site());
 
 			let x = quote_spanned! { f.span() => {
-					let r = #ts::from(#field).encode();
-					#dest.write(&r);
+					let lol= #ts::from(*#field);
+					#dest.push(&lol);
 				}
 			};
-
-			println!("Stuff: {}", x.to_string());
 
 			x
 		} else {
