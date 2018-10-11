@@ -39,11 +39,11 @@ fn encode_fields<F>(
 		let encode_as = super::get_encode_type(f);
 
 		if encode_as.is_some() {
-			let ts = TokenStream::from_str(encode_as);
-			let test = Ident::new(&ts, Span::call_site());
+			let ts = quote!{ <Compact<u64>> };
+			//let test = Ident::new(&encode_as.unwrap(), Span::call_site());
 
 			let x = quote_spanned! { f.span() => {
-					let r = #test::from(#field).encode();
+					let r = #ts::from(#field).encode();
 					#dest.write(&r);
 				}
 			};
