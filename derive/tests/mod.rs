@@ -172,25 +172,14 @@ fn should_work_for_indexed() {
 
 #[test]
 fn compact_64_encoding_works() {
-	let n = 64;
-	let v: Something<u64> = Something {bar: n};
-	let encoded = Compact(n as u64).encode();
-
-	println!("Compact: {}", v.bar);
-
-	assert_eq!(encoded, v.bar);
-	/*
-
 	let tests = [
 		(0u64, 1usize), (63, 1), (64, 2), (16383, 2),
 		(16384, 4), (1073741823, 4),
 		(1073741824, 9), (u32::max_value() as u64, 9), (u64::max_value(), 9),
 	];
-
 	for &(n, l) in &tests {
-		let encoded = Compact(n as u64).encode();
+		let encoded = Something { bar: n }.encode();
 		assert_eq!(encoded.len(), l);
 		assert_eq!(<Compact<u64>>::decode(&mut &encoded[..]).unwrap().0, n);
 	}
-	*/
 }
