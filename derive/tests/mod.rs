@@ -73,9 +73,27 @@ struct TestHasCompact<T: HasCompact> {
 }
 
 #[derive(Debug, PartialEq, Encode, Decode)]
+enum TestHasCompactEnum<T: HasCompact> {
+	Unnamed(#[codec(encoded_as = "<T as HasCompact>::Type")] T),
+	Named {
+		#[codec(encoded_as = "<T as HasCompact>::Type")]
+		bar: T
+	},
+}
+
+#[derive(Debug, PartialEq, Encode, Decode)]
 struct TestCompactAttribute {
 	#[codec(compact)]
 	bar: u64,
+}
+
+#[derive(Debug, PartialEq, Encode, Decode)]
+enum TestCompactAttributeEnum {
+	Unnamed(#[codec(compact)] u64),
+	Named {
+		#[codec(compact)]
+		bar: u64,
+	},
 }
 
 #[test]
@@ -183,6 +201,22 @@ fn encoded_as_with_has_compact_works() {
 }
 
 #[test]
+fn enum_encoded_as_with_has_compact_works() {
+	let tests = [
+		(0u64, 2usize), (63, 2), (64, 3), (16383, 3),
+		(16384, 5), (1073741823, 5),
+		(1073741824, 10), (u32::max_value() as u64, 10), (u64::max_value(), 10),
+	];
+	for &(n, l) in &tests {
+		for value in [ TestHasCompactEnum::Unnamed(n), TestHasCompactEnum::Named { bar: n } ].iter() {
+			let encoded = value.encode();
+			assert_eq!(encoded.len(), l);
+			assert_eq!(&<TestHasCompactEnum<u64>>::decode(&mut &encoded[..]).unwrap(), value);
+		}
+	}
+}
+
+#[test]
 fn compact_meta_attribute_works() {
 	let tests = [
 		(0u64, 1usize), (63, 1), (64, 2), (16383, 2),
@@ -193,5 +227,21 @@ fn compact_meta_attribute_works() {
 		let encoded = TestCompactAttribute { bar: n }.encode();
 		assert_eq!(encoded.len(), l);
 		assert_eq!(TestCompactAttribute::decode(&mut &encoded[..]).unwrap().bar, n);
+	}
+}
+
+#[test]
+fn enum_compact_meta_attribute_works() {
+	let tests = [
+		(0u64, 2usize), (63, 2), (64, 3), (16383, 3),
+		(16384, 5), (1073741823, 5),
+		(1073741824, 10), (u32::max_value() as u64, 10), (u64::max_value(), 10),
+	];
+	for &(n, l) in &tests {
+		for value in [ TestCompactAttributeEnum::Unnamed(n), TestCompactAttributeEnum::Named { bar: n } ].iter() {
+			let encoded = value.encode();
+			assert_eq!(encoded.len(), l);
+			assert_eq!(&TestCompactAttributeEnum::decode(&mut &encoded[..]).unwrap(), value);
+		}
 	}
 }
