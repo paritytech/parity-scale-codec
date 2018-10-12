@@ -137,25 +137,32 @@ pub struct Compact<T>(pub T);
 impl<T> From<T> for Compact<T> {
 	fn from(x: T) -> Compact<T> { Compact(x) }
 }
+
 impl<'a, T: Copy> From<&'a T> for Compact<T> {
 	fn from(x: &'a T) -> Compact<T> { Compact(*x) }
 }
-impl From<Compact<u8>> for u8 {
-	fn from(x: Compact<u8>) -> u8 { x.0 }
+
+macro_rules! impl_from_compact {
+	( $( $ty:ty ),* ) => {
+		$(
+			impl From<Compact<$ty>> for $ty {
+				fn from(x: Compact<$ty>) -> $ty { x.0 }
+			}
+		)*
+	}
 }
-impl From<Compact<u16>> for u16 {
-	fn from(x: Compact<u16>) -> u16 { x.0 }
-}
-impl From<Compact<u32>> for u32 {
-	fn from(x: Compact<u32>) -> u32 { x.0 }
-}
+
+impl_from_compact! { u8, u16, u32, u64, u128 }
 
 /// Trait that tells you if a given type can be encoded/decoded as `Compact<T>`.
 pub trait HasCompact: Copy {
-	type Type: Encode + Decode + From<Self>;
+	type Type: Encode + Decode + From<Self> + Into<Self>;
 }
 
-impl<T> HasCompact for T where T: Encode + Decode + Copy, Compact<T>: Encode + Decode + From<T> {
+impl<T> HasCompact for T where
+	T: Encode + Decode + Copy,
+	Compact<T>: Encode + Decode + From<T> + Into<Self>
+{
 	type Type = Compact<T>;
 }
 

@@ -178,7 +178,7 @@ fn encoded_as_with_has_compact_works() {
 	for &(n, l) in &tests {
 		let encoded = TestHasCompact { bar: n }.encode();
 		assert_eq!(encoded.len(), l);
-		assert_eq!(<Compact<u64>>::decode(&mut &encoded[..]).unwrap().0, n);
+		assert_eq!(<TestHasCompact<u64>>::decode(&mut &encoded[..]).unwrap().bar, n);
 	}
 }
 
@@ -192,6 +192,6 @@ fn compact_meta_attribute_works() {
 	for &(n, l) in &tests {
 		let encoded = TestCompactAttribute { bar: n }.encode();
 		assert_eq!(encoded.len(), l);
-		assert_eq!(<Compact<u64>>::decode(&mut &encoded[..]).unwrap().0, n);
+		assert_eq!(TestCompactAttribute::decode(&mut &encoded[..]).unwrap().bar, n);
 	}
 }

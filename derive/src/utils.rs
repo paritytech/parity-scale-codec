@@ -14,6 +14,7 @@
 
 use syn::{Meta, NestedMeta, Lit, Attribute, Variant, Field};
 use proc_macro2::TokenStream;
+use std::str::FromStr;
 
 fn find_meta_item<'a, F, R, I>(itr: I, pred: F) -> Option<R> where
 	F: FnMut(&NestedMeta) -> Option<R> + Clone,
@@ -57,13 +58,16 @@ pub fn index(v: &Variant, i: usize) -> TokenStream {
 		)
 }
 
-pub fn get_encoded_as_type(field_entry: &Field) -> Option<String> {
+pub fn get_encoded_as_type(field_entry: &Field) -> Option<TokenStream> {
 	// look for an encoded_as in attributes
 	find_meta_item(field_entry.attrs.iter(), |meta| {
 		if let NestedMeta::Meta(Meta::NameValue(ref nv)) = meta {
 			if nv.ident == "encoded_as"{
 				if let Lit::Str(ref s) = nv.lit {
-					return Some(s.value())
+					return Some(
+						TokenStream::from_str(&s.value())
+							.expect("`encoded_as` should be a valid rust type!")
+					);
 				}
 			}
 		}

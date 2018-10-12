@@ -13,9 +13,9 @@
 // limitations under the License.
 
 #[cfg(not(feature = "std"))]
-use core::str::{from_utf8, FromStr};
+use core::str::from_utf8;
 #[cfg(feature = "std")]
-use std::str::{from_utf8, FromStr};
+use std::str::from_utf8;
 
 use proc_macro2::{Span, TokenStream};
 use syn::{
@@ -47,9 +47,7 @@ fn encode_fields<F>(
 		if compact {
 			let field_type = &f.ty;
 			quote_spanned! { f.span() => { #dest.push(&Compact::<#field_type>::from(#field)); } }
-		} else if encoded_as.is_some() {
-			let encoded_as = TokenStream::from_str(&encoded_as.unwrap())
-				.expect("`encoded_as` should be a valid rust type!");
+		} else if let Some(encoded_as) = encoded_as {
 			quote_spanned! { f.span() => { #dest.push(&#encoded_as::from(*#field)); } }
 		} else {
 			quote_spanned! { f.span() =>
