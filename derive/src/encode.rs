@@ -12,9 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#[cfg(not(feature = "std"))]
-use core::str::from_utf8;
-#[cfg(feature = "std")]
 use std::str::from_utf8;
 
 use proc_macro2::{Span, TokenStream};

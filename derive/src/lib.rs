@@ -14,13 +14,6 @@
 
 //! Derives serialization and deserialization codec for complex structs for simple marshalling.
 
-#![cfg_attr(not(feature = "std"), no_std)]
-#![cfg_attr(not(feature = "std"), feature(core_intrinsics))]
-#![cfg_attr(not(feature = "std"), feature(alloc))]
-
-#[cfg(not(feature = "std"))]
-extern crate alloc;
-
 extern crate proc_macro;
 extern crate proc_macro2;
 
@@ -33,9 +26,6 @@ extern crate quote;
 use proc_macro::TokenStream;
 use proc_macro2::Span;
 use syn::{DeriveInput, Generics, GenericParam, Ident};
-
-#[cfg(not(feature = "std"))]
-use alloc::string::ToString;
 
 mod decode;
 mod encode;
