@@ -215,8 +215,15 @@ impl Encode for Compact<u64> {
 			0...0b00111111_11111111 => (((self.0 as u16) << 2) | 0b01).encode_to(dest),
 			0...0b00111111_11111111_11111111_11111111 => (((self.0 as u32) << 2) | 0b10).encode_to(dest),
 			_ => {
-				dest.push_byte(0b11);
-				self.0.encode_to(dest);
+				let bytes_needed = 8 - self.0.leading_zeros() / 8;
+				assert!(bytes_needed >= 4, "Previous match arm matches anyting less than 2^30; qed");
+				dest.push_byte(0b11 + ((bytes_needed - 4) << 2) as u8);
+				let mut v = self.0;
+				for _ in 0..bytes_needed {
+					dest.push_byte(v as u8);
+					v >>= 8;
+				}
+				assert_eq!(v, 0, "shifted sufficient bits right to lead only leading zeros; qed")
 			}
 		}
 	}
@@ -229,8 +236,15 @@ impl Encode for Compact<u128> {
 			0...0b00111111_11111111 => (((self.0 as u16) << 2) | 0b01).encode_to(dest),
 			0...0b00111111_11111111_11111111_11111111 => (((self.0 as u32) << 2) | 0b10).encode_to(dest),
 			_ => {
-				dest.push_byte(0b11);
-				self.0.encode_to(dest);
+				let bytes_needed = 16 - self.0.leading_zeros() / 8;
+				assert!(bytes_needed >= 4, "Previous match arm matches anyting less than 2^30; qed");
+				dest.push_byte(0b11 + ((bytes_needed - 4) << 2) as u8);
+				let mut v = self.0;
+				for _ in 0..bytes_needed {
+					dest.push_byte(v as u8);
+					v >>= 8;
+				}
+				assert_eq!(v, 0, "shifted sufficient bits right to lead only leading zeros; qed")
 			}
 		}
 	}
@@ -300,11 +314,16 @@ impl Decode for Compact<u64> {
 			0 => prefix as u64 >> 2,
 			1 => u16::decode(&mut PrefixInput{prefix: Some(prefix), input})? as u64 >> 2,
 			2 => u32::decode(&mut PrefixInput{prefix: Some(prefix), input})? as u64 >> 2,
-			3|_ => {
-				if prefix >> 2 == 0 {
-					u64::decode(input)?
-				} else {
-					return None
+			3|_ => match (prefix >> 2) + 4 {
+				4 => u32::decode(input)? as u64,
+				8 => u64::decode(input)?,
+				x if x > 8 => return None,
+				bytes_needed => {
+					let mut res = 0;
+					for i in 0..bytes_needed {
+						res |= (input.read_byte()? as u64) << (i * 8);
+					}
+					res
 				}
 			}
 		}))
@@ -318,11 +337,17 @@ impl Decode for Compact<u128> {
 			0 => prefix as u128 >> 2,
 			1 => u16::decode(&mut PrefixInput{prefix: Some(prefix), input})? as u128 >> 2,
 			2 => u32::decode(&mut PrefixInput{prefix: Some(prefix), input})? as u128 >> 2,
-			3|_ => {
-				if prefix >> 2 == 0 {
-					u128::decode(input)?
-				} else {
-					return None
+			3|_ => match (prefix >> 2) + 4 {
+				4 => u32::decode(input)? as u128,
+				8 => u64::decode(input)? as u128,
+				16 => u128::decode(input)?,
+				x if x > 16 => return None,
+				bytes_needed => {
+					let mut res = 0;
+					for i in 0..bytes_needed {
+						res |= (input.read_byte()? as u128) << (i * 8);
+					}
+					res
 				}
 			}
 		}))
@@ -799,7 +824,10 @@ mod tests {
 		let tests = [
 			(0u128, 1usize), (63, 1), (64, 2), (16383, 2),
 			(16384, 4), (1073741823, 4),
-			(1073741824, 17), (u64::max_value() as u128, 17), (u128::max_value(), 17),
+			(1073741824, 5), (1 << 32 - 1, 5),
+			(1 << 32, 6), (1 << 40, 7), (1 << 48, 8), (1 << 56 - 1, 8), (1 << 56, 9), (1 << 64 - 1, 9),
+			(1 << 64, 10), (1 << 72, 11), (1 << 80, 12), (1 << 88, 13), (1 << 96, 14), (1 << 104, 15), 
+			(1 << 112, 16), (1 << 120 - 1, 16), (1 << 120, 17), (u128::max_value(), 17)
 		];
 		for &(n, l) in &tests {
 			let encoded = Compact(n as u128).encode();
@@ -813,7 +841,8 @@ mod tests {
 		let tests = [
 			(0u64, 1usize), (63, 1), (64, 2), (16383, 2),
 			(16384, 4), (1073741823, 4),
-			(1073741824, 9), (u32::max_value() as u64, 9), (u64::max_value(), 9),
+			(1073741824, 5), (1 << 32 - 1, 5),
+			(1 << 32, 6), (1 << 40, 7), (1 << 48, 8), (1 << 56 - 1, 8), (1 << 56, 9), (u64::max_value(), 9)
 		];
 		for &(n, l) in &tests {
 			let encoded = Compact(n as u64).encode();
