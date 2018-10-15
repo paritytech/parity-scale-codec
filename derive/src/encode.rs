@@ -12,9 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#[cfg(not(feature = "std"))]
-use core::str::from_utf8;
-#[cfg(feature = "std")]
 use std::str::from_utf8;
 
 use proc_macro2::{Span, TokenStream};
@@ -24,6 +21,7 @@ use syn::{
 	spanned::Spanned,
 	token::Comma,
 };
+use utils;
 
 type FieldsList = Punctuated<Field, Comma>;
 
@@ -36,9 +34,24 @@ fn encode_fields<F>(
 {
 	let recurse = fields.iter().enumerate().map(|(i, f)| {
 		let field = field_name(i, &f.ident);
+		let encoded_as = utils::get_encoded_as_type(f);
+		let compact = utils::get_enable_compact(f);
 
-		quote_spanned! { f.span() =>
-			#dest.push(#field);
+		if encoded_as.is_some() && compact {
+			panic!("`encoded_as` and `compact` can not be used at the same time!");
+		}
+
+		// Based on the seen attribute, we generate the code that encodes the field.
+		// We call `push` from the `Output` trait on `dest`.
+		if compact {
+			let field_type = &f.ty;
+			quote_spanned! { f.span() => { #dest.push(&Compact::<#field_type>::from(#field)); } }
+		} else if let Some(encoded_as) = encoded_as {
+			quote_spanned! { f.span() => { #dest.push(&#encoded_as::from(*#field)); } }
+		} else {
+			quote_spanned! { f.span() =>
+					#dest.push(#field);
+			}
 		}
 	});
 
@@ -50,30 +63,32 @@ fn encode_fields<F>(
 pub fn quote(data: &Data, type_name: &Ident, self_: &TokenStream, dest: &TokenStream) -> TokenStream {
 	let call_site = Span::call_site();
 	match *data {
-		Data::Struct(ref data) => match data.fields {
-			Fields::Named(ref fields) => encode_fields(
-				dest,
-				&fields.named,
-				|_, name| quote_spanned!(call_site => &#self_.#name),
-			),
-			Fields::Unnamed(ref fields) => encode_fields(
-				dest,
-				&fields.unnamed,
-				|i, _| {
-					let index = Index { index: i as u32, span: call_site };
-					quote_spanned!(call_site => &#self_.#index)
+		Data::Struct(ref data) => {
+			match data.fields {
+				Fields::Named(ref fields) => encode_fields(
+					dest,
+					&fields.named,
+					|_, name| quote_spanned!(call_site => &#self_.#name),
+				),
+				Fields::Unnamed(ref fields) => encode_fields(
+					dest,
+					&fields.unnamed,
+					|i, _| {
+						let index = Index { index: i as u32, span: call_site };
+						quote_spanned!(call_site => &#self_.#index)
+					},
+				),
+				Fields::Unit => quote_spanned! { call_site =>
+					drop(#dest);
 				},
-			),
-			Fields::Unit => quote_spanned! { call_site =>
-				drop(#dest);
-			},
+			}
 		},
 		Data::Enum(ref data) => {
 			assert!(data.variants.len() < 256, "Currently only enums with at most 256 variants are encodable.");
 
 			let recurse = data.variants.iter().enumerate().map(|(i, f)| {
 				let name = &f.ident;
-				let index = super::index(f, i);
+				let index = utils::index(f, i);
 
 				match f.fields {
 					Fields::Named(ref fields) => {

@@ -13,10 +13,8 @@
 // limitations under the License.
 
 use proc_macro2::{Span, TokenStream, Ident};
-use syn::{
-	Data, Fields,
-	spanned::Spanned,
-};
+use syn::{Data, Fields, Field, spanned::Spanned};
+use utils;
 
 pub fn quote(data: &Data, type_name: &Ident, input: &TokenStream) -> TokenStream {
 	let call_site = Span::call_site();
@@ -40,7 +38,7 @@ pub fn quote(data: &Data, type_name: &Ident, input: &TokenStream) -> TokenStream
 
 			let recurse = data.variants.iter().enumerate().map(|(i, v)| {
 				let name = &v.ident;
-				let index = super::index(v, i);
+				let index = utils::index(v, i);
 
 				let create = create_instance(
 					call_site,
@@ -69,15 +67,43 @@ pub fn quote(data: &Data, type_name: &Ident, input: &TokenStream) -> TokenStream
 	}
 }
 
-fn create_instance(call_site: Span, name: TokenStream, input: &TokenStream, fields: &Fields) -> TokenStream {
+fn create_decode_expr(field: &Field, input: &TokenStream) -> TokenStream {
+	let encoded_as = utils::get_encoded_as_type(field);
+	let compact = utils::get_enable_compact(field);
+
+	if encoded_as.is_some() && compact {
+		panic!("`encoded_as` and `compact` can not be used at the same time!");
+	}
+
+	if compact {
+		let field_type = &field.ty;
+		quote_spanned! { field.span() =>
+			 <Compact<#field_type> as _parity_codec::Decode>::decode(#input)?.into()
+		}
+	} else if let Some(encoded_as) = encoded_as {
+		quote_spanned! { field.span() =>
+			 <#encoded_as as _parity_codec::Decode>::decode(#input)?.into()
+		}
+	} else {
+		quote_spanned! { field.span() => _parity_codec::Decode::decode(#input)? }
+	}
+}
+
+fn create_instance(
+	call_site: Span,
+	name: TokenStream,
+	input: &TokenStream,
+	fields: &Fields
+) -> TokenStream {
 	match *fields {
 		Fields::Named(ref fields) => {
 			let recurse = fields.named.iter().map(|f| {
 				let name = &f.ident;
 				let field = quote_spanned!(call_site => #name);
+				let decode = create_decode_expr(f, input);
 
 				quote_spanned! { f.span() =>
-					#field: _parity_codec::Decode::decode(#input)?
+					#field: #decode
 				}
 			});
 
@@ -89,9 +115,7 @@ fn create_instance(call_site: Span, name: TokenStream, input: &TokenStream, fiel
 		},
 		Fields::Unnamed(ref fields) => {
 			let recurse = fields.unnamed.iter().map(|f| {
-				quote_spanned! { f.span() =>
-					_parity_codec::Decode::decode(#input)?
-				}
+				create_decode_expr(f, input)
 			});
 
 			quote_spanned! {call_site =>

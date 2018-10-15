@@ -1,4 +1,4 @@
-// Copyright 2017, 2018 Parity Technologies
+// Copyright 2017-2018 Parity Technologies
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,13 +14,6 @@
 
 //! Derives serialization and deserialization codec for complex structs for simple marshalling.
 
-#![cfg_attr(not(feature = "std"), no_std)]
-#![cfg_attr(not(feature = "std"), feature(core_intrinsics))]
-#![cfg_attr(not(feature = "std"), feature(alloc))]
-
-#[cfg(not(feature = "std"))]
-extern crate alloc;
-
 extern crate proc_macro;
 extern crate proc_macro2;
 
@@ -34,11 +27,9 @@ use proc_macro::TokenStream;
 use proc_macro2::Span;
 use syn::{DeriveInput, Generics, GenericParam, Ident};
 
-#[cfg(not(feature = "std"))]
-use alloc::string::ToString;
-
 mod decode;
 mod encode;
+mod utils;
 
 const ENCODE_ERR: &str = "derive(Encode) failed";
 
@@ -125,39 +116,3 @@ fn add_trait_bounds(mut generics: Generics, bounds: syn::TypeParamBound) -> Gene
 	}
 	generics
 }
-
-fn index(v: &syn::Variant, i: usize) -> proc_macro2::TokenStream {
-	// look for an index in attributes
-	let index = v.attrs.iter().filter_map(|attr| {
-		let pair = attr.path.segments.first()?;
-		let seg = pair.value();
-
-		if seg.ident == Ident::new("codec", seg.ident.span()) {
-			assert_eq!(attr.path.segments.len(), 1);
-
-			let meta = attr.interpret_meta();
-			if let Some(syn::Meta::List(ref l)) = meta {
-				if let syn::NestedMeta::Meta(syn::Meta::NameValue(ref nv)) = l.nested.last().unwrap().value() {
-					assert_eq!(nv.ident, Ident::new("index", nv.ident.span()));
-					if let syn::Lit::Str(ref s) = nv.lit {
-						let byte: u8 = s.value().parse().expect("Numeric index expected.");
-						return Some(byte)
-					}
-					panic!("Invalid syntax for `codec` attribute: Expected string literal.")
-				}
-			}
-			panic!("Invalid syntax for `codec` attribute: Expected `name = value` pair.")
-		} else {
-			None
-		}
-	}).next();
-
-	// then fallback to discriminant or just index
-	index.map(|i| quote! { #i })
-		.unwrap_or_else(|| v.discriminant
-			.as_ref()
-			.map(|&(_, ref expr)| quote! { #expr })
-			.unwrap_or_else(|| quote! { #i })
-		)
-}
-
