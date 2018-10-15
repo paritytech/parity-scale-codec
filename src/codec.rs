@@ -18,6 +18,8 @@ use alloc::vec::Vec;
 use alloc::boxed::Box;
 use core::{mem, slice};
 use arrayvec::ArrayVec;
+use core::cmp::{PartialEq, Eq};
+use core::clone::Clone;
 
 /// Trait that allows reading of data into a slice.
 pub trait Input {
@@ -133,6 +135,20 @@ pub trait Codec: Decode + Encode {}
 
 /// Compact-encoded variant of T. This is more space-efficient but less compute-efficient.
 pub struct Compact<T>(pub T);
+
+impl<T: Clone> Clone for Compact<T> {
+	fn clone(&self) -> Self {
+		Compact(self.0.clone())
+	}
+}
+
+impl<T: PartialEq> PartialEq for Compact<T> {
+	fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0
+    }
+}
+
+impl<T: Eq> Eq for Compact<T> {}
 
 impl<T> From<T> for Compact<T> {
 	fn from(x: T) -> Compact<T> { Compact(x) }
@@ -836,7 +852,7 @@ mod tests {
 			(16384, 4), (1073741823, 4),
 			(1073741824, 5), (1 << 32 - 1, 5),
 			(1 << 32, 6), (1 << 40, 7), (1 << 48, 8), (1 << 56 - 1, 8), (1 << 56, 9), (1 << 64 - 1, 9),
-			(1 << 64, 10), (1 << 72, 11), (1 << 80, 12), (1 << 88, 13), (1 << 96, 14), (1 << 104, 15), 
+			(1 << 64, 10), (1 << 72, 11), (1 << 80, 12), (1 << 88, 13), (1 << 96, 14), (1 << 104, 15),
 			(1 << 112, 16), (1 << 120 - 1, 16), (1 << 120, 17), (u128::max_value(), 17)
 		];
 		for &(n, l) in &tests {
