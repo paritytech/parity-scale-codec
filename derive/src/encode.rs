@@ -41,6 +41,8 @@ fn encode_fields<F>(
 			panic!("`encoded_as` and `compact` can not be used at the same time!");
 		}
 
+		// Based on the seen attribute, we generate the code that encodes the field.
+		// We call `push` from the `Output` trait on `dest`.
 		if compact {
 			let field_type = &f.ty;
 			quote_spanned! { f.span() => { #dest.push(&Compact::<#field_type>::from(#field)); } }
