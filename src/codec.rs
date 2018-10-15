@@ -132,7 +132,7 @@ pub trait Decode: Sized {
 pub trait Codec: Decode + Encode {}
 
 /// Compact-encoded variant of T. This is more space-efficient but less compute-efficient.
-#[derive(Eq, PartialEq, Clone)]
+#[derive(Eq, PartialEq, Clone, Copy)]
 pub struct Compact<T>(pub T);
 
 impl<T> From<T> for Compact<T> {
@@ -193,7 +193,7 @@ pub trait HasCompact: Copy {
 
 impl<T> HasCompact for T where
 	T: Encode + Decode + Copy + PartialEq + Eq + MaybeDebugSerde,
-	Compact<T>: Encode + Decode + From<T> + Into<Self> + PartialEq + Eq + MaybeDebugSerde
+	Compact<T>: Encode + Decode + From<T> + Into<Self> + Copy + PartialEq + Eq + MaybeDebugSerde
 {
 	type Type = Compact<T>;
 }
