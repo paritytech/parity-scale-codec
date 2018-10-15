@@ -26,6 +26,9 @@ extern crate alloc;
 #[cfg(feature = "std")]
 extern crate core;
 
+#[cfg(features = "std")]
+extern crate serde;
+
 extern crate arrayvec;
 
 #[cfg(feature = "std")]

@@ -152,16 +152,26 @@ macro_rules! impl_from_compact {
 	}
 }
 
+#[cfg(features = "std")]
+pub trait MaybeDebugSerde: ::std::fmt::Debug + ::serde::Serialize + for<'a> ::serde::Deserialize<'a> {}
+#[cfg(features = "std")]
+impl<T> MaybeDebugSerde for T where T: ::std::fmt::Debug + ::serde::Serialize + for<'a> ::serde::Deserialize<'a> {}
+
+#[cfg(not(features = "std"))]
+pub trait MaybeDebugSerde {}
+#[cfg(features = "std")]
+impl<T> MaybeDebugSerde for T {}
+
 impl_from_compact! { u8, u16, u32, u64, u128 }
 
 /// Trait that tells you if a given type can be encoded/decoded as `Compact<T>`.
 pub trait HasCompact: Copy {
-	type Type: Encode + Decode + From<Self> + Into<Self>;
+	type Type: Encode + Decode + From<Self> + Into<Self> + PartialEq + Eq + MaybeDebugSerde;
 }
 
 impl<T> HasCompact for T where
-	T: Encode + Decode + Copy,
-	Compact<T>: Encode + Decode + From<T> + Into<Self>
+	T: Encode + Decode + Copy + PartialEq + Eq + MaybeDebugSerde,
+	Compact<T>: Encode + Decode + From<T> + Into<Self> + PartialEq + Eq + MaybeDebugSerde
 {
 	type Type = Compact<T>;
 }
