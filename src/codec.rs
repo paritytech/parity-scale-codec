@@ -152,14 +152,14 @@ macro_rules! impl_from_compact {
 	}
 }
 
-#[cfg(features = "std")]
+#[cfg(feature = "std")]
 pub trait MaybeDebugSerde: ::std::fmt::Debug + ::serde::Serialize + for<'a> ::serde::Deserialize<'a> {}
-#[cfg(features = "std")]
+#[cfg(feature = "std")]
 impl<T> MaybeDebugSerde for T where T: ::std::fmt::Debug + ::serde::Serialize + for<'a> ::serde::Deserialize<'a> {}
 
-#[cfg(not(features = "std"))]
+#[cfg(not(feature = "std"))]
 pub trait MaybeDebugSerde {}
-#[cfg(features = "std")]
+#[cfg(not(feature = "std"))]
 impl<T> MaybeDebugSerde for T {}
 
 impl_from_compact! { u8, u16, u32, u64, u128 }
