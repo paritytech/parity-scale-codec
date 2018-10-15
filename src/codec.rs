@@ -162,6 +162,27 @@ pub trait MaybeDebugSerde {}
 #[cfg(not(feature = "std"))]
 impl<T> MaybeDebugSerde for T {}
 
+#[cfg(feature = "std")]
+impl<T> ::std::fmt::Debug for Compact<T> where T: ::std::fmt::Debug {
+	fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+		self.0.fmt(f)
+	}
+}
+
+#[cfg(feature = "std")]
+impl<T> ::serde::Serialize for Compact<T> where T: ::serde::Serialize {
+	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: ::serde::Serializer {
+		T::serialize(&self.0, serializer)
+	}
+}
+
+#[cfg(feature = "std")]
+impl<'de, T> ::serde::Deserialize<'de> for Compact<T> where T: ::serde::Deserialize<'de> {
+	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: ::serde::Deserializer<'de> {
+		T::deserialize(deserializer).map(Compact)
+	}
+}
+
 impl_from_compact! { u8, u16, u32, u64, u128 }
 
 /// Trait that tells you if a given type can be encoded/decoded as `Compact<T>`.
