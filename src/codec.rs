@@ -186,14 +186,14 @@ impl<'de, T> ::serde::Deserialize<'de> for Compact<T> where T: ::serde::Deserial
 
 impl_from_compact! { u8, u16, u32, u64, u128 }
 
-/// Trait that tells you if a given type can be encoded/decoded as `Compact<T>`.
-pub trait HasCompact: Copy {
-	type Type: Encode + Decode + From<Self> + Into<Self> + Clone + Copy + PartialEq + Eq + MaybeDebugSerde;
+/// Trait that tells you if a given type can be encoded/decoded in a compact way.
+pub trait HasCompact: Sized {
+	/// The compact type; this can be 
+	type Type: Encode + Decode + From<Self> + Into<Self> + Clone + PartialEq + Eq + MaybeDebugSerde;
 }
 
 impl<T> HasCompact for T where
-	T: Encode + Decode + Copy + PartialEq + Eq + MaybeDebugSerde,	// TODO: this line shouldn't be needed.
-	Compact<T>: Encode + Decode + From<Self> + Into<Self> + Clone + Copy + PartialEq + Eq + MaybeDebugSerde
+	Compact<T>: Encode + Decode + From<Self> + Into<Self> + Clone + PartialEq + Eq + MaybeDebugSerde
 {
 	type Type = Compact<T>;
 }
