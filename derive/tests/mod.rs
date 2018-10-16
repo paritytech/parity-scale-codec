@@ -186,15 +186,25 @@ fn should_work_for_indexed() {
 	assert_eq!(Indexed::decode(&mut v), Some(Indexed(1, 2)));
 }
 
+const U64_TEST_COMPACT_VALUES: &[(u64, usize)] = &[
+	(0u64, 1usize), (63, 1), (64, 2), (16383, 2),
+	(16384, 4), (1073741823, 4),
+	(1073741824, 5), (1 << 32 - 1, 5),
+	(1 << 32, 6), (1 << 40, 7), (1 << 48, 8), (1 << 56 - 1, 8), (1 << 56, 9), (u64::max_value(), 9)
+];
+
+const U64_TEST_COMPACT_VALUES_FOR_ENUM: &[(u64, usize)] = &[
+	(0u64, 2usize), (63, 2), (64, 3), (16383, 3),
+	(16384, 5), (1073741823, 5),
+	(1073741824, 6), (1 << 32 - 1, 6),
+	(1 << 32, 7), (1 << 40, 8), (1 << 48, 9), (1 << 56 - 1, 9), (1 << 56, 10), (u64::max_value(), 10)
+];
+
 #[test]
 fn encoded_as_with_has_compact_works() {
-	let tests = [
-		(0u64, 1usize), (63, 1), (64, 2), (16383, 2),
-		(16384, 4), (1073741823, 4),
-		(1073741824, 9), (u32::max_value() as u64, 9), (u64::max_value(), 9),
-	];
-	for &(n, l) in &tests {
+	for &(n, l) in U64_TEST_COMPACT_VALUES {
 		let encoded = TestHasCompact { bar: n }.encode();
+		println!("{}", n);
 		assert_eq!(encoded.len(), l);
 		assert_eq!(<TestHasCompact<u64>>::decode(&mut &encoded[..]).unwrap().bar, n);
 	}
@@ -202,14 +212,10 @@ fn encoded_as_with_has_compact_works() {
 
 #[test]
 fn enum_encoded_as_with_has_compact_works() {
-	let tests = [
-		(0u64, 2usize), (63, 2), (64, 3), (16383, 3),
-		(16384, 5), (1073741823, 5),
-		(1073741824, 10), (u32::max_value() as u64, 10), (u64::max_value(), 10),
-	];
-	for &(n, l) in &tests {
+	for &(n, l) in U64_TEST_COMPACT_VALUES_FOR_ENUM {
 		for value in [ TestHasCompactEnum::Unnamed(n), TestHasCompactEnum::Named { bar: n } ].iter() {
 			let encoded = value.encode();
+			println!("{:?}", value);
 			assert_eq!(encoded.len(), l);
 			assert_eq!(&<TestHasCompactEnum<u64>>::decode(&mut &encoded[..]).unwrap(), value);
 		}
@@ -218,12 +224,7 @@ fn enum_encoded_as_with_has_compact_works() {
 
 #[test]
 fn compact_meta_attribute_works() {
-	let tests = [
-		(0u64, 1usize), (63, 1), (64, 2), (16383, 2),
-		(16384, 4), (1073741823, 4),
-		(1073741824, 9), (u32::max_value() as u64, 9), (u64::max_value(), 9),
-	];
-	for &(n, l) in &tests {
+	for &(n, l) in U64_TEST_COMPACT_VALUES {
 		let encoded = TestCompactAttribute { bar: n }.encode();
 		assert_eq!(encoded.len(), l);
 		assert_eq!(TestCompactAttribute::decode(&mut &encoded[..]).unwrap().bar, n);
@@ -232,12 +233,7 @@ fn compact_meta_attribute_works() {
 
 #[test]
 fn enum_compact_meta_attribute_works() {
-	let tests = [
-		(0u64, 2usize), (63, 2), (64, 3), (16383, 3),
-		(16384, 5), (1073741823, 5),
-		(1073741824, 10), (u32::max_value() as u64, 10), (u64::max_value(), 10),
-	];
-	for &(n, l) in &tests {
+	for &(n, l) in U64_TEST_COMPACT_VALUES_FOR_ENUM {
 		for value in [ TestCompactAttributeEnum::Unnamed(n), TestCompactAttributeEnum::Named { bar: n } ].iter() {
 			let encoded = value.encode();
 			assert_eq!(encoded.len(), l);
