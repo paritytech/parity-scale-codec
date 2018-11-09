@@ -16,6 +16,7 @@
 
 use alloc::vec::Vec;
 use alloc::boxed::Box;
+use alloc::collections::btree_map::BTreeMap;
 use core::{mem, slice};
 use arrayvec::ArrayVec;
 
@@ -603,6 +604,30 @@ impl<T: Decode> Decode for Vec<T> {
 			let mut r = Vec::with_capacity(len as usize);
 			for _ in 0..len {
 				r.push(T::decode(input)?);
+			}
+			Some(r)
+		})
+	}
+}
+
+impl<K: Encode + Ord, V: Encode> Encode for BTreeMap<K, V> {
+	fn encode_to<W: Output>(&self, dest: &mut W) {
+		let len = self.len();
+		assert!(len <= u32::max_value() as usize, "Attempted to serialize a collection with too many elements.");
+		(len as u32).encode_to(dest);
+		for i in self.iter() {
+			i.encode_to(dest);
+		}
+	}
+}
+
+impl<K: Decode + Ord, V: Decode> Decode for BTreeMap<K, V> {
+	fn decode<I: Input>(input: &mut I) -> Option<Self> {
+		u32::decode(input).and_then(move |len| {
+			let mut r: BTreeMap<K, V> = BTreeMap::new();
+			for _ in 0..len {
+				let (key, v) = <(K, V)>::decode(input)?;
+				r.insert(key, v);
 			}
 			Some(r)
 		})

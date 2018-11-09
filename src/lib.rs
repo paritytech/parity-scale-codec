@@ -35,6 +35,7 @@ extern crate arrayvec;
 pub mod alloc {
 	pub use std::boxed;
 	pub use std::vec;
+	pub use std::collections;
 }
 
 mod codec;
