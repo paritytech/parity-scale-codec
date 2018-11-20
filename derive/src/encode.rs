@@ -45,9 +45,19 @@ fn encode_fields<F>(
 		// We call `push` from the `Output` trait on `dest`.
 		if compact {
 			let field_type = &f.ty;
-			quote_spanned! { f.span() => { #dest.push(&Compact::<#field_type>::from(#field)); } }
+			quote_spanned! {
+				f.span() => { #dest.push(&_parity_codec::Compact::<#field_type>::from(#field)); }
+			}
 		} else if let Some(encoded_as) = encoded_as {
-			quote_spanned! { f.span() => { #dest.push(&#encoded_as::from(*#field)); } }
+			let field_type = &f.ty;
+			quote_spanned! {
+				f.span() => {
+					#dest.push(
+						&<#encoded_as as
+							_parity_codec::EncodeAsRef<#field_type>>::RefType::from(#field)
+					);
+				}
+			}
 		} else {
 			quote_spanned! { f.span() =>
 					#dest.push(#field);
