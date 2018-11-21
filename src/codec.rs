@@ -197,7 +197,7 @@ impl<'de, T> ::serde::Deserialize<'de> for Compact<T> where T: ::serde::Deserial
 /// Trait that tells you if a given type can be encoded/decoded in a compact way.
 pub trait HasCompact: Sized {
 	/// The compact type; this can be
-	type Type: for<'a> EncodeAsRef<'a, Self> + Decode + From<Self> + Into<Self> + Clone +
+	type Type: for<'a> EncodeAsRef<'a, Self> + Decode + Into<Self> + Clone +
 		PartialEq + Eq + MaybeDebugSerde;
 }
 
