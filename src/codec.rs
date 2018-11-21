@@ -157,7 +157,7 @@ impl_from_compact! { u8, u16, u32, u64, u128 }
 
 /// Compact-encoded variant of &'a T. This is more space-efficient but less compute-efficient.
 #[derive(Eq, PartialEq, Clone, Copy)]
-pub struct CompactRef<'a, T>(pub &'a T);
+pub struct CompactRef<'a, T: 'a>(pub &'a T);
 
 impl<'a, T> From<&'a T> for CompactRef<'a, T> {
 	fn from(x: &'a T) -> Self { CompactRef(x) }
