@@ -132,7 +132,7 @@ pub trait Decode: Sized {
 pub trait Codec: Decode + Encode {}
 
 /// Compact-encoded variant of T. This is more space-efficient but less compute-efficient.
-#[derive(Eq, PartialEq, Clone, Copy)]
+#[derive(Eq, PartialEq, Clone, Copy, Ord, PartialOrd)]
 pub struct Compact<T>(pub T);
 
 impl<T> From<T> for Compact<T> {
