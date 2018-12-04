@@ -14,6 +14,13 @@ test:rust:stable:
   stage:                           test
   script:
     - time cargo test --all
+  only:
+    - triggers
+    - tags
+    - master
+    - schedules
+    - web
+    - /^[0-9]+$/
   tags:
     - rust
 
@@ -26,6 +33,8 @@ build:linux:ubuntu:amd64:
     - cargo build
   only:
     - master
+    - tags
+    - web
   tags:
     - rust
 
