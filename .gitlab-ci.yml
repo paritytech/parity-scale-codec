@@ -24,6 +24,8 @@ build:linux:ubuntu:amd64:
   stage:                           build
   script:
     - cargo build
+  only:
+    - master
   tags:
     - rust
 
