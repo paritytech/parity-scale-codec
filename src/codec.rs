@@ -133,7 +133,7 @@ pub trait Decode: Sized {
 pub trait Codec: Decode + Encode {}
 
 /// Compact-encoded variant of T. This is more space-efficient but less compute-efficient.
-#[derive(Eq, PartialEq, Clone, Copy)]
+#[derive(Eq, PartialEq, Clone, Copy, Ord, PartialOrd)]
 pub struct Compact<T>(pub T);
 
 impl<T> From<T> for Compact<T> {
@@ -152,6 +152,16 @@ macro_rules! impl_from_compact {
 			}
 		)*
 	}
+}
+
+impl_from_compact! { u8, u16, u32, u64, u128 }
+
+/// Compact-encoded variant of &'a T. This is more space-efficient but less compute-efficient.
+#[derive(Eq, PartialEq, Clone, Copy)]
+pub struct CompactRef<'a, T: 'a>(pub &'a T);
+
+impl<'a, T> From<&'a T> for CompactRef<'a, T> {
+	fn from(x: &'a T) -> Self { CompactRef(x) }
 }
 
 #[cfg(feature = "std")]
@@ -185,16 +195,26 @@ impl<'de, T> ::serde::Deserialize<'de> for Compact<T> where T: ::serde::Deserial
 	}
 }
 
-impl_from_compact! { u8, u16, u32, u64, u128 }
-
 /// Trait that tells you if a given type can be encoded/decoded in a compact way.
 pub trait HasCompact: Sized {
-	/// The compact type; this can be 
-	type Type: Encode + Decode + From<Self> + Into<Self> + Clone + PartialEq + Eq + MaybeDebugSerde;
+	/// The compact type; this can be
+	type Type: for<'a> EncodeAsRef<'a, Self> + Decode + Into<Self> + Clone +
+		PartialEq + Eq + MaybeDebugSerde;
 }
 
-impl<T> HasCompact for T where
-	Compact<T>: Encode + Decode + From<Self> + Into<Self> + Clone + PartialEq + Eq + MaybeDebugSerde
+/// Something that can be encoded as a reference.
+pub trait EncodeAsRef<'a, T: 'a> {
+	/// The reference type that is used for encoding.
+	type RefType: Encode + From<&'a T>;
+}
+
+impl<'a, T: 'a> EncodeAsRef<'a, T> for Compact<T> where CompactRef<'a, T>: Encode + From<&'a T> {
+	type RefType = CompactRef<'a, T>;
+}
+
+impl<T: 'static> HasCompact for T where
+	Compact<T>: for<'a> EncodeAsRef<'a, T> + Decode + Into<Self> + Clone +
+		PartialEq + Eq + MaybeDebugSerde,
 {
 	type Type = Compact<T>;
 }
@@ -208,31 +228,43 @@ impl<T> HasCompact for T where
 
 // Note: we use *LOW BITS* of the LSB in LE encoding to encode the 2 bit key.
 
-impl Encode for Compact<u8> {
+impl<'a> Encode for CompactRef<'a, u8> {
 	fn encode_to<W: Output>(&self, dest: &mut W) {
 		match self.0 {
 			0...0b00111111 => dest.push_byte(self.0 << 2),
-			_ => (((self.0 as u16) << 2) | 0b01).encode_to(dest),
+			_ => (((*self.0 as u16) << 2) | 0b01).encode_to(dest),
+		}
+	}
+}
+
+impl Encode for Compact<u8> {
+	fn encode_to<W: Output>(&self, dest: &mut W) {
+		CompactRef(&self.0).encode_to(dest)
+	}
+}
+
+impl<'a> Encode for CompactRef<'a, u16> {
+	fn encode_to<W: Output>(&self, dest: &mut W) {
+		match self.0 {
+			0...0b00111111 => dest.push_byte((*self.0 as u8) << 2),
+			0...0b00111111_11111111 => ((*self.0 << 2) | 0b01).encode_to(dest),
+			_ => (((*self.0 as u32) << 2) | 0b10).encode_to(dest),
 		}
 	}
 }
 
 impl Encode for Compact<u16> {
 	fn encode_to<W: Output>(&self, dest: &mut W) {
-		match self.0 {
-			0...0b00111111 => dest.push_byte((self.0 as u8) << 2),
-			0...0b00111111_11111111 => ((self.0 << 2) | 0b01).encode_to(dest),
-			_ => (((self.0 as u32) << 2) | 0b10).encode_to(dest),
-		}
+		CompactRef(&self.0).encode_to(dest)
 	}
 }
 
-impl Encode for Compact<u32> {
+impl<'a> Encode for CompactRef<'a, u32> {
 	fn encode_to<W: Output>(&self, dest: &mut W) {
 		match self.0 {
-			0...0b00111111 => dest.push_byte((self.0 as u8) << 2),
-			0...0b00111111_11111111 => (((self.0 as u16) << 2) | 0b01).encode_to(dest),
-			0...0b00111111_11111111_11111111_11111111 => ((self.0 << 2) | 0b10).encode_to(dest),
+			0...0b00111111 => dest.push_byte((*self.0 as u8) << 2),
+			0...0b00111111_11111111 => (((*self.0 as u16) << 2) | 0b01).encode_to(dest),
+			0...0b00111111_11111111_11111111_11111111 => ((*self.0 << 2) | 0b10).encode_to(dest),
 			_ => {
 				dest.push_byte(0b11);
 				self.0.encode_to(dest);
@@ -241,17 +273,50 @@ impl Encode for Compact<u32> {
 	}
 }
 
-impl Encode for Compact<u64> {
+impl Encode for Compact<u32> {
+	fn encode_to<W: Output>(&self, dest: &mut W) {
+		CompactRef(&self.0).encode_to(dest)
+	}
+}
+
+impl<'a> Encode for CompactRef<'a, u64> {
 	fn encode_to<W: Output>(&self, dest: &mut W) {
 		match self.0 {
-			0...0b00111111 => dest.push_byte((self.0 as u8) << 2),
-			0...0b00111111_11111111 => (((self.0 as u16) << 2) | 0b01).encode_to(dest),
-			0...0b00111111_11111111_11111111_11111111 => (((self.0 as u32) << 2) | 0b10).encode_to(dest),
+			0...0b00111111 => dest.push_byte((*self.0 as u8) << 2),
+			0...0b00111111_11111111 => (((*self.0 as u16) << 2) | 0b01).encode_to(dest),
+			0...0b00111111_11111111_11111111_11111111 => (((*self.0 as u32) << 2) | 0b10).encode_to(dest),
 			_ => {
 				let bytes_needed = 8 - self.0.leading_zeros() / 8;
 				assert!(bytes_needed >= 4, "Previous match arm matches anyting less than 2^30; qed");
 				dest.push_byte(0b11 + ((bytes_needed - 4) << 2) as u8);
-				let mut v = self.0;
+				let mut v = *self.0;
+				for _ in 0..bytes_needed {
+					dest.push_byte(v as u8);
+					v >>= 8;
+				}
+				assert_eq!(v, 0, "shifted sufficient bits right to lead only leading zeros; qed")
+			}
+		}
+	}
+}
+
+impl Encode for Compact<u64> {
+	fn encode_to<W: Output>(&self, dest: &mut W) {
+		CompactRef(&self.0).encode_to(dest)
+	}
+}
+
+impl<'a> Encode for CompactRef<'a, u128> {
+	fn encode_to<W: Output>(&self, dest: &mut W) {
+		match self.0 {
+			0...0b00111111 => dest.push_byte((*self.0 as u8) << 2),
+			0...0b00111111_11111111 => (((*self.0 as u16) << 2) | 0b01).encode_to(dest),
+			0...0b00111111_11111111_11111111_11111111 => (((*self.0 as u32) << 2) | 0b10).encode_to(dest),
+			_ => {
+				let bytes_needed = 16 - self.0.leading_zeros() / 8;
+				assert!(bytes_needed >= 4, "Previous match arm matches anyting less than 2^30; qed");
+				dest.push_byte(0b11 + ((bytes_needed - 4) << 2) as u8);
+				let mut v = *self.0;
 				for _ in 0..bytes_needed {
 					dest.push_byte(v as u8);
 					v >>= 8;
@@ -264,22 +329,7 @@ impl Encode for Compact<u64> {
 
 impl Encode for Compact<u128> {
 	fn encode_to<W: Output>(&self, dest: &mut W) {
-		match self.0 {
-			0...0b00111111 => dest.push_byte((self.0 as u8) << 2),
-			0...0b00111111_11111111 => (((self.0 as u16) << 2) | 0b01).encode_to(dest),
-			0...0b00111111_11111111_11111111_11111111 => (((self.0 as u32) << 2) | 0b10).encode_to(dest),
-			_ => {
-				let bytes_needed = 16 - self.0.leading_zeros() / 8;
-				assert!(bytes_needed >= 4, "Previous match arm matches anyting less than 2^30; qed");
-				dest.push_byte(0b11 + ((bytes_needed - 4) << 2) as u8);
-				let mut v = self.0;
-				for _ in 0..bytes_needed {
-					dest.push_byte(v as u8);
-					v >>= 8;
-				}
-				assert_eq!(v, 0, "shifted sufficient bits right to lead only leading zeros; qed")
-			}
-		}
+		CompactRef(&self.0).encode_to(dest)
 	}
 }
 
@@ -883,7 +933,7 @@ mod tests {
 			(16384, 4), (1073741823, 4),
 			(1073741824, 5), (1 << 32 - 1, 5),
 			(1 << 32, 6), (1 << 40, 7), (1 << 48, 8), (1 << 56 - 1, 8), (1 << 56, 9), (1 << 64 - 1, 9),
-			(1 << 64, 10), (1 << 72, 11), (1 << 80, 12), (1 << 88, 13), (1 << 96, 14), (1 << 104, 15), 
+			(1 << 64, 10), (1 << 72, 11), (1 << 80, 12), (1 << 88, 13), (1 << 96, 14), (1 << 104, 15),
 			(1 << 112, 16), (1 << 120 - 1, 16), (1 << 120, 17), (u128::max_value(), 17)
 		];
 		for &(n, l) in &tests {
