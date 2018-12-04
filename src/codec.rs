@@ -897,6 +897,30 @@ mod tests {
 	}
 
 	#[test]
+	fn btree_map_works() {
+		let mut m: BTreeMap<u32, Vec<u8>> = BTreeMap::new();
+		m.insert(1, b"qwe".to_vec());
+		m.insert(2, b"qweasd".to_vec());
+		let encoded = m.encode();
+
+		assert_eq!(m, Decode::decode(&mut &encoded[..]).unwrap());
+
+		let mut m: BTreeMap<Vec<u8>, Vec<u8>> = BTreeMap::new();
+		m.insert(b"123".to_vec(), b"qwe".to_vec());
+		m.insert(b"1234".to_vec(), b"qweasd".to_vec());
+		let encoded = m.encode();
+
+		assert_eq!(m, Decode::decode(&mut &encoded[..]).unwrap());
+
+		let mut m: BTreeMap<Vec<u32>, Vec<u8>> = BTreeMap::new();
+		m.insert(vec![1, 2, 3], b"qwe".to_vec());
+		m.insert(vec![1, 2], b"qweasd".to_vec());
+		let encoded = m.encode();
+
+		assert_eq!(m, Decode::decode(&mut &encoded[..]).unwrap());
+	}
+
+	#[test]
 	fn encode_borrowed_tuple() {
 		let x = vec![1u8, 2, 3, 4];
 		let y = 128i64;
