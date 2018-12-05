@@ -1,6 +1,10 @@
+# .gitlab-ci.yml
+#
+
 stages:
   - test
   - build
+
 
 image:                             parity/rust:nightly
 
@@ -8,7 +12,21 @@ variables:
   CI_SERVER_NAME:                  "GitLab CI"
   CARGO_HOME:                      "${CI_PROJECT_DIR}/.cargo"
 
+cache:
+  key:                             "${CI_JOB_NAME}"
+  paths:
+    - ./.cargo/
+
+
 #### stage:                        test
+
+test:cmd:
+  stage: test
+  image: debian:buster-slim
+  script:
+    - cat /proc/cpuinfo
+  tags:
+    - linux-docker
 
 test:rust:stable:
   stage:                           test
