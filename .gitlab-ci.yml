@@ -10,6 +10,14 @@ variables:
 
 #### stage:                        test
 
+test:cmd:
+  stage: test
+  image: debian:buster-slim
+  script:
+    - w
+  tags:
+    - linux-docker
+
 test:rust:stable:
   stage:                           test
   script:
