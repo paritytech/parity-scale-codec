@@ -14,7 +14,7 @@ test:cmd:
   stage: test
   image: debian:buster-slim
   script:
-    - w
+    - cat /proc/cpuinfo
   tags:
     - linux-docker
 
