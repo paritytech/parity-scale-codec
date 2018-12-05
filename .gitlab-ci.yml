@@ -20,18 +20,10 @@ cache:
 
 #### stage:                        test
 
-test:cmd:
-  stage: test
-  image: debian:buster-slim
-  script:
-    - cat /proc/cpuinfo
-  tags:
-    - linux-docker
-
 test:rust:stable:
   stage:                           test
   script:
-    - time cargo test --all
+    - time cargo test --verbose --all
   only:
     - triggers
     - tags
@@ -48,7 +40,7 @@ test:rust:stable:
 build:linux:ubuntu:amd64:
   stage:                           build
   script:
-    - cargo build
+    - cargo build --verbose --release
   only:
     - master
     - tags
