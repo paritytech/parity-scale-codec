@@ -464,6 +464,7 @@ impl<T: Decode, E: Decode> Decode for Result<T, E> {
 }
 
 /// Shim type because we can't do a specialised implementation for `Option<bool>` directly.
+#[derive(Eq, PartialEq, Clone, Copy, Debug)]
 pub struct OptionBool(pub Option<bool>);
 
 impl Encode for OptionBool {
@@ -906,10 +907,10 @@ mod tests {
 		let tests = [
 			(0u128, 1usize), (63, 1), (64, 2), (16383, 2),
 			(16384, 4), (1073741823, 4),
-			(1073741824, 5), (1 << 32 - 1, 5),
-			(1 << 32, 6), (1 << 40, 7), (1 << 48, 8), (1 << 56 - 1, 8), (1 << 56, 9), (1 << 64 - 1, 9),
+			(1073741824, 5), ((1 << 32) - 1, 5),
+			(1 << 32, 6), (1 << 40, 7), (1 << 48, 8), ((1 << 56) - 1, 8), (1 << 56, 9), ((1 << 64) - 1, 9),
 			(1 << 64, 10), (1 << 72, 11), (1 << 80, 12), (1 << 88, 13), (1 << 96, 14), (1 << 104, 15),
-			(1 << 112, 16), (1 << 120 - 1, 16), (1 << 120, 17), (u128::max_value(), 17)
+			(1 << 112, 16), ((1 << 120) - 1, 16), (1 << 120, 17), (u128::max_value(), 17)
 		];
 		for &(n, l) in &tests {
 			let encoded = Compact(n as u128).encode();
@@ -923,8 +924,8 @@ mod tests {
 		let tests = [
 			(0u64, 1usize), (63, 1), (64, 2), (16383, 2),
 			(16384, 4), (1073741823, 4),
-			(1073741824, 5), (1 << 32 - 1, 5),
-			(1 << 32, 6), (1 << 40, 7), (1 << 48, 8), (1 << 56 - 1, 8), (1 << 56, 9), (u64::max_value(), 9)
+			(1073741824, 5), ((1 << 32) - 1, 5),
+			(1 << 32, 6), (1 << 40, 7), (1 << 48, 8), ((1 << 56) - 1, 8), (1 << 56, 9), (u64::max_value(), 9)
 		];
 		for &(n, l) in &tests {
 			let encoded = Compact(n as u64).encode();
@@ -963,5 +964,103 @@ mod tests {
 			assert_eq!(<Compact<u8>>::decode(&mut &encoded[..]).unwrap().0, n);
 		}
 		assert!(<Compact<u8>>::decode(&mut &Compact(256u32).encode()[..]).is_none());
+	}
+
+	fn hexify(bytes: &Vec<u8>) -> String {
+		bytes.iter().map(|ref b| format!("{:02x}", b)).collect::<Vec<String>>().join(" ")
+	}
+
+	#[test]
+	fn vec_of_u8_encoded_as_expected() {
+		let value = vec![0u8, 1, 1, 2, 3, 5, 8, 13, 21, 34];
+		let encoded = value.encode();
+		assert_eq!(hexify(&encoded), "28 00 01 01 02 03 05 08 0d 15 22");
+		assert_eq!(<Vec<u8>>::decode(&mut &encoded[..]).unwrap(), value);
+	}
+
+	#[test]
+	fn vec_of_i16_encoded_as_expected() {
+		let value = vec![0i16, 1, -1, 2, -2, 3, -3];
+		let encoded = value.encode();
+		assert_eq!(hexify(&encoded), "1c 00 00 01 00 ff ff 02 00 fe ff 03 00 fd ff");
+		assert_eq!(<Vec<i16>>::decode(&mut &encoded[..]).unwrap(), value);
+	}
+
+	#[test]
+	fn vec_of_option_int_encoded_as_expected() {
+		let value = vec![Some(1i8), Some(-1), None];
+		let encoded = value.encode();
+		assert_eq!(hexify(&encoded), "0c 01 01 01 ff 00");
+		assert_eq!(<Vec<Option<i8>>>::decode(&mut &encoded[..]).unwrap(), value);
+	}
+
+	#[test]
+	fn vec_of_option_bool_encoded_as_expected() {
+		let value = vec![OptionBool(Some(true)), OptionBool(Some(false)), OptionBool(None)];
+		let encoded = value.encode();
+		assert_eq!(hexify(&encoded), "0c 01 02 00");
+		assert_eq!(<Vec<OptionBool>>::decode(&mut &encoded[..]).unwrap(), value);
+	}
+
+	#[test]
+	fn vec_of_string_encoded_as_expected() {
+		let value = vec![
+			"Hamlet".to_owned(),
+			"Война и мир".to_owned(),
+			"三国演义".to_owned(),
+			"أَلْف لَيْلَة وَلَيْلَة‎".to_owned()
+		];
+		let encoded = value.encode();
+		assert_eq!(hexify(&encoded), "10 18 48 61 6d 6c 65 74 50 d0 92 d0 be d0 b9 d0 bd d0 b0 20 d0 \
+			b8 20 d0 bc d0 b8 d1 80 30 e4 b8 89 e5 9b bd e6 bc 94 e4 b9 89 bc d8 a3 d9 8e d9 84 d9 92 \
+			d9 81 20 d9 84 d9 8e d9 8a d9 92 d9 84 d9 8e d8 a9 20 d9 88 d9 8e d9 84 d9 8e d9 8a d9 92 \
+			d9 84 d9 8e d8 a9 e2 80 8e");
+		assert_eq!(<Vec<String>>::decode(&mut &encoded[..]).unwrap(), value);
+	}
+
+	#[test]
+	fn compact_integers_encoded_as_expected() {
+		let tests = [
+			(0u64, "00"),
+			(63, "fc"),
+			(64, "01 01"),
+			(16383, "fd ff"),
+			(16384, "02 00 01 00"),
+			(1073741823, "fe ff ff ff")
+			(1073741824, "03 00 00 00 40"),
+			((1 << 32) - 1, "03 ff ff ff ff")
+			(1 << 32, "07 00 00 00 00 01"),
+			(1 << 40, "0b 00 00 00 00 00 01"),
+			(1 << 48, "0f 00 00 00 00 00 00 01"),
+			((1 << 56) - 1, "0f ff ff ff ff ff ff ff"),
+			(1 << 56, "13 00 00 00 00 00 00 00 01"),
+			(u64::max_value(), "13 ff ff ff ff ff ff ff ff")
+		];
+		for &(n, s) in &tests {
+			// Verify u64 encoding
+			let encoded = Compact(n as u64).encode();
+			assert_eq!(hexify(&encoded), s);
+			assert_eq!(<Compact<u64>>::decode(&mut &encoded[..]).unwrap().0, n);
+
+			// Verify encodings for lower-size uints are compatible with u64 encoding
+			if n <= u32::max_value() as u64 {
+				assert_eq!(<Compact<u32>>::decode(&mut &encoded[..]).unwrap().0, n as u32);
+				let encoded = Compact(n as u32).encode();
+				assert_eq!(hexify(&encoded), s);
+				assert_eq!(<Compact<u64>>::decode(&mut &encoded[..]).unwrap().0, n as u64);
+			}
+			if n <= u16::max_value() as u64 {
+				assert_eq!(<Compact<u16>>::decode(&mut &encoded[..]).unwrap().0, n as u16);
+				let encoded = Compact(n as u16).encode();
+				assert_eq!(hexify(&encoded), s);
+				assert_eq!(<Compact<u64>>::decode(&mut &encoded[..]).unwrap().0, n as u64);
+			}
+			if n <= u8::max_value() as u64 {
+				assert_eq!(<Compact<u8>>::decode(&mut &encoded[..]).unwrap().0, n as u8);
+				let encoded = Compact(n as u8).encode();
+				assert_eq!(hexify(&encoded), s);
+				assert_eq!(<Compact<u64>>::decode(&mut &encoded[..]).unwrap().0, n as u64);
+			}
+		}
 	}
 }
