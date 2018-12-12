@@ -464,8 +464,15 @@ impl<T: Decode, E: Decode> Decode for Result<T, E> {
 }
 
 /// Shim type because we can't do a specialised implementation for `Option<bool>` directly.
-#[derive(Eq, PartialEq, Clone, Copy, Debug)]
+#[derive(Eq, PartialEq, Clone, Copy)]
 pub struct OptionBool(pub Option<bool>);
+
+#[cfg(feature = "std")]
+impl ::std::fmt::Debug for OptionBool {
+	fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+		self.0.fmt(f)
+	}
+}
 
 impl Encode for OptionBool {
 	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
