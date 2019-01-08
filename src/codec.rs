@@ -168,16 +168,6 @@ impl<'a, T> From<&'a T> for CompactRef<'a, T> {
 }
 
 #[cfg(feature = "std")]
-pub trait MaybeDebugSerde: ::std::fmt::Debug + ::serde::Serialize + for<'a> ::serde::Deserialize<'a> {}
-#[cfg(feature = "std")]
-impl<T> MaybeDebugSerde for T where T: ::std::fmt::Debug + ::serde::Serialize + for<'a> ::serde::Deserialize<'a> {}
-
-#[cfg(not(feature = "std"))]
-pub trait MaybeDebugSerde {}
-#[cfg(not(feature = "std"))]
-impl<T> MaybeDebugSerde for T {}
-
-#[cfg(feature = "std")]
 impl<T> ::std::fmt::Debug for Compact<T> where T: ::std::fmt::Debug {
 	fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
 		self.0.fmt(f)
@@ -197,6 +187,16 @@ impl<'de, T> ::serde::Deserialize<'de> for Compact<T> where T: ::serde::Deserial
 		T::deserialize(deserializer).map(Compact)
 	}
 }
+
+#[cfg(feature = "std")]
+pub trait MaybeDebugSerde: ::core::fmt::Debug + ::serde::Serialize + for<'a> ::serde::Deserialize<'a> {}
+#[cfg(feature = "std")]
+impl<T> MaybeDebugSerde for T where T: ::core::fmt::Debug + ::serde::Serialize + for<'a> ::serde::Deserialize<'a> {}
+
+#[cfg(not(feature = "std"))]
+pub trait MaybeDebugSerde {}
+#[cfg(not(feature = "std"))]
+impl<T> MaybeDebugSerde for T {}
 
 /// Trait that tells you if a given type can be encoded/decoded in a compact way.
 pub trait HasCompact: Sized {
