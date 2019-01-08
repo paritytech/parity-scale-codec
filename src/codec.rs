@@ -17,7 +17,7 @@
 use alloc::vec::Vec;
 use alloc::boxed::Box;
 use alloc::string::String;
-use alloc::borrow::Cow;
+use alloc::borrow::{Cow, ToOwned};
 
 use core::{mem, slice};
 use arrayvec::ArrayVec;
