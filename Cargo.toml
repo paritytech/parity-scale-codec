@@ -12,10 +12,8 @@ parity-codec-derive = { version = "2.0", default-features = false, optional = tr
 
 [features]
 default = ["std"]
-std = [
-	"serde"
-]
 derive = ["parity-codec-derive"]
+std = ["serde"]
 
 [workspace]
 members = [
