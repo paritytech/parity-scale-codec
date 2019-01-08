@@ -167,9 +167,8 @@ impl<'a, T> From<&'a T> for CompactRef<'a, T> {
 	fn from(x: &'a T) -> Self { CompactRef(x) }
 }
 
-#[cfg(feature = "std")]
-impl<T> ::std::fmt::Debug for Compact<T> where T: ::std::fmt::Debug {
-	fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+impl<T> ::core::fmt::Debug for Compact<T> where T: ::core::fmt::Debug {
+	fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
 		self.0.fmt(f)
 	}
 }
