@@ -16,8 +16,12 @@
 
 use alloc::vec::Vec;
 use alloc::boxed::Box;
-use alloc::string::String;
-use alloc::borrow::{Cow, ToOwned};
+
+#[cfg(any(feature = "std", feature = "full"))]
+use alloc::{
+	string::String,
+	borrow::{Cow, ToOwned},
+};
 
 use core::{mem, slice};
 use arrayvec::ArrayVec;
@@ -591,6 +595,7 @@ impl<'a> Encode for &'a str {
 	}
 }
 
+#[cfg(any(feature = "std", feature = "full"))]
 impl<'a, T: ToOwned + ?Sized + 'a> Encode for Cow<'a, T> where
 	&'a T: Encode,
 	<T as ToOwned>::Owned: Encode
@@ -603,6 +608,7 @@ impl<'a, T: ToOwned + ?Sized + 'a> Encode for Cow<'a, T> where
 	}
 }
 
+#[cfg(any(feature = "std", feature = "full"))]
 impl<'a, T: ToOwned + ?Sized> Decode for Cow<'a, T> where
 	<T as ToOwned>::Owned: Decode
 {
@@ -611,23 +617,27 @@ impl<'a, T: ToOwned + ?Sized> Decode for Cow<'a, T> where
 	}
 }
 
+#[cfg(any(feature = "std", feature = "full"))]
 impl<T> Encode for PhantomData<T> {
 	fn encode_to<W: Output>(&self, _dest: &mut W) {
 	}
 }
 
+#[cfg(any(feature = "std", feature = "full"))]
 impl<T> Decode for PhantomData<T> {
 	fn decode<I: Input>(_input: &mut I) -> Option<Self> {
 		Some(PhantomData)
 	}
 }
 
+#[cfg(any(feature = "std", feature = "full"))]
 impl Encode for String {
 	fn encode_to<W: Output>(&self, dest: &mut W) {
 		self.as_bytes().encode_to(dest)
 	}
 }
 
+#[cfg(any(feature = "std", feature = "full"))]
 impl Decode for String {
 	fn decode<I: Input>(input: &mut I) -> Option<Self> {
 		Some(Self::from_utf8_lossy(&Vec::decode(input)?).into())

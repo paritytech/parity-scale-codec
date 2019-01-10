@@ -46,6 +46,13 @@ pub mod alloc {
 	pub use ::std::vec;
 	pub use ::std::string;
 	pub use ::std::borrow;
+
+	#[cfg(feature = "full")]
+	mod full {
+		pub use ::std::borrow;
+	}
+	#[cfg(feature = "full")]
+	pub use self::full::*;
 }
 
 mod codec;
