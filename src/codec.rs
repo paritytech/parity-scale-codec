@@ -984,6 +984,14 @@ mod tests {
 	}
 
 	#[test]
+	fn string_encoded_as_expected() {
+		let value = String::from("Hello, World!");
+		let encoded = value.encode();
+		assert_eq!(hexify(&encoded), "34 48 65 6c 6c 6f 2c 20 57 6f 72 6c 64 21");
+		assert_eq!(<String>::decode(&mut &encoded[..]).unwrap(), value);
+	}
+
+	#[test]
 	fn vec_of_u8_encoded_as_expected() {
 		let value = vec![0u8, 1, 1, 2, 3, 5, 8, 13, 21, 34];
 		let encoded = value.encode();
