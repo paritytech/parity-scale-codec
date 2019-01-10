@@ -31,6 +31,15 @@ extern crate serde;
 
 extern crate arrayvec;
 
+#[cfg(feature = "parity-codec-derive")]
+#[allow(unused_imports)]
+#[macro_use]
+extern crate parity_codec_derive;
+
+#[cfg(feature = "parity-codec-derive")]
+#[doc(hidden)]
+pub use parity_codec_derive::*;
+
 #[cfg(feature = "std")]
 pub mod alloc {
 	pub use std::boxed;
