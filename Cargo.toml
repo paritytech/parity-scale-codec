@@ -4,6 +4,8 @@ description = "Lightweight, efficient, binary serialization and deserialization 
 version = "2.1.5"
 authors = ["Parity Technologies <admin@parity.io>"]
 license = "Apache-2.0"
+repository = "https://github.com/paritytech/parity-codec"
+categories = ["encoding"]
 
 [dependencies]
 arrayvec = { version = "0.4", default-features = false }
