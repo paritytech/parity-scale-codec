@@ -42,8 +42,17 @@ pub use parity_codec_derive::*;
 
 #[cfg(feature = "std")]
 pub mod alloc {
-	pub use std::boxed;
-	pub use std::vec;
+	pub use ::std::boxed;
+	pub use ::std::vec;
+	pub use ::std::string;
+	pub use ::std::borrow;
+
+	#[cfg(feature = "full")]
+	mod full {
+		pub use ::std::borrow;
+	}
+	#[cfg(feature = "full")]
+	pub use self::full::*;
 }
 
 mod codec;

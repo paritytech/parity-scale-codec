@@ -16,8 +16,16 @@
 
 use alloc::vec::Vec;
 use alloc::boxed::Box;
+
+#[cfg(any(feature = "std", feature = "full"))]
+use alloc::{
+	string::String,
+	borrow::{Cow, ToOwned},
+};
+
 use core::{mem, slice};
 use arrayvec::ArrayVec;
+use core::marker::PhantomData;
 
 /// Trait that allows reading of data into a slice.
 pub trait Input {
@@ -163,19 +171,8 @@ impl<'a, T> From<&'a T> for CompactRef<'a, T> {
 	fn from(x: &'a T) -> Self { CompactRef(x) }
 }
 
-#[cfg(feature = "std")]
-pub trait MaybeDebugSerde: ::std::fmt::Debug + ::serde::Serialize + for<'a> ::serde::Deserialize<'a> {}
-#[cfg(feature = "std")]
-impl<T> MaybeDebugSerde for T where T: ::std::fmt::Debug + ::serde::Serialize + for<'a> ::serde::Deserialize<'a> {}
-
-#[cfg(not(feature = "std"))]
-pub trait MaybeDebugSerde {}
-#[cfg(not(feature = "std"))]
-impl<T> MaybeDebugSerde for T {}
-
-#[cfg(feature = "std")]
-impl<T> ::std::fmt::Debug for Compact<T> where T: ::std::fmt::Debug {
-	fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+impl<T> ::core::fmt::Debug for Compact<T> where T: ::core::fmt::Debug {
+	fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
 		self.0.fmt(f)
 	}
 }
@@ -193,6 +190,16 @@ impl<'de, T> ::serde::Deserialize<'de> for Compact<T> where T: ::serde::Deserial
 		T::deserialize(deserializer).map(Compact)
 	}
 }
+
+#[cfg(feature = "std")]
+pub trait MaybeDebugSerde: ::core::fmt::Debug + ::serde::Serialize + for<'a> ::serde::Deserialize<'a> {}
+#[cfg(feature = "std")]
+impl<T> MaybeDebugSerde for T where T: ::core::fmt::Debug + ::serde::Serialize + for<'a> ::serde::Deserialize<'a> {}
+
+#[cfg(not(feature = "std"))]
+pub trait MaybeDebugSerde {}
+#[cfg(not(feature = "std"))]
+impl<T> MaybeDebugSerde for T {}
 
 /// Trait that tells you if a given type can be encoded/decoded in a compact way.
 pub trait HasCompact: Sized {
@@ -467,9 +474,8 @@ impl<T: Decode, E: Decode> Decode for Result<T, E> {
 #[derive(Eq, PartialEq, Clone, Copy)]
 pub struct OptionBool(pub Option<bool>);
 
-#[cfg(feature = "std")]
-impl ::std::fmt::Debug for OptionBool {
-	fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+impl ::core::fmt::Debug for OptionBool {
+	fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
 		self.0.fmt(f)
 	}
 }
@@ -589,49 +595,49 @@ impl<'a> Encode for &'a str {
 	}
 }
 
-#[cfg(feature = "std")]
-impl<'a, T: ToOwned + ?Sized + 'a> Encode for ::std::borrow::Cow<'a, T> where
+#[cfg(any(feature = "std", feature = "full"))]
+impl<'a, T: ToOwned + ?Sized + 'a> Encode for Cow<'a, T> where
 	&'a T: Encode,
 	<T as ToOwned>::Owned: Encode
 {
 	fn encode_to<W: Output>(&self, dest: &mut W) {
 		match self {
-			::std::borrow::Cow::Owned(ref x) => x.encode_to(dest),
-			::std::borrow::Cow::Borrowed(x) => x.encode_to(dest),
+			Cow::Owned(ref x) => x.encode_to(dest),
+			Cow::Borrowed(x) => x.encode_to(dest),
 		}
 	}
 }
 
-#[cfg(feature = "std")]
-impl<'a, T: ToOwned + ?Sized> Decode for ::std::borrow::Cow<'a, T> where
+#[cfg(any(feature = "std", feature = "full"))]
+impl<'a, T: ToOwned + ?Sized> Decode for Cow<'a, T> where
 	<T as ToOwned>::Owned: Decode
 {
 	fn decode<I: Input>(input: &mut I) -> Option<Self> {
-		Some(::std::borrow::Cow::Owned(Decode::decode(input)?))
+		Some(Cow::Owned(Decode::decode(input)?))
 	}
 }
 
-#[cfg(feature = "std")]
-impl<T> Encode for ::std::marker::PhantomData<T> {
+#[cfg(any(feature = "std", feature = "full"))]
+impl<T> Encode for PhantomData<T> {
 	fn encode_to<W: Output>(&self, _dest: &mut W) {
 	}
 }
 
-#[cfg(feature = "std")]
-impl<T> Decode for ::std::marker::PhantomData<T> {
+#[cfg(any(feature = "std", feature = "full"))]
+impl<T> Decode for PhantomData<T> {
 	fn decode<I: Input>(_input: &mut I) -> Option<Self> {
-		Some(::std::marker::PhantomData)
+		Some(PhantomData)
 	}
 }
 
-#[cfg(feature = "std")]
+#[cfg(any(feature = "std", feature = "full"))]
 impl Encode for String {
 	fn encode_to<W: Output>(&self, dest: &mut W) {
 		self.as_bytes().encode_to(dest)
 	}
 }
 
-#[cfg(feature = "std")]
+#[cfg(any(feature = "std", feature = "full"))]
 impl Decode for String {
 	fn decode<I: Input>(input: &mut I) -> Option<Self> {
 		Some(Self::from_utf8_lossy(&Vec::decode(input)?).into())
@@ -975,6 +981,14 @@ mod tests {
 
 	fn hexify(bytes: &Vec<u8>) -> String {
 		bytes.iter().map(|ref b| format!("{:02x}", b)).collect::<Vec<String>>().join(" ")
+	}
+
+	#[test]
+	fn string_encoded_as_expected() {
+		let value = String::from("Hello, World!");
+		let encoded = value.encode();
+		assert_eq!(hexify(&encoded), "34 48 65 6c 6c 6f 2c 20 57 6f 72 6c 64 21");
+		assert_eq!(<String>::decode(&mut &encoded[..]).unwrap(), value);
 	}
 
 	#[test]
