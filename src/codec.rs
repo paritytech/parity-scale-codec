@@ -143,6 +143,44 @@ impl<'a, T: Copy> From<&'a T> for Compact<T> {
 	fn from(x: &'a T) -> Compact<T> { Compact(*x) }
 }
 
+/// Allow foreign structs to be wrap in Compact
+pub trait CompactAs {
+	type As;
+	fn encode_as(&self) -> &Self::As;
+	fn decode_from(Self::As) -> Self;
+}
+
+impl<T> Encode for Compact<T>
+where
+	T: CompactAs,
+	for<'a> CompactRef<'a, <T as CompactAs>::As>: Encode,
+{
+	fn encode_to<W: Output>(&self, dest: &mut W) {
+		CompactRef(self.0.encode_as()).encode_to(dest)
+	}
+}
+
+impl<'a, T> Encode for CompactRef<'a, T>
+where
+	T: CompactAs,
+	for<'b> CompactRef<'b, <T as CompactAs>::As>: Encode,
+{
+	fn encode_to<Out: Output>(&self, dest: &mut Out) {
+		CompactRef(self.0.encode_as()).encode_to(dest)
+	}
+}
+
+impl<T> Decode for Compact<T>
+where
+	T: CompactAs,
+	Compact<<T as CompactAs>::As>: Decode,
+{
+	fn decode<I: Input>(input: &mut I) -> Option<Self> {
+		Compact::<T::As>::decode(input)
+			.map(|x| Compact(<T as CompactAs>::decode_from(x.0)))
+	}
+}
+
 macro_rules! impl_from_compact {
 	( $( $ty:ty ),* ) => {
 		$(
