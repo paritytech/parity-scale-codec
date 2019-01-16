@@ -151,6 +151,44 @@ impl<'a, T: Copy> From<&'a T> for Compact<T> {
 	fn from(x: &'a T) -> Compact<T> { Compact(*x) }
 }
 
+/// Allow foreign structs to be wrap in Compact
+pub trait CompactAs: From<Compact<Self>> {
+	type As;
+	fn encode_as(&self) -> &Self::As;
+	fn decode_from(Self::As) -> Self;
+}
+
+impl<T> Encode for Compact<T>
+where
+	T: CompactAs,
+	for<'a> CompactRef<'a, <T as CompactAs>::As>: Encode,
+{
+	fn encode_to<W: Output>(&self, dest: &mut W) {
+		CompactRef(self.0.encode_as()).encode_to(dest)
+	}
+}
+
+impl<'a, T> Encode for CompactRef<'a, T>
+where
+	T: CompactAs,
+	for<'b> CompactRef<'b, <T as CompactAs>::As>: Encode,
+{
+	fn encode_to<Out: Output>(&self, dest: &mut Out) {
+		CompactRef(self.0.encode_as()).encode_to(dest)
+	}
+}
+
+impl<T> Decode for Compact<T>
+where
+	T: CompactAs,
+	Compact<<T as CompactAs>::As>: Decode,
+{
+	fn decode<I: Input>(input: &mut I) -> Option<Self> {
+		Compact::<T::As>::decode(input)
+			.map(|x| Compact(<T as CompactAs>::decode_from(x.0)))
+	}
+}
+
 macro_rules! impl_from_compact {
 	( $( $ty:ty ),* ) => {
 		$(
@@ -204,7 +242,7 @@ impl<T> MaybeDebugSerde for T {}
 /// Trait that tells you if a given type can be encoded/decoded in a compact way.
 pub trait HasCompact: Sized {
 	/// The compact type; this can be
-	type Type: for<'a> EncodeAsRef<'a, Self> + Decode + Into<Self> + Clone +
+	type Type: for<'a> EncodeAsRef<'a, Self> + Encode + Decode + From<Self> + Into<Self> + Clone +
 		PartialEq + Eq + MaybeDebugSerde;
 }
 
@@ -219,7 +257,7 @@ impl<'a, T: 'a> EncodeAsRef<'a, T> for Compact<T> where CompactRef<'a, T>: Encod
 }
 
 impl<T: 'static> HasCompact for T where
-	Compact<T>: for<'a> EncodeAsRef<'a, T> + Decode + Into<Self> + Clone +
+	Compact<T>: for<'a> EncodeAsRef<'a, T> + Encode + Decode + From<Self> + Into<Self> + Clone +
 		PartialEq + Eq + MaybeDebugSerde,
 {
 	type Type = Compact<T>;
@@ -1083,5 +1121,47 @@ mod tests {
 				assert_eq!(<Compact<u64>>::decode(&mut &encoded[..]).unwrap().0, n as u64);
 			}
 		}
+	}
+
+	#[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
+	#[derive(PartialEq, Eq, Clone)]
+	struct Wrapper(u8);
+
+	impl CompactAs for Wrapper {
+		type As = u8;
+		fn encode_as(&self) -> &u8 {
+			&self.0
+		}
+		fn decode_from(x: u8) -> Wrapper {
+			Wrapper(x)
+		}
+	}
+
+	impl From<Compact<Wrapper>> for Wrapper {
+		fn from(x: Compact<Wrapper>) -> Wrapper {
+			x.0
+		}
+	}
+
+	#[test]
+	fn compact_as_8_encoding_works() {
+		let tests = [(0u8, 1usize), (63, 1), (64, 2), (255, 2)];
+		for &(n, l) in &tests {
+			let compact: Compact<Wrapper> = Wrapper(n).into();
+			let encoded = compact.encode();
+			assert_eq!(encoded.len(), l);
+			let decoded = <Compact<Wrapper>>::decode(&mut & encoded[..]).unwrap();
+			let wrapper: Wrapper = decoded.into();
+			assert_eq!(wrapper, Wrapper(n));
+		}
+	}
+
+	struct WithCompact<T: HasCompact> {
+		_data: T,
+	}
+
+	#[test]
+	fn compact_as_has_compact() {
+		let _data = WithCompact { _data: Wrapper(1) };
 	}
 }

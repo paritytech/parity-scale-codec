@@ -36,6 +36,10 @@ extern crate arrayvec;
 #[macro_use]
 extern crate parity_codec_derive;
 
+#[cfg(all(feature = "std", test))]
+#[macro_use]
+extern crate serde_derive;
+
 #[cfg(feature = "parity-codec-derive")]
 #[doc(hidden)]
 pub use parity_codec_derive::*;
@@ -59,6 +63,6 @@ mod codec;
 mod joiner;
 mod keyedvec;
 
-pub use self::codec::{Input, Output, Encode, Decode, Codec, Compact, HasCompact, EncodeAsRef};
+pub use self::codec::{Input, Output, Encode, Decode, Codec, Compact, HasCompact, EncodeAsRef, CompactAs};
 pub use self::joiner::Joiner;
 pub use self::keyedvec::KeyedVec;
