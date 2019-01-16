@@ -1108,4 +1108,46 @@ mod tests {
 			}
 		}
 	}
+
+	#[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
+	#[derive(PartialEq, Eq, Clone)]
+	struct Wrapper(u8);
+
+	impl CompactAs for Wrapper {
+		type As = u8;
+		fn encode_as(&self) -> &u8 {
+			&self.0
+		}
+		fn decode_from(x: u8) -> Wrapper {
+			Wrapper(x)
+		}
+	}
+
+	impl From<Compact<Wrapper>> for Wrapper {
+		fn from(x: Compact<Wrapper>) -> Wrapper {
+			x.0
+		}
+	}
+
+	#[test]
+	fn compact_as_8_encoding_works() {
+		let tests = [(0u8, 1usize), (63, 1), (64, 2), (255, 2)];
+		for &(n, l) in &tests {
+			let compact: Compact<Wrapper> = Wrapper(n).into();
+			let encoded = compact.encode();
+			assert_eq!(encoded.len(), l);
+			let decoded = <Compact<Wrapper>>::decode(&mut & encoded[..]).unwrap();
+			let wrapper: Wrapper = decoded.into();
+			assert_eq!(wrapper, Wrapper(n));
+		}
+	}
+
+	struct WithCompact<T: HasCompact> {
+		_data: T,
+	}
+
+	#[test]
+	fn compact_as_has_compact() {
+		let _data = WithCompact { _data: Wrapper(1) };
+	}
 }

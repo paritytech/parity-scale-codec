@@ -36,6 +36,10 @@ extern crate arrayvec;
 #[macro_use]
 extern crate parity_codec_derive;
 
+#[cfg(all(feature = "std", test))]
+#[macro_use]
+extern crate serde_derive;
+
 #[cfg(feature = "parity-codec-derive")]
 #[doc(hidden)]
 pub use parity_codec_derive::*;
