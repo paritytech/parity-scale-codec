@@ -144,7 +144,7 @@ impl<'a, T: Copy> From<&'a T> for Compact<T> {
 }
 
 /// Allow foreign structs to be wrap in Compact
-pub trait CompactAs {
+pub trait CompactAs: From<Compact<Self>> {
 	type As;
 	fn encode_as(&self) -> &Self::As;
 	fn decode_from(Self::As) -> Self;
