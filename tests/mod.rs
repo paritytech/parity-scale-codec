@@ -73,10 +73,21 @@ struct TestHasCompact<T: HasCompact> {
 }
 
 #[derive(Debug, PartialEq, Encode, Decode)]
+struct TestCompactHasCompact<T: HasCompact> {
+	#[codec(compact)]
+	bar: T,
+}
+
+#[derive(Debug, PartialEq, Encode, Decode)]
 enum TestHasCompactEnum<T: HasCompact> {
 	Unnamed(#[codec(encoded_as = "<T as HasCompact>::Type")] T),
 	Named {
 		#[codec(encoded_as = "<T as HasCompact>::Type")]
+		bar: T
+	},
+	UnnamedCompact(#[codec(compact)] T),
+	NamedCompact {
+		#[codec(compact)]
 		bar: T
 	},
 }
@@ -211,9 +222,24 @@ fn encoded_as_with_has_compact_works() {
 }
 
 #[test]
-fn enum_encoded_as_with_has_compact_works() {
+fn compact_with_has_compact_works() {
+	for &(n, l) in U64_TEST_COMPACT_VALUES {
+		let encoded = TestHasCompact { bar: n }.encode();
+		println!("{}", n);
+		assert_eq!(encoded.len(), l);
+		assert_eq!(<TestCompactHasCompact<u64>>::decode(&mut &encoded[..]).unwrap().bar, n);
+	}
+}
+
+#[test]
+fn enum_compact_and_encoded_as_with_has_compact_works() {
 	for &(n, l) in U64_TEST_COMPACT_VALUES_FOR_ENUM {
-		for value in [ TestHasCompactEnum::Unnamed(n), TestHasCompactEnum::Named { bar: n } ].iter() {
+		for value in [
+			TestHasCompactEnum::Unnamed(n),
+			TestHasCompactEnum::Named { bar: n },
+			TestHasCompactEnum::UnnamedCompact(n),
+			TestHasCompactEnum::NamedCompact { bar: n },
+		].iter() {
 			let encoded = value.encode();
 			println!("{:?}", value);
 			assert_eq!(encoded.len(), l);

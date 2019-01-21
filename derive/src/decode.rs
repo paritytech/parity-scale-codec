@@ -78,7 +78,7 @@ fn create_decode_expr(field: &Field, input: &TokenStream) -> TokenStream {
 	if compact {
 		let field_type = &field.ty;
 		quote_spanned! { field.span() =>
-			 <_parity_codec::Compact<#field_type> as _parity_codec::Decode>::decode(#input)?.into()
+			 <<#field_type as _parity_codec::HasCompact>::Type as _parity_codec::Decode>::decode(#input)?.into()
 		}
 	} else if let Some(encoded_as) = encoded_as {
 		quote_spanned! { field.span() =>

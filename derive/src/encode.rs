@@ -46,7 +46,12 @@ fn encode_fields<F>(
 		if compact {
 			let field_type = &f.ty;
 			quote_spanned! {
-				f.span() => { #dest.push(&_parity_codec::Compact::<#field_type>::from(#field)); }
+				f.span() => {
+					#dest.push(
+						&<<#field_type as _parity_codec::HasCompact>::Type as
+							_parity_codec::EncodeAsRef<#field_type>>::RefType::from(#field)
+					);
+				}
 			}
 		} else if let Some(encoded_as) = encoded_as {
 			let field_type = &f.ty;
