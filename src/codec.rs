@@ -242,7 +242,7 @@ impl<T> MaybeDebugSerde for T {}
 /// Trait that tells you if a given type can be encoded/decoded in a compact way.
 pub trait HasCompact: Sized {
 	/// The compact type; this can be
-	type Type: for<'a> EncodeAsRef<'a, Self> + Encode + Decode + From<Self> + Into<Self> + Clone +
+	type Type: for<'a> EncodeAsRef<'a, Self> + Decode + From<Self> + Into<Self> + Clone +
 		PartialEq + Eq + MaybeDebugSerde;
 }
 
@@ -257,7 +257,7 @@ impl<'a, T: 'a> EncodeAsRef<'a, T> for Compact<T> where CompactRef<'a, T>: Encod
 }
 
 impl<T: 'static> HasCompact for T where
-	Compact<T>: for<'a> EncodeAsRef<'a, T> + Encode + Decode + From<Self> + Into<Self> + Clone +
+	Compact<T>: for<'a> EncodeAsRef<'a, T> + Decode + From<Self> + Into<Self> + Clone +
 		PartialEq + Eq + MaybeDebugSerde,
 {
 	type Type = Compact<T>;
