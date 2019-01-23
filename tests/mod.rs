@@ -267,3 +267,27 @@ fn enum_compact_meta_attribute_works() {
 		}
 	}
 }
+
+#[test]
+fn associated_type_bounds() {
+	trait Trait {
+		type AssociatedType;
+	}
+
+	#[derive(Encode, Decode, Debug, PartialEq)]
+	struct Struct<T: Trait, Type> {
+		field: (Vec<T::AssociatedType>, Type),
+	}
+
+	#[derive(Debug, PartialEq)]
+	struct TraitImplementor;
+
+	impl Trait for TraitImplementor {
+		type AssociatedType = u32;
+	}
+
+	let value: Struct<TraitImplementor, u64> = Struct { field: (vec![1, 2, 3], 42) };
+	let encoded = value.encode();
+	let decoded: Struct<TraitImplementor, u64> = Struct::decode(&mut &encoded[..]).unwrap();
+	assert_eq!(value, decoded);
+}
