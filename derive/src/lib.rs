@@ -25,7 +25,7 @@ extern crate quote;
 
 use proc_macro::TokenStream;
 use proc_macro2::Span;
-use syn::{DeriveInput, Generics, GenericParam, Ident};
+use syn::{DeriveInput, Generics, Ident};
 
 mod decode;
 mod encode;
@@ -36,10 +36,9 @@ const ENCODE_ERR: &str = "derive(Encode) failed";
 #[proc_macro_derive(Encode, attributes(codec))]
 pub fn encode_derive(input: TokenStream) -> TokenStream {
 	let mut input: DeriveInput = syn::parse(input).expect(ENCODE_ERR);
-	patch_generics(&mut input.generics, &input.data, parse_quote!(_parity_codec::Encode));
-	let name = &input.ident;
+	add_trait_bounds(&mut input.generics, &input.data, parse_quote!(_parity_codec::Encode));
 
-	// let generics = add_trait_bounds(input.generics, parse_quote!(_parity_codec::Encode));
+	let name = &input.ident;
 	let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
 	let self_ = quote!(self);
@@ -75,10 +74,9 @@ pub fn encode_derive(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(Decode, attributes(codec))]
 pub fn decode_derive(input: TokenStream) -> TokenStream {
 	let mut input: DeriveInput = syn::parse(input).expect(ENCODE_ERR);
-	patch_generics(&mut input.generics, &input.data, parse_quote!(_parity_codec::Decode));
-	let name = &input.ident;
+	add_trait_bounds(&mut input.generics, &input.data, parse_quote!(_parity_codec::Decode));
 
-	// let generics = add_trait_bounds(input.generics, parse_quote!(_parity_codec::Decode));
+	let name = &input.ident;
 	let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
 	let input_ = quote!(input);
@@ -110,7 +108,7 @@ pub fn decode_derive(input: TokenStream) -> TokenStream {
 	generated.into()
 }
 
-fn patch_generics(generics: &mut Generics, data: &syn::Data, bound: syn::Path) {
+fn add_trait_bounds(generics: &mut Generics, data: &syn::Data, bound: syn::Path) {
 	let types = collect_types(&data);
 	if !generics.params.is_empty() && !types.is_empty() {
 
@@ -123,26 +121,11 @@ fn patch_generics(generics: &mut Generics, data: &syn::Data, bound: syn::Path) {
 		for ty in types {
 			where_clause.predicates.push(parse_quote!(#ty : #bound));
 		}
-		
-		println!("predicates {:#?}", where_clause.predicates);
 	}
 }
 
 fn collect_types(data: &syn::Data) -> Vec<syn::Type> {
 	use syn::*;
-	use syn::visit::Visit;
-
-	struct TypeVisitor;
-
-	impl<'ast> Visit<'ast> for TypeVisitor {
-		fn visit_type_path(&mut self, i: &'ast TypePath) {
-			// println!("visited type {:#?}", i);
-			self.visit_path(&i.path);
-		}
-	}
-
-	let mut visitor = TypeVisitor;
-	// visitor.visit_data(&data);
 
 	match *data {
 		Data::Struct(ref data) => match &data.fields {
@@ -168,13 +151,4 @@ fn collect_types(data: &syn::Data) -> Vec<syn::Type> {
 
 		Data::Union(_) => panic!("Union types are not supported."),
 	}
-}
-
-fn add_trait_bounds(mut generics: Generics, bounds: syn::TypeParamBound) -> Generics {
-	for param in &mut generics.params {
-		if let GenericParam::Type(ref mut type_param) = *param {
-			type_param.bounds.push(bounds.clone());
-		}
-	}
-	generics
 }
