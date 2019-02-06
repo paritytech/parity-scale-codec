@@ -109,6 +109,20 @@ impl<W: ::std::io::Write> Output for W {
 	}
 }
 
+struct ArrayVecWrapper<T: arrayvec::Array>(ArrayVec<T>);
+
+impl<T: arrayvec::Array<Item=u8>> Output for ArrayVecWrapper<T> {
+	fn write(&mut self, bytes: &[u8]) {
+		for byte in bytes {
+			self.push_byte(*byte);
+		}
+	}
+
+	fn push_byte(&mut self, byte: u8) {
+		self.0.push(byte);
+	}
+}
+
 /// Trait that allows zero-copy write of value-references to slices in LE format.
 /// Implementations should override `using_encoded` for value types and `encode_to` for allocating types.
 pub trait Encode {
@@ -279,11 +293,23 @@ impl<'a> Encode for CompactRef<'a, u8> {
 			_ => (((*self.0 as u16) << 2) | 0b01).encode_to(dest),
 		}
 	}
+
+	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
+		let mut r = ArrayVecWrapper(ArrayVec::<[u8; 2]>::new());
+		self.encode_to(&mut r);
+		f(&r.0)
+	}
 }
 
 impl Encode for Compact<u8> {
 	fn encode_to<W: Output>(&self, dest: &mut W) {
 		CompactRef(&self.0).encode_to(dest)
+	}
+
+	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
+		let mut r = ArrayVecWrapper(ArrayVec::<[u8; 2]>::new());
+		self.encode_to(&mut r);
+		f(&r.0)
 	}
 }
 
@@ -295,11 +321,23 @@ impl<'a> Encode for CompactRef<'a, u16> {
 			_ => (((*self.0 as u32) << 2) | 0b10).encode_to(dest),
 		}
 	}
+
+	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
+		let mut r = ArrayVecWrapper(ArrayVec::<[u8; 4]>::new());
+		self.encode_to(&mut r);
+		f(&r.0)
+	}
 }
 
 impl Encode for Compact<u16> {
 	fn encode_to<W: Output>(&self, dest: &mut W) {
 		CompactRef(&self.0).encode_to(dest)
+	}
+
+	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
+		let mut r = ArrayVecWrapper(ArrayVec::<[u8; 4]>::new());
+		self.encode_to(&mut r);
+		f(&r.0)
 	}
 }
 
@@ -315,11 +353,23 @@ impl<'a> Encode for CompactRef<'a, u32> {
 			}
 		}
 	}
+
+	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
+		let mut r = ArrayVecWrapper(ArrayVec::<[u8; 5]>::new());
+		self.encode_to(&mut r);
+		f(&r.0)
+	}
 }
 
 impl Encode for Compact<u32> {
 	fn encode_to<W: Output>(&self, dest: &mut W) {
 		CompactRef(&self.0).encode_to(dest)
+	}
+
+	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
+		let mut r = ArrayVecWrapper(ArrayVec::<[u8; 5]>::new());
+		self.encode_to(&mut r);
+		f(&r.0)
 	}
 }
 
@@ -342,11 +392,23 @@ impl<'a> Encode for CompactRef<'a, u64> {
 			}
 		}
 	}
+
+	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
+		let mut r = ArrayVecWrapper(ArrayVec::<[u8; 9]>::new());
+		self.encode_to(&mut r);
+		f(&r.0)
+	}
 }
 
 impl Encode for Compact<u64> {
 	fn encode_to<W: Output>(&self, dest: &mut W) {
 		CompactRef(&self.0).encode_to(dest)
+	}
+
+	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
+		let mut r = ArrayVecWrapper(ArrayVec::<[u8; 9]>::new());
+		self.encode_to(&mut r);
+		f(&r.0)
 	}
 }
 
@@ -369,11 +431,23 @@ impl<'a> Encode for CompactRef<'a, u128> {
 			}
 		}
 	}
+
+	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
+		let mut r = ArrayVecWrapper(ArrayVec::<[u8; 17]>::new());
+		self.encode_to(&mut r);
+		f(&r.0)
+	}
 }
 
 impl Encode for Compact<u128> {
 	fn encode_to<W: Output>(&self, dest: &mut W) {
 		CompactRef(&self.0).encode_to(dest)
+	}
+
+	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
+		let mut r = ArrayVecWrapper(ArrayVec::<[u8; 17]>::new());
+		self.encode_to(&mut r);
+		f(&r.0)
 	}
 }
 
@@ -1163,5 +1237,20 @@ mod tests {
 	#[test]
 	fn compact_as_has_compact() {
 		let _data = WithCompact { _data: Wrapper(1) };
+	}
+
+	#[test]
+	fn compact_using_encoded_arrayvec_size() {
+		Compact(std::u8::MAX).using_encoded(|_| {});
+		Compact(std::u16::MAX).using_encoded(|_| {});
+		Compact(std::u32::MAX).using_encoded(|_| {});
+		Compact(std::u64::MAX).using_encoded(|_| {});
+		Compact(std::u128::MAX).using_encoded(|_| {});
+
+		CompactRef(&std::u8::MAX).using_encoded(|_| {});
+		CompactRef(&std::u16::MAX).using_encoded(|_| {});
+		CompactRef(&std::u32::MAX).using_encoded(|_| {});
+		CompactRef(&std::u64::MAX).using_encoded(|_| {});
+		CompactRef(&std::u128::MAX).using_encoded(|_| {});
 	}
 }
