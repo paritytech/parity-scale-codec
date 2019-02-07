@@ -73,8 +73,14 @@ pub fn encode_derive(input: TokenStream) -> TokenStream {
 
 #[proc_macro_derive(Decode, attributes(codec))]
 pub fn decode_derive(input: TokenStream) -> TokenStream {
-	let mut input: DeriveInput = syn::parse(input).expect(ENCODE_ERR);
-	add_trait_bounds(&mut input.generics, &input.data, parse_quote!(_parity_codec::Decode));
+	let mut input: DeriveInput = match syn::parse(input) {
+		Ok(input) => input,
+		Err(e) => return e.to_compile_error().into(),
+	};
+
+	if let Err(e) = add_trait_bounds(&mut input.generics, &input.data, parse_quote!(_parity_codec::Decode)) {
+		return e.to_compile_error().into();
+	}
 
 	let name = &input.ident;
 	let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
@@ -108,26 +114,29 @@ pub fn decode_derive(input: TokenStream) -> TokenStream {
 	generated.into()
 }
 
-fn add_trait_bounds(generics: &mut Generics, data: &syn::Data, bound: syn::Path) {
-	let types = collect_types(&data);
-	if !generics.params.is_empty() && !types.is_empty() {
+fn add_trait_bounds(generics: &mut Generics, data: &syn::Data, bound: syn::Path) -> Result<(), syn::Error> {
+	if generics.params.is_empty() {
+		return Ok(());
+	}
 
-		if generics.where_clause.is_none() {
-			generics.where_clause = Some(parse_quote!(where));
-		}
-
-		let where_clause = &mut generics.where_clause.as_mut().unwrap();
+	let types = collect_types(&data)?;
+	if !types.is_empty() {
+		let where_clause = generics.make_where_clause();
 
 		for ty in types {
 			where_clause.predicates.push(parse_quote!(#ty : #bound));
 		}
 	}
+
+	Ok(())
 }
 
-fn collect_types(data: &syn::Data) -> Vec<syn::Type> {
+fn collect_types(data: &syn::Data) -> Result<Vec<syn::Type>, syn::Error> {
 	use syn::*;
 
-	match *data {
+	use syn::spanned::Spanned;
+
+	let types = match *data {
 		Data::Struct(ref data) => match &data.fields {
 			| Fields::Named(FieldsNamed { named: fields , .. })
 			| Fields::Unnamed(FieldsUnnamed { unnamed: fields, .. }) => {
@@ -146,9 +155,10 @@ fn collect_types(data: &syn::Data) -> Vec<syn::Type> {
 
 				Fields::Unit => { vec![] },
 			}
-		})
-		.collect(),
+		}).collect(),
 
-		Data::Union(_) => panic!("Union types are not supported."),
-	}
+		Data::Union(union) => return Err(Error::new(union.span(), "Union types are not supported.")),
+	};
+
+	Ok(types)
 }
