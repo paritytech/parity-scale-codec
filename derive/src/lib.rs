@@ -31,12 +31,16 @@ mod decode;
 mod encode;
 mod utils;
 
-const ENCODE_ERR: &str = "derive(Encode) failed";
-
 #[proc_macro_derive(Encode, attributes(codec))]
 pub fn encode_derive(input: TokenStream) -> TokenStream {
-	let mut input: DeriveInput = syn::parse(input).expect(ENCODE_ERR);
-	add_trait_bounds(&mut input.generics, &input.data, parse_quote!(_parity_codec::Encode));
+	let mut input: DeriveInput = match syn::parse(input) {
+		Ok(input) => input,
+		Err(e) => return e.to_compile_error().into(),
+	};
+
+	if let Err(e) = add_trait_bounds(&mut input.generics, &input.data, parse_quote!(_parity_codec::Encode)) {
+		return e.to_compile_error().into();
+	}
 
 	let name = &input.ident;
 	let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
@@ -134,8 +138,6 @@ fn add_trait_bounds(generics: &mut Generics, data: &syn::Data, bound: syn::Path)
 fn collect_types(data: &syn::Data) -> Result<Vec<syn::Type>, syn::Error> {
 	use syn::*;
 
-	use syn::spanned::Spanned;
-
 	let types = match *data {
 		Data::Struct(ref data) => match &data.fields {
 			| Fields::Named(FieldsNamed { named: fields , .. })
@@ -157,7 +159,7 @@ fn collect_types(data: &syn::Data) -> Result<Vec<syn::Type>, syn::Error> {
 			}
 		}).collect(),
 
-		Data::Union(union) => return Err(Error::new(union.span(), "Union types are not supported.")),
+		Data::Union(_) => return Err(Error::new(Span::call_site(), "Union types are not supported.")),
 	};
 
 	Ok(types)
