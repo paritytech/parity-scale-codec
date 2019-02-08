@@ -283,9 +283,11 @@ fn associated_type_bounds() {
 	#[derive(Debug, PartialEq)]
 	struct TraitImplementor;
 
+	struct NonEncodableType;
+
 	impl Trait for TraitImplementor {
 		type EncodableType = u32;
-		type NonEncodableType = std::marker::PhantomData<Self>;
+		type NonEncodableType = NonEncodableType;
 	}
 
 	let value: Struct<TraitImplementor, u64> = Struct { field: (vec![1, 2, 3], 42) };

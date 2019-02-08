@@ -20,6 +20,7 @@ use syn::{
 	punctuated::Punctuated,
 	spanned::Spanned,
 	token::Comma,
+	Error,
 };
 use utils;
 
@@ -38,7 +39,10 @@ fn encode_fields<F>(
 		let compact = utils::get_enable_compact(f);
 
 		if encoded_as.is_some() && compact {
-			panic!("`encoded_as` and `compact` can not be used at the same time!");
+			return Error::new(
+				Span::call_site(),
+				"`encoded_as` and `compact` can not be used at the same time!"
+			).to_compile_error();
 		}
 
 		// Based on the seen attribute, we generate the code that encodes the field.
@@ -99,7 +103,12 @@ pub fn quote(data: &Data, type_name: &Ident, self_: &TokenStream, dest: &TokenSt
 			}
 		},
 		Data::Enum(ref data) => {
-			assert!(data.variants.len() < 256, "Currently only enums with at most 256 variants are encodable.");
+			if data.variants.len() > 256 {
+				return Error::new(
+					Span::call_site(),
+					"Currently only enums with at most 256 variants are encodable."
+				).to_compile_error();
+			}
 
 			let recurse = data.variants.iter().enumerate().map(|(i, f)| {
 				let name = &f.ident;
@@ -167,7 +176,7 @@ pub fn quote(data: &Data, type_name: &Ident, self_: &TokenStream, dest: &TokenSt
 				}
 			}
 		},
-		Data::Union(_) => panic!("Union types are not supported."),
+		Data::Union(_) => Error::new(Span::call_site(), "Union types are not supported.").to_compile_error(),
 	}
 }
 pub fn stringify(id: u8) -> [u8; 2] {
