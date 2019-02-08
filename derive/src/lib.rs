@@ -127,9 +127,7 @@ fn add_trait_bounds(generics: &mut Generics, data: &syn::Data, bound: syn::Path)
 	if !types.is_empty() {
 		let where_clause = generics.make_where_clause();
 
-		for ty in types {
-			where_clause.predicates.push(parse_quote!(#ty : #bound));
-		}
+		types.into_inter().for_each(|ty| where_clause.predicates.push(parse_quote!(#ty : #bound)));
 	}
 
 	Ok(())
@@ -145,7 +143,7 @@ fn collect_types(data: &syn::Data) -> Result<Vec<syn::Type>, syn::Error> {
 				fields.iter().map(|f| f.ty.clone()).collect()
 			},
 
-			Fields::Unit => { vec![] },
+			Fields::Unit => { Vec::new() },
 		},
 
 		Data::Enum(ref data) => data.variants.iter().flat_map(|variant| {
@@ -155,7 +153,7 @@ fn collect_types(data: &syn::Data) -> Result<Vec<syn::Type>, syn::Error> {
 					fields.iter().map(|f| f.ty.clone()).collect()
 				},
 
-				Fields::Unit => { vec![] },
+				Fields::Unit => { Vec::new() },
 			}
 		}).collect(),
 
