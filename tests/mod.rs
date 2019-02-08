@@ -271,19 +271,21 @@ fn enum_compact_meta_attribute_works() {
 #[test]
 fn associated_type_bounds() {
 	trait Trait {
-		type AssociatedType;
+		type EncodableType;
+		type NonEncodableType;
 	}
 
 	#[derive(Encode, Decode, Debug, PartialEq)]
 	struct Struct<T: Trait, Type> {
-		field: (Vec<T::AssociatedType>, Type),
+		field: (Vec<T::EncodableType>, Type),
 	}
 
 	#[derive(Debug, PartialEq)]
 	struct TraitImplementor;
 
 	impl Trait for TraitImplementor {
-		type AssociatedType = u32;
+		type EncodableType = u32;
+		type NonEncodableType = std::marker::PhantomData<Self>;
 	}
 
 	let value: Struct<TraitImplementor, u64> = Struct { field: (vec![1, 2, 3], 42) };
