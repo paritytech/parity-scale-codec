@@ -127,7 +127,7 @@ fn add_trait_bounds(generics: &mut Generics, data: &syn::Data, bound: syn::Path)
 	if !types.is_empty() {
 		let where_clause = generics.make_where_clause();
 
-		types.into_inter().for_each(|ty| where_clause.predicates.push(parse_quote!(#ty : #bound)));
+		types.into_iter().for_each(|ty| where_clause.predicates.push(parse_quote!(#ty : #bound)));
 	}
 
 	Ok(())
