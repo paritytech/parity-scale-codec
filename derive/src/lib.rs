@@ -118,29 +118,50 @@ pub fn decode_derive(input: TokenStream) -> TokenStream {
 	generated.into()
 }
 
-fn add_trait_bounds(generics: &mut Generics, data: &syn::Data, bound: syn::Path) -> Result<(), syn::Error> {
+fn add_trait_bounds(generics: &mut Generics, data: &syn::Data, codec_bound: syn::Path) -> syn::Result<()> {
 	if generics.params.is_empty() {
 		return Ok(());
 	}
 
-	let types = collect_types(&data)?;
-	if !types.is_empty() {
+	let codec_types = collect_types(&data, needs_codec_bound)?;
+	let compact_types = collect_types(&data, needs_has_compact_bound)?;
+
+	if !codec_types.is_empty() || !compact_types.is_empty() {
 		let where_clause = generics.make_where_clause();
 
-		types.into_iter().for_each(|ty| where_clause.predicates.push(parse_quote!(#ty : #bound)));
+		codec_types.into_iter().for_each(|ty| {
+			where_clause.predicates.push(parse_quote!(#ty : #codec_bound))
+		});
+
+		let has_compact_bound: syn::Path = parse_quote!(_parity_codec::HasCompact);
+		compact_types.into_iter().for_each(|ty| {
+			where_clause.predicates.push(parse_quote!(#ty : #has_compact_bound))
+		});
 	}
 
 	Ok(())
 }
 
-fn collect_types(data: &syn::Data) -> Result<Vec<syn::Type>, syn::Error> {
+fn needs_codec_bound(field: &syn::Field) -> bool {
+	!utils::get_enable_compact(field)
+		&& utils::get_encoded_as_type(field).is_none()
+}
+
+fn needs_has_compact_bound(field: &syn::Field) -> bool {
+	utils::get_enable_compact(field)
+}
+
+fn collect_types(data: &syn::Data, type_filter: fn(&syn::Field) -> bool) -> syn::Result<Vec<syn::Type>> {
 	use syn::*;
 
 	let types = match *data {
 		Data::Struct(ref data) => match &data.fields {
 			| Fields::Named(FieldsNamed { named: fields , .. })
 			| Fields::Unnamed(FieldsUnnamed { unnamed: fields, .. }) => {
-				fields.iter().map(|f| f.ty.clone()).collect()
+				fields.iter()
+					.filter(|f| type_filter(f))
+					.map(|f| f.ty.clone())
+					.collect()
 			},
 
 			Fields::Unit => { Vec::new() },
@@ -150,7 +171,10 @@ fn collect_types(data: &syn::Data) -> Result<Vec<syn::Type>, syn::Error> {
 			match &variant.fields {
 				| Fields::Named(FieldsNamed { named: fields , .. })
 				| Fields::Unnamed(FieldsUnnamed { unnamed: fields, .. }) => {
-					fields.iter().map(|f| f.ty.clone()).collect()
+					fields.iter()
+						.filter(|f| type_filter(f))
+						.map(|f| f.ty.clone())
+						.collect()
 				},
 
 				Fields::Unit => { Vec::new() },

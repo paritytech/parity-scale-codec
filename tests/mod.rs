@@ -12,12 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#[macro_use]
+extern crate serde_derive;
+
 extern crate parity_codec;
 
 #[macro_use]
 extern crate parity_codec_derive;
 
-use parity_codec::{Encode, Decode, HasCompact};
+use parity_codec::{Encode, Decode, HasCompact, Compact, EncodeAsRef, CompactAs};
 
 #[derive(Debug, PartialEq, Encode, Decode)]
 struct Unit;
@@ -294,4 +297,104 @@ fn associated_type_bounds() {
 	let encoded = value.encode();
 	let decoded: Struct<TraitImplementor, u64> = Struct::decode(&mut &encoded[..]).unwrap();
 	assert_eq!(value, decoded);
+}
+
+#[test]
+fn generic_bound_encoded_as() {
+	// This struct does not impl Codec nor HasCompact
+	struct StructEncodeAsRef;
+
+	impl From<u32> for StructEncodeAsRef {
+		fn from(_: u32) -> Self {
+			StructEncodeAsRef
+		}
+	}
+
+	impl<'a> From<&'a StructEncodeAsRef> for &'a u32 {
+		fn from(_: &'a StructEncodeAsRef) -> Self {
+			&0
+		}
+	}
+
+	impl<'a> EncodeAsRef<'a, StructEncodeAsRef> for u32 {
+		type RefType = &'a u32;
+	}
+
+	#[derive(Debug, PartialEq, Encode, Decode)]
+	struct TestGeneric<A: From<u32>>
+	where
+		u32: for<'a> EncodeAsRef<'a, A>,
+	{
+		#[codec(encoded_as = "u32")]
+		a: A,
+	}
+
+	let a = TestGeneric::<StructEncodeAsRef> {
+		a: StructEncodeAsRef,
+	};
+	a.encode();
+}
+
+#[test]
+fn generic_bound_hascompact() {
+	#[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
+	#[derive(PartialEq, Eq, Clone)]
+	// This struct does not impl Codec
+	struct StructHasCompact(u8);
+
+	impl CompactAs for StructHasCompact {
+		type As = u32;
+		fn encode_as(&self) -> &Self::As {
+			&0
+		}
+		fn decode_from(_: Self::As) -> Self {
+			StructHasCompact(0)
+		}
+	}
+
+	impl From<Compact<StructHasCompact>> for StructHasCompact {
+		fn from(_: Compact<StructHasCompact>) -> Self {
+			StructHasCompact(0)
+		}
+	}
+
+	#[derive(Debug, PartialEq, Encode, Decode)]
+	enum TestGenericHasCompact<T> {
+		A {
+			#[codec(compact)] a: T
+		},
+	}
+
+	let a = TestGenericHasCompact::A::<StructHasCompact> {
+		a: StructHasCompact(0),
+	};
+
+	a.encode();
+}
+
+#[test]
+fn generic_trait() {
+	trait TraitNoCodec {
+		type Type;
+	}
+
+	struct StructNoCodec;
+
+	#[derive(Debug, PartialEq, Encode, Decode)]
+	struct StructCodec;
+
+	impl TraitNoCodec for StructNoCodec {
+		type Type = StructCodec;
+	}
+
+	#[derive(Debug, PartialEq, Encode, Decode)]
+	struct TestGenericTrait<T: TraitNoCodec> {
+		t: T::Type,
+	}
+
+	let a = TestGenericTrait::<StructNoCodec> {
+		t: StructCodec,
+	};
+
+	a.encode();
 }
