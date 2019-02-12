@@ -14,11 +14,11 @@
 
 //! Serialisation.
 
-use alloc::vec::Vec;
-use alloc::boxed::Box;
+use crate::alloc::vec::Vec;
+use crate::alloc::boxed::Box;
 
 #[cfg(any(feature = "std", feature = "full"))]
-use alloc::{
+use crate::alloc::{
 	string::String,
 	borrow::{Cow, ToOwned},
 };
@@ -54,9 +54,9 @@ impl<'a> Input for &'a [u8] {
 }
 
 #[cfg(feature = "std")]
-impl<R: ::std::io::Read> Input for R {
+impl<R: std::io::Read> Input for R {
 	fn read(&mut self, into: &mut [u8]) -> usize {
-		match (self as &mut ::std::io::Read).read_exact(into) {
+		match (self as &mut dyn std::io::Read).read_exact(into) {
 			Ok(()) => into.len(),
 			Err(_) => 0,
 		}
@@ -64,7 +64,7 @@ impl<R: ::std::io::Read> Input for R {
 }
 
 /// Prefix another input with a byte.
-struct PrefixInput<'a, T: 'a> {
+struct PrefixInput<'a, T> {
 	prefix: Option<u8>,
 	input: &'a mut T,
 }
@@ -103,9 +103,9 @@ impl Output for Vec<u8> {
 }
 
 #[cfg(feature = "std")]
-impl<W: ::std::io::Write> Output for W {
+impl<W: std::io::Write> Output for W {
 	fn write(&mut self, bytes: &[u8]) {
-		(self as &mut ::std::io::Write).write_all(bytes).expect("Codec outputs are infallible");
+		(self as &mut dyn std::io::Write).write_all(bytes).expect("Codec outputs are infallible");
 	}
 }
 
@@ -169,7 +169,7 @@ impl<'a, T: Copy> From<&'a T> for Compact<T> {
 pub trait CompactAs: From<Compact<Self>> {
 	type As;
 	fn encode_as(&self) -> &Self::As;
-	fn decode_from(Self::As) -> Self;
+	fn decode_from(_: Self::As) -> Self;
 }
 
 impl<T> Encode for Compact<T>
@@ -217,36 +217,36 @@ impl_from_compact! { u8, u16, u32, u64, u128 }
 
 /// Compact-encoded variant of &'a T. This is more space-efficient but less compute-efficient.
 #[derive(Eq, PartialEq, Clone, Copy)]
-pub struct CompactRef<'a, T: 'a>(pub &'a T);
+pub struct CompactRef<'a, T>(pub &'a T);
 
 impl<'a, T> From<&'a T> for CompactRef<'a, T> {
 	fn from(x: &'a T) -> Self { CompactRef(x) }
 }
 
 impl<T> ::core::fmt::Debug for Compact<T> where T: ::core::fmt::Debug {
-	fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+	fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
 		self.0.fmt(f)
 	}
 }
 
 #[cfg(feature = "std")]
-impl<T> ::serde::Serialize for Compact<T> where T: ::serde::Serialize {
-	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: ::serde::Serializer {
+impl<T> serde::Serialize for Compact<T> where T: serde::Serialize {
+	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: serde::Serializer {
 		T::serialize(&self.0, serializer)
 	}
 }
 
 #[cfg(feature = "std")]
-impl<'de, T> ::serde::Deserialize<'de> for Compact<T> where T: ::serde::Deserialize<'de> {
-	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: ::serde::Deserializer<'de> {
+impl<'de, T> serde::Deserialize<'de> for Compact<T> where T: serde::Deserialize<'de> {
+	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: serde::Deserializer<'de> {
 		T::deserialize(deserializer).map(Compact)
 	}
 }
 
 #[cfg(feature = "std")]
-pub trait MaybeDebugSerde: ::core::fmt::Debug + ::serde::Serialize + for<'a> ::serde::Deserialize<'a> {}
+pub trait MaybeDebugSerde: core::fmt::Debug + serde::Serialize + for<'a> serde::Deserialize<'a> {}
 #[cfg(feature = "std")]
-impl<T> MaybeDebugSerde for T where T: ::core::fmt::Debug + ::serde::Serialize + for<'a> ::serde::Deserialize<'a> {}
+impl<T> MaybeDebugSerde for T where T: core::fmt::Debug + serde::Serialize + for<'a> serde::Deserialize<'a> {}
 
 #[cfg(not(feature = "std"))]
 pub trait MaybeDebugSerde {}
@@ -279,17 +279,17 @@ impl<T: 'static> HasCompact for T where
 
 // compact encoding:
 // 0b00 00 00 00 / 00 00 00 00 / 00 00 00 00 / 00 00 00 00
-//   xx xx xx 00															(0 ... 2**6 - 1)		(u8)
-//   yL yL yL 01 / yH yH yH yL												(2**6 ... 2**14 - 1)	(u8, u16)  low LH high
-//   zL zL zL 10 / zM zM zM zL / zM zM zM zM / zH zH zH zM					(2**14 ... 2**30 - 1)	(u16, u32)  low LMMH high
-//   nn nn nn 11 [ / zz zz zz zz ]{4 + n}									(2**30 ... 2**536 - 1)	(u32, u64, u128, U256, U512, U520) straight LE-encoded
+//   xx xx xx 00															(0 .. 2**6)		(u8)
+//   yL yL yL 01 / yH yH yH yL												(2**6 .. 2**14)	(u8, u16)  low LH high
+//   zL zL zL 10 / zM zM zM zL / zM zM zM zM / zH zH zH zM					(2**14 .. 2**30)	(u16, u32)  low LMMH high
+//   nn nn nn 11 [ / zz zz zz zz ]{4 + n}									(2**30 .. 2**536)	(u32, u64, u128, U256, U512, U520) straight LE-encoded
 
 // Note: we use *LOW BITS* of the LSB in LE encoding to encode the 2 bit key.
 
 impl<'a> Encode for CompactRef<'a, u8> {
 	fn encode_to<W: Output>(&self, dest: &mut W) {
 		match self.0 {
-			0...0b00111111 => dest.push_byte(self.0 << 2),
+			0..=0b00111111 => dest.push_byte(self.0 << 2),
 			_ => (((*self.0 as u16) << 2) | 0b01).encode_to(dest),
 		}
 	}
@@ -316,8 +316,8 @@ impl Encode for Compact<u8> {
 impl<'a> Encode for CompactRef<'a, u16> {
 	fn encode_to<W: Output>(&self, dest: &mut W) {
 		match self.0 {
-			0...0b00111111 => dest.push_byte((*self.0 as u8) << 2),
-			0...0b00111111_11111111 => ((*self.0 << 2) | 0b01).encode_to(dest),
+			0..=0b00111111 => dest.push_byte((*self.0 as u8) << 2),
+			0..=0b00111111_11111111 => ((*self.0 << 2) | 0b01).encode_to(dest),
 			_ => (((*self.0 as u32) << 2) | 0b10).encode_to(dest),
 		}
 	}
@@ -344,9 +344,9 @@ impl Encode for Compact<u16> {
 impl<'a> Encode for CompactRef<'a, u32> {
 	fn encode_to<W: Output>(&self, dest: &mut W) {
 		match self.0 {
-			0...0b00111111 => dest.push_byte((*self.0 as u8) << 2),
-			0...0b00111111_11111111 => (((*self.0 as u16) << 2) | 0b01).encode_to(dest),
-			0...0b00111111_11111111_11111111_11111111 => ((*self.0 << 2) | 0b10).encode_to(dest),
+			0..=0b00111111 => dest.push_byte((*self.0 as u8) << 2),
+			0..=0b00111111_11111111 => (((*self.0 as u16) << 2) | 0b01).encode_to(dest),
+			0..=0b00111111_11111111_11111111_11111111 => ((*self.0 << 2) | 0b10).encode_to(dest),
 			_ => {
 				dest.push_byte(0b11);
 				self.0.encode_to(dest);
@@ -376,9 +376,9 @@ impl Encode for Compact<u32> {
 impl<'a> Encode for CompactRef<'a, u64> {
 	fn encode_to<W: Output>(&self, dest: &mut W) {
 		match self.0 {
-			0...0b00111111 => dest.push_byte((*self.0 as u8) << 2),
-			0...0b00111111_11111111 => (((*self.0 as u16) << 2) | 0b01).encode_to(dest),
-			0...0b00111111_11111111_11111111_11111111 => (((*self.0 as u32) << 2) | 0b10).encode_to(dest),
+			0..=0b00111111 => dest.push_byte((*self.0 as u8) << 2),
+			0..=0b00111111_11111111 => (((*self.0 as u16) << 2) | 0b01).encode_to(dest),
+			0..=0b00111111_11111111_11111111_11111111 => (((*self.0 as u32) << 2) | 0b10).encode_to(dest),
 			_ => {
 				let bytes_needed = 8 - self.0.leading_zeros() / 8;
 				assert!(bytes_needed >= 4, "Previous match arm matches anyting less than 2^30; qed");
@@ -415,9 +415,9 @@ impl Encode for Compact<u64> {
 impl<'a> Encode for CompactRef<'a, u128> {
 	fn encode_to<W: Output>(&self, dest: &mut W) {
 		match self.0 {
-			0...0b00111111 => dest.push_byte((*self.0 as u8) << 2),
-			0...0b00111111_11111111 => (((*self.0 as u16) << 2) | 0b01).encode_to(dest),
-			0...0b00111111_11111111_11111111_11111111 => (((*self.0 as u32) << 2) | 0b10).encode_to(dest),
+			0..=0b00111111 => dest.push_byte((*self.0 as u8) << 2),
+			0..=0b00111111_11111111 => (((*self.0 as u16) << 2) | 0b01).encode_to(dest),
+			0..=0b00111111_11111111_11111111_11111111 => (((*self.0 as u32) << 2) | 0b10).encode_to(dest),
 			_ => {
 				let bytes_needed = 16 - self.0.leading_zeros() / 8;
 				assert!(bytes_needed >= 4, "Previous match arm matches anyting less than 2^30; qed");
@@ -586,8 +586,8 @@ impl<T: Decode, E: Decode> Decode for Result<T, E> {
 #[derive(Eq, PartialEq, Clone, Copy)]
 pub struct OptionBool(pub Option<bool>);
 
-impl ::core::fmt::Debug for OptionBool {
-	fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+impl core::fmt::Debug for OptionBool {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 		self.0.fmt(f)
 	}
 }
@@ -1013,7 +1013,7 @@ mod tests {
 		let y = Cow::Borrowed(&x);
 		assert_eq!(x.encode(), y.encode());
 
-		let z: Cow<[u32]> = Cow::decode(&mut &x.encode()[..]).unwrap();
+		let z: Cow<'_, [u32]> = Cow::decode(&mut &x.encode()[..]).unwrap();
 		assert_eq!(*z, *x);
 	}
 
@@ -1023,7 +1023,7 @@ mod tests {
 		let y = Cow::Borrowed(&x);
 		assert_eq!(x.encode(), y.encode());
 
-		let z: Cow<str> = Cow::decode(&mut &x.encode()[..]).unwrap();
+		let z: Cow<'_, str> = Cow::decode(&mut &x.encode()[..]).unwrap();
 		assert_eq!(*z, *x);
 	}
 

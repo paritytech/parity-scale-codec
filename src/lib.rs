@@ -23,14 +23,6 @@
 #[macro_use]
 extern crate alloc;
 
-#[cfg(feature = "std")]
-extern crate core;
-
-#[cfg(feature = "std")]
-extern crate serde;
-
-extern crate arrayvec;
-
 #[cfg(feature = "parity-codec-derive")]
 #[allow(unused_imports)]
 #[macro_use]
@@ -46,14 +38,14 @@ pub use parity_codec_derive::*;
 
 #[cfg(feature = "std")]
 pub mod alloc {
-	pub use ::std::boxed;
-	pub use ::std::vec;
-	pub use ::std::string;
-	pub use ::std::borrow;
+	pub use std::boxed;
+	pub use std::vec;
+	pub use std::string;
+	pub use std::borrow;
 
 	#[cfg(feature = "full")]
 	mod full {
-		pub use ::std::borrow;
+		pub use std::borrow;
 	}
 	#[cfg(feature = "full")]
 	pub use self::full::*;

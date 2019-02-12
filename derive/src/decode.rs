@@ -14,7 +14,7 @@
 
 use proc_macro2::{Span, TokenStream, Ident};
 use syn::{Data, Fields, Field, spanned::Spanned, Error};
-use utils;
+use crate::utils;
 
 pub fn quote(data: &Data, type_name: &Ident, input: &TokenStream) -> TokenStream {
 	let call_site = Span::call_site();

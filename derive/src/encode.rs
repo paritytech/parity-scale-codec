@@ -22,7 +22,7 @@ use syn::{
 	token::Comma,
 	Error,
 };
-use utils;
+use crate::utils;
 
 type FieldsList = Punctuated<Field, Comma>;
 
@@ -53,7 +53,7 @@ fn encode_fields<F>(
 				f.span() => {
 					#dest.push(
 						&<<#field_type as _parity_codec::HasCompact>::Type as
-							_parity_codec::EncodeAsRef<#field_type>>::RefType::from(#field)
+							_parity_codec::EncodeAsRef<'_, #field_type>>::RefType::from(#field)
 					);
 				}
 			}
@@ -63,7 +63,7 @@ fn encode_fields<F>(
 				f.span() => {
 					#dest.push(
 						&<#encoded_as as
-							_parity_codec::EncodeAsRef<#field_type>>::RefType::from(#field)
+							_parity_codec::EncodeAsRef<'_, #field_type>>::RefType::from(#field)
 					);
 				}
 			}
