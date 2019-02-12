@@ -22,7 +22,7 @@ use syn::{
 	token::Comma,
 	Error,
 };
-use utils;
+use crate::utils;
 
 type FieldsList = Punctuated<Field, Comma>;
 

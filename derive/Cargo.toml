@@ -4,6 +4,7 @@ description = "Serialization and deserialization derive macro for Parity Codec"
 version = "3.0.0"
 authors = ["Parity Technologies <admin@parity.io>"]
 license = "Apache-2.0"
+edition = "2018"
 
 [lib]
 proc-macro = true
