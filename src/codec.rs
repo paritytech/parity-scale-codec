@@ -279,10 +279,10 @@ impl<T: 'static> HasCompact for T where
 
 // compact encoding:
 // 0b00 00 00 00 / 00 00 00 00 / 00 00 00 00 / 00 00 00 00
-//   xx xx xx 00															(0 ... 2**6)		(u8)
-//   yL yL yL 01 / yH yH yH yL												(2**6 ... 2**14)	(u8, u16)  low LH high
-//   zL zL zL 10 / zM zM zM zL / zM zM zM zM / zH zH zH zM					(2**14 ... 2**30)	(u16, u32)  low LMMH high
-//   nn nn nn 11 [ / zz zz zz zz ]{4 + n}									(2**30 ... 2**536)	(u32, u64, u128, U256, U512, U520) straight LE-encoded
+//   xx xx xx 00															(0 .. 2**6)		(u8)
+//   yL yL yL 01 / yH yH yH yL												(2**6 .. 2**14)	(u8, u16)  low LH high
+//   zL zL zL 10 / zM zM zM zL / zM zM zM zM / zH zH zH zM					(2**14 .. 2**30)	(u16, u32)  low LMMH high
+//   nn nn nn 11 [ / zz zz zz zz ]{4 + n}									(2**30 .. 2**536)	(u32, u64, u128, U256, U512, U520) straight LE-encoded
 
 // Note: we use *LOW BITS* of the LSB in LE encoding to encode the 2 bit key.
 
