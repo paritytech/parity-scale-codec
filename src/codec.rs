@@ -54,9 +54,9 @@ impl<'a> Input for &'a [u8] {
 }
 
 #[cfg(feature = "std")]
-impl<R: ::std::io::Read> Input for R {
+impl<R: std::io::Read> Input for R {
 	fn read(&mut self, into: &mut [u8]) -> usize {
-		match (self as &mut dyn (::std::io::Read)).read_exact(into) {
+		match (self as &mut dyn std::io::Read).read_exact(into) {
 			Ok(()) => into.len(),
 			Err(_) => 0,
 		}
@@ -103,9 +103,9 @@ impl Output for Vec<u8> {
 }
 
 #[cfg(feature = "std")]
-impl<W: ::std::io::Write> Output for W {
+impl<W: std::io::Write> Output for W {
 	fn write(&mut self, bytes: &[u8]) {
-		(self as &mut dyn (::std::io::Write)).write_all(bytes).expect("Codec outputs are infallible");
+		(self as &mut dyn std::io::Write).write_all(bytes).expect("Codec outputs are infallible");
 	}
 }
 
@@ -230,23 +230,23 @@ impl<T> ::core::fmt::Debug for Compact<T> where T: ::core::fmt::Debug {
 }
 
 #[cfg(feature = "std")]
-impl<T> ::serde::Serialize for Compact<T> where T: ::serde::Serialize {
-	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: ::serde::Serializer {
+impl<T> serde::Serialize for Compact<T> where T: serde::Serialize {
+	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: serde::Serializer {
 		T::serialize(&self.0, serializer)
 	}
 }
 
 #[cfg(feature = "std")]
-impl<'de, T> ::serde::Deserialize<'de> for Compact<T> where T: ::serde::Deserialize<'de> {
-	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: ::serde::Deserializer<'de> {
+impl<'de, T> serde::Deserialize<'de> for Compact<T> where T: serde::Deserialize<'de> {
+	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: serde::Deserializer<'de> {
 		T::deserialize(deserializer).map(Compact)
 	}
 }
 
 #[cfg(feature = "std")]
-pub trait MaybeDebugSerde: ::core::fmt::Debug + ::serde::Serialize + for<'a> ::serde::Deserialize<'a> {}
+pub trait MaybeDebugSerde: core::fmt::Debug + serde::Serialize + for<'a> serde::Deserialize<'a> {}
 #[cfg(feature = "std")]
-impl<T> MaybeDebugSerde for T where T: ::core::fmt::Debug + ::serde::Serialize + for<'a> ::serde::Deserialize<'a> {}
+impl<T> MaybeDebugSerde for T where T: core::fmt::Debug + serde::Serialize + for<'a> serde::Deserialize<'a> {}
 
 #[cfg(not(feature = "std"))]
 pub trait MaybeDebugSerde {}
@@ -279,10 +279,10 @@ impl<T: 'static> HasCompact for T where
 
 // compact encoding:
 // 0b00 00 00 00 / 00 00 00 00 / 00 00 00 00 / 00 00 00 00
-//   xx xx xx 00															(0 ... 2**6 - 1)		(u8)
-//   yL yL yL 01 / yH yH yH yL												(2**6 ... 2**14 - 1)	(u8, u16)  low LH high
-//   zL zL zL 10 / zM zM zM zL / zM zM zM zM / zH zH zH zM					(2**14 ... 2**30 - 1)	(u16, u32)  low LMMH high
-//   nn nn nn 11 [ / zz zz zz zz ]{4 + n}									(2**30 ... 2**536 - 1)	(u32, u64, u128, U256, U512, U520) straight LE-encoded
+//   xx xx xx 00															(0 ... 2**6)		(u8)
+//   yL yL yL 01 / yH yH yH yL												(2**6 ... 2**14)	(u8, u16)  low LH high
+//   zL zL zL 10 / zM zM zM zL / zM zM zM zM / zH zH zH zM					(2**14 ... 2**30)	(u16, u32)  low LMMH high
+//   nn nn nn 11 [ / zz zz zz zz ]{4 + n}									(2**30 ... 2**536)	(u32, u64, u128, U256, U512, U520) straight LE-encoded
 
 // Note: we use *LOW BITS* of the LSB in LE encoding to encode the 2 bit key.
 
@@ -586,8 +586,8 @@ impl<T: Decode, E: Decode> Decode for Result<T, E> {
 #[derive(Eq, PartialEq, Clone, Copy)]
 pub struct OptionBool(pub Option<bool>);
 
-impl ::core::fmt::Debug for OptionBool {
-	fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+impl core::fmt::Debug for OptionBool {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 		self.0.fmt(f)
 	}
 }
