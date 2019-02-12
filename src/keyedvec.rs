@@ -14,9 +14,9 @@
 
 //! Serialiser and prepender.
 
-use Codec;
+use crate::Codec;
 use core::iter::Extend;
-use alloc::vec::Vec;
+use crate::alloc::vec::Vec;
 
 /// Trait to allow itself to be serialised and prepended by a given slice.
 pub trait KeyedVec {

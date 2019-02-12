@@ -23,13 +23,11 @@
 #[macro_use]
 extern crate alloc;
 
-#[cfg(feature = "std")]
-extern crate core;
 
-#[cfg(feature = "std")]
-extern crate serde;
 
-extern crate arrayvec;
+
+
+
 
 #[cfg(feature = "parity-codec-derive")]
 #[allow(unused_imports)]

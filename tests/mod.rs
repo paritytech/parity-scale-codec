@@ -15,7 +15,7 @@
 #[macro_use]
 extern crate serde_derive;
 
-extern crate parity_codec;
+
 
 #[macro_use]
 extern crate parity_codec_derive;
