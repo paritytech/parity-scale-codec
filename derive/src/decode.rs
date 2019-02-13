@@ -13,8 +13,8 @@
 // limitations under the License.
 
 use proc_macro2::{Span, TokenStream, Ident};
-use syn::{Data, Fields, Field, spanned::Spanned};
-use utils;
+use syn::{Data, Fields, Field, spanned::Spanned, Error};
+use crate::utils;
 
 pub fn quote(data: &Data, type_name: &Ident, input: &TokenStream) -> TokenStream {
 	let call_site = Span::call_site();
@@ -34,7 +34,12 @@ pub fn quote(data: &Data, type_name: &Ident, input: &TokenStream) -> TokenStream
 			},
 		},
 		Data::Enum(ref data) => {
-			assert!(data.variants.len() < 256, "Currently only enums with at most 256 variants are encodable.");
+			if data.variants.len() > 256 {
+				return Error::new(
+					Span::call_site(),
+					"Currently only enums with at most 256 variants are encodable."
+				).to_compile_error();
+			}
 
 			let recurse = data.variants.iter().enumerate().map(|(i, v)| {
 				let name = &v.ident;
@@ -63,7 +68,7 @@ pub fn quote(data: &Data, type_name: &Ident, input: &TokenStream) -> TokenStream
 			}
 
 		},
-		Data::Union(_) => panic!("Union types are not supported."),
+		Data::Union(_) => Error::new(Span::call_site(), "Union types are not supported.").to_compile_error(),
 	}
 }
 
@@ -72,13 +77,16 @@ fn create_decode_expr(field: &Field, input: &TokenStream) -> TokenStream {
 	let compact = utils::get_enable_compact(field);
 
 	if encoded_as.is_some() && compact {
-		panic!("`encoded_as` and `compact` can not be used at the same time!");
+		return Error::new(
+			Span::call_site(),
+			"`encoded_as` and `compact` can not be used at the same time!"
+		).to_compile_error();
 	}
 
 	if compact {
 		let field_type = &field.ty;
 		quote_spanned! { field.span() =>
-			 <_parity_codec::Compact<#field_type> as _parity_codec::Decode>::decode(#input)?.into()
+			 <<#field_type as _parity_codec::HasCompact>::Type as _parity_codec::Decode>::decode(#input)?.into()
 		}
 	} else if let Some(encoded_as) = encoded_as {
 		quote_spanned! { field.span() =>

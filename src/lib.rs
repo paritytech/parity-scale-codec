@@ -23,25 +23,39 @@
 #[macro_use]
 extern crate alloc;
 
-#[cfg(feature = "std")]
-extern crate core;
+#[cfg(feature = "parity-codec-derive")]
+#[allow(unused_imports)]
+#[macro_use]
+extern crate parity_codec_derive;
 
-#[cfg(feature = "std")]
-extern crate serde;
+#[cfg(all(feature = "std", test))]
+#[macro_use]
+extern crate serde_derive;
 
-extern crate arrayvec;
+#[cfg(feature = "parity-codec-derive")]
+#[doc(hidden)]
+pub use parity_codec_derive::*;
 
 #[cfg(feature = "std")]
 pub mod alloc {
 	pub use std::boxed;
 	pub use std::vec;
+	pub use std::string;
+	pub use std::borrow;
 	pub use std::collections;
+
+	#[cfg(feature = "full")]
+	mod full {
+		pub use std::borrow;
+	}
+	#[cfg(feature = "full")]
+	pub use self::full::*;
 }
 
 mod codec;
 mod joiner;
 mod keyedvec;
 
-pub use self::codec::{Input, Output, Encode, Decode, Codec, Compact, HasCompact, EncodeAsRef};
+pub use self::codec::{Input, Output, Encode, Decode, Codec, Compact, HasCompact, EncodeAsRef, CompactAs};
 pub use self::joiner::Joiner;
 pub use self::keyedvec::KeyedVec;

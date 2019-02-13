@@ -15,7 +15,7 @@
 //! Derives serialization and deserialization codec for complex structs for simple marshalling.
 
 extern crate proc_macro;
-extern crate proc_macro2;
+use proc_macro2;
 
 #[macro_use]
 extern crate syn;
@@ -23,23 +23,48 @@ extern crate syn;
 #[macro_use]
 extern crate quote;
 
+
+
 use proc_macro::TokenStream;
 use proc_macro2::Span;
-use syn::{DeriveInput, Generics, GenericParam, Ident};
+use syn::{DeriveInput, Generics, Ident, parse::Error};
+use proc_macro_crate::crate_name;
+
+use std::env;
 
 mod decode;
 mod encode;
 mod utils;
 
-const ENCODE_ERR: &str = "derive(Encode) failed";
+/// Include the `parity-codec` crate under a known name (`_parity_codec`).
+fn include_parity_codec_crate() -> proc_macro2::TokenStream {
+	// This "hack" is required for the tests.
+	if env::var("CARGO_PKG_NAME").unwrap() == "parity-codec" {
+		quote!( extern crate parity_codec as _parity_codec; )
+	} else {
+		match crate_name("parity-codec") {
+			Ok(parity_codec_crate) => {
+				let ident = Ident::new(&parity_codec_crate, Span::call_site());
+				quote!( extern crate #ident as _parity_codec; )
+			},
+			Err(e) => Error::new(Span::call_site(), &e).to_compile_error(),
+		}
+	}
+}
 
 #[proc_macro_derive(Encode, attributes(codec))]
 pub fn encode_derive(input: TokenStream) -> TokenStream {
-	let input: DeriveInput = syn::parse(input).expect(ENCODE_ERR);
-	let name = &input.ident;
+	let mut input: DeriveInput = match syn::parse(input) {
+		Ok(input) => input,
+		Err(e) => return e.to_compile_error().into(),
+	};
 
-	let generics = add_trait_bounds(input.generics, parse_quote!(_parity_codec::Encode));
-	let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+	if let Err(e) = add_trait_bounds(&mut input.generics, &input.data, parse_quote!(_parity_codec::Encode)) {
+		return e.to_compile_error().into();
+	}
+
+	let name = &input.ident;
+	let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
 	let self_ = quote!(self);
 	let dest_ = quote!(dest);
@@ -54,8 +79,9 @@ pub fn encode_derive(input: TokenStream) -> TokenStream {
 	};
 
 	let mut new_name = "_IMPL_ENCODE_FOR_".to_string();
-	new_name.push_str(name.to_string().trim_left_matches("r#"));
+	new_name.push_str(name.to_string().trim_start_matches("r#"));
 	let dummy_const = Ident::new(&new_name, Span::call_site());
+	let parity_codec_crate = include_parity_codec_crate();
 
 	let generated = quote! {
 		#[allow(non_upper_case_globals, unused_attributes, unused_qualifications)]
@@ -63,7 +89,7 @@ pub fn encode_derive(input: TokenStream) -> TokenStream {
 			#[allow(unknown_lints)]
 			#[cfg_attr(feature = "cargo-clippy", allow(useless_attribute))]
 			#[allow(rust_2018_idioms)]
-			extern crate parity_codec as _parity_codec;
+			#parity_codec_crate
 			#impl_block
 		};
 	};
@@ -73,11 +99,17 @@ pub fn encode_derive(input: TokenStream) -> TokenStream {
 
 #[proc_macro_derive(Decode, attributes(codec))]
 pub fn decode_derive(input: TokenStream) -> TokenStream {
-	let input: DeriveInput = syn::parse(input).expect(ENCODE_ERR);
-	let name = &input.ident;
+	let mut input: DeriveInput = match syn::parse(input) {
+		Ok(input) => input,
+		Err(e) => return e.to_compile_error().into(),
+	};
 
-	let generics = add_trait_bounds(input.generics, parse_quote!(_parity_codec::Decode));
-	let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+	if let Err(e) = add_trait_bounds(&mut input.generics, &input.data, parse_quote!(_parity_codec::Decode)) {
+		return e.to_compile_error().into();
+	}
+
+	let name = &input.ident;
+	let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
 	let input_ = quote!(input);
 	let decoding = decode::quote(&input.data, name, &input_);
@@ -91,8 +123,9 @@ pub fn decode_derive(input: TokenStream) -> TokenStream {
 	};
 
 	let mut new_name = "_IMPL_DECODE_FOR_".to_string();
-	new_name.push_str(name.to_string().trim_left_matches("r#"));
+	new_name.push_str(name.to_string().trim_start_matches("r#"));
 	let dummy_const = Ident::new(&new_name, Span::call_site());
+	let parity_codec_crate = include_parity_codec_crate();
 
 	let generated = quote! {
 		#[allow(non_upper_case_globals, unused_attributes, unused_qualifications)]
@@ -100,7 +133,7 @@ pub fn decode_derive(input: TokenStream) -> TokenStream {
 			#[allow(unknown_lints)]
 			#[cfg_attr(feature = "cargo-clippy", allow(useless_attribute))]
 			#[allow(rust_2018_idioms)]
-			extern crate parity_codec as _parity_codec;
+			#parity_codec_crate
 			#impl_block
 		};
 	};
@@ -108,11 +141,71 @@ pub fn decode_derive(input: TokenStream) -> TokenStream {
 	generated.into()
 }
 
-fn add_trait_bounds(mut generics: Generics, bounds: syn::TypeParamBound) -> Generics {
-	for param in &mut generics.params {
-		if let GenericParam::Type(ref mut type_param) = *param {
-			type_param.bounds.push(bounds.clone());
-		}
+fn add_trait_bounds(generics: &mut Generics, data: &syn::Data, codec_bound: syn::Path) -> syn::Result<()> {
+	if generics.params.is_empty() {
+		return Ok(());
 	}
-	generics
+
+	let codec_types = collect_types(&data, needs_codec_bound)?;
+	let compact_types = collect_types(&data, needs_has_compact_bound)?;
+
+	if !codec_types.is_empty() || !compact_types.is_empty() {
+		let where_clause = generics.make_where_clause();
+
+		codec_types.into_iter().for_each(|ty| {
+			where_clause.predicates.push(parse_quote!(#ty : #codec_bound))
+		});
+
+		let has_compact_bound: syn::Path = parse_quote!(_parity_codec::HasCompact);
+		compact_types.into_iter().for_each(|ty| {
+			where_clause.predicates.push(parse_quote!(#ty : #has_compact_bound))
+		});
+	}
+
+	Ok(())
+}
+
+fn needs_codec_bound(field: &syn::Field) -> bool {
+	!utils::get_enable_compact(field)
+		&& utils::get_encoded_as_type(field).is_none()
+}
+
+fn needs_has_compact_bound(field: &syn::Field) -> bool {
+	utils::get_enable_compact(field)
+}
+
+fn collect_types(data: &syn::Data, type_filter: fn(&syn::Field) -> bool) -> syn::Result<Vec<syn::Type>> {
+	use syn::*;
+
+	let types = match *data {
+		Data::Struct(ref data) => match &data.fields {
+			| Fields::Named(FieldsNamed { named: fields , .. })
+			| Fields::Unnamed(FieldsUnnamed { unnamed: fields, .. }) => {
+				fields.iter()
+					.filter(|f| type_filter(f))
+					.map(|f| f.ty.clone())
+					.collect()
+			},
+
+			Fields::Unit => { Vec::new() },
+		},
+
+		Data::Enum(ref data) => data.variants.iter().flat_map(|variant| {
+			match &variant.fields {
+				| Fields::Named(FieldsNamed { named: fields , .. })
+				| Fields::Unnamed(FieldsUnnamed { unnamed: fields, .. }) => {
+					fields.iter()
+						.filter(|f| type_filter(f))
+						.map(|f| f.ty.clone())
+						.collect()
+				},
+
+				Fields::Unit => { Vec::new() },
+			}
+		}).collect(),
+
+		Data::Union(_) => return Err(Error::new(Span::call_site(), "Union types are not supported.")),
+	};
+
+	Ok(types)
 }
