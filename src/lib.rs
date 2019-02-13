@@ -42,6 +42,7 @@ pub mod alloc {
 	pub use std::vec;
 	pub use std::string;
 	pub use std::borrow;
+	pub use std::collections;
 
 	#[cfg(feature = "full")]
 	mod full {

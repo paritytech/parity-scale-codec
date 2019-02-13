@@ -16,6 +16,7 @@
 
 use crate::alloc::vec::Vec;
 use crate::alloc::boxed::Box;
+use crate::alloc::collections::btree_map::BTreeMap;
 
 #[cfg(any(feature = "std", feature = "full"))]
 use crate::alloc::{
@@ -785,6 +786,30 @@ impl<T: Decode> Decode for Vec<T> {
 	}
 }
 
+impl<K: Encode + Ord, V: Encode> Encode for BTreeMap<K, V> {
+	fn encode_to<W: Output>(&self, dest: &mut W) {
+		let len = self.len();
+		assert!(len <= u32::max_value() as usize, "Attempted to serialize a collection with too many elements.");
+		(len as u32).encode_to(dest);
+		for i in self.iter() {
+			i.encode_to(dest);
+		}
+	}
+}
+
+impl<K: Decode + Ord, V: Decode> Decode for BTreeMap<K, V> {
+	fn decode<I: Input>(input: &mut I) -> Option<Self> {
+		u32::decode(input).and_then(move |len| {
+			let mut r: BTreeMap<K, V> = BTreeMap::new();
+			for _ in 0..len {
+				let (key, v) = <(K, V)>::decode(input)?;
+				r.insert(key, v);
+			}
+			Some(r)
+		})
+	}
+}
+
 impl Encode for () {
 	fn encode_to<T: Output>(&self, _dest: &mut T) {
 	}
@@ -995,6 +1020,30 @@ mod tests {
 		v.using_encoded(|ref slice|
 			assert_eq!(slice, &b"\x2cHello world")
 		);
+	}
+
+	#[test]
+	fn btree_map_works() {
+		let mut m: BTreeMap<u32, Vec<u8>> = BTreeMap::new();
+		m.insert(1, b"qwe".to_vec());
+		m.insert(2, b"qweasd".to_vec());
+		let encoded = m.encode();
+
+		assert_eq!(m, Decode::decode(&mut &encoded[..]).unwrap());
+
+		let mut m: BTreeMap<Vec<u8>, Vec<u8>> = BTreeMap::new();
+		m.insert(b"123".to_vec(), b"qwe".to_vec());
+		m.insert(b"1234".to_vec(), b"qweasd".to_vec());
+		let encoded = m.encode();
+
+		assert_eq!(m, Decode::decode(&mut &encoded[..]).unwrap());
+
+		let mut m: BTreeMap<Vec<u32>, Vec<u8>> = BTreeMap::new();
+		m.insert(vec![1, 2, 3], b"qwe".to_vec());
+		m.insert(vec![1, 2], b"qweasd".to_vec());
+		let encoded = m.encode();
+
+		assert_eq!(m, Decode::decode(&mut &encoded[..]).unwrap());
 	}
 
 	#[test]
