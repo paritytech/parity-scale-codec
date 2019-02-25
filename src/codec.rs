@@ -214,7 +214,7 @@ macro_rules! impl_from_compact {
 	}
 }
 
-impl_from_compact! { u8, u16, u32, u64, u128 }
+impl_from_compact! { (), u8, u16, u32, u64, u128 }
 
 /// Compact-encoded variant of &'a T. This is more space-efficient but less compute-efficient.
 #[derive(Eq, PartialEq, Clone, Copy)]
@@ -286,6 +286,18 @@ impl<T: 'static> HasCompact for T where
 //   nn nn nn 11 [ / zz zz zz zz ]{4 + n}									(2**30 .. 2**536)	(u32, u64, u128, U256, U512, U520) straight LE-encoded
 
 // Note: we use *LOW BITS* of the LSB in LE encoding to encode the 2 bit key.
+
+impl<'a> Encode for CompactRef<'a, ()> {
+	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
+		f(&[])
+	}
+}
+
+impl Encode for Compact<()> {
+	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
+		f(&[])
+	}
+}
 
 impl<'a> Encode for CompactRef<'a, u8> {
 	fn encode_to<W: Output>(&self, dest: &mut W) {
@@ -449,6 +461,12 @@ impl Encode for Compact<u128> {
 		let mut r = ArrayVecWrapper(ArrayVec::<[u8; 17]>::new());
 		self.encode_to(&mut r);
 		f(&r.0)
+	}
+}
+
+impl Decode for Compact<()> {
+	fn decode<I: Input>(_input: &mut I) -> Option<Self> {
+		Some(Compact(()))
 	}
 }
 
