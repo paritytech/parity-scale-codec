@@ -15,8 +15,6 @@
 #[macro_use]
 extern crate serde_derive;
 
-
-
 #[macro_use]
 extern crate parity_codec_derive;
 
@@ -28,13 +26,12 @@ struct Unit;
 #[derive(Debug, PartialEq, Encode, Decode)]
 struct Indexed(u32, u64);
 
-#[derive(Debug, PartialEq, Encode, Decode)]
+#[derive(Debug, PartialEq, Encode, Decode, Default)]
 struct Struct<A, B, C> {
 	pub a: A,
 	pub b: B,
 	pub c: C,
 }
-
 
 #[derive(Debug, PartialEq, Encode, Decode)]
 struct StructWithPhantom {
@@ -397,4 +394,28 @@ fn generic_trait() {
 	};
 
 	a.encode();
+}
+
+#[test]
+fn recursive_variant_1_encode_works() {
+	#[derive(Debug, PartialEq, Encode, Decode, Default)]
+	struct Recursive<N> {
+		data: N,
+		other: Vec<Recursive<N>>,
+	}
+
+	let val: Recursive<u32> = Recursive::default();
+	val.encode();
+}
+
+#[test]
+fn recursive_variant_2_encode_works() {
+	#[derive(Debug, PartialEq, Encode, Decode, Default)]
+	struct Recursive<A, B, N> {
+		data: N,
+		other: Vec<Struct<A, B, Recursive<A, B, N>>>,
+	}
+
+	let val: Recursive<u32, i32, u32> = Recursive::default();
+	val.encode();
 }
