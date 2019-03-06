@@ -66,7 +66,7 @@ pub fn quote(data: &Data, type_name: &Ident, input: &TokenStream) -> TokenStream
 				}
 			}
 
-			}
+		},
 		Data::Union(_) => Error::new(Span::call_site(), "Union types are not supported.").to_compile_error(),
 	}
 }

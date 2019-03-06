@@ -104,7 +104,7 @@ impl<'a, T: 'a + Input> Input for PrefixInput<'a, T> {
 				let res = 1 + self.input.read(&mut buffer[1..])?;
 				Ok(res)
 			}
-			_ => self.input.read(buffer),
+			_ => self.input.read(buffer)
 		}
 	}
 }
@@ -507,10 +507,10 @@ impl Decode for Compact<u8> {
 				if x < 256 {
 					x as u8
 				} else {
-					return Err(Error("stub error".into()));
+					return Err(Error("out of range decoding Compact<u8>"));
 				}
 			}
-			_ => return Err(Error("stub error".into())),
+			_ => return Err(Error("unexpected prefix decoding Compact<u8>")),
 		}))
 	}
 }
@@ -526,10 +526,10 @@ impl Decode for Compact<u16> {
 				if x < 65536 {
 					x as u16
 				} else {
-					return Err(Error("stub error".into()));
+					return Err(Error("out of range decoding Compact<u16>"));
 				}
 			}
-			_ => return Err(Error("stub error".into())),
+			_ => return Err(Error("unexpected prefix decoding Compact<u16>")),
 		}))
 	}
 }
@@ -547,7 +547,7 @@ impl Decode for Compact<u32> {
 					u32::decode(input)?
 				} else {
 					// Out of range for a 32-bit quantity.
-					return Err(Error("strub error".into()));
+					return Err(Error("out of range decoding Compact<u32>"));
 				}
 			}
 		}))
@@ -564,7 +564,7 @@ impl Decode for Compact<u64> {
 			3|_ => match (prefix >> 2) + 4 {
 				4 => u32::decode(input)? as u64,
 				8 => u64::decode(input)?,
-				x if x > 8 => return Err(Error("stub error".into())),
+				x if x > 8 => return Err(Error("unexpected prefix decoding Compact<u64>")),
 				bytes_needed => {
 					let mut res = 0;
 					for i in 0..bytes_needed {
@@ -588,7 +588,7 @@ impl Decode for Compact<u128> {
 				4 => u32::decode(input)? as u128,
 				8 => u64::decode(input)? as u128,
 				16 => u128::decode(input)?,
-				x if x > 16 => return Err(Error("stub error".into())),
+				x if x > 16 => return Err(Error("unexpected prefix decoding Compact<u128>")),
 				bytes_needed => {
 					let mut res = 0;
 					for i in 0..bytes_needed {
@@ -623,7 +623,7 @@ impl<T: Decode, E: Decode> Decode for Result<T, E> {
 		match input.read_byte()? {
 			0 => Ok(Ok(T::decode(input)?)),
 			1 => Ok(Err(E::decode(input)?)),
-			_ => Err(Error("stub error".into())),
+			_ => Err(Error("unexpected first byte decoding Result")),
 		}
 	}
 }
@@ -654,7 +654,7 @@ impl Decode for OptionBool {
 			0 => Ok(OptionBool(None)),
 			1 => Ok(OptionBool(Some(true))),
 			2 => Ok(OptionBool(Some(false))),
-			_ => Err(Error("stub error".into())),
+			_ => Err(Error("unexpected first byte decoding OptionBool".into())),
 		}
 	}
 }
@@ -676,7 +676,7 @@ impl<T: Decode> Decode for Option<T> {
 		match input.read_byte()? {
 			0 => Ok(None),
 			1 => Ok(Some(T::decode(input)?)),
-			_ => Err(Error("stub error".into())),
+			_ => Err(Error("unexpecded first byte decoding Option")),
 		}
 	}
 }
@@ -701,11 +701,11 @@ macro_rules! impl_array {
 
 				match i {
 					Ok(a) => Ok(a),
-					Err(_) => Err(Error("stub error".into())),
-				}
+					Err(_) => Err(Error("failed to get inner array from ArrayVec")),
 				}
 			}
-			)* }
+		}
+		)* }
 }
 
 impl_array!(1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32
@@ -899,9 +899,9 @@ macro_rules! tuple_impl {
 		}
 
 		impl<$one: Decode> Decode for ($one,) {
-			fn decode<I: Input>(input: &mut I) -> Result<Self, super::Error> {
+			fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 				match $one::decode(input) {
-					Err(_) => Err(super::Error("stub error".into())),
+					Err(e) => Err(e),
 					Ok($one) => Ok(($one,)),
 				}
 			}
@@ -929,11 +929,11 @@ macro_rules! tuple_impl {
 				Ok((
 					match $first::decode(input) {
 						Ok(x) => x,
-						Err(_) => return Err(super::Error("stub error".into())),
+						Err(e) => return Err(e),
 					},
 					$(match $rest::decode(input) {
 						Ok(x) => x,
-						Err(_) => return Err(super::Error("stub error".into())),
+						Err(e) => return Err(e),
 					},)+
 				))
 			}
@@ -945,7 +945,7 @@ macro_rules! tuple_impl {
 
 #[allow(non_snake_case)]
 mod inner_tuple_impl {
-	use super::{Input, Output, Decode, Encode};
+	use super::{Error, Input, Output, Decode, Encode};
 	tuple_impl!(A, B, C, D, E, F, G, H, I, J, K,);
 }
 
