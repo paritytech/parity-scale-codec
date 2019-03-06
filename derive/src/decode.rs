@@ -29,7 +29,7 @@ pub fn quote(data: &Data, type_name: &Ident, input: &TokenStream) -> TokenStream
 			Fields::Unit => {
 				quote_spanned! {call_site =>
 					drop(#input);
-					Some(#type_name)
+					Ok(#type_name)
 				}
 			},
 		},
@@ -62,17 +62,16 @@ pub fn quote(data: &Data, type_name: &Ident, input: &TokenStream) -> TokenStream
 			quote! {
 				match #input.read_byte()? {
 					#( #recurse )*
-					_ => None,
+					x => Err(_parity_codec::Error::new("No such variant in enum ".to_string() + &x.to_string())),
 				}
-
 			}
 
-		},
+			}
 		Data::Union(_) => Error::new(Span::call_site(), "Union types are not supported.").to_compile_error(),
 	}
 }
 
-fn create_decode_expr(field: &Field, input: &TokenStream) -> TokenStream {
+fn create_decode_expr(field: &Field, name: &proc_macro2::TokenStream, input: &TokenStream) -> TokenStream {
 	let encoded_as = utils::get_encoded_as_type(field);
 	let compact = utils::get_enable_compact(field);
 
@@ -86,14 +85,37 @@ fn create_decode_expr(field: &Field, input: &TokenStream) -> TokenStream {
 	if compact {
 		let field_type = &field.ty;
 		quote_spanned! { field.span() =>
-			 <<#field_type as _parity_codec::HasCompact>::Type as _parity_codec::Decode>::decode(#input)?.into()
+			{
+				let res = <<#field_type as _parity_codec::HasCompact>::Type as _parity_codec::Decode>::decode(#input);
+				let fname = stringify!(#name).replace(" ", "");
+				match res {
+					Err(e) => return Err(_parity_codec::Error::new("Error decoding field ".to_string() + &fname + ": " + &e.0)),
+					Ok(a) => a.into(),
+				}
+			}
 		}
 	} else if let Some(encoded_as) = encoded_as {
 		quote_spanned! { field.span() =>
-			 <#encoded_as as _parity_codec::Decode>::decode(#input)?.into()
+			{
+				let res = <#encoded_as as _parity_codec::Decode>::decode(#input);
+				let fname = stringify!(#name).replace(" ", "");
+				match res {
+					Err(e) => return Err(_parity_codec::Error::new("Error decoding field ".to_string() + &fname + ": " + &e.0)),
+					Ok(a) => a.into(),
+				}
+			}
 		}
 	} else {
-		quote_spanned! { field.span() => _parity_codec::Decode::decode(#input)? }
+		quote_spanned! { field.span() =>
+			{
+				let res = _parity_codec::Decode::decode(#input);
+				let fname = stringify!(#name).replace(" ", "");
+				match res {
+					Err(e) => return Err(_parity_codec::Error::new("Error decoding field ".to_string() + &fname + ": " + &e.0)),
+					Ok(a) => a,
+				}
+			}
+		}
 	}
 }
 
@@ -106,35 +128,38 @@ fn create_instance(
 	match *fields {
 		Fields::Named(ref fields) => {
 			let recurse = fields.named.iter().map(|f| {
-				let name = &f.ident;
-				let field = quote_spanned!(call_site => #name);
-				let decode = create_decode_expr(f, input);
+				let name2 = &f.ident;
+				let field = quote_spanned!(call_site => #name.#name2);
+				let decode = create_decode_expr(f, &field, input);
 
 				quote_spanned! { f.span() =>
-					#field: #decode
+					#name2: #decode
 				}
 			});
 
 			quote_spanned! {call_site =>
-				Some(#name {
+				Ok(#name {
 					#( #recurse, )*
 				})
 			}
 		},
 		Fields::Unnamed(ref fields) => {
-			let recurse = fields.unnamed.iter().map(|f| {
-				create_decode_expr(f, input)
+			let recurse = fields.unnamed.iter().enumerate().map(|(i, f) | {
+				let unsuf = proc_macro2::TokenTree::Literal(proc_macro2::Literal::usize_unsuffixed(i));
+				let name = quote!(#name.#unsuf);
+
+				create_decode_expr(f, &name, input)
 			});
 
 			quote_spanned! {call_site =>
-				Some(#name (
+				Ok(#name (
 					#( #recurse, )*
 				))
 			}
 		},
 		Fields::Unit => {
 			quote_spanned! {call_site =>
-				Some(#name)
+				Ok(#name)
 			}
 		},
 	}
