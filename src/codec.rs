@@ -16,12 +16,11 @@
 
 use crate::alloc::vec::Vec;
 use crate::alloc::boxed::Box;
-use crate::alloc::string::{String, ToString};
 use crate::alloc::collections::btree_map::BTreeMap;
-
 
 #[cfg(any(feature = "std", feature = "full"))]
 use crate::alloc::{
+	string::String,
 	borrow::{Cow, ToOwned},
 };
 
@@ -31,17 +30,22 @@ use core::marker::PhantomData;
 
 #[cfg_attr(feature = "std", derive(Debug))]
 #[derive(PartialEq)]
-pub struct Error(pub String);
+pub struct Error(&'static str);
 
 impl Error {
-	pub fn new(s: String) -> Error {
+	pub fn new(s: &'static str) -> Error {
 		Error(s)
+	}
+
+	pub fn what(&self) -> &'static str {
+		self.0
 	}
 }
 
+#[cfg(any(feature = "std", feature = "full"))]
 impl ToString for Error {
 	fn to_string(&self) -> String {
-		self.0.clone()
+		self.0.to_string()
 	}
 }
 
@@ -62,7 +66,7 @@ pub trait Input {
 impl<'a> Input for &'a [u8] {
 	fn read(&mut self, into: &mut [u8]) -> Result<usize, Error> {
 		if into.len() > self.len() {
-			return Err(Error(format!("Trying to read {} bytes from {} bytes buffer", into.len(), self.len())));
+			return Err(Error("failed to fill whole buffer"));
 		}
 		let len = ::core::cmp::min(into.len(), self.len());
 		into[..len].copy_from_slice(&self[..len]);
@@ -73,8 +77,8 @@ impl<'a> Input for &'a [u8] {
 
 #[cfg(feature = "std")]
 impl From<std::io::Error> for Error {
-	fn from(err: std::io::Error) -> Self {
-		Error::new(format!("with std::io::Error {}", err))
+	fn from(_err: std::io::Error) -> Self {
+		Error::new("io error ")
 	}
 }
 
