@@ -748,13 +748,11 @@ impl<'a, T: ToOwned + ?Sized> Decode for Cow<'a, T> where
 	}
 }
 
-#[cfg(any(feature = "std", feature = "full"))]
 impl<T> Encode for PhantomData<T> {
 	fn encode_to<W: Output>(&self, _dest: &mut W) {
 	}
 }
 
-#[cfg(any(feature = "std", feature = "full"))]
 impl<T> Decode for PhantomData<T> {
 	fn decode<I: Input>(_input: &mut I) -> Option<Self> {
 		Some(PhantomData)
