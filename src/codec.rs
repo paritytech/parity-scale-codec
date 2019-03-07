@@ -28,6 +28,9 @@ use core::{mem, slice};
 use arrayvec::ArrayVec;
 use core::marker::PhantomData;
 
+#[cfg(feature = "std")]
+use std::fmt;
+
 #[cfg_attr(feature = "std", derive(Debug))]
 #[derive(PartialEq)]
 pub struct Error(&'static str);
@@ -42,10 +45,17 @@ impl Error {
 	}
 }
 
-#[cfg(any(feature = "std", feature = "full"))]
-impl ToString for Error {
-	fn to_string(&self) -> String {
-		self.0.to_string()
+#[cfg(feature = "std")]
+impl std::fmt::Display for Error {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+#[cfg(feature = "std")]
+impl std::error::Error for Error {
+	fn description(&self) -> &str {
+		self.0
 	}
 }
 

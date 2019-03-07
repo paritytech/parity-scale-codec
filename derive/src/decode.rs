@@ -59,10 +59,11 @@ pub fn quote(data: &Data, type_name: &Ident, input: &TokenStream) -> TokenStream
 				}
 			});
 
+			let err_msg = format!("No such variant in enum {}", type_name);
 			quote! {
 				match #input.read_byte()? {
 					#( #recurse )*
-					x => Err(_parity_codec::Error::new("No such variant in enum")),
+					x => Err(_parity_codec::Error::new(#err_msg)),
 				}
 			}
 
@@ -82,14 +83,15 @@ fn create_decode_expr(field: &Field, name: &proc_macro2::TokenStream, input: &To
 		).to_compile_error();
 	}
 
+	let err_msg = format!("Error decoding field {}", name);;
+
 	if compact {
 		let field_type = &field.ty;
 		quote_spanned! { field.span() =>
 			{
 				let res = <<#field_type as _parity_codec::HasCompact>::Type as _parity_codec::Decode>::decode(#input);
-				let msg = stringify!(Error decoding field #name);
 				match res {
-					Err(_) => return Err(_parity_codec::Error::new(msg)),
+					Err(_) => return Err(_parity_codec::Error::new(#err_msg)),
 					Ok(a) => a.into(),
 				}
 			}
@@ -98,9 +100,8 @@ fn create_decode_expr(field: &Field, name: &proc_macro2::TokenStream, input: &To
 		quote_spanned! { field.span() =>
 			{
 				let res = <#encoded_as as _parity_codec::Decode>::decode(#input);
-				let msg = stringify!(Error decoding field #name);
 				match res {
-					Err(_) => return Err(_parity_codec::Error::new(msg)),
+					Err(_) => return Err(_parity_codec::Error::new(#err_msg)),
 					Ok(a) => a.into(),
 				}
 			}
@@ -109,9 +110,8 @@ fn create_decode_expr(field: &Field, name: &proc_macro2::TokenStream, input: &To
 		quote_spanned! { field.span() =>
 			{
 				let res = _parity_codec::Decode::decode(#input);
-				let msg = stringify!(Error decoding field #name);
 				match res {
-					Err(_) => return Err(_parity_codec::Error::new(msg)),
+					Err(_) => return Err(_parity_codec::Error::new(#err_msg)),
 					Ok(a) => a,
 				}
 			}
