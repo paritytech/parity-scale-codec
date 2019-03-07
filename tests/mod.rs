@@ -197,6 +197,27 @@ fn should_work_for_indexed() {
 	assert_eq!(Indexed::decode(&mut v), Ok(Indexed(1, 2)));
 }
 
+#[test]
+#[should_panic(expected = "Error decoding field Indexed.0")]
+fn correct_error_for_indexed_0() {
+	let mut wrong: &[u8] = b"\x08";
+	Indexed::decode(&mut wrong).unwrap();
+}
+
+#[test]
+#[should_panic(expected = "Error decoding field Indexed.1")]
+fn correct_error_for_indexed_1() {
+	let mut wrong: &[u8] = b"\0\0\0\0\x01";
+	Indexed::decode(&mut wrong).unwrap();
+}
+
+#[test]
+#[should_panic(expected = "Error decoding field EnumType :: B.0")]
+fn correct_error_for_enumtype() {
+	let mut wrong: &[u8] = b"\x01";
+	EnumType::decode(&mut wrong).unwrap();
+}
+
 const U64_TEST_COMPACT_VALUES: &[(u64, usize)] = &[
 	(0u64, 1usize), (63, 1), (64, 2), (16383, 2),
 	(16384, 4), (1073741823, 4),
