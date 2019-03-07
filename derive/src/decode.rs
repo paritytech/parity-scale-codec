@@ -72,7 +72,7 @@ pub fn quote(data: &Data, type_name: &Ident, input: &TokenStream) -> TokenStream
 	}
 }
 
-fn create_decode_expr(field: &Field, name: &proc_macro2::TokenStream, input: &TokenStream) -> TokenStream {
+fn create_decode_expr(field: &Field, name: &String, input: &TokenStream) -> TokenStream {
 	let encoded_as = utils::get_encoded_as_type(field);
 	let compact = utils::get_enable_compact(field);
 
@@ -128,12 +128,15 @@ fn create_instance(
 	match *fields {
 		Fields::Named(ref fields) => {
 			let recurse = fields.named.iter().map(|f| {
-				let name2 = &f.ident;
-				let field = quote_spanned!(call_site => #name.#name2);
+				let name_ident = &f.ident;
+				let field = match name_ident {
+					Some(a) => format!("{}.{}", name, a),
+					None => format!("{}", name),
+				};
 				let decode = create_decode_expr(f, &field, input);
 
 				quote_spanned! { f.span() =>
-					#name2: #decode
+					#name_ident: #decode
 				}
 			});
 
@@ -145,8 +148,7 @@ fn create_instance(
 		},
 		Fields::Unnamed(ref fields) => {
 			let recurse = fields.unnamed.iter().enumerate().map(|(i, f) | {
-				let unsuf = proc_macro2::TokenTree::Literal(proc_macro2::Literal::usize_unsuffixed(i));
-				let name = quote!(#name.#unsuf);
+				let name = format!("{}.{}", name, i);
 
 				create_decode_expr(f, &name, input)
 			});
