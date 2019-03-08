@@ -59,6 +59,13 @@ impl std::error::Error for Error {
 	}
 }
 
+#[cfg(feature = "std")]
+impl From<&'static str> for Error {
+	fn from(s: &'static str) -> Error {
+		return Error(s)
+	}
+}
+
 /// Trait that allows reading of data into a slice.
 pub trait Input {
 	/// Read into the provided input slice. Returns the number of bytes read.
