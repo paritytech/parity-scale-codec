@@ -28,39 +28,94 @@ use core::{mem, slice};
 use arrayvec::ArrayVec;
 use core::marker::PhantomData;
 
+#[cfg(feature = "std")]
+use std::fmt;
+
+#[cfg_attr(feature = "std", derive(Debug))]
+#[derive(PartialEq)]
+#[cfg(feature = "std")]
+pub struct Error(&'static str);
+
+#[cfg(not(feature = "std"))]
+#[derive(PartialEq)]
+pub struct Error;
+
+impl Error {
+	#[cfg(feature = "std")]
+	pub fn what(&self) -> &'static str {
+		self.0
+	}
+
+	#[cfg(not(feature = "std"))]
+	pub fn what(&self) -> &'static str {
+		""
+	}
+}
+
+#[cfg(feature = "std")]
+impl std::fmt::Display for Error {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+#[cfg(feature = "std")]
+impl std::error::Error for Error {
+	fn description(&self) -> &str {
+		self.0
+	}
+}
+
+impl From<&'static str> for Error {
+	#[cfg(feature = "std")]
+	fn from(s: &'static str) -> Error {
+		return Error(s)
+	}
+
+	#[cfg(not(feature = "std"))]
+	fn from(_s: &'static str) -> Error {
+		return Error
+	}
+}
+
 /// Trait that allows reading of data into a slice.
 pub trait Input {
 	/// Read into the provided input slice. Returns the number of bytes read.
-	fn read(&mut self, into: &mut [u8]) -> usize;
+	fn read(&mut self, into: &mut [u8]) -> Result<usize, Error>;
 
 	/// Read a single byte from the input.
-	fn read_byte(&mut self) -> Option<u8> {
+	fn read_byte(&mut self) -> Result<u8, Error> {
 		let mut buf = [0u8];
-		match self.read(&mut buf[..]) {
-			0 => None,
-			1 => Some(buf[0]),
-			_ => unreachable!(),
-		}
+		self.read(&mut buf[..])?;
+		Ok(buf[0])
 	}
 }
 
 #[cfg(not(feature = "std"))]
 impl<'a> Input for &'a [u8] {
-	fn read(&mut self, into: &mut [u8]) -> usize {
+	fn read(&mut self, into: &mut [u8]) -> Result<usize, Error> {
+		if into.len() > self.len() {
+			return Err("".into());
+		}
 		let len = ::core::cmp::min(into.len(), self.len());
 		into[..len].copy_from_slice(&self[..len]);
 		*self = &self[len..];
-		len
+		Ok(len)
+	}
+}
+
+#[cfg(feature = "std")]
+impl From<std::io::Error> for Error {
+	fn from(_err: std::io::Error) -> Self {
+		"io error".into()
 	}
 }
 
 #[cfg(feature = "std")]
 impl<R: std::io::Read> Input for R {
-	fn read(&mut self, into: &mut [u8]) -> usize {
-		match (self as &mut dyn std::io::Read).read_exact(into) {
-			Ok(()) => into.len(),
-			Err(_) => 0,
-		}
+	fn read(&mut self, into: &mut [u8]) -> Result<usize, Error> {
+		(self as &mut dyn std::io::Read).read_exact(into)?;
+		Ok(into.len())
 	}
 }
 
@@ -71,11 +126,12 @@ struct PrefixInput<'a, T> {
 }
 
 impl<'a, T: 'a + Input> Input for PrefixInput<'a, T> {
-	fn read(&mut self, buffer: &mut [u8]) -> usize {
+	fn read(&mut self, buffer: &mut [u8]) -> Result<usize, Error> {
 		match self.prefix.take() {
 			Some(v) if buffer.len() > 0 => {
 				buffer[0] = v;
-				1 + self.input.read(&mut buffer[1..])
+				let res = 1 + self.input.read(&mut buffer[1..])?;
+				Ok(res)
 			}
 			_ => self.input.read(buffer)
 		}
@@ -148,7 +204,7 @@ pub trait Encode {
 /// Trait that allows zero-copy read of value-references from slices in LE format.
 pub trait Decode: Sized {
 	/// Attempt to deserialise the value from input.
-	fn decode<I: Input>(value: &mut I) -> Option<Self>;
+	fn decode<I: Input>(value: &mut I) -> Result<Self, Error>;
 }
 
 /// Trait that allows zero-copy read/write of value-references to/from slices in LE format.
@@ -198,7 +254,7 @@ where
 	T: CompactAs,
 	Compact<<T as CompactAs>::As>: Decode,
 {
-	fn decode<I: Input>(input: &mut I) -> Option<Self> {
+	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		Compact::<T::As>::decode(input)
 			.map(|x| Compact(<T as CompactAs>::decode_from(x.0)))
 	}
@@ -465,33 +521,33 @@ impl Encode for Compact<u128> {
 }
 
 impl Decode for Compact<()> {
-	fn decode<I: Input>(_input: &mut I) -> Option<Self> {
-		Some(Compact(()))
+	fn decode<I: Input>(_input: &mut I) -> Result<Self, Error> {
+		Ok(Compact(()))
 	}
 }
 
 impl Decode for Compact<u8> {
-	fn decode<I: Input>(input: &mut I) -> Option<Self> {
+	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		let prefix = input.read_byte()?;
-		Some(Compact(match prefix % 4 {
+		Ok(Compact(match prefix % 4 {
 			0 => prefix as u8 >> 2,
 			1 => {
 				let x = u16::decode(&mut PrefixInput{prefix: Some(prefix), input})? >> 2;
 				if x < 256 {
 					x as u8
 				} else {
-					return None
+					return Err("out of range decoding Compact<u8>".into());
 				}
 			}
-			_ => return None,
+			_ => return Err("unexpected prefix decoding Compact<u8>".into()),
 		}))
 	}
 }
 
 impl Decode for Compact<u16> {
-	fn decode<I: Input>(input: &mut I) -> Option<Self> {
+	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		let prefix = input.read_byte()?;
-		Some(Compact(match prefix % 4 {
+		Ok(Compact(match prefix % 4 {
 			0 => prefix as u16 >> 2,
 			1 => u16::decode(&mut PrefixInput{prefix: Some(prefix), input})? as u16 >> 2,
 			2 => {
@@ -499,18 +555,18 @@ impl Decode for Compact<u16> {
 				if x < 65536 {
 					x as u16
 				} else {
-					return None
+					return Err("out of range decoding Compact<u16>".into());
 				}
 			}
-			_ => return None,
+			_ => return Err("unexpected prefix decoding Compact<u16>".into()),
 		}))
 	}
 }
 
 impl Decode for Compact<u32> {
-	fn decode<I: Input>(input: &mut I) -> Option<Self> {
+	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		let prefix = input.read_byte()?;
-		Some(Compact(match prefix % 4 {
+		Ok(Compact(match prefix % 4 {
 			0 => prefix as u32 >> 2,
 			1 => u16::decode(&mut PrefixInput{prefix: Some(prefix), input})? as u32 >> 2,
 			2 => u32::decode(&mut PrefixInput{prefix: Some(prefix), input})? as u32 >> 2,
@@ -520,7 +576,7 @@ impl Decode for Compact<u32> {
 					u32::decode(input)?
 				} else {
 					// Out of range for a 32-bit quantity.
-					return None
+					return Err("out of range decoding Compact<u32>".into());
 				}
 			}
 		}))
@@ -528,16 +584,16 @@ impl Decode for Compact<u32> {
 }
 
 impl Decode for Compact<u64> {
-	fn decode<I: Input>(input: &mut I) -> Option<Self> {
+	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		let prefix = input.read_byte()?;
-		Some(Compact(match prefix % 4 {
+		Ok(Compact(match prefix % 4 {
 			0 => prefix as u64 >> 2,
 			1 => u16::decode(&mut PrefixInput{prefix: Some(prefix), input})? as u64 >> 2,
 			2 => u32::decode(&mut PrefixInput{prefix: Some(prefix), input})? as u64 >> 2,
 			3|_ => match (prefix >> 2) + 4 {
 				4 => u32::decode(input)? as u64,
 				8 => u64::decode(input)?,
-				x if x > 8 => return None,
+				x if x > 8 => return Err("unexpected prefix decoding Compact<u64>".into()),
 				bytes_needed => {
 					let mut res = 0;
 					for i in 0..bytes_needed {
@@ -545,15 +601,15 @@ impl Decode for Compact<u64> {
 					}
 					res
 				}
-			}
+			},
 		}))
 	}
 }
 
 impl Decode for Compact<u128> {
-	fn decode<I: Input>(input: &mut I) -> Option<Self> {
+	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		let prefix = input.read_byte()?;
-		Some(Compact(match prefix % 4 {
+		Ok(Compact(match prefix % 4 {
 			0 => prefix as u128 >> 2,
 			1 => u16::decode(&mut PrefixInput{prefix: Some(prefix), input})? as u128 >> 2,
 			2 => u32::decode(&mut PrefixInput{prefix: Some(prefix), input})? as u128 >> 2,
@@ -561,7 +617,7 @@ impl Decode for Compact<u128> {
 				4 => u32::decode(input)? as u128,
 				8 => u64::decode(input)? as u128,
 				16 => u128::decode(input)?,
-				x if x > 16 => return None,
+				x if x > 16 => return Err("unexpected prefix decoding Compact<u128>".into()),
 				bytes_needed => {
 					let mut res = 0;
 					for i in 0..bytes_needed {
@@ -592,11 +648,11 @@ impl<T: Encode, E: Encode> Encode for Result<T, E> {
 }
 
 impl<T: Decode, E: Decode> Decode for Result<T, E> {
-	fn decode<I: Input>(input: &mut I) -> Option<Self> {
+	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		match input.read_byte()? {
-			0 => Some(Ok(T::decode(input)?)),
-			1 => Some(Err(E::decode(input)?)),
-			_ => None,
+			0 => Ok(Ok(T::decode(input)?)),
+			1 => Ok(Err(E::decode(input)?)),
+			_ => Err("unexpected first byte decoding Result".into()),
 		}
 	}
 }
@@ -622,12 +678,12 @@ impl Encode for OptionBool {
 }
 
 impl Decode for OptionBool {
-	fn decode<I: Input>(input: &mut I) -> Option<Self> {
+	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		match input.read_byte()? {
-			0 => Some(OptionBool(None)),
-			1 => Some(OptionBool(Some(true))),
-			2 => Some(OptionBool(Some(false))),
-			_ => None,
+			0 => Ok(OptionBool(None)),
+			1 => Ok(OptionBool(Some(true))),
+			2 => Ok(OptionBool(Some(false))),
+			_ => Err("unexpected first byte decoding OptionBool".into()),
 		}
 	}
 }
@@ -645,11 +701,11 @@ impl<T: Encode> Encode for Option<T> {
 }
 
 impl<T: Decode> Decode for Option<T> {
-	fn decode<I: Input>(input: &mut I) -> Option<Self> {
+	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		match input.read_byte()? {
-			0 => Some(None),
-			1 => Some(Some(T::decode(input)?)),
-			_ => None,
+			0 => Ok(None),
+			1 => Ok(Some(T::decode(input)?)),
+			_ => Err("unexpecded first byte decoding Option".into()),
 		}
 	}
 }
@@ -665,15 +721,20 @@ macro_rules! impl_array {
 		}
 
 		impl<T: Decode> Decode for [T; $n] {
-			fn decode<I: Input>(input: &mut I) -> Option<Self> {
+			fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 				let mut r = ArrayVec::new();
 				for _ in 0..$n {
 					r.push(T::decode(input)?);
 				}
-				r.into_inner().ok()
+				let i = r.into_inner();
+
+				match i {
+					Ok(a) => Ok(a),
+					Err(_) => Err("failed to get inner array from ArrayVec".into()),
+				}
 			}
 		}
-	)* }
+		)* }
 }
 
 impl_array!(1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32
@@ -686,8 +747,8 @@ impl<T: Encode> Encode for Box<T> {
 }
 
 impl<T: Decode> Decode for Box<T> {
-	fn decode<I: Input>(input: &mut I) -> Option<Self> {
-		Some(Box::new(T::decode(input)?))
+	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
+		Ok(Box::new(T::decode(input)?))
 	}
 }
 
@@ -707,15 +768,12 @@ impl Encode for Vec<u8> {
 }
 
 impl Decode for Vec<u8> {
-	fn decode<I: Input>(input: &mut I) -> Option<Self> {
+	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		<Compact<u32>>::decode(input).and_then(move |Compact(len)| {
 			let len = len as usize;
 			let mut vec = vec![0; len];
-			if input.read(&mut vec[..len]) != len {
-				None
-			} else {
-				Some(vec)
-			}
+			input.read(&mut vec[..len])?;
+			Ok(vec)
 		})
 	}
 }
@@ -740,22 +798,22 @@ impl<'a, T: ToOwned + ?Sized + 'a> Encode for Cow<'a, T> where
 }
 
 #[cfg(any(feature = "std", feature = "full"))]
-impl<'a, T: ToOwned + ?Sized> Decode for Cow<'a, T> where
-	<T as ToOwned>::Owned: Decode
+impl<'a, T: ToOwned + ?Sized> Decode for Cow<'a, T>
+where
+<T as ToOwned>::Owned: Decode,
 {
-	fn decode<I: Input>(input: &mut I) -> Option<Self> {
-		Some(Cow::Owned(Decode::decode(input)?))
+	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
+		Ok(Cow::Owned(Decode::decode(input)?))
 	}
 }
 
 impl<T> Encode for PhantomData<T> {
-	fn encode_to<W: Output>(&self, _dest: &mut W) {
-	}
+	fn encode_to<W: Output>(&self, _dest: &mut W) {}
 }
 
 impl<T> Decode for PhantomData<T> {
-	fn decode<I: Input>(_input: &mut I) -> Option<Self> {
-		Some(PhantomData)
+	fn decode<I: Input>(_input: &mut I) -> Result<Self, Error> {
+		Ok(PhantomData)
 	}
 }
 
@@ -768,8 +826,8 @@ impl Encode for String {
 
 #[cfg(any(feature = "std", feature = "full"))]
 impl Decode for String {
-	fn decode<I: Input>(input: &mut I) -> Option<Self> {
-		Some(Self::from_utf8_lossy(&Vec::decode(input)?).into())
+	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
+		Ok(Self::from_utf8_lossy(&Vec::decode(input)?).into())
 	}
 }
 
@@ -791,13 +849,13 @@ impl<T: Encode> Encode for Vec<T> {
 }
 
 impl<T: Decode> Decode for Vec<T> {
-	fn decode<I: Input>(input: &mut I) -> Option<Self> {
+	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		<Compact<u32>>::decode(input).and_then(move |Compact(len)| {
 			let mut r = Vec::with_capacity(len as usize);
 			for _ in 0..len {
 				r.push(T::decode(input)?);
 			}
-			Some(r)
+			Ok(r)
 		})
 	}
 }
@@ -814,14 +872,14 @@ impl<K: Encode + Ord, V: Encode> Encode for BTreeMap<K, V> {
 }
 
 impl<K: Decode + Ord, V: Decode> Decode for BTreeMap<K, V> {
-	fn decode<I: Input>(input: &mut I) -> Option<Self> {
+	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		u32::decode(input).and_then(move |len| {
 			let mut r: BTreeMap<K, V> = BTreeMap::new();
 			for _ in 0..len {
 				let (key, v) = <(K, V)>::decode(input)?;
 				r.insert(key, v);
 			}
-			Some(r)
+			Ok(r)
 		})
 	}
 }
@@ -854,8 +912,8 @@ impl<'a, T: 'a + Encode + ?Sized> Encode for &'a T {
 }
 
 impl Decode for () {
-	fn decode<I: Input>(_: &mut I) -> Option<()> {
-		Some(())
+	fn decode<I: Input>(_: &mut I) -> Result<(), Error> {
+		Ok(())
 	}
 }
 
@@ -868,10 +926,10 @@ macro_rules! tuple_impl {
 		}
 
 		impl<$one: Decode> Decode for ($one,) {
-			fn decode<I: Input>(input: &mut I) -> Option<Self> {
+			fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 				match $one::decode(input) {
-					None => None,
-					Some($one) => Some(($one,)),
+					Err(e) => Err(e),
+					Ok($one) => Ok(($one,)),
 				}
 			}
 		}
@@ -894,15 +952,15 @@ macro_rules! tuple_impl {
 		impl<$first: Decode, $($rest: Decode),+>
 		Decode for
 		($first, $($rest),+) {
-			fn decode<INPUT: Input>(input: &mut INPUT) -> Option<Self> {
-				Some((
+			fn decode<INPUT: Input>(input: &mut INPUT) -> Result<Self, super::Error> {
+				Ok((
 					match $first::decode(input) {
-						Some(x) => x,
-						None => return None,
+						Ok(x) => x,
+						Err(e) => return Err(e),
 					},
 					$(match $rest::decode(input) {
-						Some(x) => x,
-						None => return None,
+						Ok(x) => x,
+						Err(e) => return Err(e),
 					},)+
 				))
 			}
@@ -914,7 +972,7 @@ macro_rules! tuple_impl {
 
 #[allow(non_snake_case)]
 mod inner_tuple_impl {
-	use super::{Input, Output, Decode, Encode};
+	use super::{Error, Input, Output, Decode, Encode};
 	tuple_impl!(A, B, C, D, E, F, G, H, I, J, K,);
 }
 
@@ -961,7 +1019,7 @@ macro_rules! impl_endians {
 		}
 
 		impl Decode for $t {
-			fn decode<I: Input>(input: &mut I) -> Option<Self> {
+			fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 				let size = mem::size_of::<$t>();
 				assert!(size > 0, "EndianSensitive can never be implemented for a zero-sized type.");
 				let mut val: $t = unsafe { mem::zeroed() };
@@ -971,9 +1029,9 @@ macro_rules! impl_endians {
 						&mut val as *mut $t as *mut u8,
 						size
 					);
-					if input.read(raw) != size { return None }
+					input.read(raw)?;
 				}
-				Some(val.from_le())
+				Ok(val.from_le())
 			}
 		}
 	)* }
@@ -1001,7 +1059,7 @@ macro_rules! impl_non_endians {
 		}
 
 		impl Decode for $t {
-			fn decode<I: Input>(input: &mut I) -> Option<Self> {
+			fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 				let size = mem::size_of::<$t>();
 				assert!(size > 0, "EndianSensitive can never be implemented for a zero-sized type.");
 				let mut val: $t = unsafe { mem::zeroed() };
@@ -1011,9 +1069,9 @@ macro_rules! impl_non_endians {
 						&mut val as *mut $t as *mut u8,
 						size
 					);
-					if input.read(raw) != size { return None }
+					input.read(raw)?;
 				}
-				Some(val.from_le())
+				Ok(val.from_le())
 			}
 		}
 	)* }
@@ -1142,7 +1200,7 @@ mod tests {
 			assert_eq!(encoded.len(), l);
 			assert_eq!(<Compact<u16>>::decode(&mut &encoded[..]).unwrap().0, n);
 		}
-		assert!(<Compact<u16>>::decode(&mut &Compact(65536u32).encode()[..]).is_none());
+		assert!(<Compact<u16>>::decode(&mut &Compact(65536u32).encode()[..]).is_err());
 	}
 
 	#[test]
@@ -1153,7 +1211,7 @@ mod tests {
 			assert_eq!(encoded.len(), l);
 			assert_eq!(<Compact<u8>>::decode(&mut &encoded[..]).unwrap().0, n);
 		}
-		assert!(<Compact<u8>>::decode(&mut &Compact(256u32).encode()[..]).is_none());
+		assert!(<Compact<u8>>::decode(&mut &Compact(256u32).encode()[..]).is_err());
 	}
 
 	fn hexify(bytes: &Vec<u8>) -> String {

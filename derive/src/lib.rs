@@ -14,6 +14,7 @@
 
 //! Derives serialization and deserialization codec for complex structs for simple marshalling.
 
+#![recursion_limit = "128"]
 extern crate proc_macro;
 use proc_macro2;
 
@@ -125,7 +126,7 @@ pub fn decode_derive(input: TokenStream) -> TokenStream {
 
 	let impl_block = quote! {
 		impl #impl_generics _parity_codec::Decode for #name #ty_generics #where_clause {
-			fn decode<DecIn: _parity_codec::Input>(#input_: &mut DecIn) -> Option<Self> {
+			fn decode<DecIn: _parity_codec::Input>(#input_: &mut DecIn) -> Result<Self, _parity_codec::Error> {
 				#decoding
 			}
 		}
