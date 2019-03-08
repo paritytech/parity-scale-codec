@@ -63,7 +63,7 @@ pub fn quote(data: &Data, type_name: &Ident, input: &TokenStream) -> TokenStream
 			quote! {
 				match #input.read_byte()? {
 					#( #recurse )*
-					x => Err(_parity_codec::Error::new(#err_msg)),
+					x => Err(_parity_codec::Error::from(#err_msg)),
 				}
 			}
 
@@ -83,7 +83,10 @@ fn create_decode_expr(field: &Field, name: &String, input: &TokenStream) -> Toke
 		).to_compile_error();
 	}
 
-	let err_msg = format!("Error decoding field {}", name);;
+	#[cfg(feature = "std")]
+	let err_msg = format!("Error decoding field {}", name);
+	#[cfg(not(feature = "std"))]
+	let err_msg = { &name[..0] };
 
 	if compact {
 		let field_type = &field.ty;
@@ -91,7 +94,7 @@ fn create_decode_expr(field: &Field, name: &String, input: &TokenStream) -> Toke
 			{
 				let res = <<#field_type as _parity_codec::HasCompact>::Type as _parity_codec::Decode>::decode(#input);
 				match res {
-					Err(_) => return Err(_parity_codec::Error::new(#err_msg)),
+					Err(_) => return Err(_parity_codec::Error::from(#err_msg)),
 					Ok(a) => a.into(),
 				}
 			}
@@ -101,7 +104,7 @@ fn create_decode_expr(field: &Field, name: &String, input: &TokenStream) -> Toke
 			{
 				let res = <#encoded_as as _parity_codec::Decode>::decode(#input);
 				match res {
-					Err(_) => return Err(_parity_codec::Error::new(#err_msg)),
+					Err(_) => return Err(_parity_codec::Error::from(#err_msg)),
 					Ok(a) => a.into(),
 				}
 			}
@@ -111,7 +114,7 @@ fn create_decode_expr(field: &Field, name: &String, input: &TokenStream) -> Toke
 			{
 				let res = _parity_codec::Decode::decode(#input);
 				match res {
-					Err(_) => return Err(_parity_codec::Error::new(#err_msg)),
+					Err(_) => return Err(_parity_codec::Error::from(#err_msg)),
 					Ok(a) => a,
 				}
 			}
