@@ -95,7 +95,7 @@ pub trait Input {
 impl<'a> Input for &'a [u8] {
 	fn read(&mut self, into: &mut [u8]) -> Result<usize, Error> {
 		if into.len() > self.len() {
-			return Err(Error::from(""));
+			return Err("".into());
 		}
 		let len = ::core::cmp::min(into.len(), self.len());
 		into[..len].copy_from_slice(&self[..len]);
@@ -107,7 +107,7 @@ impl<'a> Input for &'a [u8] {
 #[cfg(feature = "std")]
 impl From<std::io::Error> for Error {
 	fn from(_err: std::io::Error) -> Self {
-		Error::from("io error")
+		"io error".into()
 	}
 }
 
@@ -536,10 +536,10 @@ impl Decode for Compact<u8> {
 				if x < 256 {
 					x as u8
 				} else {
-					return Err(Error::from("out of range decoding Compact<u8>"));
+					return Err("out of range decoding Compact<u8>".into());
 				}
 			}
-			_ => return Err(Error::from("unexpected prefix decoding Compact<u8>")),
+			_ => return Err("unexpected prefix decoding Compact<u8>".into()),
 		}))
 	}
 }
@@ -555,10 +555,10 @@ impl Decode for Compact<u16> {
 				if x < 65536 {
 					x as u16
 				} else {
-					return Err(Error::from("out of range decoding Compact<u16>"));
+					return Err("out of range decoding Compact<u16>".into());
 				}
 			}
-			_ => return Err(Error::from("unexpected prefix decoding Compact<u16>")),
+			_ => return Err("unexpected prefix decoding Compact<u16>".into()),
 		}))
 	}
 }
@@ -576,7 +576,7 @@ impl Decode for Compact<u32> {
 					u32::decode(input)?
 				} else {
 					// Out of range for a 32-bit quantity.
-					return Err(Error::from("out of range decoding Compact<u32>"));
+					return Err("out of range decoding Compact<u32>".into());
 				}
 			}
 		}))
@@ -593,7 +593,7 @@ impl Decode for Compact<u64> {
 			3|_ => match (prefix >> 2) + 4 {
 				4 => u32::decode(input)? as u64,
 				8 => u64::decode(input)?,
-				x if x > 8 => return Err(Error::from("unexpected prefix decoding Compact<u64>")),
+				x if x > 8 => return Err("unexpected prefix decoding Compact<u64>".into()),
 				bytes_needed => {
 					let mut res = 0;
 					for i in 0..bytes_needed {
@@ -617,7 +617,7 @@ impl Decode for Compact<u128> {
 				4 => u32::decode(input)? as u128,
 				8 => u64::decode(input)? as u128,
 				16 => u128::decode(input)?,
-				x if x > 16 => return Err(Error::from("unexpected prefix decoding Compact<u128>")),
+				x if x > 16 => return Err("unexpected prefix decoding Compact<u128>".into()),
 				bytes_needed => {
 					let mut res = 0;
 					for i in 0..bytes_needed {
@@ -652,7 +652,7 @@ impl<T: Decode, E: Decode> Decode for Result<T, E> {
 		match input.read_byte()? {
 			0 => Ok(Ok(T::decode(input)?)),
 			1 => Ok(Err(E::decode(input)?)),
-			_ => Err(Error::from("unexpected first byte decoding Result")),
+			_ => Err("unexpected first byte decoding Result".into()),
 		}
 	}
 }
@@ -683,7 +683,7 @@ impl Decode for OptionBool {
 			0 => Ok(OptionBool(None)),
 			1 => Ok(OptionBool(Some(true))),
 			2 => Ok(OptionBool(Some(false))),
-			_ => Err(Error::from("unexpected first byte decoding OptionBool")),
+			_ => Err("unexpected first byte decoding OptionBool".into()),
 		}
 	}
 }
@@ -705,7 +705,7 @@ impl<T: Decode> Decode for Option<T> {
 		match input.read_byte()? {
 			0 => Ok(None),
 			1 => Ok(Some(T::decode(input)?)),
-			_ => Err(Error::from("unexpecded first byte decoding Option")),
+			_ => Err("unexpecded first byte decoding Option".into()),
 		}
 	}
 }
@@ -730,7 +730,7 @@ macro_rules! impl_array {
 
 				match i {
 					Ok(a) => Ok(a),
-					Err(_) => Err(Error::from("failed to get inner array from ArrayVec")),
+					Err(_) => Err("failed to get inner array from ArrayVec".into()),
 				}
 			}
 		}
