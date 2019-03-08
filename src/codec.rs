@@ -32,10 +32,12 @@ use core::marker::PhantomData;
 use std::fmt;
 
 #[cfg_attr(feature = "std", derive(Debug))]
+#[derive(PartialEq)]
 #[cfg(feature = "std")]
 pub struct Error(&'static str);
 
 #[cfg(not(feature = "std"))]
+#[derive(PartialEq)]
 pub struct Error;
 
 impl Error {
