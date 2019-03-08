@@ -218,6 +218,20 @@ fn correct_error_for_enumtype() {
 	EnumType::decode(&mut wrong).unwrap();
 }
 
+#[test]
+#[should_panic(expected = "Error decoding field Struct.a")]
+fn correct_error_for_named_struct_1() {
+	let mut wrong: &[u8] = b"\x01";
+	Struct::<u32, u32, u32>::decode(&mut wrong).unwrap();
+}
+
+#[test]
+#[should_panic(expected = "Error decoding field Struct.b")]
+fn correct_error_for_named_struct_2() {
+	let mut wrong: &[u8] = b"\0\0\0\0\x01";
+	Struct::<u32, u32, u32>::decode(&mut wrong).unwrap();
+}
+
 const U64_TEST_COMPACT_VALUES: &[(u64, usize)] = &[
 	(0u64, 1usize), (63, 1), (64, 2), (16383, 2),
 	(16384, 4), (1073741823, 4),
