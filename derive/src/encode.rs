@@ -26,6 +26,46 @@ use crate::utils;
 
 type FieldsList = Punctuated<Field, Comma>;
 
+fn encode_single_field(
+	closure: &TokenStream,
+	field: &Field,
+	field_name: TokenStream,
+) -> TokenStream {
+	let encoded_as = utils::get_encoded_as_type(field);
+	let compact = utils::get_enable_compact(field);
+
+	if encoded_as.is_some() && compact {
+		return Error::new(
+			Span::call_site(),
+			"`encoded_as` and `compact` can not be used at the same time!"
+		).to_compile_error();
+	}
+
+	if compact {
+		let field_type = &field.ty;
+		quote_spanned! {
+			field.span() => {
+				<<#field_type as _parity_codec::HasCompact>::Type as
+					_parity_codec::EncodeAsRef<'_, #field_type>>::RefType::from(#field_name)
+					.using_encoded(#closure)
+			}
+		}
+	} else if let Some(encoded_as) = encoded_as {
+		let field_type = &field.ty;
+		quote_spanned! {
+			field.span() => {
+				<#encoded_as as
+					_parity_codec::EncodeAsRef<'_, #field_type>>::RefType::from(#field_name)
+					.using_encoded(#closure)
+			}
+		}
+	} else {
+		quote_spanned! { field.span() =>
+			_parity_codec::Encode::using_encoded(&#field_name, #closure)
+		}
+	}
+}
+
 fn encode_fields<F>(
 	dest: &TokenStream,
 	fields: &FieldsList,
@@ -79,9 +119,51 @@ fn encode_fields<F>(
 	}
 }
 
-pub fn quote(data: &Data, type_name: &Ident, self_: &TokenStream, dest: &TokenStream) -> TokenStream {
+pub fn quote(data: &Data, type_name: &Ident) -> TokenStream {
 	let call_site = Span::call_site();
-	match *data {
+
+	// optimisation for single field struct
+	let ref closure = quote!(f);
+	let optimisation = match *data {
+		Data::Struct(ref data) => {
+			match data.fields {
+				Fields::Named(ref fields) => if fields.named.len() == 1 {
+					let field = fields.named.first().unwrap();
+					let ref name = field.value().ident;
+					Some(encode_single_field(
+						closure,
+						field.value(),
+						quote_spanned!(call_site => &self.#name)
+					))
+				} else {
+					None
+				},
+				Fields::Unnamed(ref fields) => if fields.unnamed.len() == 1 {
+					Some(encode_single_field(
+						closure,
+						fields.unnamed.first().unwrap().value(),
+						quote_spanned!(call_site => &self.0)
+					))
+				} else {
+					None
+				},
+				_ => None,
+			}
+		},
+		_ => None,
+	};
+
+	if let Some(optimisation) = optimisation {
+		return quote! {
+			fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, #closure: F) -> R {
+				#optimisation
+			}
+		};
+	}
+
+	let self_ = quote!(self);
+	let ref dest = quote!(dest);
+	let encoding = match *data {
 		Data::Struct(ref data) => {
 			match data.fields {
 				Fields::Named(ref fields) => encode_fields(
@@ -177,6 +259,12 @@ pub fn quote(data: &Data, type_name: &Ident, self_: &TokenStream, dest: &TokenSt
 			}
 		},
 		Data::Union(_) => Error::new(Span::call_site(), "Union types are not supported.").to_compile_error(),
+	};
+
+	quote! {
+		fn encode_to<EncOut: _parity_codec::Output>(&#self_, #dest: &mut EncOut) {
+			#encoding
+		}
 	}
 }
 pub fn stringify(id: u8) -> [u8; 2] {
