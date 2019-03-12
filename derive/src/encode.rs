@@ -119,10 +119,7 @@ fn encode_fields<F>(
 	}
 }
 
-pub fn quote(data: &Data, type_name: &Ident) -> TokenStream {
-	let call_site = Span::call_site();
-
-	// optimisation for single field struct
+fn try_impl_encode_single_field_optimisation(data: &Data) -> Option<TokenStream> {
 	let ref closure = quote!(f);
 	let optimisation = match *data {
 		Data::Struct(ref data) => {
@@ -133,19 +130,15 @@ pub fn quote(data: &Data, type_name: &Ident) -> TokenStream {
 					Some(encode_single_field(
 						closure,
 						field.value(),
-						quote_spanned!(call_site => &self.#name)
+						quote!(&self.#name)
 					))
-				} else {
-					None
 				},
 				Fields::Unnamed(ref fields) if fields.unnamed.len() == 1 => {
 					Some(encode_single_field(
 						closure,
 						fields.unnamed.first().unwrap().value(),
-						quote_spanned!(call_site => &self.0)
+						quote!(&self.0)
 					))
-				} else {
-					None
 				},
 				_ => None,
 			}
@@ -153,14 +146,16 @@ pub fn quote(data: &Data, type_name: &Ident) -> TokenStream {
 		_ => None,
 	};
 
-	if let Some(optimisation) = optimisation {
-		return quote! {
+	optimisation.map(|optimisation| {
+		quote! {
 			fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, #closure: F) -> R {
 				#optimisation
 			}
-		};
-	}
+		}
+	})
+}
 
+fn impl_encode(data: &Data, type_name: &Ident) -> TokenStream {
 	let self_ = quote!(self);
 	let ref dest = quote!(dest);
 	let encoding = match *data {
@@ -169,19 +164,14 @@ pub fn quote(data: &Data, type_name: &Ident) -> TokenStream {
 				Fields::Named(ref fields) => encode_fields(
 					dest,
 					&fields.named,
-					|_, name| quote_spanned!(call_site => &#self_.#name),
+					|_, name| quote!(&#self_.#name),
 				),
 				Fields::Unnamed(ref fields) => encode_fields(
 					dest,
 					&fields.unnamed,
-					|i, _| {
-						let index = Index { index: i as u32, span: call_site };
-						quote_spanned!(call_site => &#self_.#index)
-					},
+					|i, _| quote!(&#self_.#i),
 				),
-				Fields::Unit => quote_spanned! { call_site =>
-					drop(#dest);
-				},
+				Fields::Unit => quote!(drop(#dest);),
 			}
 		},
 		Data::Enum(ref data) => {
@@ -198,7 +188,7 @@ pub fn quote(data: &Data, type_name: &Ident) -> TokenStream {
 
 				match f.fields {
 					Fields::Named(ref fields) => {
-						let field_name = |_, ident: &Option<Ident>| quote_spanned!(call_site => #ident);
+						let field_name = |_, ident: &Option<Ident>| quote!(#ident);
 						let names = fields.named
 							.iter()
 							.enumerate()
@@ -221,8 +211,8 @@ pub fn quote(data: &Data, type_name: &Ident) -> TokenStream {
 						let field_name = |i, _: &Option<Ident>| {
 							let data = stringify(i as u8);
 							let ident = from_utf8(&data).expect("We never go beyond ASCII");
-							let ident = Ident::new(ident, call_site);
-							quote_spanned!(call_site => #ident)
+							let ident = Ident::new(ident, Span::call_site());
+							quote!(#ident)
 						};
 						let names = fields.unnamed
 							.iter()
@@ -267,6 +257,14 @@ pub fn quote(data: &Data, type_name: &Ident) -> TokenStream {
 		}
 	}
 }
+
+pub fn quote(data: &Data, type_name: &Ident) -> TokenStream {
+	if let Some(implementation) = try_impl_encode_single_field_optimisation(data) {
+		return implementation;
+	}
+	impl_encode(data, type_name)
+}
+
 pub fn stringify(id: u8) -> [u8; 2] {
 	const CHARS: &[u8] = b"abcdefghijklmnopqrstuvwxyz";
 	let len = CHARS.len() as u8;
