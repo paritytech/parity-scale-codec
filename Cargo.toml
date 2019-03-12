@@ -9,7 +9,7 @@ categories = ["encoding"]
 edition = "2018"
 
 [dependencies]
-arrayvec = { version = "0.4", default-features = false, features = ["array-sizes-33-128"] }
+arrayvec = { version = "0.4", default-features = false, features = ["array-sizes-33-128", "array-sizes-129-255"] }
 serde = { version = "1.0", optional = true }
 parity-codec-derive = { path = "derive", version = "3.1", default-features = false, optional = true }
 
