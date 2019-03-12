@@ -127,7 +127,7 @@ pub fn quote(data: &Data, type_name: &Ident) -> TokenStream {
 	let optimisation = match *data {
 		Data::Struct(ref data) => {
 			match data.fields {
-				Fields::Named(ref fields) => if fields.named.len() == 1 {
+				Fields::Named(ref fields) if fields.named.len() == 1 => {
 					let field = fields.named.first().unwrap();
 					let ref name = field.value().ident;
 					Some(encode_single_field(
@@ -138,7 +138,7 @@ pub fn quote(data: &Data, type_name: &Ident) -> TokenStream {
 				} else {
 					None
 				},
-				Fields::Unnamed(ref fields) => if fields.unnamed.len() == 1 {
+				Fields::Unnamed(ref fields) if fields.unnamed.len() == 1 => {
 					Some(encode_single_field(
 						closure,
 						fields.unnamed.first().unwrap().value(),
