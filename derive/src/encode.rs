@@ -260,9 +260,10 @@ fn impl_encode(data: &Data, type_name: &Ident) -> TokenStream {
 
 pub fn quote(data: &Data, type_name: &Ident) -> TokenStream {
 	if let Some(implementation) = try_impl_encode_single_field_optimisation(data) {
-		return implementation;
+		implementation
+	} else {
+		impl_encode(data, type_name)
 	}
-	impl_encode(data, type_name)
 }
 
 pub fn stringify(id: u8) -> [u8; 2] {
