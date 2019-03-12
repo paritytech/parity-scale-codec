@@ -71,15 +71,11 @@ pub fn encode_derive(input: TokenStream) -> TokenStream {
 	let name = &input.ident;
 	let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
-	let self_ = quote!(self);
-	let dest_ = quote!(dest);
-	let encoding = encode::quote(&input.data, name, &self_, &dest_);
+	let encode_impl = encode::quote(&input.data, name);
 
 	let impl_block = quote! {
 		impl #impl_generics _parity_codec::Encode for #name #ty_generics #where_clause {
-			fn encode_to<EncOut: _parity_codec::Output>(&#self_, #dest_: &mut EncOut) {
-				#encoding
-			}
+			#encode_impl
 		}
 	};
 
