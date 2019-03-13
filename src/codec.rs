@@ -768,32 +768,6 @@ impl<T: Decode> Decode for Box<T> {
 	}
 }
 
-impl Encode for [u8] {
-	fn encode_to<W: Output>(&self, dest: &mut W) {
-		let len = self.len();
-		assert!(len <= u32::max_value() as usize, "Attempted to serialize a collection with too many elements.");
-		Compact(len as u32).encode_to(dest);
-		dest.write(self)
-	}
-}
-
-impl Encode for Vec<u8> {
-	fn encode_to<W: Output>(&self, dest: &mut W) {
-		self.as_slice().encode_to(dest)
-	}
-}
-
-impl Decode for Vec<u8> {
-	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
-		<Compact<u32>>::decode(input).and_then(move |Compact(len)| {
-			let len = len as usize;
-			let mut vec = vec![0; len];
-			input.read(&mut vec[..len])?;
-			Ok(vec)
-		})
-	}
-}
-
 impl<'a> Encode for &'a str {
 	fn encode_to<W: Output>(&self, dest: &mut W) {
 		self.as_bytes().encode_to(dest)
@@ -1094,10 +1068,7 @@ macro_rules! impl_non_endians {
 }
 
 impl_endians!(u16, u32, u64, u128, usize, i16, i32, i64, i128, isize);
-impl_non_endians!(i8, [u8; 1], [u8; 2], [u8; 3], [u8; 4], [u8; 5], [u8; 6], [u8; 7], [u8; 8],
-	[u8; 10], [u8; 12], [u8; 14], [u8; 16], [u8; 20], [u8; 24], [u8; 28], [u8; 32], [u8; 40],
-	[u8; 48], [u8; 56], [u8; 64], [u8; 80], [u8; 96], [u8; 112], [u8; 128], bool);
-
+impl_non_endians!(i8, u8, bool);
 
 #[cfg(test)]
 mod tests {
