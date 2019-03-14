@@ -155,7 +155,7 @@ pub trait Output: Sized {
 #[cfg(not(feature = "std"))]
 impl Output for Vec<u8> {
 	fn write(&mut self, bytes: &[u8]) {
-		self.extend(bytes);
+		self.extend_from_slice(bytes)
 	}
 }
 
