@@ -170,9 +170,7 @@ struct ArrayVecWrapper<T: arrayvec::Array>(ArrayVec<T>);
 
 impl<T: arrayvec::Array<Item=u8>> Output for ArrayVecWrapper<T> {
 	fn write(&mut self, bytes: &[u8]) {
-		for byte in bytes {
-			self.push_byte(*byte);
-		}
+		self.0.extend(bytes.iter().map(|i| *i));
 	}
 
 	fn push_byte(&mut self, byte: u8) {
