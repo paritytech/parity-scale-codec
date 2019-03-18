@@ -32,17 +32,31 @@ struct Uh<T: HasCompact>(#[codec(encoded_as = "<T as HasCompact>::Type")] T);
 #[test]
 fn test_encoding() {
 	let x = 3u32;
-	let s = S { x }.encode();
-	let sc = Sc { x }.encode();
-	let sh = Sh { x }.encode();
-	let u = U(x).encode();
-	let uc = Uc(x).encode();
-	let uh = Uh(x).encode();
+	let s = S { x };
+	let sc = Sc { x };
+	let sh = Sh { x };
+	let u = U(x);
+	let uc = Uc(x);
+	let uh = Uh(x);
 
-	assert_eq!(&s, &[3, 0, 0, 0]);
-	assert_eq!(&sc, &[12]);
-	assert_eq!(&sh, &[12]);
-	assert_eq!(&u, &[3, 0, 0, 0]);
-	assert_eq!(&uc, &[12]);
-	assert_eq!(&uh, &[12]);
+	let mut s_encoded: &[u8] = &[3, 0, 0, 0];
+	let mut sc_encoded: &[u8] = &[12];
+	let mut sh_encoded: &[u8] = &[12];
+	let mut u_encoded: &[u8] = &[3, 0, 0, 0];
+	let mut uc_encoded: &[u8] = &[12];
+	let mut uh_encoded: &[u8] = &[12];
+
+	assert_eq!(s.encode(), s_encoded);
+	assert_eq!(sc.encode(), sc_encoded);
+	assert_eq!(sh.encode(), sh_encoded);
+	assert_eq!(u.encode(), u_encoded);
+	assert_eq!(uc.encode(), uc_encoded);
+	assert_eq!(uh.encode(), uh_encoded);
+
+	assert_eq!(s, S::decode(&mut s_encoded).unwrap());
+	assert_eq!(sc, Sc::decode(&mut sc_encoded).unwrap());
+	assert_eq!(sh, Sh::decode(&mut sh_encoded).unwrap());
+	assert_eq!(u, U::decode(&mut u_encoded).unwrap());
+	assert_eq!(uc, Uc::decode(&mut uc_encoded).unwrap());
+	assert_eq!(uh, Uh::decode(&mut uh_encoded).unwrap());
 }
