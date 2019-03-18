@@ -57,12 +57,17 @@ pub fn encode_derive(input: TokenStream) -> TokenStream {
 		Ok(input) => input,
 		Err(e) => return e.to_compile_error().into(),
 	};
+	if let Some(span) = utils::get_skip(&input.attrs) {
+		return Error::new(span, "invalid attribute `skip` on root input")
+			.to_compile_error().into();
+	}
 
 	if let Err(e) = trait_bounds::add(
 		&input.ident,
 		&mut input.generics,
 		&input.data,
-		parse_quote!(_parity_codec::Encode)
+		parse_quote!(_parity_codec::Encode),
+		None,
 	) {
 		return e.to_compile_error().into();
 	}
@@ -107,12 +112,17 @@ pub fn decode_derive(input: TokenStream) -> TokenStream {
 		Ok(input) => input,
 		Err(e) => return e.to_compile_error().into(),
 	};
+	if let Some(span) = utils::get_skip(&input.attrs) {
+		return Error::new(span, "invalid attribute `skip` on root input")
+			.to_compile_error().into();
+	}
 
 	if let Err(e) = trait_bounds::add(
 		&input.ident,
 		&mut input.generics,
 		&input.data,
 		parse_quote!(_parity_codec::Decode),
+		Some(parse_quote!(Default))
 	) {
 		return e.to_compile_error().into();
 	}

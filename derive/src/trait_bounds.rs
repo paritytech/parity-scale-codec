@@ -103,6 +103,7 @@ pub fn add(
 	generics: &mut Generics,
 	data: &syn::Data,
 	codec_bound: syn::Path,
+	codec_skip_bound: Option<syn::Path>,
 ) -> syn::Result<()> {
 	let ty_params = generics.type_params().map(|p| p.ident.clone()).collect::<Vec<_>>();
 	if ty_params.is_empty() {
@@ -134,7 +135,18 @@ pub fn add(
 		.filter(|ty| type_contain_idents(ty, &ty_params))
 		.collect::<Vec<_>>();
 
-	if !codec_types.is_empty() || !compact_types.is_empty() {
+	let skip_types = if codec_skip_bound.is_some() {
+		collect_types(&data, needs_default_bound)?
+			.into_iter()
+			// Only add a bound if the type uses a generic
+			.filter(|ty| type_contain_idents(ty, &ty_params))
+			// TODO TODO: test if we need same removal as for codec_types recursive stuff.
+			.collect::<Vec<_>>()
+	} else {
+		Vec::new()
+	};
+
+	if !codec_types.is_empty() || !compact_types.is_empty() || skip_types.is_empty() {
 		let where_clause = generics.make_where_clause();
 
 		codec_types
@@ -149,21 +161,40 @@ pub fn add(
 			.for_each(|ty| {
 				where_clause.predicates.push(parse_quote!(#ty : #has_compact_bound))
 			});
+
+		skip_types
+			.into_iter()
+			.for_each(|ty| {
+				let codec_skip_bound = codec_skip_bound.as_ref().unwrap();
+				where_clause.predicates.push(parse_quote!(#ty : #codec_skip_bound))
+			});
 	}
 
 	Ok(())
 }
 
-fn needs_codec_bound(field: &syn::Field) -> bool {
-	!crate::utils::get_enable_compact(field)
+fn needs_codec_bound(field: &syn::Field, variant_skip: bool) -> bool {
+	!variant_skip
+		&& !crate::utils::get_enable_compact(field)
 		&& crate::utils::get_encoded_as_type(field).is_none()
 }
 
-fn needs_has_compact_bound(field: &syn::Field) -> bool {
-	crate::utils::get_enable_compact(field)
+fn needs_has_compact_bound(field: &syn::Field, variant_skip: bool) -> bool {
+	!variant_skip
+		&& crate::utils::get_enable_compact(field)
 }
 
-fn collect_types(data: &syn::Data, type_filter: fn(&syn::Field) -> bool) -> syn::Result<Vec<syn::Type>> {
+fn needs_default_bound(field: &syn::Field, variant_skip: bool) -> bool {
+	// types from skipped variants doesn't need default
+	!variant_skip
+		&& crate::utils::get_skip(&field.attrs).is_some()
+}
+
+fn collect_types(
+	data: &syn::Data,
+	// args: field, if inside a variant with skip attributes
+	type_filter: fn(&syn::Field, bool) -> bool,
+) -> syn::Result<Vec<syn::Type>> {
 	use syn::*;
 
 	let types = match *data {
@@ -171,7 +202,7 @@ fn collect_types(data: &syn::Data, type_filter: fn(&syn::Field) -> bool) -> syn:
 			| Fields::Named(FieldsNamed { named: fields , .. })
 			| Fields::Unnamed(FieldsUnnamed { unnamed: fields, .. }) => {
 				fields.iter()
-					.filter(|f| type_filter(f))
+					.filter(|f| type_filter(f, false))
 					.map(|f| f.ty.clone())
 					.collect()
 			},
@@ -180,11 +211,12 @@ fn collect_types(data: &syn::Data, type_filter: fn(&syn::Field) -> bool) -> syn:
 		},
 
 		Data::Enum(ref data) => data.variants.iter().flat_map(|variant| {
+			let skip = crate::utils::get_skip(&variant.attrs).is_some();
 			match &variant.fields {
 				| Fields::Named(FieldsNamed { named: fields , .. })
 				| Fields::Unnamed(FieldsUnnamed { unnamed: fields, .. }) => {
 					fields.iter()
-						.filter(|f| type_filter(f))
+						.filter(|f| type_filter(f, skip))
 						.map(|f| f.ty.clone())
 						.collect()
 				},

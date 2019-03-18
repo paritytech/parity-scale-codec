@@ -103,14 +103,16 @@ pub fn quote(data: &Data, type_name: &Ident, self_: &TokenStream, dest: &TokenSt
 			}
 		},
 		Data::Enum(ref data) => {
-			if data.variants.len() > 256 {
+			let data_variants_skipped = || data.variants.iter().filter(|variant| crate::utils::get_skip(&variant.attrs).is_none());
+
+			if data_variants_skipped().count() > 256 {
 				return Error::new(
 					Span::call_site(),
 					"Currently only enums with at most 256 variants are encodable."
 				).to_compile_error();
 			}
 
-			let recurse = data.variants.iter().enumerate().map(|(i, f)| {
+			let recurse = data_variants_skipped().enumerate().map(|(i, f)| {
 				let name = &f.ident;
 				let index = utils::index(f, i);
 
@@ -173,6 +175,7 @@ pub fn quote(data: &Data, type_name: &Ident, self_: &TokenStream, dest: &TokenSt
 			quote! {
 				match *#self_ {
 					#( #recurse )*,
+					_ => (),
 				}
 			}
 		},

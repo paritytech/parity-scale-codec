@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use syn::{Meta, NestedMeta, Lit, Attribute, Variant, Field};
-use proc_macro2::TokenStream;
+use proc_macro2::{TokenStream, Span};
 use std::str::FromStr;
 
 fn find_meta_item<'a, F, R, I>(itr: I, pred: F) -> Option<R> where
@@ -87,4 +87,18 @@ pub fn get_enable_compact(field_entry: &Field) -> bool {
 
 		None
 	}).is_some()
+}
+
+// return span of skip if found
+pub fn get_skip(attrs: &Vec<Attribute>) -> Option<Span> {
+	// look for `skip` in the attributes
+	find_meta_item(attrs.iter(), |meta| {
+		if let NestedMeta::Meta(Meta::Word(ref word)) = meta {
+			if word == "skip" {
+				return Some(word.span());
+			}
+		}
+
+		None
+	})
 }
