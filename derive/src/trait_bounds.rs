@@ -140,13 +140,12 @@ pub fn add(
 			.into_iter()
 			// Only add a bound if the type uses a generic
 			.filter(|ty| type_contain_idents(ty, &ty_params))
-			// TODO TODO: test if we need same removal as for codec_types recursive stuff.
 			.collect::<Vec<_>>()
 	} else {
 		Vec::new()
 	};
 
-	if !codec_types.is_empty() || !compact_types.is_empty() || skip_types.is_empty() {
+	if !codec_types.is_empty() || !compact_types.is_empty() || !skip_types.is_empty() {
 		let where_clause = generics.make_where_clause();
 
 		codec_types
@@ -177,6 +176,7 @@ fn needs_codec_bound(field: &syn::Field, variant_skip: bool) -> bool {
 	!variant_skip
 		&& !crate::utils::get_enable_compact(field)
 		&& crate::utils::get_encoded_as_type(field).is_none()
+		&& crate::utils::get_skip(&field.attrs).is_none()
 }
 
 fn needs_has_compact_bound(field: &syn::Field, variant_skip: bool) -> bool {

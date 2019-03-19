@@ -3,8 +3,7 @@ extern crate parity_codec_derive;
 
 use parity_codec::{Encode, Decode};
 
-// TODO TODO: remove Encode, Decode
-#[derive(PartialEq, Debug, Default, Encode, Decode)]
+#[derive(PartialEq, Debug, Default)]
 struct UncodecType;
 
 #[derive(PartialEq, Debug)]
@@ -16,7 +15,7 @@ enum Enum<T=UncodecType, S=UncodecUndefaultType> {
 	A(S),
 	B {
 		#[codec(skip)]
-		b1: T,
+		_b1: T,
 		b2: u32,
 	},
 	C(
@@ -41,9 +40,9 @@ struct StructUnnamed<T=UncodecType>(
 );
 
 #[test]
-fn test() {
+fn enum_struct_test() {
 	let ea: Enum = Enum::A(UncodecUndefaultType);
-	let eb: Enum = Enum::B { b1: UncodecType, b2: 1 };
+	let eb: Enum = Enum::B { _b1: UncodecType, b2: 1 };
 	let ec: Enum = Enum::C(UncodecType, 1);
 	let sn = StructNamed { a: UncodecType, b: 1 };
 	let su = StructUnnamed(UncodecType, 1);
