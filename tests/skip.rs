@@ -3,44 +3,44 @@ extern crate parity_codec_derive;
 
 use parity_codec::{Encode, Decode};
 
-#[derive(PartialEq, Debug, Default)]
-struct UncodecType;
+#[test]
+fn enum_struct_test() {
+	#[derive(PartialEq, Debug, Default)]
+	struct UncodecType;
 
-#[derive(PartialEq, Debug)]
-struct UncodecUndefaultType;
+	#[derive(PartialEq, Debug)]
+	struct UncodecUndefaultType;
 
-#[derive(PartialEq, Debug, Encode, Decode)]
-enum Enum<T=UncodecType, S=UncodecUndefaultType> {
-	#[codec(skip)]
-	A(S),
-	B {
+	#[derive(PartialEq, Debug, Encode, Decode)]
+	enum Enum<T=UncodecType, S=UncodecUndefaultType> {
 		#[codec(skip)]
-		_b1: T,
-		b2: u32,
-	},
-	C(
+		A(S),
+		B {
+			#[codec(skip)]
+			_b1: T,
+			b2: u32,
+		},
+		C(
+			#[codec(skip)]
+			T,
+			u32,
+		),
+	}
+
+	#[derive(PartialEq, Debug, Encode, Decode)]
+	struct StructNamed<T=UncodecType> {
+		#[codec(skip)]
+		a: T,
+		b: u32,
+	}
+
+	#[derive(PartialEq, Debug, Encode, Decode)]
+	struct StructUnnamed<T=UncodecType>(
 		#[codec(skip)]
 		T,
 		u32,
-	),
-}
+	);
 
-#[derive(PartialEq, Debug, Encode, Decode)]
-struct StructNamed<T=UncodecType> {
-	#[codec(skip)]
-	a: T,
-	b: u32,
-}
-
-#[derive(PartialEq, Debug, Encode, Decode)]
-struct StructUnnamed<T=UncodecType>(
-	#[codec(skip)]
-	T,
-	u32,
-);
-
-#[test]
-fn enum_struct_test() {
 	let ea: Enum = Enum::A(UncodecUndefaultType);
 	let eb: Enum = Enum::B { _b1: UncodecType, b2: 1 };
 	let ec: Enum = Enum::C(UncodecType, 1);
