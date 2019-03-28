@@ -108,7 +108,7 @@ pub fn quote(data: &Data, type_name: &Ident, self_: &TokenStream, dest: &TokenSt
 		Data::Enum(ref data) => {
 			let data_variants = || data.variants.iter().filter(|variant| crate::utils::get_skip(&variant.attrs).is_none());
 
-			if data_variants_skipped().count() > 256 {
+			if data_variants().count() > 256 {
 				return Error::new(
 					Span::call_site(),
 					"Currently only enums with at most 256 variants are encodable."
