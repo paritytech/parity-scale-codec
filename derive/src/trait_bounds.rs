@@ -103,13 +103,14 @@ pub fn add(
 	generics: &mut Generics,
 	data: &syn::Data,
 	codec_bound: syn::Path,
+	codec_skip_bound: Option<syn::Path>,
 ) -> syn::Result<()> {
 	let ty_params = generics.type_params().map(|p| p.ident.clone()).collect::<Vec<_>>();
 	if ty_params.is_empty() {
 		return Ok(());
 	}
 
-	let codec_types = collect_types(&data, needs_codec_bound)?
+	let codec_types = collect_types(&data, needs_codec_bound, variant_not_skipped)?
 		.into_iter()
 		// Only add a bound if the type uses a generic
 		.filter(|ty| type_contain_idents(ty, &ty_params))
@@ -128,13 +129,23 @@ pub fn add(
 		.filter(|ty| !type_or_sub_type_path_starts_with_ident(ty, input_ident))
 		.collect::<Vec<_>>();
 
-	let compact_types = collect_types(&data, needs_has_compact_bound)?
+	let compact_types = collect_types(&data, needs_has_compact_bound, variant_not_skipped)?
 		.into_iter()
 		// Only add a bound if the type uses a generic
 		.filter(|ty| type_contain_idents(ty, &ty_params))
 		.collect::<Vec<_>>();
 
-	if !codec_types.is_empty() || !compact_types.is_empty() {
+	let skip_types = if codec_skip_bound.is_some() {
+		collect_types(&data, needs_default_bound, variant_not_skipped)?
+			.into_iter()
+			// Only add a bound if the type uses a generic
+			.filter(|ty| type_contain_idents(ty, &ty_params))
+			.collect::<Vec<_>>()
+	} else {
+		Vec::new()
+	};
+
+	if !codec_types.is_empty() || !compact_types.is_empty() || !skip_types.is_empty() {
 		let where_clause = generics.make_where_clause();
 
 		codec_types
@@ -149,6 +160,13 @@ pub fn add(
 			.for_each(|ty| {
 				where_clause.predicates.push(parse_quote!(#ty : #has_compact_bound))
 			});
+
+		skip_types
+			.into_iter()
+			.for_each(|ty| {
+				let codec_skip_bound = codec_skip_bound.as_ref().unwrap();
+				where_clause.predicates.push(parse_quote!(#ty : #codec_skip_bound))
+			});
 	}
 
 	Ok(())
@@ -157,13 +175,26 @@ pub fn add(
 fn needs_codec_bound(field: &syn::Field) -> bool {
 	!crate::utils::get_enable_compact(field)
 		&& crate::utils::get_encoded_as_type(field).is_none()
+		&& crate::utils::get_skip(&field.attrs).is_none()
 }
 
 fn needs_has_compact_bound(field: &syn::Field) -> bool {
 	crate::utils::get_enable_compact(field)
 }
 
-fn collect_types(data: &syn::Data, type_filter: fn(&syn::Field) -> bool) -> syn::Result<Vec<syn::Type>> {
+fn needs_default_bound(field: &syn::Field) -> bool {
+	crate::utils::get_skip(&field.attrs).is_some()
+}
+
+fn variant_not_skipped(variant: &syn::Variant) -> bool {
+	crate::utils::get_skip(&variant.attrs).is_none()
+}
+
+fn collect_types(
+	data: &syn::Data,
+	type_filter: fn(&syn::Field) -> bool,
+	variant_filter: fn(&syn::Variant) -> bool,
+) -> syn::Result<Vec<syn::Type>> {
 	use syn::*;
 
 	let types = match *data {
@@ -179,19 +210,21 @@ fn collect_types(data: &syn::Data, type_filter: fn(&syn::Field) -> bool) -> syn:
 			Fields::Unit => { Vec::new() },
 		},
 
-		Data::Enum(ref data) => data.variants.iter().flat_map(|variant| {
-			match &variant.fields {
-				| Fields::Named(FieldsNamed { named: fields , .. })
-				| Fields::Unnamed(FieldsUnnamed { unnamed: fields, .. }) => {
-					fields.iter()
-						.filter(|f| type_filter(f))
-						.map(|f| f.ty.clone())
-						.collect()
-				},
+		Data::Enum(ref data) => data.variants.iter()
+			.filter(|variant| variant_filter(variant))
+			.flat_map(|variant| {
+				match &variant.fields {
+					| Fields::Named(FieldsNamed { named: fields , .. })
+					| Fields::Unnamed(FieldsUnnamed { unnamed: fields, .. }) => {
+						fields.iter()
+							.filter(|f| type_filter(f))
+							.map(|f| f.ty.clone())
+							.collect()
+					},
 
-				Fields::Unit => { Vec::new() },
-			}
-		}).collect(),
+					Fields::Unit => { Vec::new() },
+				}
+			}).collect(),
 
 		Data::Union(_) => return Err(Error::new(Span::call_site(), "Union types are not supported.")),
 	};

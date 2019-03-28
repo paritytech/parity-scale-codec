@@ -37,11 +37,12 @@ fn encode_fields<F>(
 		let field = field_name(i, &f.ident);
 		let encoded_as = utils::get_encoded_as_type(f);
 		let compact = utils::get_enable_compact(f);
+		let skip = utils::get_skip(&f.attrs).is_some();
 
-		if encoded_as.is_some() && compact {
+		if encoded_as.is_some() as u8 + compact as u8 + skip as u8 > 1 {
 			return Error::new(
 				Span::call_site(),
-				"`encoded_as` and `compact` can not be used at the same time!"
+				"`encoded_as`, `compact` and `skip` can only be used one at a time!"
 			).to_compile_error();
 		}
 
@@ -67,6 +68,8 @@ fn encode_fields<F>(
 					);
 				}
 			}
+		} else if skip {
+			quote! {}
 		} else {
 			quote_spanned! { f.span() =>
 					#dest.push(#field);
@@ -103,14 +106,16 @@ pub fn quote(data: &Data, type_name: &Ident, self_: &TokenStream, dest: &TokenSt
 			}
 		},
 		Data::Enum(ref data) => {
-			if data.variants.len() > 256 {
+			let data_variants = || data.variants.iter().filter(|variant| crate::utils::get_skip(&variant.attrs).is_none());
+
+			if data_variants().count() > 256 {
 				return Error::new(
 					Span::call_site(),
 					"Currently only enums with at most 256 variants are encodable."
 				).to_compile_error();
 			}
 
-			let recurse = data.variants.iter().enumerate().map(|(i, f)| {
+			let recurse = data_variants().enumerate().map(|(i, f)| {
 				let name = &f.ident;
 				let index = utils::index(f, i);
 
@@ -173,6 +178,7 @@ pub fn quote(data: &Data, type_name: &Ident, self_: &TokenStream, dest: &TokenSt
 			quote! {
 				match *#self_ {
 					#( #recurse )*,
+					_ => (),
 				}
 			}
 		},
