@@ -1392,4 +1392,28 @@ mod tests {
 		CompactRef(&std::u64::MAX).using_encoded(|_| {});
 		CompactRef(&std::u128::MAX).using_encoded(|_| {});
 	}
+
+  #[derive(Eq, PartialEq, Clone, Copy, Ord, PartialOrd)]
+  pub struct Compact2<T>(pub T);
+  impl Encode for Compact2<u16> {
+    fn encode_to<W: Output>(&self, dest: &mut W) {
+      match self.0 {
+        //0..=0b00111111 => dest.push_byte((self.0 as u8) << 2),
+        0..=0b00111111_11111111 => ((self.0 << 2) | 0b01).encode_to(dest),
+        _ => (((self.0 as u32) << 2) | 0b10).encode_to(dest),
+      }
+	
+    }
+  }
+
+  #[test]
+  fn malleability() {
+    let enc1 = Compact(5u16).encode();
+    let enc2 = Compact2(5u16).encode();
+
+    assert!(enc1 != enc2);
+    let dec1:u16 = Compact::<u16>::decode(&mut & enc1[..]).unwrap().0;
+    let dec2:u16 = Compact::<u16>::decode(&mut & enc2[..]).unwrap().0;
+    assert!(dec1 == dec2);
+  }
 }
