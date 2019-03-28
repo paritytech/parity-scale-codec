@@ -172,28 +172,23 @@ pub fn add(
 	Ok(())
 }
 
-fn needs_codec_bound(field: &syn::Field, variant_skip: bool) -> bool {
-	!variant_skip
-		&& !crate::utils::get_enable_compact(field)
+fn needs_codec_bound(field: &syn::Field) -> bool {
+	!crate::utils::get_enable_compact(field)
 		&& crate::utils::get_encoded_as_type(field).is_none()
 		&& crate::utils::get_skip(&field.attrs).is_none()
 }
 
-fn needs_has_compact_bound(field: &syn::Field, variant_skip: bool) -> bool {
-	!variant_skip
-		&& crate::utils::get_enable_compact(field)
+fn needs_has_compact_bound(field: &syn::Field) -> bool {
+	crate::utils::get_enable_compact(field)
 }
 
-fn needs_default_bound(field: &syn::Field, variant_skip: bool) -> bool {
-	// types from skipped variants doesn't need default
-	!variant_skip
-		&& crate::utils::get_skip(&field.attrs).is_some()
+fn needs_default_bound(field: &syn::Field) -> bool {
+	crate::utils::get_skip(&field.attrs).is_some()
 }
 
 fn collect_types(
 	data: &syn::Data,
-	// args: field, if inside a variant with skip attributes
-	type_filter: fn(&syn::Field, bool) -> bool,
+	type_filter: fn(&syn::Field) -> bool,
 ) -> syn::Result<Vec<syn::Type>> {
 	use syn::*;
 
@@ -202,7 +197,7 @@ fn collect_types(
 			| Fields::Named(FieldsNamed { named: fields , .. })
 			| Fields::Unnamed(FieldsUnnamed { unnamed: fields, .. }) => {
 				fields.iter()
-					.filter(|f| type_filter(f, false))
+					.filter(|f| type_filter(f))
 					.map(|f| f.ty.clone())
 					.collect()
 			},
@@ -210,20 +205,21 @@ fn collect_types(
 			Fields::Unit => { Vec::new() },
 		},
 
-		Data::Enum(ref data) => data.variants.iter().flat_map(|variant| {
-			let skip = crate::utils::get_skip(&variant.attrs).is_some();
-			match &variant.fields {
-				| Fields::Named(FieldsNamed { named: fields , .. })
-				| Fields::Unnamed(FieldsUnnamed { unnamed: fields, .. }) => {
-					fields.iter()
-						.filter(|f| type_filter(f, skip))
-						.map(|f| f.ty.clone())
-						.collect()
-				},
+		Data::Enum(ref data) => data.variants.iter()
+			.filter(|variant| crate::utils::get_skip(&variant.attrs).is_none())
+			.flat_map(|variant| {
+				match &variant.fields {
+					| Fields::Named(FieldsNamed { named: fields , .. })
+					| Fields::Unnamed(FieldsUnnamed { unnamed: fields, .. }) => {
+						fields.iter()
+							.filter(|f| type_filter(f))
+							.map(|f| f.ty.clone())
+							.collect()
+					},
 
-				Fields::Unit => { Vec::new() },
-			}
-		}).collect(),
+					Fields::Unit => { Vec::new() },
+				}
+			}).collect(),
 
 		Data::Union(_) => return Err(Error::new(Span::call_site(), "Union types are not supported.")),
 	};
