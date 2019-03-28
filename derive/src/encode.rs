@@ -106,7 +106,7 @@ pub fn quote(data: &Data, type_name: &Ident, self_: &TokenStream, dest: &TokenSt
 			}
 		},
 		Data::Enum(ref data) => {
-			let data_variants_skipped = || data.variants.iter().filter(|variant| crate::utils::get_skip(&variant.attrs).is_none());
+			let data_variants = || data.variants.iter().filter(|variant| crate::utils::get_skip(&variant.attrs).is_none());
 
 			if data_variants_skipped().count() > 256 {
 				return Error::new(
@@ -115,7 +115,7 @@ pub fn quote(data: &Data, type_name: &Ident, self_: &TokenStream, dest: &TokenSt
 				).to_compile_error();
 			}
 
-			let recurse = data_variants_skipped().enumerate().map(|(i, f)| {
+			let recurse = data_variants().enumerate().map(|(i, f)| {
 				let name = &f.ident;
 				let index = utils::index(f, i);
 
