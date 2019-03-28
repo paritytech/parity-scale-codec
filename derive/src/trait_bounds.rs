@@ -110,7 +110,7 @@ pub fn add(
 		return Ok(());
 	}
 
-	let codec_types = collect_types(&data, needs_codec_bound)?
+	let codec_types = collect_types(&data, needs_codec_bound, variant_not_skipped)?
 		.into_iter()
 		// Only add a bound if the type uses a generic
 		.filter(|ty| type_contain_idents(ty, &ty_params))
@@ -129,14 +129,14 @@ pub fn add(
 		.filter(|ty| !type_or_sub_type_path_starts_with_ident(ty, input_ident))
 		.collect::<Vec<_>>();
 
-	let compact_types = collect_types(&data, needs_has_compact_bound)?
+	let compact_types = collect_types(&data, needs_has_compact_bound, variant_not_skipped)?
 		.into_iter()
 		// Only add a bound if the type uses a generic
 		.filter(|ty| type_contain_idents(ty, &ty_params))
 		.collect::<Vec<_>>();
 
 	let skip_types = if codec_skip_bound.is_some() {
-		collect_types(&data, needs_default_bound)?
+		collect_types(&data, needs_default_bound, variant_not_skipped)?
 			.into_iter()
 			// Only add a bound if the type uses a generic
 			.filter(|ty| type_contain_idents(ty, &ty_params))
@@ -186,9 +186,14 @@ fn needs_default_bound(field: &syn::Field) -> bool {
 	crate::utils::get_skip(&field.attrs).is_some()
 }
 
+fn variant_not_skipped(variant: &syn::Variant) -> bool {
+	crate::utils::get_skip(&variant.attrs).is_none()
+}
+
 fn collect_types(
 	data: &syn::Data,
 	type_filter: fn(&syn::Field) -> bool,
+	variant_filter: fn(&syn::Variant) -> bool,
 ) -> syn::Result<Vec<syn::Type>> {
 	use syn::*;
 
@@ -206,7 +211,7 @@ fn collect_types(
 		},
 
 		Data::Enum(ref data) => data.variants.iter()
-			.filter(|variant| crate::utils::get_skip(&variant.attrs).is_none())
+			.filter(|variant| variant_filter(variant))
 			.flat_map(|variant| {
 				match &variant.fields {
 					| Fields::Named(FieldsNamed { named: fields , .. })
