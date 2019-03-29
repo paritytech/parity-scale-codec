@@ -34,6 +34,7 @@ use std::fmt;
 #[cfg_attr(feature = "std", derive(Debug))]
 #[derive(PartialEq)]
 #[cfg(feature = "std")]
+/// Descriptive error type
 pub struct Error(&'static str);
 
 #[cfg(not(feature = "std"))]
@@ -42,11 +43,13 @@ pub struct Error;
 
 impl Error {
 	#[cfg(feature = "std")]
+	/// Error description (only on std).
 	pub fn what(&self) -> &'static str {
 		self.0
 	}
 
 	#[cfg(not(feature = "std"))]
+	/// Error description (only on std).
 	pub fn what(&self) -> &'static str {
 		""
 	}
@@ -143,10 +146,12 @@ pub trait Output: Sized {
 	/// Write to the output.
 	fn write(&mut self, bytes: &[u8]);
 
+	/// Write a single byte to the output.
 	fn push_byte(&mut self, byte: u8) {
 		self.write(&[byte]);
 	}
 
+	/// Write encoding of given value to the output.
 	fn push<V: Encode + ?Sized>(&mut self, value: &V) {
 		value.encode_to(self);
 	}
@@ -183,6 +188,10 @@ impl<T: arrayvec::Array<Item=u8>> Output for ArrayVecWrapper<T> {
 /// Implementations should override `using_encoded` for value types and `encode_to` and `size_hint` for allocating types.
 /// Wrapper types should override all methods.
 pub trait Encode {
+	/// If possible give a hint of expected size of the encoding.
+	///
+	/// This method is used inside default implementation of `encode`
+	/// to avoid re-allocations.
 	fn size_hint(&self) -> usize {
 		0
 	}
@@ -299,6 +308,7 @@ impl<'a, T: Copy> From<&'a T> for Compact<T> {
 
 /// Allow foreign structs to be wrap in Compact
 pub trait CompactAs: From<Compact<Self>> {
+	/// A compact-encodable type that should be used as the encoding.
 	type As;
 
 	/// Returns the encodable type.
@@ -667,6 +677,13 @@ impl Decode for Compact<u128> {
 }
 
 impl<T: Encode, E: Encode> Encode for Result<T, E> {
+	fn size_hint(&self) -> usize {
+		1 + match *self {
+			Ok(ref t) => t.size_hint(),
+			Err(ref t) => t.size_hint(),
+		}
+	}
+
 	fn encode_to<W: Output>(&self, dest: &mut W) {
 		match *self {
 			Ok(ref t) => {
@@ -723,6 +740,13 @@ impl Decode for OptionBool {
 }
 
 impl<T: Encode> Encode for Option<T> {
+	fn size_hint(&self) -> usize {
+		1 + match *self {
+			Some(ref t) => t.size_hint(),
+			None => 0,
+		}
+	}
+
 	fn encode_to<W: Output>(&self, dest: &mut W) {
 		match *self {
 			Some(ref t) => {
@@ -792,7 +816,7 @@ impl_array!(
 
 impl Encode for [u8] {
 	fn size_hint(&self) -> usize {
-		self.len()
+		self.len() + mem::size_of::<u32>()
 	}
 
 	fn encode_to<W: Output>(&self, dest: &mut W) {
@@ -816,11 +840,19 @@ impl Decode for Vec<u8> {
 
 impl Encode for str {
 	fn size_hint(&self) -> usize {
-		self.as_bytes().len()
+		self.as_bytes().size_hint()
 	}
 
 	fn encode_to<W: Output>(&self, dest: &mut W) {
 		self.as_bytes().encode_to(dest)
+	}
+
+	fn encode(&self) -> Vec<u8> {
+		self.as_bytes().encode()
+	}
+
+	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
+		self.as_bytes().using_encoded(f)
 	}
 }
 
@@ -899,15 +931,8 @@ impl<K: Decode + Ord, V: Decode> Decode for BTreeMap<K, V> {
 }
 
 impl Encode for () {
-	fn encode_to<T: Output>(&self, _dest: &mut T) {
-	}
-
 	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
 		f(&[])
-	}
-
-	fn encode(&self) -> Vec<u8> {
-		Vec::new()
 	}
 }
 
@@ -920,8 +945,20 @@ impl Decode for () {
 macro_rules! tuple_impl {
 	($one:ident,) => {
 		impl<$one: Encode> Encode for ($one,) {
+			fn size_hint(&self) -> usize {
+				self.0.size_hint()
+			}
+
 			fn encode_to<T: Output>(&self, dest: &mut T) {
 				self.0.encode_to(dest);
+			}
+
+			fn encode(&self) -> Vec<u8> {
+				self.0.encode()
+			}
+
+			fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
+				self.0.using_encoded(f)
 			}
 		}
 
@@ -938,6 +975,15 @@ macro_rules! tuple_impl {
 		impl<$first: Encode, $($rest: Encode),+>
 		Encode for
 		($first, $($rest),+) {
+			fn size_hint(&self) -> usize {
+				let (
+					ref $first,
+					$(ref $rest),+
+				) = *self;
+				$first.size_hint()
+				$( + $rest.size_hint() )+
+			}
+
 			fn encode_to<T: Output>(&self, dest: &mut T) {
 				let (
 					ref $first,

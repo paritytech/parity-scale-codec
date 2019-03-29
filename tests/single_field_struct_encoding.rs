@@ -2,6 +2,8 @@
 extern crate parity_codec_derive;
 
 use parity_codec::{Encode, HasCompact};
+#[cfg(test)]
+use parity_codec::Decode;
 
 #[derive(Debug, PartialEq, Encode, Decode)]
 struct S {
