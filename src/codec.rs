@@ -84,6 +84,14 @@ impl From<&'static str> for Error {
 /// Trait that allows reading of data into a slice.
 pub trait Input {
 	/// Read into the provided input slice. Returns the number of bytes read.
+	///
+	/// Note that this function should be more like `std::io::Read::read_exact`
+	/// than `std::io::Read::read`. I.e. the buffer should always be filled
+	/// with as many bytes as available and if `n < into.len()` is returned
+	/// then it should mean that there was not enough bytes available and the
+	/// `Input` is drained.
+	/// Callers of this function should not need to call again if `n < into.len()`
+	/// is returned.
 	fn read(&mut self, into: &mut [u8]) -> Result<usize, Error>;
 
 	/// Read a single byte from the input.
