@@ -225,12 +225,14 @@ pub trait WrapperTypeEncode: Deref {}
 impl<T> WrapperTypeEncode for Vec<T> {}
 impl<T: ?Sized> WrapperTypeEncode for Box<T> {}
 impl<'a, T: ?Sized> WrapperTypeEncode for &'a T {}
+impl<'a, T: ?Sized> WrapperTypeEncode for &'a mut T {}
+
+#[cfg(any(feature = "std", feature = "full"))]
+impl<'a, T: ToOwned + ?Sized> WrapperTypeEncode for Cow<'a, T> {}
 #[cfg(any(feature = "std", feature = "full"))]
 impl<T: ?Sized> WrapperTypeEncode for std::sync::Arc<T> {}
 #[cfg(any(feature = "std", feature = "full"))]
 impl<T: ?Sized> WrapperTypeEncode for std::rc::Rc<T> {}
-#[cfg(any(feature = "std", feature = "full"))]
-impl<'a, T: ToOwned + ?Sized> WrapperTypeEncode for Cow<'a, T> {}
 #[cfg(any(feature = "std", feature = "full"))]
 impl WrapperTypeEncode for String {}
 
@@ -299,17 +301,31 @@ impl<'a, T: Copy> From<&'a T> for Compact<T> {
 pub trait CompactAs: From<Compact<Self>> {
 	type As;
 
+	/// Returns the encodable type.
 	fn encode_as(&self) -> &Self::As;
+
+	/// Create `Self` from the decodable type.
 	fn decode_from(_: Self::As) -> Self;
 }
 
 impl<T> Encode for Compact<T>
 where
-	T: CompactAs,
-	for<'a> CompactRef<'a, T::As>: Encode,
+	for<'a> CompactRef<'a, T>: Encode,
 {
+	fn size_hint(&self) -> usize {
+		CompactRef(&self.0).size_hint()
+	}
+
 	fn encode_to<W: Output>(&self, dest: &mut W) {
-		CompactRef(self.0.encode_as()).encode_to(dest)
+		CompactRef(&self.0).encode_to(dest)
+	}
+
+	fn encode(&self) -> Vec<u8> {
+		CompactRef(&self.0).encode()
+	}
+
+	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
+		CompactRef(&self.0).using_encoded(f)
 	}
 }
 
@@ -318,8 +334,20 @@ where
 	T: CompactAs,
 	for<'b> CompactRef<'b, T::As>: Encode,
 {
+	fn size_hint(&self) -> usize {
+		CompactRef(self.0.encode_as()).size_hint()
+	}
+
 	fn encode_to<Out: Output>(&self, dest: &mut Out) {
 		CompactRef(self.0.encode_as()).encode_to(dest)
+	}
+
+	fn encode(&self) -> Vec<u8> {
+		CompactRef(self.0.encode_as()).encode()
+	}
+
+	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
+		CompactRef(self.0.encode_as()).using_encoded(f)
 	}
 }
 
@@ -423,30 +451,12 @@ impl<'a> Encode for CompactRef<'a, ()> {
 	}
 }
 
-impl Encode for Compact<()> {
-	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
-		f(&[])
-	}
-}
-
 impl<'a> Encode for CompactRef<'a, u8> {
 	fn encode_to<W: Output>(&self, dest: &mut W) {
 		match self.0 {
 			0..=0b00111111 => dest.push_byte(self.0 << 2),
 			_ => (((*self.0 as u16) << 2) | 0b01).encode_to(dest),
 		}
-	}
-
-	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
-		let mut r = ArrayVecWrapper(ArrayVec::<[u8; 2]>::new());
-		self.encode_to(&mut r);
-		f(&r.0)
-	}
-}
-
-impl Encode for Compact<u8> {
-	fn encode_to<W: Output>(&self, dest: &mut W) {
-		CompactRef(&self.0).encode_to(dest)
 	}
 
 	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
@@ -472,18 +482,6 @@ impl<'a> Encode for CompactRef<'a, u16> {
 	}
 }
 
-impl Encode for Compact<u16> {
-	fn encode_to<W: Output>(&self, dest: &mut W) {
-		CompactRef(&self.0).encode_to(dest)
-	}
-
-	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
-		let mut r = ArrayVecWrapper(ArrayVec::<[u8; 4]>::new());
-		self.encode_to(&mut r);
-		f(&r.0)
-	}
-}
-
 impl<'a> Encode for CompactRef<'a, u32> {
 	fn encode_to<W: Output>(&self, dest: &mut W) {
 		match self.0 {
@@ -495,18 +493,6 @@ impl<'a> Encode for CompactRef<'a, u32> {
 				self.0.encode_to(dest);
 			}
 		}
-	}
-
-	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
-		let mut r = ArrayVecWrapper(ArrayVec::<[u8; 5]>::new());
-		self.encode_to(&mut r);
-		f(&r.0)
-	}
-}
-
-impl Encode for Compact<u32> {
-	fn encode_to<W: Output>(&self, dest: &mut W) {
-		CompactRef(&self.0).encode_to(dest)
 	}
 
 	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
@@ -543,18 +529,6 @@ impl<'a> Encode for CompactRef<'a, u64> {
 	}
 }
 
-impl Encode for Compact<u64> {
-	fn encode_to<W: Output>(&self, dest: &mut W) {
-		CompactRef(&self.0).encode_to(dest)
-	}
-
-	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
-		let mut r = ArrayVecWrapper(ArrayVec::<[u8; 9]>::new());
-		self.encode_to(&mut r);
-		f(&r.0)
-	}
-}
-
 impl<'a> Encode for CompactRef<'a, u128> {
 	fn encode_to<W: Output>(&self, dest: &mut W) {
 		match self.0 {
@@ -573,18 +547,6 @@ impl<'a> Encode for CompactRef<'a, u128> {
 				assert_eq!(v, 0, "shifted sufficient bits right to lead only leading zeros; qed")
 			}
 		}
-	}
-
-	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
-		let mut r = ArrayVecWrapper(ArrayVec::<[u8; 17]>::new());
-		self.encode_to(&mut r);
-		f(&r.0)
-	}
-}
-
-impl Encode for Compact<u128> {
-	fn encode_to<W: Output>(&self, dest: &mut W) {
-		CompactRef(&self.0).encode_to(dest)
 	}
 
 	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
