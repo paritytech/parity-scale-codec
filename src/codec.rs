@@ -217,8 +217,9 @@ impl<S: Decode + Encode> Codec for S {}
 
 /// A marker trait for types that wrap other encodable type.
 ///
-/// Such types should not carry any additional information,
-/// and the encoding is assumed to be the same as the wrapped type.
+/// Such types should not carry any additional information
+/// that would require to be encoded, because the encoding
+/// is assumed to be the same as the wrapped type.
 pub trait WrapperTypeEncode: Deref {}
 
 impl<T> WrapperTypeEncode for Vec<T> {}
