@@ -43,13 +43,19 @@ pub struct Error;
 
 impl Error {
 	#[cfg(feature = "std")]
-	/// Error description (only on std).
+	/// Error description
+	///
+	/// This function returns an actual error str when running in `std`
+	/// environment, but `""` on `no_std`.
 	pub fn what(&self) -> &'static str {
 		self.0
 	}
 
 	#[cfg(not(feature = "std"))]
-	/// Error description (only on std).
+	/// Error description
+	///
+	/// This function returns an actual error str when running in `std`
+	/// environment, but `""` on `no_std`.
 	pub fn what(&self) -> &'static str {
 		""
 	}
@@ -1034,7 +1040,7 @@ mod inner_tuple_impl {
 /// Trait to allow conversion to a know endian representation when sensitive.
 /// Types implementing this trait must have a size > 0.
 ///
-/// note: the copy bound and static lifetimes are necessary for safety of `Codec` blanket
+/// NOTE: the copy bound and static lifetimes are necessary for safety of `Codec` blanket
 /// implementation.
 trait EndianSensitive: Copy + 'static {
 	fn to_le(self) -> Self { self }
@@ -1431,5 +1437,28 @@ mod tests {
 		CompactRef(&std::u32::MAX).using_encoded(|_| {});
 		CompactRef(&std::u64::MAX).using_encoded(|_| {});
 		CompactRef(&std::u128::MAX).using_encoded(|_| {});
+	}
+
+	#[derive(Debug, PartialEq)]
+	struct MyWrapper(Compact<u32>);
+	impl Deref for MyWrapper {
+		type Target = Compact<u32>;
+		fn deref(&self) -> &Self::Target { &self.0 }
+	}
+	impl WrapperTypeEncode for MyWrapper {}
+
+	impl From<Compact<u32>> for MyWrapper {
+		fn from(c: Compact<u32>) -> Self { MyWrapper(c) }
+	}
+	impl WrapperTypeDecode for MyWrapper {
+		type Wrapped = Compact<u32>;
+	}
+
+	#[test]
+	fn should_work_for_wrapper_types() {
+		let result = vec![0b1100];
+
+		assert_eq!(MyWrapper(3u32.into()).encode(), result);
+		assert_eq!(MyWrapper::decode(&mut &*result).unwrap(), MyWrapper(3_u32.into()));
 	}
 }

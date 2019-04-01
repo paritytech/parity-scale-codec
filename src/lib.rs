@@ -39,7 +39,7 @@ extern crate serde_derive;
 pub use parity_codec_derive::*;
 
 #[cfg(feature = "std")]
-/// Alloc shim for std environment.
+#[doc(hidden)]
 pub mod alloc {
 	pub use std::boxed;
 	pub use std::vec;
