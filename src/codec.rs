@@ -90,6 +90,7 @@ pub trait Input {
 	/// with as many bytes as available and if `n < into.len()` is returned
 	/// then it should mean that there was not enough bytes available and the
 	/// `Input` is drained.
+	///
 	/// Callers of this function should not need to call again if `n < into.len()`
 	/// is returned.
 	fn read(&mut self, into: &mut [u8]) -> Result<usize, Error>;
