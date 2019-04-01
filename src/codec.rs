@@ -1040,7 +1040,9 @@ mod inner_tuple_impl {
 /// Trait to allow conversion to a know endian representation when sensitive.
 /// Types implementing this trait must have a size > 0.
 ///
-/// NOTE: the copy bound and static lifetimes are necessary for safety of `Codec` blanket
+/// # Note
+///
+/// The copy bound and static lifetimes are necessary for safety of `Codec` blanket
 /// implementation.
 trait EndianSensitive: Copy + 'static {
 	fn to_le(self) -> Self { self }
