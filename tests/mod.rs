@@ -463,5 +463,5 @@ fn encode_decode_empty_enum() {
     fn impls_encode_decode<T: Encode + Decode>() {}
 	impls_encode_decode::<EmptyEnumDerive>();
 
-	assert_eq!(EmptyEnumDerive::decode(&mut &[1, 2, 3][..]), None);
+	assert_eq!(EmptyEnumDerive::decode(&mut &[1, 2, 3][..]), Err("No such variant in enum EmptyEnumDerive".into()));
 }
