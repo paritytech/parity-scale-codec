@@ -190,7 +190,15 @@ struct ArrayVecWrapper<T: arrayvec::Array>(ArrayVec<T>);
 
 impl<T: arrayvec::Array<Item=u8>> Output for ArrayVecWrapper<T> {
 	fn write(&mut self, bytes: &[u8]) {
-		self.0.extend(bytes.iter().map(|i| *i));
+		let old_len = self.0.len();
+		let new_len = old_len + bytes.len();
+
+		assert!(new_len <= self.0.capacity());
+		unsafe {
+			self.0.set_len(new_len);
+		}
+
+		self.0[old_len..new_len].copy_from_slice(bytes);
 	}
 
 	fn push_byte(&mut self, byte: u8) {
@@ -471,8 +479,15 @@ impl<T: 'static> HasCompact for T where
 // Note: we use *LOW BITS* of the LSB in LE encoding to encode the 2 bit key.
 
 impl<'a> Encode for CompactRef<'a, ()> {
+	fn encode_to<W: Output>(&self, _dest: &mut W) {
+	}
+
 	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
 		f(&[])
+	}
+
+	fn encode(&self) -> Vec<u8> {
+		Vec::new()
 	}
 }
 
@@ -946,8 +961,15 @@ impl<K: Decode + Ord, V: Decode> Decode for BTreeMap<K, V> {
 }
 
 impl Encode for () {
+	fn encode_to<W: Output>(&self, _dest: &mut W) {
+	}
+
 	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
 		f(&[])
+	}
+
+	fn encode(&self) -> Vec<u8> {
+		Vec::new()
 	}
 }
 
@@ -1439,6 +1461,19 @@ mod tests {
 		CompactRef(&std::u32::MAX).using_encoded(|_| {});
 		CompactRef(&std::u64::MAX).using_encoded(|_| {});
 		CompactRef(&std::u128::MAX).using_encoded(|_| {});
+	}
+
+	#[test]
+	#[should_panic]
+	fn array_vec_output_oob() {
+		let mut v = ArrayVecWrapper(ArrayVec::<[u8; 4]>::new());
+		v.write(&[1, 2, 3, 4, 5]);
+	}
+
+	#[test]
+	fn array_vec_output() {
+		let mut v = ArrayVecWrapper(ArrayVec::<[u8; 4]>::new());
+		v.write(&[1, 2, 3, 4]);
 	}
 
 	#[derive(Debug, PartialEq)]
