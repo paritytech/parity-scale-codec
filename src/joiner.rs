@@ -20,6 +20,7 @@ use super::Codec;
 /// Trait to allow itself to be serialised into a value which can be extended
 /// by bytes.
 pub trait Joiner {
+	/// Append encoding of value to `Self`.
 	fn and<V: Codec + Sized>(self, value: &V) -> Self;
 }
 
