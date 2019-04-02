@@ -16,6 +16,8 @@
 //! Implements a serialization and deserialization codec for simple marshalling.
 // end::description[]
 
+#![warn(missing_docs)]
+
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(not(feature = "std"), feature(alloc))]
 
@@ -37,6 +39,7 @@ extern crate serde_derive;
 pub use parity_codec_derive::*;
 
 #[cfg(feature = "std")]
+#[doc(hidden)]
 pub mod alloc {
 	pub use std::boxed;
 	pub use std::vec;

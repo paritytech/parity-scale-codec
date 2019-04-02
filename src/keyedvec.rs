@@ -20,6 +20,7 @@ use crate::alloc::vec::Vec;
 
 /// Trait to allow itself to be serialised and prepended by a given slice.
 pub trait KeyedVec {
+	/// Return an encoding of `Self` prepended by given slice.
 	fn to_keyed_vec(&self, prepend_key: &[u8]) -> Vec<u8>;
 }
 
