@@ -208,6 +208,11 @@ fn impl_encode(data: &Data, type_name: &Ident) -> TokenStream {
 				).to_compile_error();
 			}
 
+			// If the enum has no variants, we don't need to encode anything.
+			if data_variants().count() == 0 {
+				return quote!();
+			}
+
 			let recurse = data_variants().enumerate().map(|(i, f)| {
 				let name = &f.ident;
 				let index = utils::index(f, i);
