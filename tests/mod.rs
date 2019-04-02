@@ -419,3 +419,14 @@ fn recursive_variant_2_encode_works() {
 	let val: Recursive<u32, i32, u32> = Recursive::default();
 	val.encode();
 }
+
+#[test]
+fn encode_decode_empty_enum() {
+	#[derive(Encode, Decode, PartialEq, Debug)]
+	enum EmptyEnumDerive {}
+
+    fn impls_encode_decode<T: Encode + Decode>() {}
+	impls_encode_decode::<EmptyEnumDerive>();
+
+	assert_eq!(EmptyEnumDerive::decode(&mut &[1, 2, 3][..]), None);
+}
