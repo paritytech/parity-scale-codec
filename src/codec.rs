@@ -609,7 +609,7 @@ impl Decode for Compact<u8> {
 			0 => prefix as u8 >> 2,
 			1 => {
 				let x = u16::decode(&mut PrefixInput{prefix: Some(prefix), input})? >> 2;
-				if x > 0b00111111 && x < 256 {
+				if x > 0b00111111 && x < 255 + 1 {
 					x as u8
 				} else {
 					return Err("out of range decoding Compact<u8>".into());
@@ -627,7 +627,7 @@ impl Decode for Compact<u16> {
 			0 => prefix as u16 >> 2,
 			1 => {
 				let x = u16::decode(&mut PrefixInput{prefix: Some(prefix), input})? >> 2;
-				if x > 0b00111111 && x < (0b00111111_11111111 + 1) {
+				if x > 0b00111111 && x < 0b00111111_11111111 + 1 {
 					x as u16
 				} else {
 					return Err("out of range decoding Compact<u16>".into());
@@ -653,7 +653,7 @@ impl Decode for Compact<u32> {
 			0 => prefix as u32 >> 2,
 			1 => {
 				let x = u16::decode(&mut PrefixInput{prefix: Some(prefix), input})? >> 2;
-				if x > 0b00111111 && x < (0b00111111_11111111 + 1) {
+				if x > 0b00111111 && x < 0b00111111_11111111 + 1 {
 					x as u32
 				} else {
 					return Err("out of range decoding Compact<u32>".into());
@@ -692,7 +692,7 @@ impl Decode for Compact<u64> {
 			0 => prefix as u64 >> 2,
 			1 => {
 				let x = u16::decode(&mut PrefixInput{prefix: Some(prefix), input})? >> 2;
-				if x > 0b00111111 && x < (0b00111111_11111111 + 1) {
+				if x > 0b00111111 && x < 0b00111111_11111111 + 1 {
 					x as u64
 				} else {
 					return Err("out of range decoding Compact<u64>".into());
@@ -747,7 +747,7 @@ impl Decode for Compact<u128> {
 			0 => prefix as u128 >> 2,
 			1 => {
 				let x = u16::decode(&mut PrefixInput{prefix: Some(prefix), input})? >> 2;
-				if x > 0b00111111 && x < (0b00111111_11111111 + 1) {
+				if x > 0b00111111 && x < 0b00111111_11111111 + 1 {
 					x as u128
 				} else {
 					return Err("out of range decoding Compact<u128>".into());
@@ -1596,13 +1596,60 @@ mod tests {
 		assert_eq!(MyWrapper::decode(&mut &*result).unwrap(), MyWrapper(3_u32.into()));
 	}
 
-	#[test]
-	fn malleability() {
-		let enc = ((5u16 << 2) | 0b01).encode();
-		assert!(Compact::<u16>::decode(&mut & enc[..]).is_err());
+	macro_rules! check_bound {
+		( $m:expr, $ty:ty, $typ1:ty, [ $($ty2:ty),* ]) => {
+			$(
+				check_bound!($m, $ty, $typ1, $ty2);
+			)*
+		};
+		( $m:expr, $ty:ty, $typ1:ty, $ty2:ty) => {
+			let enc = ((<$ty>::max_value() >> 2) as $typ1 << 2) | $m;
+			assert!(Compact::<$ty2>::decode(&mut &enc.to_le_bytes()[..]).is_err());
+		};
+	}
+	macro_rules! check_bound_u32 {
+		( [ $($ty2:ty),* ]) => {
+			$(
+				check_bound_u32!($ty2);
+			)*
+		};
+		( $ty2:ty) => {
+			let mut dest = Vec::new();
+			dest.push(0b11);
+			for _ in 0..3 {
+				dest.push(u8::max_value());
+			}
+			dest.push(u8::max_value() >> 2);
+			assert!(Compact::<$ty2>::decode(&mut &[0b11, 0xff, 0xff, 0xff, 0xff >> 2][..]).is_err());
 
-		let enc = (5u8 << 2) | 0b01;
-		assert!(Compact::<u8>::decode(&mut &[enc][..]).is_err());
+		};
+	}
+	macro_rules! check_bound_high {
+		( $m:expr, [ $($ty2:ty),* ]) => {
+			$(
+				check_bound_high!($m, $ty2);
+			)*
+		};
+		( $s:expr, $ty2:ty) => {
+			let mut dest = Vec::new();
+			dest.push(0b11 + (($s - 4) << 2) as u8);
+			for _ in 0..($s - 1) {
+				dest.push(u8::max_value());
+			}
+			dest.push(0);
+			assert!(Compact::<$ty2>::decode(&mut &dest[..]).is_err());
+
+		};
 	}
 
+
+	#[test]
+	fn should_avoid_overlapping_definition() {
+		check_bound!(0b01, u8, u16, [ u8, u16, u32, u64, u128 ]);
+		check_bound!(0b10, u16, u32, [ u16, u32, u64, u128 ]);
+		check_bound_u32!([ u32, u64, u128 ]);
+		for i in 5..=17 {
+			check_bound_high!(i, [ u64, u128 ]);
+		}
+	}
 }
