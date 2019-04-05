@@ -1406,6 +1406,16 @@ mod tests {
     }
   }
 
+  impl Encode for Compact2<u8> {
+    fn encode_to<W: Output>(&self, dest: &mut W) {
+    	match self.0 {
+	  		//0..=0b00111111 => dest.push_byte(self.0 << 2),
+	  		_ => (((self.0 as u16) << 2) | 0b01).encode_to(dest),
+	  	}
+    }
+  }
+
+
   #[test]
   fn malleability() {
     let enc1 = Compact(5u16).encode();
@@ -1415,5 +1425,14 @@ mod tests {
     let dec1:u16 = Compact::<u16>::decode(&mut & enc1[..]).unwrap().0;
     let dec2:u16 = Compact::<u16>::decode(&mut & enc2[..]).unwrap().0;
     assert!(dec1 == dec2);
+
+    let enc1 = Compact(5u8).encode();
+    let enc2 = Compact2(5u8).encode();
+
+    assert!(enc1 != enc2);
+    let dec1:u8 = Compact::<u8>::decode(&mut & enc1[..]).unwrap().0;
+    let dec2:u8 = Compact::<u8>::decode(&mut & enc2[..]).unwrap().0;
+    assert!(dec1 == dec2);
+
   }
 }
