@@ -21,10 +21,10 @@ use crate::alloc::collections::btree_map::BTreeMap;
 #[cfg(any(feature = "std", feature = "full"))]
 use crate::alloc::{
 	string::String,
-	borrow::{Cow, ToOwned},
+	borrow::Cow,
 };
 
-use core::{mem, slice};
+use core::{mem, slice, ops::Deref};
 use arrayvec::ArrayVec;
 use core::marker::PhantomData;
 
@@ -34,6 +34,7 @@ use std::fmt;
 #[cfg_attr(feature = "std", derive(Debug))]
 #[derive(PartialEq)]
 #[cfg(feature = "std")]
+/// Descriptive error type
 pub struct Error(&'static str);
 
 #[cfg(not(feature = "std"))]
@@ -42,11 +43,19 @@ pub struct Error;
 
 impl Error {
 	#[cfg(feature = "std")]
+	/// Error description
+	///
+	/// This function returns an actual error str when running in `std`
+	/// environment, but `""` on `no_std`.
 	pub fn what(&self) -> &'static str {
 		self.0
 	}
 
 	#[cfg(not(feature = "std"))]
+	/// Error description
+	///
+	/// This function returns an actual error str when running in `std`
+	/// environment, but `""` on `no_std`.
 	pub fn what(&self) -> &'static str {
 		""
 	}
@@ -81,6 +90,15 @@ impl From<&'static str> for Error {
 /// Trait that allows reading of data into a slice.
 pub trait Input {
 	/// Read into the provided input slice. Returns the number of bytes read.
+	///
+	/// Note that this function should be more like `std::io::Read::read_exact`
+	/// than `std::io::Read::read`. I.e. the buffer should always be filled
+	/// with as many bytes as available and if `n < into.len()` is returned
+	/// then it should mean that there was not enough bytes available and the
+	/// `Input` is drained.
+	///
+	/// Callers of this function should not need to call again if `n < into.len()`
+	/// is returned.
 	fn read(&mut self, into: &mut [u8]) -> Result<usize, Error>;
 
 	/// Read a single byte from the input.
@@ -143,10 +161,12 @@ pub trait Output: Sized {
 	/// Write to the output.
 	fn write(&mut self, bytes: &[u8]);
 
+	/// Write a single byte to the output.
 	fn push_byte(&mut self, byte: u8) {
 		self.write(&[byte]);
 	}
 
+	/// Write encoding of given value to the output.
 	fn push<V: Encode + ?Sized>(&mut self, value: &V) {
 		value.encode_to(self);
 	}
@@ -155,7 +175,7 @@ pub trait Output: Sized {
 #[cfg(not(feature = "std"))]
 impl Output for Vec<u8> {
 	fn write(&mut self, bytes: &[u8]) {
-		self.extend(bytes);
+		self.extend_from_slice(bytes)
 	}
 }
 
@@ -170,9 +190,15 @@ struct ArrayVecWrapper<T: arrayvec::Array>(ArrayVec<T>);
 
 impl<T: arrayvec::Array<Item=u8>> Output for ArrayVecWrapper<T> {
 	fn write(&mut self, bytes: &[u8]) {
-		for byte in bytes {
-			self.push_byte(*byte);
+		let old_len = self.0.len();
+		let new_len = old_len + bytes.len();
+
+		assert!(new_len <= self.0.capacity());
+		unsafe {
+			self.0.set_len(new_len);
 		}
+
+		self.0[old_len..new_len].copy_from_slice(bytes);
 	}
 
 	fn push_byte(&mut self, byte: u8) {
@@ -181,8 +207,18 @@ impl<T: arrayvec::Array<Item=u8>> Output for ArrayVecWrapper<T> {
 }
 
 /// Trait that allows zero-copy write of value-references to slices in LE format.
-/// Implementations should override `using_encoded` for value types and `encode_to` for allocating types.
+///
+/// Implementations should override `using_encoded` for value types and `encode_to` and `size_hint` for allocating types.
+/// Wrapper types should override all methods.
 pub trait Encode {
+	/// If possible give a hint of expected size of the encoding.
+	///
+	/// This method is used inside default implementation of `encode`
+	/// to avoid re-allocations.
+	fn size_hint(&self) -> usize {
+		0
+	}
+
 	/// Convert self to a slice and append it to the destination.
 	fn encode_to<T: Output>(&self, dest: &mut T) {
 		self.using_encoded(|buf| dest.write(buf));
@@ -190,7 +226,7 @@ pub trait Encode {
 
 	/// Convert self to an owned vector.
 	fn encode(&self) -> Vec<u8> {
-		let mut r = Vec::new();
+		let mut r = Vec::with_capacity(self.size_hint());
 		self.encode_to(&mut r);
 		r
 	}
@@ -209,6 +245,77 @@ pub trait Decode: Sized {
 
 /// Trait that allows zero-copy read/write of value-references to/from slices in LE format.
 pub trait Codec: Decode + Encode {}
+impl<S: Decode + Encode> Codec for S {}
+
+/// A marker trait for types that wrap other encodable type.
+///
+/// Such types should not carry any additional information
+/// that would require to be encoded, because the encoding
+/// is assumed to be the same as the wrapped type.
+pub trait WrapperTypeEncode: Deref {}
+
+impl<T> WrapperTypeEncode for Vec<T> {}
+impl<T: ?Sized> WrapperTypeEncode for Box<T> {}
+impl<'a, T: ?Sized> WrapperTypeEncode for &'a T {}
+impl<'a, T: ?Sized> WrapperTypeEncode for &'a mut T {}
+
+#[cfg(any(feature = "std", feature = "full"))]
+impl<'a, T: ToOwned + ?Sized> WrapperTypeEncode for Cow<'a, T> {}
+#[cfg(any(feature = "std", feature = "full"))]
+impl<T: ?Sized> WrapperTypeEncode for std::sync::Arc<T> {}
+#[cfg(any(feature = "std", feature = "full"))]
+impl<T: ?Sized> WrapperTypeEncode for std::rc::Rc<T> {}
+#[cfg(any(feature = "std", feature = "full"))]
+impl WrapperTypeEncode for String {}
+
+impl<T, X> Encode for X where
+	T: Encode + ?Sized,
+	X: WrapperTypeEncode<Target=T>,
+{
+	fn size_hint(&self) -> usize {
+		(&**self).size_hint()
+	}
+
+	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
+		(&**self).using_encoded(f)
+	}
+
+	fn encode(&self) -> Vec<u8> {
+		(&**self).encode()
+	}
+
+	fn encode_to<W: Output>(&self, dest: &mut W) {
+		(&**self).encode_to(dest)
+	}
+}
+
+/// A marker trait for types that can be created solely from other decodable types.
+///
+/// The decoding of such type is assumed to be the same as the wrapped type.
+pub trait WrapperTypeDecode: Sized {
+	/// A wrapped type.
+	type Wrapped: Into<Self>;
+}
+impl<T> WrapperTypeDecode for Box<T> {
+	type Wrapped = T;
+}
+#[cfg(any(feature = "std", feature = "full"))]
+impl<T> WrapperTypeDecode for std::sync::Arc<T> {
+	type Wrapped = T;
+}
+#[cfg(any(feature = "std", feature = "full"))]
+impl<T> WrapperTypeDecode for std::rc::Rc<T> {
+	type Wrapped = T;
+}
+
+impl<T, X> Decode for X where
+	T: Decode + Into<X>,
+	X: WrapperTypeDecode<Wrapped=T>,
+{
+	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
+		Ok(T::decode(input)?.into())
+	}
+}
 
 /// Compact-encoded variant of T. This is more space-efficient but less compute-efficient.
 #[derive(Eq, PartialEq, Clone, Copy, Ord, PartialOrd)]
@@ -224,35 +331,63 @@ impl<'a, T: Copy> From<&'a T> for Compact<T> {
 
 /// Allow foreign structs to be wrap in Compact
 pub trait CompactAs: From<Compact<Self>> {
+	/// A compact-encodable type that should be used as the encoding.
 	type As;
+
+	/// Returns the encodable type.
 	fn encode_as(&self) -> &Self::As;
+
+	/// Create `Self` from the decodable type.
 	fn decode_from(_: Self::As) -> Self;
 }
 
 impl<T> Encode for Compact<T>
 where
-	T: CompactAs,
-	for<'a> CompactRef<'a, <T as CompactAs>::As>: Encode,
+	for<'a> CompactRef<'a, T>: Encode,
 {
+	fn size_hint(&self) -> usize {
+		CompactRef(&self.0).size_hint()
+	}
+
 	fn encode_to<W: Output>(&self, dest: &mut W) {
-		CompactRef(self.0.encode_as()).encode_to(dest)
+		CompactRef(&self.0).encode_to(dest)
+	}
+
+	fn encode(&self) -> Vec<u8> {
+		CompactRef(&self.0).encode()
+	}
+
+	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
+		CompactRef(&self.0).using_encoded(f)
 	}
 }
 
 impl<'a, T> Encode for CompactRef<'a, T>
 where
 	T: CompactAs,
-	for<'b> CompactRef<'b, <T as CompactAs>::As>: Encode,
+	for<'b> CompactRef<'b, T::As>: Encode,
 {
+	fn size_hint(&self) -> usize {
+		CompactRef(self.0.encode_as()).size_hint()
+	}
+
 	fn encode_to<Out: Output>(&self, dest: &mut Out) {
 		CompactRef(self.0.encode_as()).encode_to(dest)
+	}
+
+	fn encode(&self) -> Vec<u8> {
+		CompactRef(self.0.encode_as()).encode()
+	}
+
+	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
+		CompactRef(self.0.encode_as()).using_encoded(f)
 	}
 }
 
 impl<T> Decode for Compact<T>
 where
 	T: CompactAs,
-	Compact<<T as CompactAs>::As>: Decode,
+	Compact<T::As>: Decode,
 {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		Compact::<T::As>::decode(input)
@@ -344,14 +479,15 @@ impl<T: 'static> HasCompact for T where
 // Note: we use *LOW BITS* of the LSB in LE encoding to encode the 2 bit key.
 
 impl<'a> Encode for CompactRef<'a, ()> {
+	fn encode_to<W: Output>(&self, _dest: &mut W) {
+	}
+
 	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
 		f(&[])
 	}
-}
 
-impl Encode for Compact<()> {
-	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
-		f(&[])
+	fn encode(&self) -> Vec<u8> {
+		Vec::new()
 	}
 }
 
@@ -361,18 +497,6 @@ impl<'a> Encode for CompactRef<'a, u8> {
 			0..=0b00111111 => dest.push_byte(self.0 << 2),
 			_ => (((*self.0 as u16) << 2) | 0b01).encode_to(dest),
 		}
-	}
-
-	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
-		let mut r = ArrayVecWrapper(ArrayVec::<[u8; 2]>::new());
-		self.encode_to(&mut r);
-		f(&r.0)
-	}
-}
-
-impl Encode for Compact<u8> {
-	fn encode_to<W: Output>(&self, dest: &mut W) {
-		CompactRef(&self.0).encode_to(dest)
 	}
 
 	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
@@ -398,18 +522,6 @@ impl<'a> Encode for CompactRef<'a, u16> {
 	}
 }
 
-impl Encode for Compact<u16> {
-	fn encode_to<W: Output>(&self, dest: &mut W) {
-		CompactRef(&self.0).encode_to(dest)
-	}
-
-	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
-		let mut r = ArrayVecWrapper(ArrayVec::<[u8; 4]>::new());
-		self.encode_to(&mut r);
-		f(&r.0)
-	}
-}
-
 impl<'a> Encode for CompactRef<'a, u32> {
 	fn encode_to<W: Output>(&self, dest: &mut W) {
 		match self.0 {
@@ -421,18 +533,6 @@ impl<'a> Encode for CompactRef<'a, u32> {
 				self.0.encode_to(dest);
 			}
 		}
-	}
-
-	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
-		let mut r = ArrayVecWrapper(ArrayVec::<[u8; 5]>::new());
-		self.encode_to(&mut r);
-		f(&r.0)
-	}
-}
-
-impl Encode for Compact<u32> {
-	fn encode_to<W: Output>(&self, dest: &mut W) {
-		CompactRef(&self.0).encode_to(dest)
 	}
 
 	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
@@ -469,18 +569,6 @@ impl<'a> Encode for CompactRef<'a, u64> {
 	}
 }
 
-impl Encode for Compact<u64> {
-	fn encode_to<W: Output>(&self, dest: &mut W) {
-		CompactRef(&self.0).encode_to(dest)
-	}
-
-	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
-		let mut r = ArrayVecWrapper(ArrayVec::<[u8; 9]>::new());
-		self.encode_to(&mut r);
-		f(&r.0)
-	}
-}
-
 impl<'a> Encode for CompactRef<'a, u128> {
 	fn encode_to<W: Output>(&self, dest: &mut W) {
 		match self.0 {
@@ -499,18 +587,6 @@ impl<'a> Encode for CompactRef<'a, u128> {
 				assert_eq!(v, 0, "shifted sufficient bits right to lead only leading zeros; qed")
 			}
 		}
-	}
-
-	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
-		let mut r = ArrayVecWrapper(ArrayVec::<[u8; 17]>::new());
-		self.encode_to(&mut r);
-		f(&r.0)
-	}
-}
-
-impl Encode for Compact<u128> {
-	fn encode_to<W: Output>(&self, dest: &mut W) {
-		CompactRef(&self.0).encode_to(dest)
 	}
 
 	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
@@ -727,9 +803,14 @@ impl Decode for Compact<u128> {
 	}
 }
 
-impl<S: Decode + Encode> Codec for S {}
-
 impl<T: Encode, E: Encode> Encode for Result<T, E> {
+	fn size_hint(&self) -> usize {
+		1 + match *self {
+			Ok(ref t) => t.size_hint(),
+			Err(ref t) => t.size_hint(),
+		}
+	}
+
 	fn encode_to<W: Output>(&self, dest: &mut W) {
 		match *self {
 			Ok(ref t) => {
@@ -786,6 +867,13 @@ impl Decode for OptionBool {
 }
 
 impl<T: Encode> Encode for Option<T> {
+	fn size_hint(&self) -> usize {
+		1 + match *self {
+			Some(ref t) => t.size_hint(),
+			None => 0,
+		}
+	}
+
 	fn encode_to<W: Output>(&self, dest: &mut W) {
 		match *self {
 			Some(ref t) => {
@@ -853,30 +941,16 @@ impl_array!(
 	253, 254, 255, 256, 384, 512, 768, 1024, 2048, 4096, 8192, 16384, 32768,
 );
 
-impl<T: Encode> Encode for Box<T> {
-	fn encode_to<W: Output>(&self, dest: &mut W) {
-		self.as_ref().encode_to(dest)
-	}
-}
-
-impl<T: Decode> Decode for Box<T> {
-	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
-		Ok(Box::new(T::decode(input)?))
-	}
-}
-
 impl Encode for [u8] {
+	fn size_hint(&self) -> usize {
+		self.len() + mem::size_of::<u32>()
+	}
+
 	fn encode_to<W: Output>(&self, dest: &mut W) {
 		let len = self.len();
 		assert!(len <= u32::max_value() as usize, "Attempted to serialize a collection with too many elements.");
 		Compact(len as u32).encode_to(dest);
 		dest.write(self)
-	}
-}
-
-impl Encode for Vec<u8> {
-	fn encode_to<W: Output>(&self, dest: &mut W) {
-		self.as_slice().encode_to(dest)
 	}
 }
 
@@ -891,22 +965,21 @@ impl Decode for Vec<u8> {
 	}
 }
 
-impl<'a> Encode for &'a str {
+impl Encode for str {
+	fn size_hint(&self) -> usize {
+		self.as_bytes().size_hint()
+	}
+
 	fn encode_to<W: Output>(&self, dest: &mut W) {
 		self.as_bytes().encode_to(dest)
 	}
-}
 
-#[cfg(any(feature = "std", feature = "full"))]
-impl<'a, T: ToOwned + ?Sized + 'a> Encode for Cow<'a, T> where
-	&'a T: Encode,
-	<T as ToOwned>::Owned: Encode
-{
-	fn encode_to<W: Output>(&self, dest: &mut W) {
-		match self {
-			Cow::Owned(ref x) => x.encode_to(dest),
-			Cow::Borrowed(x) => x.encode_to(dest),
-		}
+	fn encode(&self) -> Vec<u8> {
+		self.as_bytes().encode()
+	}
+
+	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
+		self.as_bytes().using_encoded(f)
 	}
 }
 
@@ -931,13 +1004,6 @@ impl<T> Decode for PhantomData<T> {
 }
 
 #[cfg(any(feature = "std", feature = "full"))]
-impl Encode for String {
-	fn encode_to<W: Output>(&self, dest: &mut W) {
-		self.as_bytes().encode_to(dest)
-	}
-}
-
-#[cfg(any(feature = "std", feature = "full"))]
 impl Decode for String {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		Ok(Self::from_utf8_lossy(&Vec::decode(input)?).into())
@@ -952,12 +1018,6 @@ impl<T: Encode> Encode for [T] {
 		for item in self {
 			item.encode_to(dest);
 		}
-	}
-}
-
-impl<T: Encode> Encode for Vec<T> {
-	fn encode_to<W: Output>(&self, dest: &mut W) {
-		self.as_slice().encode_to(dest)
 	}
 }
 
@@ -998,7 +1058,7 @@ impl<K: Decode + Ord, V: Decode> Decode for BTreeMap<K, V> {
 }
 
 impl Encode for () {
-	fn encode_to<T: Output>(&self, _dest: &mut T) {
+	fn encode_to<W: Output>(&self, _dest: &mut W) {
 	}
 
 	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
@@ -1007,20 +1067,6 @@ impl Encode for () {
 
 	fn encode(&self) -> Vec<u8> {
 		Vec::new()
-	}
-}
-
-impl<'a, T: 'a + Encode + ?Sized> Encode for &'a T {
-	fn encode_to<D: Output>(&self, dest: &mut D) {
-		(&**self).encode_to(dest)
-	}
-
-	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
-		(&**self).using_encoded(f)
-	}
-
-	fn encode(&self) -> Vec<u8> {
-		(&**self).encode()
 	}
 }
 
@@ -1033,8 +1079,20 @@ impl Decode for () {
 macro_rules! tuple_impl {
 	($one:ident,) => {
 		impl<$one: Encode> Encode for ($one,) {
+			fn size_hint(&self) -> usize {
+				self.0.size_hint()
+			}
+
 			fn encode_to<T: Output>(&self, dest: &mut T) {
 				self.0.encode_to(dest);
+			}
+
+			fn encode(&self) -> Vec<u8> {
+				self.0.encode()
+			}
+
+			fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
+				self.0.using_encoded(f)
 			}
 		}
 
@@ -1051,6 +1109,15 @@ macro_rules! tuple_impl {
 		impl<$first: Encode, $($rest: Encode),+>
 		Encode for
 		($first, $($rest),+) {
+			fn size_hint(&self) -> usize {
+				let (
+					ref $first,
+					$(ref $rest),+
+				) = *self;
+				$first.size_hint()
+				$( + $rest.size_hint() )+
+			}
+
 			fn encode_to<T: Output>(&self, dest: &mut T) {
 				let (
 					ref $first,
@@ -1091,8 +1158,11 @@ mod inner_tuple_impl {
 
 /// Trait to allow conversion to a know endian representation when sensitive.
 /// Types implementing this trait must have a size > 0.
-// note: the copy bound and static lifetimes are necessary for safety of `Codec` blanket
-// implementation.
+///
+/// # Note
+///
+/// The copy bound and static lifetimes are necessary for safety of `Codec` blanket
+/// implementation.
 trait EndianSensitive: Copy + 'static {
 	fn to_le(self) -> Self { self }
 	fn to_be(self) -> Self { self }
@@ -1491,6 +1561,42 @@ mod tests {
 	}
 
 	#[test]
+	#[should_panic]
+	fn array_vec_output_oob() {
+		let mut v = ArrayVecWrapper(ArrayVec::<[u8; 4]>::new());
+		v.write(&[1, 2, 3, 4, 5]);
+	}
+
+	#[test]
+	fn array_vec_output() {
+		let mut v = ArrayVecWrapper(ArrayVec::<[u8; 4]>::new());
+		v.write(&[1, 2, 3, 4]);
+	}
+
+	#[derive(Debug, PartialEq)]
+	struct MyWrapper(Compact<u32>);
+	impl Deref for MyWrapper {
+		type Target = Compact<u32>;
+		fn deref(&self) -> &Self::Target { &self.0 }
+	}
+	impl WrapperTypeEncode for MyWrapper {}
+
+	impl From<Compact<u32>> for MyWrapper {
+		fn from(c: Compact<u32>) -> Self { MyWrapper(c) }
+	}
+	impl WrapperTypeDecode for MyWrapper {
+		type Wrapped = Compact<u32>;
+	}
+
+	#[test]
+	fn should_work_for_wrapper_types() {
+		let result = vec![0b1100];
+
+		assert_eq!(MyWrapper(3u32.into()).encode(), result);
+		assert_eq!(MyWrapper::decode(&mut &*result).unwrap(), MyWrapper(3_u32.into()));
+	}
+
+	#[test]
 	fn malleability() {
 		let enc = ((5u16 << 2) | 0b01).encode();
 		assert!(Compact::<u16>::decode(&mut & enc[..]).is_err());
@@ -1498,4 +1604,5 @@ mod tests {
 		let enc = (5u8 << 2) | 0b01;
 		assert!(Compact::<u8>::decode(&mut &[enc][..]).is_err());
 	}
+
 }

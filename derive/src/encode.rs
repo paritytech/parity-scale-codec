@@ -16,7 +16,7 @@ use std::str::from_utf8;
 
 use proc_macro2::{Span, TokenStream};
 use syn::{
-	Data, Field, Fields, Ident, Index,
+	Data, Field, Fields, Ident,
 	punctuated::Punctuated,
 	spanned::Spanned,
 	token::Comma,
@@ -26,6 +26,7 @@ use crate::utils;
 
 type FieldsList = Punctuated<Field, Comma>;
 
+// Encode a signle field by using using_encoded, must not have skip attribute
 fn encode_single_field(
 	closure: &TokenStream,
 	field: &Field,
@@ -33,6 +34,13 @@ fn encode_single_field(
 ) -> TokenStream {
 	let encoded_as = utils::get_encoded_as_type(field);
 	let compact = utils::get_enable_compact(field);
+
+	if utils::get_skip(&field.attrs).is_some() {
+		return Error::new(
+			Span::call_site(),
+			"Internal error: cannot encode single field optimisation if skipped"
+		).to_compile_error();
+	}
 
 	if encoded_as.is_some() && compact {
 		return Error::new(
@@ -77,11 +85,12 @@ fn encode_fields<F>(
 		let field = field_name(i, &f.ident);
 		let encoded_as = utils::get_encoded_as_type(f);
 		let compact = utils::get_enable_compact(f);
+		let skip = utils::get_skip(&f.attrs).is_some();
 
-		if encoded_as.is_some() && compact {
+		if encoded_as.is_some() as u8 + compact as u8 + skip as u8 > 1 {
 			return Error::new(
 				Span::call_site(),
-				"`encoded_as` and `compact` can not be used at the same time!"
+				"`encoded_as`, `compact` and `skip` can only be used one at a time!"
 			).to_compile_error();
 		}
 
@@ -107,6 +116,8 @@ fn encode_fields<F>(
 					);
 				}
 			}
+		} else if skip {
+			quote! {}
 		} else {
 			quote_spanned! { f.span() =>
 					#dest.push(#field);
@@ -121,23 +132,36 @@ fn encode_fields<F>(
 
 fn try_impl_encode_single_field_optimisation(data: &Data) -> Option<TokenStream> {
 	let ref closure = quote!(f);
+
+	fn filter_skip_named<'a>(fields: &'a syn::FieldsNamed) -> impl Iterator<Item=&Field> + 'a {
+		fields.named.iter()
+			.filter(|f| utils::get_skip(&f.attrs).is_none())
+	}
+
+	fn filter_skip_unnamed<'a>(fields: &'a syn::FieldsUnnamed) -> impl Iterator<Item=(usize, &Field)> + 'a {
+		fields.unnamed.iter()
+			.enumerate()
+			.filter(|(_, f)| utils::get_skip(&f.attrs).is_none())
+	}
+
 	let optimisation = match *data {
 		Data::Struct(ref data) => {
 			match data.fields {
-				Fields::Named(ref fields) if fields.named.len() == 1 => {
-					let field = fields.named.first().unwrap();
-					let ref name = field.value().ident;
+				Fields::Named(ref fields) if filter_skip_named(fields).count() == 1 => {
+					let field = filter_skip_named(fields).next().unwrap();
+					let ref name = field.ident;
 					Some(encode_single_field(
 						closure,
-						field.value(),
+						field,
 						quote!(&self.#name)
 					))
 				},
-				Fields::Unnamed(ref fields) if fields.unnamed.len() == 1 => {
+				Fields::Unnamed(ref fields) if filter_skip_unnamed(fields).count() == 1 => {
+					let (ids, field) = filter_skip_unnamed(fields).next().unwrap();
 					Some(encode_single_field(
 						closure,
-						fields.unnamed.first().unwrap().value(),
-						quote!(&self.0)
+						field,
+						quote!(&self.#ids)
 					))
 				},
 				_ => None,
@@ -175,14 +199,21 @@ fn impl_encode(data: &Data, type_name: &Ident) -> TokenStream {
 			}
 		},
 		Data::Enum(ref data) => {
-			if data.variants.len() > 256 {
+			let data_variants = || data.variants.iter().filter(|variant| crate::utils::get_skip(&variant.attrs).is_none());
+
+			if data_variants().count() > 256 {
 				return Error::new(
 					Span::call_site(),
 					"Currently only enums with at most 256 variants are encodable."
 				).to_compile_error();
 			}
 
-			let recurse = data.variants.iter().enumerate().map(|(i, f)| {
+			// If the enum has no variants, we don't need to encode anything.
+			if data_variants().count() == 0 {
+				return quote!();
+			}
+
+			let recurse = data_variants().enumerate().map(|(i, f)| {
 				let name = &f.ident;
 				let index = utils::index(f, i);
 
@@ -245,6 +276,7 @@ fn impl_encode(data: &Data, type_name: &Ident) -> TokenStream {
 			quote! {
 				match *#self_ {
 					#( #recurse )*,
+					_ => (),
 				}
 			}
 		},
