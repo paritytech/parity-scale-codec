@@ -55,8 +55,8 @@ impl Error {
 #[cfg(feature = "std")]
 impl std::fmt::Display for Error {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.0)
-    }
+				write!(f, "{}", self.0)
+		}
 }
 
 #[cfg(feature = "std")]
@@ -533,12 +533,12 @@ impl Decode for Compact<u8> {
 			0 => prefix as u8 >> 2,
 			1 => {
 				let x = u16::decode(&mut PrefixInput{prefix: Some(prefix), input})? >> 2;
-				if x < 256 {
+				if x > 0b00111111 && x < 256 {
 					x as u8
 				} else {
 					return Err("out of range decoding Compact<u8>".into());
 				}
-			}
+			},
 			_ => return Err("unexpected prefix decoding Compact<u8>".into()),
 		}))
 	}
@@ -549,15 +549,22 @@ impl Decode for Compact<u16> {
 		let prefix = input.read_byte()?;
 		Ok(Compact(match prefix % 4 {
 			0 => prefix as u16 >> 2,
-			1 => u16::decode(&mut PrefixInput{prefix: Some(prefix), input})? as u16 >> 2,
-			2 => {
-				let x = u32::decode(&mut PrefixInput{prefix: Some(prefix), input})? >> 2;
-				if x < 65536 {
+			1 => {
+				let x = u16::decode(&mut PrefixInput{prefix: Some(prefix), input})? >> 2;
+				if x > 0b00111111 && x < (0b00111111_11111111 + 1) {
 					x as u16
 				} else {
 					return Err("out of range decoding Compact<u16>".into());
 				}
-			}
+			},
+			2 => {
+				let x = u32::decode(&mut PrefixInput{prefix: Some(prefix), input})? >> 2;
+				if x > 0b00111111_11111111 && x < 65536 {
+					x as u16
+				} else {
+					return Err("out of range decoding Compact<u16>".into());
+				}
+			},
 			_ => return Err("unexpected prefix decoding Compact<u16>".into()),
 		}))
 	}
@@ -568,12 +575,31 @@ impl Decode for Compact<u32> {
 		let prefix = input.read_byte()?;
 		Ok(Compact(match prefix % 4 {
 			0 => prefix as u32 >> 2,
-			1 => u16::decode(&mut PrefixInput{prefix: Some(prefix), input})? as u32 >> 2,
-			2 => u32::decode(&mut PrefixInput{prefix: Some(prefix), input})? as u32 >> 2,
+			1 => {
+				let x = u16::decode(&mut PrefixInput{prefix: Some(prefix), input})? >> 2;
+				if x > 0b00111111 && x < (0b00111111_11111111 + 1) {
+					x as u32
+				} else {
+					return Err("out of range decoding Compact<u32>".into());
+				}
+			},
+			2 => {
+				let x = u32::decode(&mut PrefixInput{prefix: Some(prefix), input})? >> 2;
+				if x > 0b00111111_11111111 && x < (u32::max_value() >> 2) + 1 {
+					x as u32
+				} else {
+					return Err("out of range decoding Compact<u32>".into());
+				}
+			},
 			3|_ => {	// |_. yeah, i know.
 				if prefix >> 2 == 0 {
 					// just 4 bytes. ok.
-					u32::decode(input)?
+					let x = u32::decode(input)?;
+					if x > u32::max_value() >> 2 {
+						x as u32
+					} else {
+						return Err("out of range decoding Compact<u32>".into());
+					}
 				} else {
 					// Out of range for a 32-bit quantity.
 					return Err("out of range decoding Compact<u32>".into());
@@ -588,19 +614,51 @@ impl Decode for Compact<u64> {
 		let prefix = input.read_byte()?;
 		Ok(Compact(match prefix % 4 {
 			0 => prefix as u64 >> 2,
-			1 => u16::decode(&mut PrefixInput{prefix: Some(prefix), input})? as u64 >> 2,
-			2 => u32::decode(&mut PrefixInput{prefix: Some(prefix), input})? as u64 >> 2,
+			1 => {
+				let x = u16::decode(&mut PrefixInput{prefix: Some(prefix), input})? >> 2;
+				if x > 0b00111111 && x < (0b00111111_11111111 + 1) {
+					x as u64
+				} else {
+					return Err("out of range decoding Compact<u64>".into());
+				}
+			},
+			2 => {
+				let x = u32::decode(&mut PrefixInput{prefix: Some(prefix), input})? >> 2;
+				if x > 0b00111111_11111111 && x < (u32::max_value() >> 2) + 1 {
+					x as u64
+				} else {
+					return Err("out of range decoding Compact<u64>".into());
+				}
+			},
 			3|_ => match (prefix >> 2) + 4 {
-				4 => u32::decode(input)? as u64,
-				8 => u64::decode(input)?,
+				4 => {
+					let x = u32::decode(input)?;
+					if x > u32::max_value() >> 2 {
+						x as u64
+					} else {
+						return Err("unexpected prefix decoding Compact<u64>".into());
+					}
+				},
+				8 => {
+					let x = u64::decode(input)?;
+					if x > u64::max_value() >> 8 {
+						x as u64
+					} else {
+						return Err("unexpected prefix decoding Compact<u64>".into());
+					}
+				},
 				x if x > 8 => return Err("unexpected prefix decoding Compact<u64>".into()),
 				bytes_needed => {
 					let mut res = 0;
 					for i in 0..bytes_needed {
 						res |= (input.read_byte()? as u64) << (i * 8);
 					}
-					res
-				}
+					if res > u64::max_value() >> (8 - bytes_needed + 1) * 8 {
+						res as u64
+					} else {
+						return Err("unexpected prefix decoding Compact<u64>".into());
+					}
+				},
 			},
 		}))
 	}
@@ -611,21 +669,60 @@ impl Decode for Compact<u128> {
 		let prefix = input.read_byte()?;
 		Ok(Compact(match prefix % 4 {
 			0 => prefix as u128 >> 2,
-			1 => u16::decode(&mut PrefixInput{prefix: Some(prefix), input})? as u128 >> 2,
-			2 => u32::decode(&mut PrefixInput{prefix: Some(prefix), input})? as u128 >> 2,
+			1 => {
+				let x = u16::decode(&mut PrefixInput{prefix: Some(prefix), input})? >> 2;
+				if x > 0b00111111 && x < (0b00111111_11111111 + 1) {
+					x as u128
+				} else {
+					return Err("out of range decoding Compact<u128>".into());
+				}
+			},
+			2 => {
+				let x = u32::decode(&mut PrefixInput{prefix: Some(prefix), input})? >> 2;
+				if x > 0b00111111_11111111 && x < (u32::max_value() >> 2) + 1 {
+					x as u128
+				} else {
+					return Err("out of range decoding Compact<u128>".into());
+				}
+			},
 			3|_ => match (prefix >> 2) + 4 {
-				4 => u32::decode(input)? as u128,
-				8 => u64::decode(input)? as u128,
-				16 => u128::decode(input)?,
+				4 => {
+					let x = u32::decode(input)?;
+					if x > u32::max_value() >> 2 {
+						x as u128
+					} else {
+						return Err("unexpected prefix decoding Compact<u128>".into());
+					}
+				},
+				8 => {
+					let x = u64::decode(input)?;
+					if x > u64::max_value() >> 8 {
+						x as u128
+					} else {
+						return Err("unexpected prefix decoding Compact<u128>".into());
+					}
+				},
+				16 => {
+					let x = u128::decode(input)?;
+					if x > u128::max_value() >> 8 {
+						x as u128
+					} else {
+						return Err("unexpected prefix decoding Compact<u128>".into());
+					}
+				},
 				x if x > 16 => return Err("unexpected prefix decoding Compact<u128>".into()),
 				bytes_needed => {
 					let mut res = 0;
 					for i in 0..bytes_needed {
 						res |= (input.read_byte()? as u128) << (i * 8);
 					}
-					res
-				}
-			}
+					if res > u128::max_value() >> (16 - bytes_needed + 1) * 8 {
+						res as u128
+					} else {
+						return Err("unexpected prefix decoding Compact<u128>".into());
+					}
+				},
+			},
 		}))
 	}
 }
@@ -1393,46 +1490,12 @@ mod tests {
 		CompactRef(&std::u128::MAX).using_encoded(|_| {});
 	}
 
-  #[derive(Eq, PartialEq, Clone, Copy, Ord, PartialOrd)]
-  pub struct Compact2<T>(pub T);
-  impl Encode for Compact2<u16> {
-    fn encode_to<W: Output>(&self, dest: &mut W) {
-      match self.0 {
-        //0..=0b00111111 => dest.push_byte((self.0 as u8) << 2),
-        0..=0b00111111_11111111 => ((self.0 << 2) | 0b01).encode_to(dest),
-        _ => (((self.0 as u32) << 2) | 0b10).encode_to(dest),
-      }
-	
-    }
-  }
+	#[test]
+	fn malleability() {
+		let enc = ((5u16 << 2) | 0b01).encode();
+		assert!(Compact::<u16>::decode(&mut & enc[..]).is_err());
 
-  impl Encode for Compact2<u8> {
-    fn encode_to<W: Output>(&self, dest: &mut W) {
-    	match self.0 {
-	  		//0..=0b00111111 => dest.push_byte(self.0 << 2),
-	  		_ => (((self.0 as u16) << 2) | 0b01).encode_to(dest),
-	  	}
-    }
-  }
-
-
-  #[test]
-  fn malleability() {
-    let enc1 = Compact(5u16).encode();
-    let enc2 = Compact2(5u16).encode();
-
-    assert!(enc1 != enc2);
-    let dec1:u16 = Compact::<u16>::decode(&mut & enc1[..]).unwrap().0;
-    let dec2:u16 = Compact::<u16>::decode(&mut & enc2[..]).unwrap().0;
-    assert!(dec1 == dec2);
-
-    let enc1 = Compact(5u8).encode();
-    let enc2 = Compact2(5u8).encode();
-
-    assert!(enc1 != enc2);
-    let dec1:u8 = Compact::<u8>::decode(&mut & enc1[..]).unwrap().0;
-    let dec2:u8 = Compact::<u8>::decode(&mut & enc2[..]).unwrap().0;
-    assert!(dec1 == dec2);
-
-  }
+		let enc = (5u8 << 2) | 0b01;
+		assert!(Compact::<u8>::decode(&mut &[enc][..]).is_err());
+	}
 }
