@@ -615,7 +615,7 @@ impl Decode for Compact<u8> {
 			0 => prefix as u8 >> 2,
 			1 => {
 				let x = u16::decode(&mut PrefixInput{prefix: Some(prefix), input})? >> 2;
-				if x > 0b00111111 && x < 255 + 1 {
+				if x > 0b00111111 && x <= 255 {
 					x as u8
 				} else {
 					return Err(U8_OUT_OF_RANGE.into());
@@ -633,7 +633,7 @@ impl Decode for Compact<u16> {
 			0 => prefix as u16 >> 2,
 			1 => {
 				let x = u16::decode(&mut PrefixInput{prefix: Some(prefix), input})? >> 2;
-				if x > 0b00111111 && x < 0b00111111_11111111 + 1 {
+				if x > 0b00111111 && x <= 0b00111111_11111111 {
 					x as u16
 				} else {
 					return Err(U16_OUT_OF_RANGE.into());
@@ -659,7 +659,7 @@ impl Decode for Compact<u32> {
 			0 => prefix as u32 >> 2,
 			1 => {
 				let x = u16::decode(&mut PrefixInput{prefix: Some(prefix), input})? >> 2;
-				if x > 0b00111111 && x < 0b00111111_11111111 + 1 {
+				if x > 0b00111111 && x <= 0b00111111_11111111 {
 					x as u32
 				} else {
 					return Err(U32_OUT_OF_RANGE.into());
@@ -667,7 +667,7 @@ impl Decode for Compact<u32> {
 			},
 			2 => {
 				let x = u32::decode(&mut PrefixInput{prefix: Some(prefix), input})? >> 2;
-				if x > 0b00111111_11111111 && x < (u32::max_value() >> 2) + 1 {
+				if x > 0b00111111_11111111 && x <= u32::max_value() >> 2 {
 					x as u32
 				} else {
 					return Err(U32_OUT_OF_RANGE.into());
@@ -698,7 +698,7 @@ impl Decode for Compact<u64> {
 			0 => prefix as u64 >> 2,
 			1 => {
 				let x = u16::decode(&mut PrefixInput{prefix: Some(prefix), input})? >> 2;
-				if x > 0b00111111 && x < 0b00111111_11111111 + 1 {
+				if x > 0b00111111 && x <= 0b00111111_11111111 {
 					x as u64
 				} else {
 					return Err(U64_OUT_OF_RANGE.into());
@@ -706,7 +706,7 @@ impl Decode for Compact<u64> {
 			},
 			2 => {
 				let x = u32::decode(&mut PrefixInput{prefix: Some(prefix), input})? >> 2;
-				if x > 0b00111111_11111111 && x < (u32::max_value() >> 2) + 1 {
+				if x > 0b00111111_11111111 && x <= u32::max_value() >> 2 {
 					x as u64
 				} else {
 					return Err(U64_OUT_OF_RANGE.into());
@@ -753,7 +753,7 @@ impl Decode for Compact<u128> {
 			0 => prefix as u128 >> 2,
 			1 => {
 				let x = u16::decode(&mut PrefixInput{prefix: Some(prefix), input})? >> 2;
-				if x > 0b00111111 && x < 0b00111111_11111111 + 1 {
+				if x > 0b00111111 && x <= 0b00111111_11111111 {
 					x as u128
 				} else {
 					return Err(U128_OUT_OF_RANGE.into());
@@ -761,7 +761,7 @@ impl Decode for Compact<u128> {
 			},
 			2 => {
 				let x = u32::decode(&mut PrefixInput{prefix: Some(prefix), input})? >> 2;
-				if x > 0b00111111_11111111 && x < (u32::max_value() >> 2) + 1 {
+				if x > 0b00111111_11111111 && x <= u32::max_value() >> 2 {
 					x as u128
 				} else {
 					return Err(U128_OUT_OF_RANGE.into());
