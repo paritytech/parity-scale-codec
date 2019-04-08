@@ -602,6 +602,12 @@ impl Decode for Compact<()> {
 	}
 }
 
+const U8_OUT_OF_RANGE: &'static str = "out of range decoding Compact<u8>";
+const U16_OUT_OF_RANGE: &'static str = "out of range decoding Compact<u16>";
+const U32_OUT_OF_RANGE: &'static str = "out of range decoding Compact<u32>";
+const U64_OUT_OF_RANGE: &'static str = "out of range decoding Compact<u64>";
+const U128_OUT_OF_RANGE: &'static str = "out of range decoding Compact<u128>";
+
 impl Decode for Compact<u8> {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		let prefix = input.read_byte()?;
@@ -612,7 +618,7 @@ impl Decode for Compact<u8> {
 				if x > 0b00111111 && x < 255 + 1 {
 					x as u8
 				} else {
-					return Err("out of range decoding Compact<u8>".into());
+					return Err(U8_OUT_OF_RANGE.into());
 				}
 			},
 			_ => return Err("unexpected prefix decoding Compact<u8>".into()),
@@ -630,7 +636,7 @@ impl Decode for Compact<u16> {
 				if x > 0b00111111 && x < 0b00111111_11111111 + 1 {
 					x as u16
 				} else {
-					return Err("out of range decoding Compact<u16>".into());
+					return Err(U16_OUT_OF_RANGE.into());
 				}
 			},
 			2 => {
@@ -638,7 +644,7 @@ impl Decode for Compact<u16> {
 				if x > 0b00111111_11111111 && x < 65536 {
 					x as u16
 				} else {
-					return Err("out of range decoding Compact<u16>".into());
+					return Err(U16_OUT_OF_RANGE.into());
 				}
 			},
 			_ => return Err("unexpected prefix decoding Compact<u16>".into()),
@@ -656,7 +662,7 @@ impl Decode for Compact<u32> {
 				if x > 0b00111111 && x < 0b00111111_11111111 + 1 {
 					x as u32
 				} else {
-					return Err("out of range decoding Compact<u32>".into());
+					return Err(U32_OUT_OF_RANGE.into());
 				}
 			},
 			2 => {
@@ -664,7 +670,7 @@ impl Decode for Compact<u32> {
 				if x > 0b00111111_11111111 && x < (u32::max_value() >> 2) + 1 {
 					x as u32
 				} else {
-					return Err("out of range decoding Compact<u32>".into());
+					return Err(U32_OUT_OF_RANGE.into());
 				}
 			},
 			3|_ => {	// |_. yeah, i know.
@@ -674,11 +680,11 @@ impl Decode for Compact<u32> {
 					if x > u32::max_value() >> 2 {
 						x as u32
 					} else {
-						return Err("out of range decoding Compact<u32>".into());
+						return Err(U32_OUT_OF_RANGE.into());
 					}
 				} else {
 					// Out of range for a 32-bit quantity.
-					return Err("out of range decoding Compact<u32>".into());
+					return Err(U32_OUT_OF_RANGE.into());
 				}
 			}
 		}))
@@ -695,7 +701,7 @@ impl Decode for Compact<u64> {
 				if x > 0b00111111 && x < 0b00111111_11111111 + 1 {
 					x as u64
 				} else {
-					return Err("out of range decoding Compact<u64>".into());
+					return Err(U64_OUT_OF_RANGE.into());
 				}
 			},
 			2 => {
@@ -703,7 +709,7 @@ impl Decode for Compact<u64> {
 				if x > 0b00111111_11111111 && x < (u32::max_value() >> 2) + 1 {
 					x as u64
 				} else {
-					return Err("out of range decoding Compact<u64>".into());
+					return Err(U64_OUT_OF_RANGE.into());
 				}
 			},
 			3|_ => match (prefix >> 2) + 4 {
@@ -712,7 +718,7 @@ impl Decode for Compact<u64> {
 					if x > u32::max_value() >> 2 {
 						x as u64
 					} else {
-						return Err("unexpected prefix decoding Compact<u64>".into());
+						return Err(U64_OUT_OF_RANGE.into());
 					}
 				},
 				8 => {
@@ -720,7 +726,7 @@ impl Decode for Compact<u64> {
 					if x > u64::max_value() >> 8 {
 						x as u64
 					} else {
-						return Err("unexpected prefix decoding Compact<u64>".into());
+						return Err(U64_OUT_OF_RANGE.into());
 					}
 				},
 				x if x > 8 => return Err("unexpected prefix decoding Compact<u64>".into()),
@@ -732,7 +738,7 @@ impl Decode for Compact<u64> {
 					if res > u64::max_value() >> (8 - bytes_needed + 1) * 8 {
 						res as u64
 					} else {
-						return Err("unexpected prefix decoding Compact<u64>".into());
+						return Err(U64_OUT_OF_RANGE.into());
 					}
 				},
 			},
@@ -750,7 +756,7 @@ impl Decode for Compact<u128> {
 				if x > 0b00111111 && x < 0b00111111_11111111 + 1 {
 					x as u128
 				} else {
-					return Err("out of range decoding Compact<u128>".into());
+					return Err(U128_OUT_OF_RANGE.into());
 				}
 			},
 			2 => {
@@ -758,7 +764,7 @@ impl Decode for Compact<u128> {
 				if x > 0b00111111_11111111 && x < (u32::max_value() >> 2) + 1 {
 					x as u128
 				} else {
-					return Err("out of range decoding Compact<u128>".into());
+					return Err(U128_OUT_OF_RANGE.into());
 				}
 			},
 			3|_ => match (prefix >> 2) + 4 {
@@ -767,7 +773,7 @@ impl Decode for Compact<u128> {
 					if x > u32::max_value() >> 2 {
 						x as u128
 					} else {
-						return Err("unexpected prefix decoding Compact<u128>".into());
+						return Err(U128_OUT_OF_RANGE.into());
 					}
 				},
 				8 => {
@@ -775,7 +781,7 @@ impl Decode for Compact<u128> {
 					if x > u64::max_value() >> 8 {
 						x as u128
 					} else {
-						return Err("unexpected prefix decoding Compact<u128>".into());
+						return Err(U128_OUT_OF_RANGE.into());
 					}
 				},
 				16 => {
@@ -783,7 +789,7 @@ impl Decode for Compact<u128> {
 					if x > u128::max_value() >> 8 {
 						x as u128
 					} else {
-						return Err("unexpected prefix decoding Compact<u128>".into());
+						return Err(U128_OUT_OF_RANGE.into());
 					}
 				},
 				x if x > 16 => return Err("unexpected prefix decoding Compact<u128>".into()),
@@ -795,7 +801,7 @@ impl Decode for Compact<u128> {
 					if res > u128::max_value() >> (16 - bytes_needed + 1) * 8 {
 						res as u128
 					} else {
-						return Err("unexpected prefix decoding Compact<u128>".into());
+						return Err(U128_OUT_OF_RANGE.into());
 					}
 				},
 			},
@@ -1597,59 +1603,60 @@ mod tests {
 	}
 
 	macro_rules! check_bound {
-		( $m:expr, $ty:ty, $typ1:ty, [ $($ty2:ty),* ]) => {
+		( $m:expr, $ty:ty, $typ1:ty, [ $(($ty2:ty, $ty2_err:expr)),* ]) => {
 			$(
-				check_bound!($m, $ty, $typ1, $ty2);
+				check_bound!($m, $ty, $typ1, $ty2, $ty2_err);
 			)*
 		};
-		( $m:expr, $ty:ty, $typ1:ty, $ty2:ty) => {
+		( $m:expr, $ty:ty, $typ1:ty, $ty2:ty, $ty2_err:expr) => {
 			let enc = ((<$ty>::max_value() >> 2) as $typ1 << 2) | $m;
-			assert!(Compact::<$ty2>::decode(&mut &enc.to_le_bytes()[..]).is_err());
+			assert_eq!(Compact::<$ty2>::decode(&mut &enc.to_le_bytes()[..]),
+				Err($ty2_err.into()));
 		};
 	}
 	macro_rules! check_bound_u32 {
-		( [ $($ty2:ty),* ]) => {
+		( [ $(($ty2:ty, $ty2_err:expr)),* ]) => {
 			$(
-				check_bound_u32!($ty2);
+				check_bound_u32!($ty2, $ty2_err);
 			)*
 		};
-		( $ty2:ty) => {
-			let mut dest = Vec::new();
-			dest.push(0b11);
-			for _ in 0..3 {
-				dest.push(u8::max_value());
-			}
-			dest.push(u8::max_value() >> 2);
-			assert!(Compact::<$ty2>::decode(&mut &[0b11, 0xff, 0xff, 0xff, 0xff >> 2][..]).is_err());
-
+		( $ty2:ty, $ty2_err:expr ) => {
+			assert_eq!(Compact::<$ty2>::decode(&mut &[0b11, 0xff, 0xff, 0xff, 0xff >> 2][..]),
+				Err($ty2_err.into()));
 		};
 	}
 	macro_rules! check_bound_high {
-		( $m:expr, [ $($ty2:ty),* ]) => {
+		( $m:expr, [ $(($ty2:ty, $ty2_err:expr)),* ]) => {
 			$(
-				check_bound_high!($m, $ty2);
+				check_bound_high!($m, $ty2, $ty2_err);
 			)*
 		};
-		( $s:expr, $ty2:ty) => {
+		( $s:expr, $ty2:ty, $ty2_err:expr) => {
 			let mut dest = Vec::new();
 			dest.push(0b11 + (($s - 4) << 2) as u8);
 			for _ in 0..($s - 1) {
 				dest.push(u8::max_value());
 			}
 			dest.push(0);
-			assert!(Compact::<$ty2>::decode(&mut &dest[..]).is_err());
-
+			assert_eq!(Compact::<$ty2>::decode(&mut &dest[..]),
+				Err($ty2_err.into()));
 		};
 	}
 
 
 	#[test]
 	fn should_avoid_overlapping_definition() {
-		check_bound!(0b01, u8, u16, [ u8, u16, u32, u64, u128 ]);
-		check_bound!(0b10, u16, u32, [ u16, u32, u64, u128 ]);
-		check_bound_u32!([ u32, u64, u128 ]);
-		for i in 5..=17 {
-			check_bound_high!(i, [ u64, u128 ]);
+		check_bound!(0b01, u8, u16, [ (u8, U8_OUT_OF_RANGE), (u16, U16_OUT_OF_RANGE),
+			(u32, U32_OUT_OF_RANGE), (u64, U64_OUT_OF_RANGE), (u128, U128_OUT_OF_RANGE)]);
+		check_bound!(0b10, u16, u32, [ (u16, U16_OUT_OF_RANGE),
+			(u32, U32_OUT_OF_RANGE), (u64, U64_OUT_OF_RANGE), (u128, U128_OUT_OF_RANGE)]);
+		check_bound_u32!(
+			[(u32, U32_OUT_OF_RANGE), (u64, U64_OUT_OF_RANGE), (u128, U128_OUT_OF_RANGE)]);
+		for i in 5..=8 {
+			check_bound_high!(i, [(u64, U64_OUT_OF_RANGE), (u128, U128_OUT_OF_RANGE)]);
+		}
+		for i in 8..=16 {
+			check_bound_high!(i, [(u128, U128_OUT_OF_RANGE)]);
 		}
 	}
 }
