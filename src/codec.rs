@@ -237,14 +237,14 @@ pub trait Encode {
 	}
 }
 
-/// Trait that allows to append an item to an encoded representation without
+/// Trait that allows to append items to an encoded representation without
 /// decoding all previous added items.
 pub trait EncodeAppend {
 	/// The item that will be appended.
 	type Item: Encode + Decode;
 
-	/// Append `to_append` to the given `self_encoded` representation.
-	fn append(self_encoded: Vec<u8>, to_append: &Self::Item) -> Result<Vec<u8>, Error>;
+	/// Append `to_append` items to the given `self_encoded` representation.
+	fn append(self_encoded: Vec<u8>, to_append: &[Self::Item]) -> Result<Vec<u8>, Error>;
 }
 
 /// Trait that allows zero-copy read of value-references from slices in LE format.
@@ -960,8 +960,7 @@ impl Encode for str {
 
 #[cfg(any(feature = "std", feature = "full"))]
 impl<'a, T: ToOwned + ?Sized> Decode for Cow<'a, T>
-where
-<T as ToOwned>::Owned: Decode,
+	where <T as ToOwned>::Owned: Decode,
 {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		Ok(Cow::Owned(Decode::decode(input)?))
@@ -1011,14 +1010,14 @@ impl<T: Decode> Decode for Vec<T> {
 impl<T: Encode + Decode> EncodeAppend for Vec<T> {
 	type Item = T;
 
-	fn append(mut self_encoded: Vec<u8>, to_append: &Self::Item) -> Result<Vec<u8>, Error> {
+	fn append(mut self_encoded: Vec<u8>, to_append: &[Self::Item]) -> Result<Vec<u8>, Error> {
 		if self_encoded.is_empty() {
-			return Ok(vec![to_append].encode())
+			return Ok(to_append.encode())
 		}
 
 		let len = u32::from(Compact::<u32>::decode(&mut &self_encoded[..])?);
 		let new_len = len
-			.checked_add(1)
+			.checked_add(to_append.len() as u32)
 			.ok_or_else(|| "New vec length greater than `u32::max_value()`.")?;
 
 		let encoded_len = Compact::<u32>::compact_len(&len);
@@ -1030,26 +1029,27 @@ impl<T: Encode + Decode> EncodeAppend for Vec<T> {
 			})
 		};
 
-		let append_new_elem = |dest: &mut Vec<u8>| to_append.encode_to(dest);
+		let append_new_elems = |dest: &mut Vec<u8>| to_append.iter().for_each(|a| a.encode_to(dest));
 
 		// If old and new encoded len is equal, we don't need to copy the
 		// already encoded data.
 		if encoded_len == encoded_new_len {
 			replace_len(&mut self_encoded);
-			append_new_elem(&mut self_encoded);
+			append_new_elems(&mut self_encoded);
 
 			Ok(self_encoded)
 		} else {
 			let prefix_size = encoded_new_len + self_encoded.len() - encoded_len;
+			let size_hint: usize = to_append.iter().map(Encode::size_hint).sum();
 
-			let mut res = Vec::with_capacity(prefix_size + to_append.size_hint());
+			let mut res = Vec::with_capacity(prefix_size + size_hint);
 			unsafe { res.set_len(prefix_size); }
 
 			// Insert the new encoded len, copy the already encoded data and
 			// add the new element.
 			replace_len(&mut res);
 			res[encoded_new_len..prefix_size].copy_from_slice(&self_encoded[encoded_len..]);
-			append_new_elem(&mut res);
+			append_new_elems(&mut res);
 
 			Ok(res)
 		}
@@ -1477,11 +1477,27 @@ mod tests {
 		let max_value = 1_000_000;
 
 		let encoded = (0..max_value).fold(Vec::new(), |encoded, v| {
-			<Vec::<u32> as EncodeAppend>::append(encoded, &v).unwrap()
+			<Vec::<u32> as EncodeAppend>::append(encoded, &[v]).unwrap()
 		});
 
 		let decoded = Vec::<u32>::decode(&mut &encoded[..]).unwrap();
 		assert_eq!(decoded, (0..max_value).collect::<Vec<_>>());
+	}
+
+	#[test]
+	fn vec_encode_append_multiple_items_works() {
+		let max_value = 1_000_000;
+
+		let encoded = (0..max_value).fold(Vec::new(), |encoded, v| {
+			<Vec::<u32> as EncodeAppend>::append(encoded, &[v, v, v, v]).unwrap()
+		});
+
+		let decoded = Vec::<u32>::decode(&mut &encoded[..]).unwrap();
+		let expected = (0..max_value).fold(Vec::new(), |mut vec, i| {
+			vec.append(&mut vec![i, i, i, i]);
+			vec
+		});
+		assert_eq!(decoded, expected);
 	}
 
 	#[test]
