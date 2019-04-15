@@ -1330,7 +1330,7 @@ mod tests {
 		let max_value = 1_000_000;
 
 		let encoded = (0..max_value).fold(Vec::new(), |encoded, v| {
-			<Vec::<u32> as EncodeAppend>::append(encoded, &[v]).unwrap()
+			<Vec<u32> as EncodeAppend>::append(encoded, &[v]).unwrap()
 		});
 
 		let decoded = Vec::<u32>::decode(&mut &encoded[..]).unwrap();
