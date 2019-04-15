@@ -149,7 +149,7 @@ pub trait Encode {
 /// decoding all previous added items.
 pub trait EncodeAppend {
 	/// The item that will be appended.
-	type Item: Encode + Decode;
+	type Item: Encode;
 
 	/// Append `to_append` items to the given `self_encoded` representation.
 	fn append(self_encoded: Vec<u8>, to_append: &[Self::Item]) -> Option<Vec<u8>>;
