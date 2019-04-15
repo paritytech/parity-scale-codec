@@ -131,7 +131,7 @@ fn encode_fields<F>(
 }
 
 fn try_impl_encode_single_field_optimisation(data: &Data) -> Option<TokenStream> {
-	let ref closure = quote!(f);
+	let closure = &quote!(f);
 
 	fn filter_skip_named<'a>(fields: &'a syn::FieldsNamed) -> impl Iterator<Item=&Field> + 'a {
 		fields.named.iter()
@@ -149,7 +149,7 @@ fn try_impl_encode_single_field_optimisation(data: &Data) -> Option<TokenStream>
 			match data.fields {
 				Fields::Named(ref fields) if filter_skip_named(fields).count() == 1 => {
 					let field = filter_skip_named(fields).next().unwrap();
-					let ref name = field.ident;
+					let name = &field.ident;
 					Some(encode_single_field(
 						closure,
 						field,
@@ -157,11 +157,13 @@ fn try_impl_encode_single_field_optimisation(data: &Data) -> Option<TokenStream>
 					))
 				},
 				Fields::Unnamed(ref fields) if filter_skip_unnamed(fields).count() == 1 => {
-					let (ids, field) = filter_skip_unnamed(fields).next().unwrap();
+					let (id, field) = filter_skip_unnamed(fields).next().unwrap();
+					let id = syn::Index::from(id);
+
 					Some(encode_single_field(
 						closure,
 						field,
-						quote!(&self.#ids)
+						quote!(&self.#id)
 					))
 				},
 				_ => None,
@@ -181,7 +183,7 @@ fn try_impl_encode_single_field_optimisation(data: &Data) -> Option<TokenStream>
 
 fn impl_encode(data: &Data, type_name: &Ident) -> TokenStream {
 	let self_ = quote!(self);
-	let ref dest = quote!(dest);
+	let dest = &quote!(dest);
 	let encoding = match *data {
 		Data::Struct(ref data) => {
 			match data.fields {
@@ -193,7 +195,10 @@ fn impl_encode(data: &Data, type_name: &Ident) -> TokenStream {
 				Fields::Unnamed(ref fields) => encode_fields(
 					dest,
 					&fields.unnamed,
-					|i, _| quote!(&#self_.#i),
+					|i, _| {
+						let i = syn::Index::from(i);
+						quote!(&#self_.#i)
+					},
 				),
 				Fields::Unit => quote!(drop(#dest);),
 			}
