@@ -534,7 +534,7 @@ impl CompactLen<u8> for Compact<u8> {
 impl<'a> Encode for CompactRef<'a, u16> {
 	fn encode_to<W: Output>(&self, dest: &mut W) {
 		match self.0 {
-			0..=0b001_11111 => dest.push_byte((*self.0 as u8) << 2),
+			0..=0b0011_1111 => dest.push_byte((*self.0 as u8) << 2),
 			0..=0b0011_1111_1111_1111 => ((*self.0 << 2) | 0b01).encode_to(dest),
 			_ => ((u32::from(*self.0) << 2) | 0b10).encode_to(dest),
 		}
@@ -560,7 +560,7 @@ impl CompactLen<u16> for Compact<u16> {
 impl<'a> Encode for CompactRef<'a, u32> {
 	fn encode_to<W: Output>(&self, dest: &mut W) {
 		match self.0 {
-			0..=0b001_11111 => dest.push_byte((*self.0 as u8) << 2),
+			0..=0b0011_1111 => dest.push_byte((*self.0 as u8) << 2),
 			0..=0b0011_1111_1111_1111 => (((*self.0 as u16) << 2) | 0b01).encode_to(dest),
 			0..=0b0011_1111_1111_1111_1111_1111_1111_1111 => ((*self.0 << 2) | 0b10).encode_to(dest),
 			_ => {
@@ -591,7 +591,7 @@ impl CompactLen<u32> for Compact<u32> {
 impl<'a> Encode for CompactRef<'a, u64> {
 	fn encode_to<W: Output>(&self, dest: &mut W) {
 		match self.0 {
-			0..=0b001_11111 => dest.push_byte((*self.0 as u8) << 2),
+			0..=0b0011_1111 => dest.push_byte((*self.0 as u8) << 2),
 			0..=0b0011_1111_1111_1111 => (((*self.0 as u16) << 2) | 0b01).encode_to(dest),
 			0..=0b0011_1111_1111_1111_1111_1111_1111_1111 => (((*self.0 as u32) << 2) | 0b10).encode_to(dest),
 			_ => {
@@ -1477,7 +1477,7 @@ mod tests {
 		let max_value = 1_000_000;
 
 		let encoded = (0..max_value).fold(Vec::new(), |encoded, v| {
-			<Vec::<u32> as EncodeAppend>::append(encoded, &[v]).unwrap()
+			<Vec<u32> as EncodeAppend>::append(encoded, &[v]).unwrap()
 		});
 
 		let decoded = Vec::<u32>::decode(&mut &encoded[..]).unwrap();
@@ -1489,7 +1489,7 @@ mod tests {
 		let max_value = 1_000_000;
 
 		let encoded = (0..max_value).fold(Vec::new(), |encoded, v| {
-			<Vec::<u32> as EncodeAppend>::append(encoded, &[v, v, v, v]).unwrap()
+			<Vec<u32> as EncodeAppend>::append(encoded, &[v, v, v, v]).unwrap()
 		});
 
 		let decoded = Vec::<u32>::decode(&mut &encoded[..]).unwrap();
