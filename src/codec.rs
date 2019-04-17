@@ -1643,15 +1643,49 @@ mod tests {
 		};
 	}
 
+	#[test]
+	fn compact_u64_test() {
+		for a in [
+			u64::max_value(),
+			u64::max_value() - 1,
+			u64::max_value() << 8,
+			(u64::max_value() << 8) - 1,
+			u64::max_value() << 16,
+			(u64::max_value() << 16) - 1,
+		].into_iter() {
+			let e = Compact::<u64>::encode(&Compact(*a));
+			let d = Compact::<u64>::decode(&mut &e[..]).unwrap().0;
+			assert_eq!(*a, d);
+		}
+	}
+
+	#[test]
+	fn compact_u128_test() {
+		for a in [
+			u64::max_value() as u128,
+			(u64::max_value() - 10) as u128,
+			u128::max_value(),
+			u128::max_value() - 10,
+		].into_iter() {
+			let e = Compact::<u128>::encode(&Compact(*a));
+			let d = Compact::<u128>::decode(&mut &e[..]).unwrap().0;
+			assert_eq!(*a, d);
+		}
+	}
+
+
 
 	#[test]
 	fn should_avoid_overlapping_definition() {
 		check_bound!(0b01, u8, u16, [ (u8, U8_OUT_OF_RANGE), (u16, U16_OUT_OF_RANGE),
-			(u32, U32_OUT_OF_RANGE), (u64, U64_OUT_OF_RANGE), (u128, U128_OUT_OF_RANGE)]);
+			(u32, U32_OUT_OF_RANGE), (u64, U64_OUT_OF_RANGE), (u128, U128_OUT_OF_RANGE)]
+		);
 		check_bound!(0b10, u16, u32, [ (u16, U16_OUT_OF_RANGE),
-			(u32, U32_OUT_OF_RANGE), (u64, U64_OUT_OF_RANGE), (u128, U128_OUT_OF_RANGE)]);
+			(u32, U32_OUT_OF_RANGE), (u64, U64_OUT_OF_RANGE), (u128, U128_OUT_OF_RANGE)]
+		);
 		check_bound_u32!(
-			[(u32, U32_OUT_OF_RANGE), (u64, U64_OUT_OF_RANGE), (u128, U128_OUT_OF_RANGE)]);
+			[(u32, U32_OUT_OF_RANGE), (u64, U64_OUT_OF_RANGE), (u128, U128_OUT_OF_RANGE)]
+		);
 		for i in 5..=8 {
 			check_bound_high!(i, [(u64, U64_OUT_OF_RANGE), (u128, U128_OUT_OF_RANGE)]);
 		}
