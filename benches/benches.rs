@@ -17,6 +17,7 @@
 extern crate test;
 
 use parity_codec::*;
+use parity_codec_derive::{Encode, Decode};
 
 #[bench]
 fn array_vec_write_u128(b: &mut test::Bencher) {
@@ -76,4 +77,45 @@ fn encoding_of_large_vec_u8(b: &mut test::Bencher) {
 	b.iter(|| {
 		v.encode();
 	})
+}
+
+#[derive(Encode, Decode)]
+enum Event {
+	ComplexEvent(Vec<u8>, u32, i32, u128, i8),
+}
+
+#[bench]
+fn vec_append_with_decode_and_encode(b: &mut test::Bencher) {
+	let data = b"PCX";
+
+	b.iter(|| {
+		let mut encoded_events_vec = Vec::new();
+		for _ in 0..1000 {
+			let mut events = Vec::<Event>::decode(&mut &encoded_events_vec[..])
+				.unwrap_or_default();
+
+			events.push(Event::ComplexEvent(data.to_vec(), 4, 5, 6, 9));
+
+			encoded_events_vec = events.encode();
+		}
+	})
+}
+
+#[bench]
+fn vec_append_with_encode_append(b: &mut test::Bencher) {
+	let data = b"PCX";
+
+	b.iter(|| {
+		let mut encoded_events_vec;
+
+		let events = vec![Event::ComplexEvent(data.to_vec(), 4, 5, 6, 9)];
+		encoded_events_vec = events.encode();
+
+		for _ in 1..1000 {
+			encoded_events_vec = <Vec::<Event> as EncodeAppend>::append(
+				encoded_events_vec,
+				&[Event::ComplexEvent(data.to_vec(), 4, 5, 6, 9)],
+			).unwrap();
+		}
+	});
 }
