@@ -1838,7 +1838,8 @@ mod tests {
 			0b01, u8, u16, [ (u8, U8_OUT_OF_RANGE), (u16, U16_OUT_OF_RANGE),
 			(u32, U32_OUT_OF_RANGE), (u64, U64_OUT_OF_RANGE), (u128, U128_OUT_OF_RANGE)]
 		);
-		check_bound!(0b10, u16, u32, [ (u16, U16_OUT_OF_RANGE),
+		check_bound!(
+			0b10, u16, u32, [ (u16, U16_OUT_OF_RANGE),
 			(u32, U32_OUT_OF_RANGE), (u64, U64_OUT_OF_RANGE), (u128, U128_OUT_OF_RANGE)]
 		);
 		check_bound_u32!(
