@@ -1136,7 +1136,7 @@ macro_rules! impl_non_endians {
 	)* }
 }
 
-impl_endians!(u16, u32, u64, u128, i16, i32, i64, i128, isize);
+impl_endians!(u16, u32, u64, u128, i16, i32, i64, i128);
 impl_non_endians!(
 	i8, [u8; 1], [u8; 2], [u8; 3], [u8; 4], [u8; 5], [u8; 6], [u8; 7], [u8; 8],
 	[u8; 10], [u8; 12], [u8; 14], [u8; 16], [u8; 20], [u8; 24], [u8; 28],
