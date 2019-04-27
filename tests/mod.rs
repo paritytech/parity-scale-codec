@@ -124,13 +124,13 @@ fn should_work_for_simple_enum() {
 	});
 
 	let mut da: &[u8] = b"\x0f";
-	assert_eq!(EnumType::decode(&mut da), Some(a));
+	assert_eq!(EnumType::decode(&mut da).ok(), Some(a));
 	let mut db: &[u8] = b"\x01\x01\0\0\0\x02\0\0\0\0\0\0\0";
-	assert_eq!(EnumType::decode(&mut db), Some(b));
+	assert_eq!(EnumType::decode(&mut db).ok(), Some(b));
 	let mut dc: &[u8] = b"\x02\x01\0\0\0\x02\0\0\0\0\0\0\0";
-	assert_eq!(EnumType::decode(&mut dc), Some(c));
+	assert_eq!(EnumType::decode(&mut dc).ok(), Some(c));
 	let mut dz: &[u8] = &[0];
-	assert_eq!(EnumType::decode(&mut dz), None);
+	assert_eq!(EnumType::decode(&mut dz).ok(), None);
 }
 
 #[test]
@@ -146,13 +146,13 @@ fn should_work_for_enum_with_discriminant() {
 	});
 
 	let mut da: &[u8] = &[1];
-	assert_eq!(EnumWithDiscriminant::decode(&mut da), Some(EnumWithDiscriminant::A));
+	assert_eq!(EnumWithDiscriminant::decode(&mut da), Ok(EnumWithDiscriminant::A));
 	let mut db: &[u8] = &[15];
-	assert_eq!(EnumWithDiscriminant::decode(&mut db), Some(EnumWithDiscriminant::B));
+	assert_eq!(EnumWithDiscriminant::decode(&mut db), Ok(EnumWithDiscriminant::B));
 	let mut dc: &[u8] = &[255];
-	assert_eq!(EnumWithDiscriminant::decode(&mut dc), Some(EnumWithDiscriminant::C));
+	assert_eq!(EnumWithDiscriminant::decode(&mut dc), Ok(EnumWithDiscriminant::C));
 	let mut dz: &[u8] = &[2];
-	assert_eq!(EnumWithDiscriminant::decode(&mut dz), None);
+	assert_eq!(EnumWithDiscriminant::decode(&mut dz).ok(), None);
 }
 
 #[test]
@@ -170,7 +170,7 @@ fn should_derive_decode() {
 
 	let v = TestType::decode(&mut &*slice);
 
-	assert_eq!(v, Some(TestType::new(15, 9, b"Hello world".to_vec())));
+	assert_eq!(v, Ok(TestType::new(15, 9, b"Hello world".to_vec())));
 }
 
 #[test]
@@ -182,7 +182,7 @@ fn should_work_for_unit() {
 	});
 
 	let mut a: &[u8] = &[];
-	assert_eq!(Unit::decode(&mut a), Some(Unit));
+	assert_eq!(Unit::decode(&mut a), Ok(Unit));
 }
 
 #[test]
@@ -194,7 +194,42 @@ fn should_work_for_indexed() {
 	});
 
 	let mut v: &[u8] = b"\x01\0\0\0\x02\0\0\0\0\0\0\0";
-	assert_eq!(Indexed::decode(&mut v), Some(Indexed(1, 2)));
+	assert_eq!(Indexed::decode(&mut v), Ok(Indexed(1, 2)));
+}
+
+#[test]
+#[should_panic(expected = "Error decoding field Indexed.0")]
+fn correct_error_for_indexed_0() {
+	let mut wrong: &[u8] = b"\x08";
+	Indexed::decode(&mut wrong).unwrap();
+}
+
+#[test]
+#[should_panic(expected = "Error decoding field Indexed.1")]
+fn correct_error_for_indexed_1() {
+	let mut wrong: &[u8] = b"\0\0\0\0\x01";
+	Indexed::decode(&mut wrong).unwrap();
+}
+
+#[test]
+#[should_panic(expected = "Error decoding field EnumType :: B.0")]
+fn correct_error_for_enumtype() {
+	let mut wrong: &[u8] = b"\x01";
+	EnumType::decode(&mut wrong).unwrap();
+}
+
+#[test]
+#[should_panic(expected = "Error decoding field Struct.a")]
+fn correct_error_for_named_struct_1() {
+	let mut wrong: &[u8] = b"\x01";
+	Struct::<u32, u32, u32>::decode(&mut wrong).unwrap();
+}
+
+#[test]
+#[should_panic(expected = "Error decoding field Struct.b")]
+fn correct_error_for_named_struct_2() {
+	let mut wrong: &[u8] = b"\0\0\0\0\x01";
+	Struct::<u32, u32, u32>::decode(&mut wrong).unwrap();
 }
 
 const U64_TEST_COMPACT_VALUES: &[(u64, usize)] = &[
@@ -428,5 +463,5 @@ fn encode_decode_empty_enum() {
     fn impls_encode_decode<T: Encode + Decode>() {}
 	impls_encode_decode::<EmptyEnumDerive>();
 
-	assert_eq!(EmptyEnumDerive::decode(&mut &[1, 2, 3][..]), None);
+	assert_eq!(EmptyEnumDerive::decode(&mut &[1, 2, 3][..]), Err("No such variant in enum EmptyEnumDerive".into()));
 }
