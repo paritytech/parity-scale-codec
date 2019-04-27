@@ -948,7 +948,7 @@ impl<T: Encode + Ord> Encode for BTreeSet<T> {
 	fn encode_to<W: Output>(&self, dest: &mut W) {
 		let len = self.len();
 		assert!(len <= u32::max_value() as usize, "Attempted to serialize a collection with too many elements.");
-		(len as u32).encode_to(dest);
+		Compact(len as u32).encode_to(dest);
 		for i in self.iter() {
 			i.encode_to(dest);
 		}
@@ -957,7 +957,7 @@ impl<T: Encode + Ord> Encode for BTreeSet<T> {
 
 impl<T: Decode + Ord> Decode for BTreeSet<T> {
 	fn decode<I: Input>(input: &mut I) -> Option<Self> {
-		u32::decode(input).and_then(move |len| {
+		<Compact<u32>>::decode(input).and_then(move |Compact(len)| {
 			let mut r: BTreeSet<T> = BTreeSet::new();
 			for _ in 0..len {
 				let t = T::decode(input)?;
