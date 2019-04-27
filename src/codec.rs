@@ -532,15 +532,6 @@ impl CompactLen<u8> for Compact<u8> {
 	}
 }
 
-impl CompactLen<u8> for Compact<u8> {
-	fn compact_len(val: &u8) -> usize {
-		match val {
-			0..=0b0011_1111 => 1,
-			_ => 2,
-		}
-	}
-}
-
 impl<'a> Encode for CompactRef<'a, u16> {
 	fn encode_to<W: Output>(&self, dest: &mut W) {
 		match self.0 {
@@ -554,16 +545,6 @@ impl<'a> Encode for CompactRef<'a, u16> {
 		let mut r = ArrayVecWrapper(ArrayVec::<[u8; 4]>::new());
 		self.encode_to(&mut r);
 		f(&r.0)
-	}
-}
-
-impl CompactLen<u16> for Compact<u16> {
-	fn compact_len(val: &u16) -> usize {
-		match val {
-			0..=0b0011_1111 => 1,
-			0..=0b0011_1111_1111_1111 => 2,
-			_ => 4,
-		}
 	}
 }
 
@@ -594,17 +575,6 @@ impl<'a> Encode for CompactRef<'a, u32> {
 		let mut r = ArrayVecWrapper(ArrayVec::<[u8; 5]>::new());
 		self.encode_to(&mut r);
 		f(&r.0)
-	}
-}
-
-impl CompactLen<u32> for Compact<u32> {
-	fn compact_len(val: &u32) -> usize {
-		match val {
-			0..=0b0011_1111 => 1,
-			0..=0b0011_1111_1111_1111 => 2,
-			0..=0b0011_1111_1111_1111_1111_1111_1111_1111 => 4,
-			_ => 5,
-		}
 	}
 }
 
@@ -659,19 +629,6 @@ impl CompactLen<u64> for Compact<u64> {
 	}
 }
 
-impl CompactLen<u64> for Compact<u64> {
-	fn compact_len(val: &u64) -> usize {
-		match val {
-			0..=0b0011_1111 => 1,
-			0..=0b0011_1111_1111_1111 => 2,
-			0..=0b0011_1111_1111_1111_1111_1111_1111_1111 => 4,
-			_ => {
-				(8 - val.leading_zeros() / 8) as usize + 1
-			},
-		}
-	}
-}
-
 impl<'a> Encode for CompactRef<'a, u128> {
 	fn encode_to<W: Output>(&self, dest: &mut W) {
 		match self.0 {
@@ -696,19 +653,6 @@ impl<'a> Encode for CompactRef<'a, u128> {
 		let mut r = ArrayVecWrapper(ArrayVec::<[u8; 17]>::new());
 		self.encode_to(&mut r);
 		f(&r.0)
-	}
-}
-
-impl CompactLen<u128> for Compact<u128> {
-	fn compact_len(val: &u128) -> usize {
-		match val {
-			0..=0b0011_1111 => 1,
-			0..=0b0011_1111_1111_1111 => 2,
-			0..=0b0011_1111_1111_1111_1111_1111_1111_1111 => 4,
-			_ => {
-				(16 - val.leading_zeros() / 8) as usize + 1
-			},
-		}
 	}
 }
 
@@ -1229,7 +1173,7 @@ impl<K: Encode + Ord, V: Encode> Encode for BTreeMap<K, V> {
 
 impl<K: Decode + Ord, V: Decode> Decode for BTreeMap<K, V> {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
-		u32::decode(input).and_then(move |len| {
+		<Compact<u32>>::decode(input).and_then(move |Compact(len)| {
 			let mut r: BTreeMap<K, V> = BTreeMap::new();
 			for _ in 0..len {
 				let (key, v) = <(K, V)>::decode(input)?;
@@ -1252,14 +1196,14 @@ impl<T: Encode + Ord> Encode for BTreeSet<T> {
 }
 
 impl<T: Decode + Ord> Decode for BTreeSet<T> {
-	fn decode<I: Input>(input: &mut I) -> Option<Self> {
+	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		<Compact<u32>>::decode(input).and_then(move |Compact(len)| {
 			let mut r: BTreeSet<T> = BTreeSet::new();
 			for _ in 0..len {
 				let t = T::decode(input)?;
 				r.insert(t);
 			}
-			Some(r)
+			Ok(r)
 		})
 	}
 }
