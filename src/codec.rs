@@ -17,6 +17,7 @@
 use crate::alloc::vec::Vec;
 use crate::alloc::boxed::Box;
 use crate::alloc::collections::btree_map::BTreeMap;
+use crate::alloc::collections::btree_set::BTreeSet;
 
 #[cfg(any(feature = "std", feature = "full"))]
 use crate::alloc::{
@@ -1163,7 +1164,7 @@ impl<K: Encode + Ord, V: Encode> Encode for BTreeMap<K, V> {
 	fn encode_to<W: Output>(&self, dest: &mut W) {
 		let len = self.len();
 		assert!(len <= u32::max_value() as usize, "Attempted to serialize a collection with too many elements.");
-		(len as u32).encode_to(dest);
+		Compact(len as u32).encode_to(dest);
 		for i in self.iter() {
 			i.encode_to(dest);
 		}
@@ -1172,11 +1173,35 @@ impl<K: Encode + Ord, V: Encode> Encode for BTreeMap<K, V> {
 
 impl<K: Decode + Ord, V: Decode> Decode for BTreeMap<K, V> {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
-		u32::decode(input).and_then(move |len| {
+		<Compact<u32>>::decode(input).and_then(move |Compact(len)| {
 			let mut r: BTreeMap<K, V> = BTreeMap::new();
 			for _ in 0..len {
 				let (key, v) = <(K, V)>::decode(input)?;
 				r.insert(key, v);
+			}
+			Ok(r)
+		})
+	}
+}
+
+impl<T: Encode + Ord> Encode for BTreeSet<T> {
+	fn encode_to<W: Output>(&self, dest: &mut W) {
+		let len = self.len();
+		assert!(len <= u32::max_value() as usize, "Attempted to serialize a collection with too many elements.");
+		Compact(len as u32).encode_to(dest);
+		for i in self.iter() {
+			i.encode_to(dest);
+		}
+	}
+}
+
+impl<T: Decode + Ord> Decode for BTreeSet<T> {
+	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
+		<Compact<u32>>::decode(input).and_then(move |Compact(len)| {
+			let mut r: BTreeSet<T> = BTreeSet::new();
+			for _ in 0..len {
+				let t = T::decode(input)?;
+				r.insert(t);
 			}
 			Ok(r)
 		})
@@ -1386,7 +1411,7 @@ macro_rules! impl_non_endians {
 	)* }
 }
 
-impl_endians!(u16, u32, u64, u128, usize, i16, i32, i64, i128, isize);
+impl_endians!(u16, u32, u64, u128, i16, i32, i64, i128);
 impl_non_endians!(
 	i8, [u8; 1], [u8; 2], [u8; 3], [u8; 4], [u8; 5], [u8; 6], [u8; 7], [u8; 8],
 	[u8; 10], [u8; 12], [u8; 14], [u8; 16], [u8; 20], [u8; 24], [u8; 28],
@@ -1427,6 +1452,30 @@ mod tests {
 		let mut m: BTreeMap<Vec<u32>, Vec<u8>> = BTreeMap::new();
 		m.insert(vec![1, 2, 3], b"qwe".to_vec());
 		m.insert(vec![1, 2], b"qweasd".to_vec());
+		let encoded = m.encode();
+
+		assert_eq!(m, Decode::decode(&mut &encoded[..]).unwrap());
+	}
+
+	#[test]
+	fn btree_set_works() {
+		let mut m: BTreeSet<u32> = BTreeSet::new();
+		m.insert(1);
+		m.insert(2);
+		let encoded = m.encode();
+
+		assert_eq!(m, Decode::decode(&mut &encoded[..]).unwrap());
+
+		let mut m: BTreeSet<Vec<u8>> = BTreeSet::new();
+		m.insert(b"123".to_vec());
+		m.insert(b"1234".to_vec());
+		let encoded = m.encode();
+
+		assert_eq!(m, Decode::decode(&mut &encoded[..]).unwrap());
+
+		let mut m: BTreeSet<Vec<u32>> = BTreeSet::new();
+		m.insert(vec![1, 2, 3]);
+		m.insert(vec![1, 2]);
 		let encoded = m.encode();
 
 		assert_eq!(m, Decode::decode(&mut &encoded[..]).unwrap());
