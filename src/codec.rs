@@ -1175,9 +1175,17 @@ impl<K: Decode + Ord, V: Decode> Decode for BTreeMap<K, V> {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		<Compact<u32>>::decode(input).and_then(move |Compact(len)| {
 			let mut r: BTreeMap<K, V> = BTreeMap::new();
-			for _ in 0..len {
-				let (key, v) = <(K, V)>::decode(input)?;
-				r.insert(key, v);
+			if len > 0 {
+				let mut p_p = <(K, V)>::decode(input)?;
+				for _ in 1..len {
+					let (key, v) = <(K, V)>::decode(input)?;
+					if key <= p_p.0 {
+						return Err("Unordered map".into());
+					}
+					r.insert(p_p.0, p_p.1);
+					p_p = (key, v);
+				}
+				r.insert(p_p.0, p_p.1);
 			}
 			Ok(r)
 		})
@@ -1199,9 +1207,17 @@ impl<T: Decode + Ord> Decode for BTreeSet<T> {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		<Compact<u32>>::decode(input).and_then(move |Compact(len)| {
 			let mut r: BTreeSet<T> = BTreeSet::new();
-			for _ in 0..len {
-				let t = T::decode(input)?;
-				r.insert(t);
+			if len > 0 {
+				let mut p_t = T::decode(input)?;
+				for _ in 1..len {
+					let t = T::decode(input)?;
+					if t <= p_t {
+						return Err("Unordered set".into());
+					}
+					r.insert(p_t);
+					p_t = t;
+				}
+				r.insert(p_t);
 			}
 			Ok(r)
 		})
