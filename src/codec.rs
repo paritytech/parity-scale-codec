@@ -32,9 +32,6 @@ use core::marker::PhantomData;
 #[cfg(feature = "std")]
 use std::fmt;
 
-#[cfg(feature = "bit-vec")]
-use bitvec::vec::BitVec;
-
 #[cfg_attr(feature = "std", derive(Debug))]
 #[derive(PartialEq)]
 #[cfg(feature = "std")]
@@ -1230,29 +1227,6 @@ impl Decode for () {
 	}
 }
 
-#[cfg(feature = "bit-vec")]
-impl Encode for BitVec {
-	fn encode_to<W: Output>(&self, dest: &mut W) {
-		let len = self.len();
-		assert!(len <= u32::max_value() as usize, "Attempted to serialize a collection with too many elements.");
-		Compact(len as u32).encode_to(dest);
-		self.as_slice().encode_to(dest)
-	}
-}
-
-#[cfg(feature = "bit-vec")]
-impl Decode for BitVec {
-	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
-		<Compact<u32>>::decode(input).and_then(move |Compact(len)| {
-			let len = len as usize;
-			let mut v = Self::from_vec(Vec::<u8>::decode(input)?);
-			assert!(len <= v.len());
-			unsafe { v.set_len(len); }
-			Ok(v)
-		})
-	}
-}
-
 macro_rules! tuple_impl {
 	($one:ident,) => {
 		impl<$one: Encode> Encode for ($one,) {
@@ -1923,29 +1897,6 @@ mod tests {
 		}
 		for i in 8..=16 {
 			check_bound_high!(i, [(u128, U128_OUT_OF_RANGE)]);
-		}
-	}
-
-	#[cfg(feature = "bit-vec")]
-	#[test]
-	fn bitvec_test() {
-		use bitvec::bitvec;
-
-		let vecs = [
-			BitVec::new(),
-			bitvec![0],
-			bitvec![1],
-			bitvec![0, 0],
-			bitvec![1, 0],
-			bitvec![0, 1],
-			bitvec![1, 1],
-			bitvec![0, 1, 0],
-			bitvec![0, 1, 0, 1, 1, 1, 1, 0, 0, 1, 0, 1, 0, 1],
-		];
-
-		for v in &vecs {
-			let encoded = v.encode();
-			assert_eq!(*v, BitVec::decode(&mut &encoded[..]).unwrap());
 		}
 	}
 }
