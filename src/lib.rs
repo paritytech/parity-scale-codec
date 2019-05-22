@@ -59,7 +59,7 @@ mod codec;
 mod joiner;
 mod keyedvec;
 #[cfg(feature = "bit-vec")]
-mod bitvec;
+mod bit_vec;
 
 pub use self::codec::{Input, Output, Error, Encode, Decode, Codec, Compact, HasCompact, EncodeAsRef, CompactAs, EncodeAppend};
 pub use self::joiner::Joiner;

@@ -14,72 +14,38 @@
 
 //! `BitVec` specific serialization.
 
-use bitvec::vec::BitVec;
-
-use std::mem;
+use bitvec::{vec::BitVec, bits::Bits, cursor::Cursor};
+use byte_slice_cast::{AsByteSlice, ToByteSlice, FromByteSlice, Error as FromByteSliceError};
 
 use crate::codec::{Encode, Decode, Input, Output, Compact, Error};
 
-impl Encode for BitVec {
-	fn encode_to<W: Output>(&self, dest: &mut W) {
-		let a1 = vec![1u16, 2, 3];
-		//dest.write(a1.as_slice());
-
-
-
-
-
-		let len = self.len();
-		assert!(len <= u32::max_value() as usize, "Attempted to serialize a collection with too many elements.");
-		Compact(len as u32).encode_to(dest);
-		dest.write(self.as_slice());
+impl From<FromByteSliceError> for Error {
+	fn from(_: FromByteSliceError) -> Error {
+		"failed to cast from byte slice".into()
 	}
 }
 
+impl<C: Cursor, T: Bits + ToByteSlice> Encode for BitVec<C, T> {
+	fn encode_to<W: Output>(&self, dest: &mut W) {
+		let len = self.len();
+		assert!(len <= u32::max_value() as usize, "Attempted to serialize a collection with too many elements.");
+		Compact(len as u32).encode_to(dest);
+		dest.write(self.as_slice().as_byte_slice());
+	}
+}
+
+// TODO: Make implementation generic.
 impl Decode for BitVec {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
-		<Compact<u32>>::decode(input).and_then(move |Compact(len)| {
-			let element_size = (mem::size_of::<u8>() * 8) as f64;
-			let len_in_bytes = (len as f64 / element_size).ceil() as usize;
-			let mut array = Vec::<u8>::new();
-			for _ in 0..len_in_bytes {
-				//array.push(Compact::<u8>::decode(input)?.0);
-				array.push(input.read_byte()?);
-			}
-			let mut result = Self::from_slice(array.as_slice());
-			assert!(len <= result.len() as u32);
-			unsafe { result.set_len(len as usize); }
+		<Compact<u32>>::decode(input).and_then(move |Compact(len_in_bits)| {
+			let len_in_bits = len_in_bits as usize;
+			let len_in_bytes = (len_in_bits as f64 / 8.).ceil() as usize;
+			let mut vec = vec![0; len_in_bytes];
+			input.read(&mut vec)?;
+			let mut result = Self::from_slice(u8::from_byte_slice(&vec)?);
+			assert!(len_in_bits <= result.len());
+			unsafe { result.set_len(len_in_bits); }
 			Ok(result)
-
-
-//			// TODO:
-//			let array = match array.into_inner() {
-//				Ok(a) => a,
-//				Err(_) => Err("failed to get inner array from ArrayVec".into()),
-//			};
-
-
-
-			///////////////////////////////////////////////////////////////////////////////////////////////
-			//let mut r = ArrayVec::new();
-			//for _ in 0..$n {
-//				r.push(T::decode(input)?);
-			//}
-//			let i = r.into_inner();
-//
-//			/match i {
-//				Ok(a) => Ok(a),
-//				Err(_) => Err("failed to get inner array from ArrayVec".into()),
-//			}
-			///////////////////////////////////////////////////////////////////////////////////////////////
-
-
-
-//			let len = len as usize;
-//			let mut v = Self::from_vec(Vec::<u8>::decode(input)?);
-//			assert!(len <= v.len());
-//			unsafe { v.set_len(len); }
-//			Ok(v)
 		})
 	}
 }
@@ -95,6 +61,7 @@ mod tests {
 		use bitvec::bitvec;
 
 		let vecs = [
+			// TODO: Add more edge-cases.
 			BitVec::new(),
 			bitvec![0],
 			bitvec![1],
