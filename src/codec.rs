@@ -1428,7 +1428,7 @@ impl From<U8> for u8 {
 }
 
 impl Decode for U8 {
-	fn decode<I: Input>(_value: &mut I) -> Option<Self> {
+	fn decode<I: Input>(_value: &mut I) -> Result<Self, Error> {
 		unimplemented!();
 	}
 }
