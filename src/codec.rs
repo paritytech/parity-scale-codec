@@ -1079,8 +1079,6 @@ impl Decode for String {
 
 impl<T: Encode> Encode for [T] {
 	fn size_hint(&self) -> usize {
-		// TODO TODO: this could be improved maybe, by calling size_hint of T
-		// TODO TODO: also does it miss the size of prefix ???? maybe audit other part as well
 		if let IsU8::Yes(_) = <T as Encode>::IS_U8 {
 			self.len() + mem::size_of::<u32>()
 		} else {

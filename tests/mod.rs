@@ -471,8 +471,11 @@ fn codec_vec_u8() {
 	for v in [
 		vec![0u8; 0],
 		vec![0u8; 10],
+		vec![0u8; 100],
+		vec![0u8; 1000],
 	].into_iter() {
 		let e = v.encode();
+		assert_eq!(e.size_hint
 		assert_eq!(v, &Vec::<u8>::decode(&mut &e[..]).unwrap());
 	}
 }
