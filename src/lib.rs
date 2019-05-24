@@ -59,6 +59,9 @@ mod codec;
 mod joiner;
 mod keyedvec;
 
-pub use self::codec::{Input, Output, Error, Encode, Decode, Codec, Compact, HasCompact, EncodeAsRef, CompactAs, EncodeAppend};
+pub use self::codec::{
+	Input, Output, Error, Encode, Decode, Codec, Compact, HasCompact, EncodeAsRef, CompactAs,
+	EncodeAppend, U8
+};
 pub use self::joiner::Joiner;
 pub use self::keyedvec::KeyedVec;

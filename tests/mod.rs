@@ -34,6 +34,12 @@ struct Struct<A, B, C> {
 }
 
 #[derive(Debug, PartialEq, Encode, Decode)]
+struct A {
+	#[codec(encoded_as = "parity_codec::U8")]
+	pub i: u8,
+}
+
+#[derive(Debug, PartialEq, Encode, Decode)]
 struct StructWithPhantom {
 	pub a: u32,
 	pub b: u64,

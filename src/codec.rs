@@ -1419,6 +1419,37 @@ impl_non_endians!(
 	[u8; 112], [u8; 128], bool
 );
 
+pub struct U8(u8);
+
+impl From<U8> for u8 {
+	fn from(x: U8) -> Self {
+		x.0
+	}
+}
+
+impl Decode for U8 {
+	fn decode<I: Input>(_value: &mut I) -> Option<Self> {
+		unimplemented!();
+	}
+}
+
+pub struct RefU8<'a>(&'a u8);
+
+impl<'a> From<&'a u8> for RefU8<'a> {
+	fn from(x: &'a u8) -> Self {
+		RefU8(x)
+	}
+}
+
+impl<'a> Encode for RefU8<'a> {
+	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, _f: F) -> R {
+		unimplemented!();
+	}
+}
+
+impl<'a> EncodeAsRef<'a, u8> for U8 {
+	type RefType = RefU8<'a>;
+}
 
 #[cfg(test)]
 mod tests {
