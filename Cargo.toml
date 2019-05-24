@@ -16,6 +16,14 @@ parity-codec-derive = { path = "derive", version = "3.3", default-features = fal
 [dev-dependencies]
 serde_derive = { version = "1.0" }
 parity-codec-derive = { path = "derive", version = "3.3", default-features = false }
+criterion = "0.2"
+
+[[bench]]
+name = "benches"
+harness = false
+
+[lib]
+bench = false
 
 [features]
 default = ["std"]

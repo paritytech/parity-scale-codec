@@ -465,3 +465,14 @@ fn encode_decode_empty_enum() {
 
 	assert_eq!(EmptyEnumDerive::decode(&mut &[1, 2, 3][..]), Err("No such variant in enum EmptyEnumDerive".into()));
 }
+
+#[test]
+fn codec_vec_u8() {
+	for v in [
+		vec![0u8; 0],
+		vec![0u8; 10],
+	].into_iter() {
+		let e = v.encode();
+		assert_eq!(v, &Vec::<u8>::decode(&mut &e[..]).unwrap());
+	}
+}

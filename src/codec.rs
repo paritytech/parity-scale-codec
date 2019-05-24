@@ -207,11 +207,21 @@ impl<T: arrayvec::Array<Item=u8>> Output for ArrayVecWrapper<T> {
 	}
 }
 
+pub struct PrivateOptimisation(());
+pub enum IsU8 {
+	Yes(PrivateOptimisation),
+	No,
+}
+
 /// Trait that allows zero-copy write of value-references to slices in LE format.
 ///
 /// Implementations should override `using_encoded` for value types and `encode_to` and `size_hint` for allocating types.
 /// Wrapper types should override all methods.
 pub trait Encode {
+	#[doc(hidden)]
+	// TODO TODO: dev doc
+	const IS_U8: IsU8 = IsU8::No;
+
 	/// If possible give a hint of expected size of the encoding.
 	///
 	/// This method is used inside default implementation of `encode`
@@ -250,6 +260,9 @@ pub trait EncodeAppend {
 
 /// Trait that allows zero-copy read of value-references from slices in LE format.
 pub trait Decode: Sized {
+	#[doc(hidden)]
+	const IS_U8: IsU8 = IsU8::No;
+
 	/// Attempt to deserialise the value from input.
 	fn decode<I: Input>(value: &mut I) -> Result<Self, Error>;
 }
@@ -1020,30 +1033,6 @@ impl_array!(
 	253, 254, 255, 256, 384, 512, 768, 1024, 2048, 4096, 8192, 16384, 32768,
 );
 
-impl Encode for [u8] {
-	fn size_hint(&self) -> usize {
-		self.len() + mem::size_of::<u32>()
-	}
-
-	fn encode_to<W: Output>(&self, dest: &mut W) {
-		let len = self.len();
-		assert!(len <= u32::max_value() as usize, "Attempted to serialize a collection with too many elements.");
-		Compact(len as u32).encode_to(dest);
-		dest.write(self)
-	}
-}
-
-impl Decode for Vec<u8> {
-	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
-		<Compact<u32>>::decode(input).and_then(move |Compact(len)| {
-			let len = len as usize;
-			let mut vec = vec![0; len];
-			input.read(&mut vec[..len])?;
-			Ok(vec)
-		})
-	}
-}
-
 impl Encode for str {
 	fn size_hint(&self) -> usize {
 		self.as_bytes().size_hint()
@@ -1089,12 +1078,29 @@ impl Decode for String {
 }
 
 impl<T: Encode> Encode for [T] {
+	fn size_hint(&self) -> usize {
+		// TODO TODO: this could be improved maybe, by calling size_hint of T
+		// TODO TODO: also does it miss the size of prefix ???? maybe audit other part as well
+		if let IsU8::Yes(_) = <T as Encode>::IS_U8 {
+			self.len() + mem::size_of::<u32>()
+		} else {
+			0
+		}
+	}
+
 	fn encode_to<W: Output>(&self, dest: &mut W) {
 		let len = self.len();
 		assert!(len <= u32::max_value() as usize, "Attempted to serialize a collection with too many elements.");
 		Compact(len as u32).encode_to(dest);
-		for item in self {
-			item.encode_to(dest);
+		if let IsU8::Yes(_) = <T as Encode>::IS_U8 {
+			let self_transmute = unsafe {
+				std::mem::transmute::<&[T], &[u8]>(self)
+			};
+			dest.write(self_transmute)
+		} else {
+			for item in self {
+				item.encode_to(dest);
+			}
 		}
 	}
 }
@@ -1102,11 +1108,23 @@ impl<T: Encode> Encode for [T] {
 impl<T: Decode> Decode for Vec<T> {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		<Compact<u32>>::decode(input).and_then(move |Compact(len)| {
-			let mut r = Vec::with_capacity(len as usize);
-			for _ in 0..len {
-				r.push(T::decode(input)?);
+			let len = len as usize;
+			if let IsU8::Yes(_) = <T as Decode>::IS_U8 {
+				let mut r = vec![0; len];
+
+				if input.read(&mut r[..len])? != len {
+					Err(Error::from("Input vector len doesn't match prefix specified"))
+				} else {
+					let r = unsafe { std::mem::transmute::<Vec<u8>, Vec<T>>(r) };
+					Ok(r)
+				}
+			} else {
+				let mut r = Vec::with_capacity(len);
+				for _ in 0..len {
+					r.push(T::decode(input)?);
+				}
+				Ok(r)
 			}
-			Ok(r)
 		})
 	}
 }
@@ -1371,10 +1389,12 @@ macro_rules! impl_endians {
 	)* }
 }
 macro_rules! impl_non_endians {
-	( $( $t:ty ),* ) => { $(
+	( $( $t:ty $({$is_u8:ident})? ),* ) => { $(
 		impl EndianSensitive for $t {}
 
 		impl Encode for $t {
+			$(const $is_u8: IsU8 = IsU8::Yes(PrivateOptimisation(()));)?
+
 			fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
 				self.as_le_then(|le| {
 					let size = mem::size_of::<$t>();
@@ -1393,6 +1413,8 @@ macro_rules! impl_non_endians {
 		}
 
 		impl Decode for $t {
+			$(const $is_u8: IsU8 = IsU8::Yes(PrivateOptimisation(()));)?
+
 			fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 				let size = mem::size_of::<$t>();
 				assert!(size > 0, "EndianSensitive can never be implemented for a zero-sized type.");
@@ -1412,12 +1434,7 @@ macro_rules! impl_non_endians {
 }
 
 impl_endians!(u16, u32, u64, u128, i16, i32, i64, i128);
-impl_non_endians!(
-	i8, [u8; 1], [u8; 2], [u8; 3], [u8; 4], [u8; 5], [u8; 6], [u8; 7], [u8; 8],
-	[u8; 10], [u8; 12], [u8; 14], [u8; 16], [u8; 20], [u8; 24], [u8; 28],
-	[u8; 32], [u8; 40], [u8; 48], [u8; 56], [u8; 64], [u8; 80], [u8; 96],
-	[u8; 112], [u8; 128], bool
-);
+impl_non_endians!(u8 {IS_U8}, i8, bool);
 
 
 #[cfg(test)]
