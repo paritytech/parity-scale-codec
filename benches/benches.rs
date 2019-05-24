@@ -14,10 +14,17 @@
 
 #![feature(test)]
 
+#[macro_use]
+extern crate criterion;
 extern crate test;
+#[macro_use]
+extern crate parity_codec_derive;
 
-use parity_codec::*;
-use parity_codec_derive::{Encode, Decode};
+use parity_codec::{Encode, Decode};
+
+use criterion::{Criterion};
+use std::time::Duration;
+
 
 #[bench]
 fn array_vec_write_u128(b: &mut test::Bencher) {
@@ -119,3 +126,28 @@ fn vec_append_with_encode_append(b: &mut test::Bencher) {
 		}
 	});
 }
+
+fn codec_vec_u8(c: &mut Criterion) {
+	c.bench_function_over_inputs("encode - Vec<u8>", |b, &vec_size| {
+		let mut vec: Vec<u8> = vec![];
+		vec.resize(vec_size, 0u8);
+		b.iter(|| vec.encode())
+	}, vec![1, 2, 5, 32, 1024]);
+
+	c.bench_function_over_inputs("decode - Vec<u8>", |b, &vec_size| {
+		let mut vec: Vec<u8> = vec![];
+		vec.resize(vec_size, 0u8);
+		let vec = vec.encode();
+
+		b.iter(|| {
+			let _: Vec<u8> = Decode::decode(&mut &vec[..]).unwrap();
+		})
+	}, vec![1, 2, 5, 32, 1024]);
+}
+
+criterion_group!{
+	name = benches;
+	config = Criterion::default().warm_up_time(Duration::from_millis(500)).without_plots();
+	targets = codec_vec_u8
+}
+criterion_main!(benches);
