@@ -14,6 +14,8 @@
 
 //! `BitVec` specific serialization.
 
+use std::mem;
+
 use bitvec::{vec::BitVec, bits::Bits, cursor::Cursor};
 use byte_slice_cast::{AsByteSlice, ToByteSlice, FromByteSlice, Error as FromByteSliceError};
 
@@ -34,20 +36,30 @@ impl<C: Cursor, T: Bits + ToByteSlice> Encode for BitVec<C, T> {
 	}
 }
 
-// TODO: Make implementation generic.
-impl Decode for BitVec {
+impl<C: Cursor, T: Bits + FromByteSlice> Decode for BitVec<C, T> {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
-		<Compact<u32>>::decode(input).and_then(move |Compact(len_in_bits)| {
-			let len_in_bits = len_in_bits as usize;
-			let len_in_bytes = (len_in_bits as f64 / 8.).ceil() as usize;
-			let mut vec = vec![0; len_in_bytes];
+		<Compact<u32>>::decode(input).and_then(move |Compact(bits)| {
+			let bits = bits as usize;
+
+			let mut vec = vec![0; required_bytes::<T>(bits)];
 			input.read(&mut vec)?;
-			let mut result = Self::from_slice(u8::from_byte_slice(&vec)?);
-			assert!(len_in_bits <= result.len());
-			unsafe { result.set_len(len_in_bits); }
-			Ok(result)
+
+			Ok(if vec.is_empty() {
+				Self::new()
+			} else {
+				let mut result = Self::from_slice(T::from_byte_slice(&vec)?);
+				assert!(bits <= result.len());
+				unsafe { result.set_len(bits); }
+				result
+			})
 		})
 	}
+}
+
+// Calculates bytes required to store given amount of `bits` as if they are stored in the array of `T`.
+fn required_bytes<T>(bits: usize) -> usize {
+	let element_bits = mem::size_of::<T>() * 8;
+	(bits + element_bits - 1) / element_bits * mem::size_of::<T>()
 }
 
 // TODO: FIXME: bit slice, bitbox, etc.
@@ -55,27 +67,67 @@ impl Decode for BitVec {
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use bitvec::{bitvec, cursor::BigEndian};
+
+	macro_rules! test_data {
+		($inner_type: ty) => (
+			[
+				BitVec::<BigEndian, $inner_type>::new(),
+				bitvec![BigEndian, $inner_type; 0],
+				bitvec![BigEndian, $inner_type; 1],
+				bitvec![BigEndian, $inner_type; 0, 0],
+				bitvec![BigEndian, $inner_type; 1, 0],
+				bitvec![BigEndian, $inner_type; 0, 1],
+				bitvec![BigEndian, $inner_type; 1, 1],
+				bitvec![BigEndian, $inner_type; 1, 0, 1],
+				bitvec![BigEndian, $inner_type; 0, 1, 0, 1, 0, 1, 1],
+				bitvec![BigEndian, $inner_type; 0, 1, 0, 1, 0, 1, 1, 0],
+				bitvec![BigEndian, $inner_type; 1, 1, 0, 1, 0, 1, 1, 0, 1],
+				bitvec![BigEndian, $inner_type; 1, 0, 1, 0, 1, 1, 0, 0, 1, 0, 1, 0, 1, 1, 0],
+				bitvec![BigEndian, $inner_type; 0, 1, 0, 1, 0, 1, 1, 0, 0, 1, 0, 1, 0, 1, 1, 0],
+				bitvec![BigEndian, $inner_type; 0, 1, 0, 1, 0, 1, 1, 0, 0, 1, 0, 1, 0, 1, 1, 0, 0],
+				bitvec![BigEndian, $inner_type; 0; 15],
+				bitvec![BigEndian, $inner_type; 1; 16],
+				bitvec![BigEndian, $inner_type; 0; 17],
+				bitvec![BigEndian, $inner_type; 1; 31],
+				bitvec![BigEndian, $inner_type; 0; 32],
+				bitvec![BigEndian, $inner_type; 1; 33],
+				bitvec![BigEndian, $inner_type; 0; 63],
+				bitvec![BigEndian, $inner_type; 1; 64],
+				bitvec![BigEndian, $inner_type; 0; 65],
+			]
+		)
+	}
 
 	#[test]
 	fn bitvec_u8() {
-		use bitvec::bitvec;
-
-		let vecs = [
-			// TODO: Add more edge-cases.
-			BitVec::new(),
-			bitvec![0],
-			bitvec![1],
-			bitvec![0, 0],
-			bitvec![1, 0],
-			bitvec![0, 1],
-			bitvec![1, 1],
-			bitvec![0, 1, 0],
-			bitvec![0, 1, 0, 1, 1, 1, 1, 0, 0, 1, 0, 1, 0, 1],
-		];
-
-		for v in &vecs {
+		for v in &test_data!(u8) {
 			let encoded = v.encode();
-			assert_eq!(*v, BitVec::decode(&mut &encoded[..]).unwrap());
+			assert_eq!(*v, BitVec::<BigEndian, u8>::decode(&mut &encoded[..]).unwrap());
+		}
+	}
+
+	#[test]
+	fn bitvec_u16() {
+		for v in &test_data!(u16) {
+			let encoded = v.encode();
+			assert_eq!(*v, BitVec::<BigEndian, u16>::decode(&mut &encoded[..]).unwrap());
+		}
+	}
+
+	#[test]
+	fn bitvec_u32() {
+		for v in &test_data!(u32) {
+			let encoded = v.encode();
+			assert_eq!(*v, BitVec::<BigEndian, u32>::decode(&mut &encoded[..]).unwrap());
+		}
+	}
+
+	#[test]
+	fn bitvec_u64() {
+		for v in &test_data!(u64) {
+			let encoded = v.encode();
+			assert_eq!(*v, BitVec::<BigEndian, u64>::decode(&mut &encoded[..]).unwrap());
 		}
 	}
 }
