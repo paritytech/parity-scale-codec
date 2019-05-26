@@ -219,7 +219,7 @@ pub enum IsU8 {
 /// Wrapper types should override all methods.
 pub trait Encode {
 	#[doc(hidden)]
-	// TODO TODO: dev doc
+	// This const is used to optimise implementation of codec for Vec<u8>.
 	const IS_U8: IsU8 = IsU8::No;
 
 	/// If possible give a hint of expected size of the encoding.
