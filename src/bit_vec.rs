@@ -16,7 +16,7 @@
 
 use std::mem;
 
-use bitvec::{vec::BitVec, bits::Bits, cursor::Cursor};
+use bitvec::{vec::BitVec, bits::Bits, cursor::Cursor, slice::BitSlice, boxed::BitBox};
 use byte_slice_cast::{AsByteSlice, ToByteSlice, FromByteSlice, Error as FromByteSliceError};
 
 use crate::codec::{Encode, Decode, Input, Output, Compact, Error};
@@ -27,12 +27,18 @@ impl From<FromByteSliceError> for Error {
 	}
 }
 
-impl<C: Cursor, T: Bits + ToByteSlice> Encode for BitVec<C, T> {
+impl<C: Cursor, T: Bits + ToByteSlice> Encode for BitSlice<C, T> {
 	fn encode_to<W: Output>(&self, dest: &mut W) {
 		let len = self.len();
 		assert!(len <= u32::max_value() as usize, "Attempted to serialize a collection with too many elements.");
 		Compact(len as u32).encode_to(dest);
 		dest.write(self.as_slice().as_byte_slice());
+	}
+}
+
+impl<C: Cursor, T: Bits + ToByteSlice> Encode for BitVec<C, T> {
+	fn encode_to<W: Output>(&self, dest: &mut W) {
+		self.as_bitslice().encode_to(dest)
 	}
 }
 
@@ -56,13 +62,23 @@ impl<C: Cursor, T: Bits + FromByteSlice> Decode for BitVec<C, T> {
 	}
 }
 
-// Calculates bytes required to store given amount of `bits` as if they are stored in the array of `T`.
+impl<C: Cursor, T: Bits + ToByteSlice> Encode for BitBox<C, T> {
+	fn encode_to<W: Output>(&self, dest: &mut W) {
+		self.as_bitslice().encode_to(dest)
+	}
+}
+
+impl<C: Cursor, T: Bits + FromByteSlice> Decode for BitBox<C, T> {
+	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
+		Ok(Self::from_bitslice(BitVec::<C, T>::decode(input)?.as_bitslice()))
+	}
+}
+
+// Calculates bytes required to store given amount of `bits` as if they were stored in the array of `T`.
 fn required_bytes<T>(bits: usize) -> usize {
 	let element_bits = mem::size_of::<T>() * 8;
 	(bits + element_bits - 1) / element_bits * mem::size_of::<T>()
 }
-
-// TODO: FIXME: bit slice, bitbox, etc.
 
 #[cfg(test)]
 mod tests {
@@ -100,6 +116,33 @@ mod tests {
 	}
 
 	#[test]
+	fn required_bytes_test() {
+		assert_eq!(0, required_bytes::<u8>(0));
+		assert_eq!(1, required_bytes::<u8>(1));
+		assert_eq!(1, required_bytes::<u8>(7));
+		assert_eq!(1, required_bytes::<u8>(8));
+		assert_eq!(2, required_bytes::<u8>(9));
+
+		assert_eq!(0, required_bytes::<u16>(0));
+		assert_eq!(2, required_bytes::<u16>(1));
+		assert_eq!(2, required_bytes::<u16>(15));
+		assert_eq!(2, required_bytes::<u16>(16));
+		assert_eq!(4, required_bytes::<u16>(17));
+
+		assert_eq!(0, required_bytes::<u32>(0));
+		assert_eq!(4, required_bytes::<u32>(1));
+		assert_eq!(4, required_bytes::<u32>(31));
+		assert_eq!(4, required_bytes::<u32>(32));
+		assert_eq!(8, required_bytes::<u32>(33));
+
+		assert_eq!(0, required_bytes::<u64>(0));
+		assert_eq!(8, required_bytes::<u64>(1));
+		assert_eq!(8, required_bytes::<u64>(63));
+		assert_eq!(8, required_bytes::<u64>(64));
+		assert_eq!(16, required_bytes::<u64>(65));
+	}
+
+	#[test]
 	fn bitvec_u8() {
 		for v in &test_data!(u8) {
 			let encoded = v.encode();
@@ -129,5 +172,23 @@ mod tests {
 			let encoded = v.encode();
 			assert_eq!(*v, BitVec::<BigEndian, u64>::decode(&mut &encoded[..]).unwrap());
 		}
+	}
+
+	#[test]
+	fn bitslice() {
+		let data: &[u8] = &[0x69];
+		let slice: &BitSlice = data.into();
+		let encoded = slice.encode();
+		let decoded = BitVec::<BigEndian, u8>::decode(&mut &encoded[..]).unwrap();
+		assert_eq!(slice, decoded.as_bitslice());
+	}
+
+	#[test]
+	fn bitbox() {
+		let data: &[u8] = &[5, 10];
+		let bb: BitBox = data.into();
+		let encoded = bb.encode();
+		let decoded = BitBox::<BigEndian, u8>::decode(&mut &encoded[..]).unwrap();
+		assert_eq!(bb, decoded);
 	}
 }
