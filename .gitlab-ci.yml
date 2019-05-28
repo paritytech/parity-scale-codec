@@ -23,7 +23,7 @@ cache:
 test:rust:stable:
   stage:                           test
   script:
-    - time cargo test --verbose --all
+    - time cargo test --verbose --all --features bit-vec
   only:
     - triggers
     - tags
@@ -37,7 +37,7 @@ test:rust:stable:
 bench:rust:nightly:
   stage:                           test
   script:
-    - time cargo +nightly bench
+    - time cargo +nightly bench --features bit-vec
   only:
     - triggers
     - tags
@@ -53,7 +53,7 @@ bench:rust:nightly:
 build:linux:ubuntu:amd64:
   stage:                           build
   script:
-    - cargo build --verbose --release
+    - cargo build --verbose --release --features bit-vec
   only:
     - master
     - tags

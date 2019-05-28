@@ -1879,8 +1879,6 @@ mod tests {
 		}
 	}
 
-
-
 	#[test]
 	fn should_avoid_overlapping_definition() {
 		check_bound!(
