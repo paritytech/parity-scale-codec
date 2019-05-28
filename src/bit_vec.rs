@@ -24,8 +24,8 @@ use crate::codec::{Encode, Decode, Input, Output, Compact, Error};
 impl From<FromByteSliceError> for Error {
 	fn from(e: FromByteSliceError) -> Error {
 		match e {
-			FromByteSliceError::AlignmentMismatch{..} => "failed to cast from byte slice: alignment mismatch".into(),
-			FromByteSliceError::LengthMismatch{..} => "failed to cast from byte slice: length mismatch".into(),
+			FromByteSliceError::AlignmentMismatch {..} => "failed to cast from byte slice: alignment mismatch".into(),
+			FromByteSliceError::LengthMismatch {..} => "failed to cast from byte slice: length mismatch".into(),
 		}
 	}
 }
