@@ -23,7 +23,7 @@ cache:
 test:rust:stable:
   stage:                           test
   script:
-    - time cargo test --verbose --all
+    - time cargo test --verbose --all --features bit-vec
   only:
     - triggers
     - tags
@@ -40,11 +40,10 @@ test:rust:stable:
 build:linux:ubuntu:amd64:
   stage:                           build
   script:
-    - cargo build --verbose --release
+    - cargo build --verbose --release --features bit-vec
   only:
     - master
     - tags
     - web
   tags:
     - rust
-
