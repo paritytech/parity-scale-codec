@@ -55,6 +55,8 @@ pub mod alloc {
 mod codec;
 mod joiner;
 mod keyedvec;
+#[cfg(feature = "bit-vec")]
+mod bit_vec;
 
 pub use self::codec::{
 	Input, Output, Encode, Decode, Codec, Compact, HasCompact, EncodeAsRef,
