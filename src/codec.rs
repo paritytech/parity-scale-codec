@@ -524,6 +524,10 @@ impl<'a> Encode for CompactRef<'a, ()> {
 }
 
 impl<'a> Encode for CompactRef<'a, u8> {
+	fn size_hint(&self) -> usize {
+		Compact::compact_len(self.0)
+	}
+
 	fn encode_to<W: Output>(&self, dest: &mut W) {
 		match self.0 {
 			0..=0b0011_1111 => dest.push_byte(self.0 << 2),
@@ -548,6 +552,10 @@ impl CompactLen<u8> for Compact<u8> {
 }
 
 impl<'a> Encode for CompactRef<'a, u16> {
+	fn size_hint(&self) -> usize {
+		Compact::compact_len(self.0)
+	}
+
 	fn encode_to<W: Output>(&self, dest: &mut W) {
 		match self.0 {
 			0..=0b0011_1111 => dest.push_byte((*self.0 as u8) << 2),
@@ -574,6 +582,10 @@ impl CompactLen<u16> for Compact<u16> {
 }
 
 impl<'a> Encode for CompactRef<'a, u32> {
+	fn size_hint(&self) -> usize {
+		Compact::compact_len(self.0)
+	}
+
 	fn encode_to<W: Output>(&self, dest: &mut W) {
 		match self.0 {
 			0..=0b0011_1111 => dest.push_byte((*self.0 as u8) << 2),
@@ -605,6 +617,10 @@ impl CompactLen<u32> for Compact<u32> {
 }
 
 impl<'a> Encode for CompactRef<'a, u64> {
+	fn size_hint(&self) -> usize {
+		Compact::compact_len(self.0)
+	}
+
 	fn encode_to<W: Output>(&self, dest: &mut W) {
 		match self.0 {
 			0..=0b0011_1111 => dest.push_byte((*self.0 as u8) << 2),
@@ -645,6 +661,10 @@ impl CompactLen<u64> for Compact<u64> {
 }
 
 impl<'a> Encode for CompactRef<'a, u128> {
+	fn size_hint(&self) -> usize {
+		Compact::compact_len(self.0)
+	}
+
 	fn encode_to<W: Output>(&self, dest: &mut W) {
 		match self.0 {
 			0..=0b0011_1111 => dest.push_byte((*self.0 as u8) << 2),
@@ -940,6 +960,10 @@ impl core::fmt::Debug for OptionBool {
 }
 
 impl Encode for OptionBool {
+	fn size_hint(&self) -> usize {
+		1
+	}
+
 	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
 		f(&[match *self {
 			OptionBool(None) => 0u8,
@@ -1353,6 +1377,10 @@ macro_rules! impl_endians {
 		}
 
 		impl Encode for $t {
+			fn size_hint(&self) -> usize {
+				mem::size_of::<$t>()
+			}
+
 			fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
 				self.as_le_then(|le| {
 					let size = mem::size_of::<$t>();
@@ -1394,6 +1422,10 @@ macro_rules! impl_non_endians {
 
 		impl Encode for $t {
 			$( const $is_u8: IsU8 = IsU8::Yes; )?
+
+			fn size_hint(&self) -> usize {
+				mem::size_of::<$t>()
+			}
 
 			fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
 				self.as_le_then(|le| {
