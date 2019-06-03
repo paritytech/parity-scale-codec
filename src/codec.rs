@@ -1016,10 +1016,6 @@ impl<T: Decode> Decode for Option<T> {
 macro_rules! impl_array {
 	( $( $n:expr, )* ) => { $(
 		impl<T: Encode> Encode for [T; $n] {
-			fn size_hint(&self) -> usize {
-				self.iter().map(T::size_hint).sum()
-			}
-
 			fn encode_to<W: Output>(&self, dest: &mut W) {
 				for item in self.iter() {
 					item.encode_to(dest);
@@ -1112,7 +1108,7 @@ impl<T: Encode> Encode for [T] {
 		if let IsU8::Yes = <T as Encode>::IS_U8 {
 			self.len() + mem::size_of::<u32>()
 		} else {
-			self.iter().map(T::size_hint).sum()
+			0
 		}
 	}
 
@@ -1207,13 +1203,6 @@ impl<T: Encode + Decode> EncodeAppend for Vec<T> {
 }
 
 impl<K: Encode + Ord, V: Encode> Encode for BTreeMap<K, V> {
-	fn size_hint(&self) -> usize {
-		// If len <= u32::max_value() then the value returned doesn't make sense
-		// But this is fine as no value make sense.
-		Compact::compact_len(&(self.len() as u32))
-			+ self.iter().map(|i| <(&K, &V)>::size_hint(&i)).sum::<usize>()
-	}
-
 	fn encode_to<W: Output>(&self, dest: &mut W) {
 		let len = self.len();
 		assert!(len <= u32::max_value() as usize, "Attempted to serialize a collection with too many elements.");
@@ -1238,13 +1227,6 @@ impl<K: Decode + Ord, V: Decode> Decode for BTreeMap<K, V> {
 }
 
 impl<T: Encode + Ord> Encode for BTreeSet<T> {
-	fn size_hint(&self) -> usize {
-		// If len <= u32::max_value() then the value returned doesn't make sense.
-		// But this is fine as no value make sense.
-		Compact::compact_len(&(self.len() as u32))
-			+ self.iter().map(T::size_hint).sum::<usize>()
-	}
-
 	fn encode_to<W: Output>(&self, dest: &mut W) {
 		let len = self.len();
 		assert!(len <= u32::max_value() as usize, "Attempted to serialize a collection with too many elements.");
