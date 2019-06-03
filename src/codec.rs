@@ -524,6 +524,10 @@ impl<'a> Encode for CompactRef<'a, ()> {
 }
 
 impl<'a> Encode for CompactRef<'a, u8> {
+	fn size_hint(&self) -> usize {
+		Compact::compact_len(self.0)
+	}
+
 	fn encode_to<W: Output>(&self, dest: &mut W) {
 		match self.0 {
 			0..=0b0011_1111 => dest.push_byte(self.0 << 2),
@@ -548,6 +552,10 @@ impl CompactLen<u8> for Compact<u8> {
 }
 
 impl<'a> Encode for CompactRef<'a, u16> {
+	fn size_hint(&self) -> usize {
+		Compact::compact_len(self.0)
+	}
+
 	fn encode_to<W: Output>(&self, dest: &mut W) {
 		match self.0 {
 			0..=0b0011_1111 => dest.push_byte((*self.0 as u8) << 2),
@@ -574,6 +582,10 @@ impl CompactLen<u16> for Compact<u16> {
 }
 
 impl<'a> Encode for CompactRef<'a, u32> {
+	fn size_hint(&self) -> usize {
+		Compact::compact_len(self.0)
+	}
+
 	fn encode_to<W: Output>(&self, dest: &mut W) {
 		match self.0 {
 			0..=0b0011_1111 => dest.push_byte((*self.0 as u8) << 2),
@@ -605,6 +617,10 @@ impl CompactLen<u32> for Compact<u32> {
 }
 
 impl<'a> Encode for CompactRef<'a, u64> {
+	fn size_hint(&self) -> usize {
+		Compact::compact_len(self.0)
+	}
+
 	fn encode_to<W: Output>(&self, dest: &mut W) {
 		match self.0 {
 			0..=0b0011_1111 => dest.push_byte((*self.0 as u8) << 2),
@@ -645,6 +661,10 @@ impl CompactLen<u64> for Compact<u64> {
 }
 
 impl<'a> Encode for CompactRef<'a, u128> {
+	fn size_hint(&self) -> usize {
+		Compact::compact_len(self.0)
+	}
+
 	fn encode_to<W: Output>(&self, dest: &mut W) {
 		match self.0 {
 			0..=0b0011_1111 => dest.push_byte((*self.0 as u8) << 2),
@@ -940,6 +960,10 @@ impl core::fmt::Debug for OptionBool {
 }
 
 impl Encode for OptionBool {
+	fn size_hint(&self) -> usize {
+		1
+	}
+
 	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
 		f(&[match *self {
 			OptionBool(None) => 0u8,
@@ -992,6 +1016,10 @@ impl<T: Decode> Decode for Option<T> {
 macro_rules! impl_array {
 	( $( $n:expr, )* ) => { $(
 		impl<T: Encode> Encode for [T; $n] {
+			fn size_hint(&self) -> usize {
+				self.iter().map(T::size_hint).sum()
+			}
+
 			fn encode_to<W: Output>(&self, dest: &mut W) {
 				for item in self.iter() {
 					item.encode_to(dest);
@@ -1084,7 +1112,7 @@ impl<T: Encode> Encode for [T] {
 		if let IsU8::Yes = <T as Encode>::IS_U8 {
 			self.len() + mem::size_of::<u32>()
 		} else {
-			0
+			self.iter().map(T::size_hint).sum()
 		}
 	}
 
@@ -1179,6 +1207,13 @@ impl<T: Encode + Decode> EncodeAppend for Vec<T> {
 }
 
 impl<K: Encode + Ord, V: Encode> Encode for BTreeMap<K, V> {
+	fn size_hint(&self) -> usize {
+		// If len <= u32::max_value() then the value returned doesn't make sense
+		// But this is fine as no value make sense.
+		Compact::compact_len(&(self.len() as u32))
+			+ self.iter().map(|i| <(&K, &V)>::size_hint(&i)).sum::<usize>()
+	}
+
 	fn encode_to<W: Output>(&self, dest: &mut W) {
 		let len = self.len();
 		assert!(len <= u32::max_value() as usize, "Attempted to serialize a collection with too many elements.");
@@ -1203,6 +1238,13 @@ impl<K: Decode + Ord, V: Decode> Decode for BTreeMap<K, V> {
 }
 
 impl<T: Encode + Ord> Encode for BTreeSet<T> {
+	fn size_hint(&self) -> usize {
+		// If len <= u32::max_value() then the value returned doesn't make sense.
+		// But this is fine as no value make sense.
+		Compact::compact_len(&(self.len() as u32))
+			+ self.iter().map(T::size_hint).sum::<usize>()
+	}
+
 	fn encode_to<W: Output>(&self, dest: &mut W) {
 		let len = self.len();
 		assert!(len <= u32::max_value() as usize, "Attempted to serialize a collection with too many elements.");
@@ -1353,6 +1395,10 @@ macro_rules! impl_endians {
 		}
 
 		impl Encode for $t {
+			fn size_hint(&self) -> usize {
+				mem::size_of::<$t>()
+			}
+
 			fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
 				self.as_le_then(|le| {
 					let size = mem::size_of::<$t>();
@@ -1394,6 +1440,10 @@ macro_rules! impl_non_endians {
 
 		impl Encode for $t {
 			$( const $is_u8: IsU8 = IsU8::Yes; )?
+
+			fn size_hint(&self) -> usize {
+				mem::size_of::<$t>()
+			}
 
 			fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
 				self.as_le_then(|le| {
