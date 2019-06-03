@@ -18,6 +18,14 @@ byte-slice-cast = { version = "0.3", optional = true }
 [dev-dependencies]
 serde_derive = { version = "1.0" }
 parity-scale-codec-derive = { path = "derive", version = "1.0", default-features = false }
+criterion = "0.2"
+
+[[bench]]
+name = "benches"
+harness = false
+
+[lib]
+bench = false
 
 [features]
 default = ["std"]
