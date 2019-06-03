@@ -207,9 +207,11 @@ impl<T: arrayvec::Array<Item=u8>> Output for ArrayVecWrapper<T> {
 	}
 }
 
-pub struct PrivateOptimisation(());
+/// This enum must not be exported and must only be instantiable by parity-codec.
+/// Because implementation of Encode and Decode for u8 is done in this crate
+/// and there is not other usage.
 pub enum IsU8 {
-	Yes(PrivateOptimisation),
+	Yes,
 	No,
 }
 
@@ -1079,7 +1081,7 @@ impl Decode for String {
 
 impl<T: Encode> Encode for [T] {
 	fn size_hint(&self) -> usize {
-		if let IsU8::Yes(_) = <T as Encode>::IS_U8 {
+		if let IsU8::Yes = <T as Encode>::IS_U8 {
 			self.len() + mem::size_of::<u32>()
 		} else {
 			0
@@ -1090,7 +1092,7 @@ impl<T: Encode> Encode for [T] {
 		let len = self.len();
 		assert!(len <= u32::max_value() as usize, "Attempted to serialize a collection with too many elements.");
 		Compact(len as u32).encode_to(dest);
-		if let IsU8::Yes(_) = <T as Encode>::IS_U8 {
+		if let IsU8::Yes= <T as Encode>::IS_U8 {
 			let self_transmute = unsafe {
 				std::mem::transmute::<&[T], &[u8]>(self)
 			};
@@ -1107,7 +1109,7 @@ impl<T: Decode> Decode for Vec<T> {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		<Compact<u32>>::decode(input).and_then(move |Compact(len)| {
 			let len = len as usize;
-			if let IsU8::Yes(_) = <T as Decode>::IS_U8 {
+			if let IsU8::Yes = <T as Decode>::IS_U8 {
 				let mut r = vec![0; len];
 
 				if input.read(&mut r[..len])? != len {
@@ -1391,7 +1393,7 @@ macro_rules! impl_non_endians {
 		impl EndianSensitive for $t {}
 
 		impl Encode for $t {
-			$( const $is_u8: IsU8 = IsU8::Yes(PrivateOptimisation(())); )?
+			$( const $is_u8: IsU8 = IsU8::Yes; )?
 
 			fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
 				self.as_le_then(|le| {
@@ -1411,7 +1413,7 @@ macro_rules! impl_non_endians {
 		}
 
 		impl Decode for $t {
-			$( const $is_u8: IsU8 = IsU8::Yes(PrivateOptimisation(())); )?
+			$( const $is_u8: IsU8 = IsU8::Yes; )?
 
 			fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 				let size = mem::size_of::<$t>();
