@@ -13,7 +13,6 @@ arrayvec = { version = "0.4", default-features = false, features = ["array-sizes
 serde = { version = "1.0", optional = true }
 parity-codec-derive = { path = "derive", version = "3.3", default-features = false, optional = true }
 bitvec = { version = "0.11", default-features = false, features = ["alloc"], optional = true }
-byte-slice-cast = { version = "0.3", optional = true }
 
 [dev-dependencies]
 serde_derive = { version = "1.0" }
@@ -31,7 +30,7 @@ bench = false
 default = ["std"]
 derive = ["parity-codec-derive"]
 std = ["serde", "bitvec/std"]
-bit-vec = ["bitvec", "byte-slice-cast"]
+bit-vec = ["bitvec"]
 
 # WARNING: DO _NOT_ USE THIS FEATURE IF YOU ARE WORKING ON CONSENSUS CODE!*
 #

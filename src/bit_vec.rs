@@ -17,70 +17,63 @@
 use std::mem;
 
 use bitvec::{vec::BitVec, bits::Bits, cursor::Cursor, slice::BitSlice, boxed::BitBox};
-use byte_slice_cast::{AsByteSlice, ToByteSlice, FromByteSlice, Error as FromByteSliceError};
 
 use crate::codec::{Encode, Decode, Input, Output, Compact, Error};
 
-impl From<FromByteSliceError> for Error {
-	fn from(e: FromByteSliceError) -> Error {
-		match e {
-			FromByteSliceError::AlignmentMismatch {..} => "failed to cast from byte slice: alignment mismatch".into(),
-			FromByteSliceError::LengthMismatch {..} => "failed to cast from byte slice: length mismatch".into(),
-		}
-	}
-}
-
-impl<C: Cursor, T: Bits + ToByteSlice> Encode for BitSlice<C, T> {
+impl<C: Cursor, T: Bits + Encode> Encode for BitSlice<C, T> {
 	fn encode_to<W: Output>(&self, dest: &mut W) {
 		let len = self.len();
 		assert!(len <= u32::max_value() as usize, "Attempted to serialize a collection with too many elements.");
 		Compact(len as u32).encode_to(dest);
-		dest.write(self.as_slice().as_byte_slice());
+
+		for item in self.as_slice() {
+			item.encode_to(dest);
+		}
 	}
 }
 
-impl<C: Cursor, T: Bits + ToByteSlice> Encode for BitVec<C, T> {
+impl<C: Cursor, T: Bits + Encode> Encode for BitVec<C, T> {
 	fn encode_to<W: Output>(&self, dest: &mut W) {
 		self.as_bitslice().encode_to(dest)
 	}
 }
 
-impl<C: Cursor, T: Bits + FromByteSlice> Decode for BitVec<C, T> {
+impl<C: Cursor, T: Bits + Decode> Decode for BitVec<C, T> {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		<Compact<u32>>::decode(input).and_then(move |Compact(bits)| {
 			let bits = bits as usize;
 
-			let mut vec = vec![0; required_bytes::<T>(bits)];
-			input.read(&mut vec)?;
+			let elements = elements_count::<T>(bits);
+			let mut vec = Vec::with_capacity(elements);
+			for _ in 0..elements {
+				vec.push(T::decode(input)?);
+			}
 
-			Ok(if vec.is_empty() {
-				Self::new()
-			} else {
-				let mut result = Self::from_slice(T::from_byte_slice(&vec)?);
-				assert!(bits <= result.len());
-				unsafe { result.set_len(bits); }
-				result
-			})
+			let mut result = Self::from_slice(&vec);
+			assert!(bits <= result.len());
+			unsafe { result.set_len(bits); }
+			Ok(result)
 		})
 	}
 }
 
-impl<C: Cursor, T: Bits + ToByteSlice> Encode for BitBox<C, T> {
+impl<C: Cursor, T: Bits + Encode> Encode for BitBox<C, T> {
 	fn encode_to<W: Output>(&self, dest: &mut W) {
 		self.as_bitslice().encode_to(dest)
 	}
 }
 
-impl<C: Cursor, T: Bits + FromByteSlice> Decode for BitBox<C, T> {
+impl<C: Cursor, T: Bits + Decode> Decode for BitBox<C, T> {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		Ok(Self::from_bitslice(BitVec::<C, T>::decode(input)?.as_bitslice()))
 	}
 }
 
-// Calculates bytes required to store given amount of `bits` as if they were stored in the array of `T`.
-fn required_bytes<T>(bits: usize) -> usize {
+// Calculates the amount of `T` elements required to store given number of `bits`.
+fn elements_count<T>(bits: usize) -> usize {
 	let element_bits = mem::size_of::<T>() * 8;
-	(bits + element_bits - 1) / element_bits * mem::size_of::<T>()
+	assert!(element_bits > 0);
+	(bits + element_bits - 1) / element_bits
 }
 
 #[cfg(test)]
@@ -119,30 +112,30 @@ mod tests {
 	}
 
 	#[test]
-	fn required_bytes_test() {
-		assert_eq!(0, required_bytes::<u8>(0));
-		assert_eq!(1, required_bytes::<u8>(1));
-		assert_eq!(1, required_bytes::<u8>(7));
-		assert_eq!(1, required_bytes::<u8>(8));
-		assert_eq!(2, required_bytes::<u8>(9));
+	fn elements_count_test() {
+		assert_eq!(0, elements_count::<u8>(0));
+		assert_eq!(1, elements_count::<u8>(1));
+		assert_eq!(1, elements_count::<u8>(7));
+		assert_eq!(1, elements_count::<u8>(8));
+		assert_eq!(2, elements_count::<u8>(9));
 
-		assert_eq!(0, required_bytes::<u16>(0));
-		assert_eq!(2, required_bytes::<u16>(1));
-		assert_eq!(2, required_bytes::<u16>(15));
-		assert_eq!(2, required_bytes::<u16>(16));
-		assert_eq!(4, required_bytes::<u16>(17));
+		assert_eq!(0, elements_count::<u16>(0));
+		assert_eq!(1, elements_count::<u16>(1));
+		assert_eq!(1, elements_count::<u16>(15));
+		assert_eq!(1, elements_count::<u16>(16));
+		assert_eq!(2, elements_count::<u16>(17));
 
-		assert_eq!(0, required_bytes::<u32>(0));
-		assert_eq!(4, required_bytes::<u32>(1));
-		assert_eq!(4, required_bytes::<u32>(31));
-		assert_eq!(4, required_bytes::<u32>(32));
-		assert_eq!(8, required_bytes::<u32>(33));
+		assert_eq!(0, elements_count::<u32>(0));
+		assert_eq!(1, elements_count::<u32>(1));
+		assert_eq!(1, elements_count::<u32>(31));
+		assert_eq!(1, elements_count::<u32>(32));
+		assert_eq!(2, elements_count::<u32>(33));
 
-		assert_eq!(0, required_bytes::<u64>(0));
-		assert_eq!(8, required_bytes::<u64>(1));
-		assert_eq!(8, required_bytes::<u64>(63));
-		assert_eq!(8, required_bytes::<u64>(64));
-		assert_eq!(16, required_bytes::<u64>(65));
+		assert_eq!(0, elements_count::<u64>(0));
+		assert_eq!(1, elements_count::<u64>(1));
+		assert_eq!(1, elements_count::<u64>(63));
+		assert_eq!(1, elements_count::<u64>(64));
+		assert_eq!(2, elements_count::<u64>(65));
 	}
 
 	#[test]
