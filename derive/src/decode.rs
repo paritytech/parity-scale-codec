@@ -92,7 +92,9 @@ fn create_decode_expr(field: &Field, name: &String, input: &TokenStream) -> Toke
 		let field_type = &field.ty;
 		quote_spanned! { field.span() =>
 			{
-				let res = <<#field_type as _parity_codec::HasCompact>::Type as _parity_codec::Decode>::decode(#input);
+				let res = <
+					<#field_type as _parity_scale_codec::HasCompact>::Type as _parity_scale_codec::Decode
+				>::decode(#input);
 				match res {
 					Err(_) => return Err(#err_msg.into()),
 					Ok(a) => a.into(),
@@ -102,7 +104,7 @@ fn create_decode_expr(field: &Field, name: &String, input: &TokenStream) -> Toke
 	} else if let Some(encoded_as) = encoded_as {
 		quote_spanned! { field.span() =>
 			{
-				let res = <#encoded_as as _parity_codec::Decode>::decode(#input);
+				let res = <#encoded_as as _parity_scale_codec::Decode>::decode(#input);
 				match res {
 					Err(_) => return Err(#err_msg.into()),
 					Ok(a) => a.into(),
@@ -114,7 +116,7 @@ fn create_decode_expr(field: &Field, name: &String, input: &TokenStream) -> Toke
 	} else {
 		quote_spanned! { field.span() =>
 			{
-				let res = _parity_codec::Decode::decode(#input);
+				let res = _parity_scale_codec::Decode::decode(#input);
 				match res {
 					Err(_) => return Err(#err_msg.into()),
 					Ok(a) => a,

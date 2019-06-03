@@ -11,17 +11,17 @@ edition = "2018"
 [dependencies]
 arrayvec = { version = "0.4", default-features = false, features = ["array-sizes-33-128", "array-sizes-129-255"] }
 serde = { version = "1.0", optional = true }
-parity-codec-derive = { path = "derive", version = "3.3", default-features = false, optional = true }
+parity-scale-codec-derive = { path = "derive", version = "1.0", default-features = false, optional = true }
 bitvec = { version = "0.11", default-features = false, features = ["alloc"], optional = true }
 byte-slice-cast = { version = "0.3", optional = true }
 
 [dev-dependencies]
 serde_derive = { version = "1.0" }
-parity-codec-derive = { path = "derive", version = "3.3", default-features = false }
+parity-scale-codec-derive = { path = "derive", version = "1.0", default-features = false }
 
 [features]
 default = ["std"]
-derive = ["parity-codec-derive"]
+derive = ["parity-scale-codec-derive"]
 std = ["serde", "bitvec/std"]
 bit-vec = ["bitvec", "byte-slice-cast"]
 

@@ -1,9 +1,7 @@
 #[macro_use]
-extern crate parity_codec_derive;
+extern crate parity_scale_codec_derive;
 
-use parity_codec::{Encode, HasCompact};
-#[cfg(test)]
-use parity_codec::Decode;
+use parity_scale_codec::{Encode, HasCompact, Decode};
 
 #[derive(Debug, PartialEq, Encode, Decode)]
 struct S {

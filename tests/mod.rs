@@ -16,9 +16,9 @@
 extern crate serde_derive;
 
 #[macro_use]
-extern crate parity_codec_derive;
+extern crate parity_scale_codec_derive;
 
-use parity_codec::{Encode, Decode, HasCompact, Compact, EncodeAsRef, CompactAs};
+use parity_scale_codec::{Encode, Decode, HasCompact, Compact, EncodeAsRef, CompactAs};
 
 #[derive(Debug, PartialEq, Encode, Decode)]
 struct Unit;

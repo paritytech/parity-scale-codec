@@ -53,8 +53,8 @@ fn encode_single_field(
 		let field_type = &field.ty;
 		quote_spanned! {
 			field.span() => {
-				<<#field_type as _parity_codec::HasCompact>::Type as
-					_parity_codec::EncodeAsRef<'_, #field_type>>::RefType::from(#field_name)
+				<<#field_type as _parity_scale_codec::HasCompact>::Type as
+					_parity_scale_codec::EncodeAsRef<'_, #field_type>>::RefType::from(#field_name)
 					.using_encoded(#closure)
 			}
 		}
@@ -63,13 +63,13 @@ fn encode_single_field(
 		quote_spanned! {
 			field.span() => {
 				<#encoded_as as
-					_parity_codec::EncodeAsRef<'_, #field_type>>::RefType::from(#field_name)
+					_parity_scale_codec::EncodeAsRef<'_, #field_type>>::RefType::from(#field_name)
 					.using_encoded(#closure)
 			}
 		}
 	} else {
 		quote_spanned! { field.span() =>
-			_parity_codec::Encode::using_encoded(&#field_name, #closure)
+			_parity_scale_codec::Encode::using_encoded(&#field_name, #closure)
 		}
 	}
 }
@@ -101,8 +101,8 @@ fn encode_fields<F>(
 			quote_spanned! {
 				f.span() => {
 					#dest.push(
-						&<<#field_type as _parity_codec::HasCompact>::Type as
-							_parity_codec::EncodeAsRef<'_, #field_type>>::RefType::from(#field)
+						&<<#field_type as _parity_scale_codec::HasCompact>::Type as
+							_parity_scale_codec::EncodeAsRef<'_, #field_type>>::RefType::from(#field)
 					);
 				}
 			}
@@ -112,7 +112,7 @@ fn encode_fields<F>(
 				f.span() => {
 					#dest.push(
 						&<#encoded_as as
-							_parity_codec::EncodeAsRef<'_, #field_type>>::RefType::from(#field)
+							_parity_scale_codec::EncodeAsRef<'_, #field_type>>::RefType::from(#field)
 					);
 				}
 			}
@@ -289,7 +289,7 @@ fn impl_encode(data: &Data, type_name: &Ident) -> TokenStream {
 	};
 
 	quote! {
-		fn encode_to<EncOut: _parity_codec::Output>(&#self_, #dest: &mut EncOut) {
+		fn encode_to<EncOut: _parity_scale_codec::Output>(&#self_, #dest: &mut EncOut) {
 			#encoding
 		}
 	}
