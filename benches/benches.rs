@@ -16,8 +16,8 @@
 
 extern crate test;
 
-use parity_codec::*;
-use parity_codec_derive::{Encode, Decode};
+use parity_scale_codec::*;
+use parity_scale_codec_derive::{Encode, Decode};
 
 #[bench]
 fn array_vec_write_u128(b: &mut test::Bencher) {
