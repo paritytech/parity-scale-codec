@@ -1387,11 +1387,11 @@ macro_rules! impl_endians {
 	)* }
 }
 macro_rules! impl_non_endians {
-	( $( $t:ty $({$is_u8:ident})? ),* ) => { $(
+	( $( $t:ty $( { $is_u8:ident } )? ),* ) => { $(
 		impl EndianSensitive for $t {}
 
 		impl Encode for $t {
-			$(const $is_u8: IsU8 = IsU8::Yes(PrivateOptimisation(()));)?
+			$( const $is_u8: IsU8 = IsU8::Yes(PrivateOptimisation(())); )?
 
 			fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
 				self.as_le_then(|le| {
@@ -1411,7 +1411,7 @@ macro_rules! impl_non_endians {
 		}
 
 		impl Decode for $t {
-			$(const $is_u8: IsU8 = IsU8::Yes(PrivateOptimisation(()));)?
+			$( const $is_u8: IsU8 = IsU8::Yes(PrivateOptimisation(())); )?
 
 			fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 				let size = mem::size_of::<$t>();
