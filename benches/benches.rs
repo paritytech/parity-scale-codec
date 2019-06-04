@@ -12,17 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#[macro_use]
-extern crate criterion;
-#[macro_use]
-extern crate parity_codec_derive;
+use parity_scale_codec::*;
+use parity_scale_codec_derive::{Encode, Decode};
 
-use parity_codec::{Encode, Decode};
-use parity_codec::*;
+use criterion::{Criterion, black_box, Bencher, criterion_group, criterion_main};
 
-use criterion::{Criterion, black_box, Bencher};
 use std::time::Duration;
-
 
 fn array_vec_write_u128(b: &mut Bencher) {
 	b.iter(|| {

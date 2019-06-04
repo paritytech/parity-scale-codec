@@ -1,23 +1,23 @@
 [package]
-name = "parity-codec"
-description = "Lightweight, efficient, binary serialization and deserialization codec"
-version = "3.3.0"
+name = "parity-scale-codec"
+description = "SCALE - Simple Concatenating Aggregated Little Endians"
+version = "1.0.0"
 authors = ["Parity Technologies <admin@parity.io>"]
 license = "Apache-2.0"
-repository = "https://github.com/paritytech/parity-codec"
+repository = "https://github.com/paritytech/parity-scale-codec"
 categories = ["encoding"]
 edition = "2018"
 
 [dependencies]
 arrayvec = { version = "0.4", default-features = false, features = ["array-sizes-33-128", "array-sizes-129-255"] }
 serde = { version = "1.0", optional = true }
-parity-codec-derive = { path = "derive", version = "3.3", default-features = false, optional = true }
+parity-scale-codec-derive = { path = "derive", version = "1.0", default-features = false, optional = true }
 bitvec = { version = "0.11", default-features = false, features = ["alloc"], optional = true }
 byte-slice-cast = { version = "0.3", optional = true }
 
 [dev-dependencies]
 serde_derive = { version = "1.0" }
-parity-codec-derive = { path = "derive", version = "3.3", default-features = false }
+parity-scale-codec-derive = { path = "derive", version = "1.0", default-features = false }
 criterion = "0.2"
 
 [[bench]]
@@ -29,21 +29,15 @@ bench = false
 
 [features]
 default = ["std"]
-derive = ["parity-codec-derive"]
+derive = ["parity-scale-codec-derive"]
 std = ["serde", "bitvec/std"]
 bit-vec = ["bitvec", "byte-slice-cast"]
 
 # WARNING: DO _NOT_ USE THIS FEATURE IF YOU ARE WORKING ON CONSENSUS CODE!*
 #
 # Provides implementations for more data structures than just Vec and Box.
-# Concretely it will provide parity-codec implementations for many types
+# Concretely it will provide parity-scale-codec implementations for many types
 # that can be found in std and/or alloc (nightly).
-#
-# This feature was mainly introduced after it became clear that pDSL requires
-# it for the sake of usability of its users.
-#
-# * For rational about this please visit:
-# https://github.com/paritytech/parity-codec/pull/27#issuecomment-453031914
 full = []
 
 [workspace]

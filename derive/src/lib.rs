@@ -36,16 +36,16 @@ mod encode;
 mod utils;
 mod trait_bounds;
 
-/// Include the `parity-codec` crate under a known name (`_parity_codec`).
-fn include_parity_codec_crate() -> proc_macro2::TokenStream {
+/// Include the `parity-scale-codec` crate under a known name (`_parity_scale_codec`).
+fn include_parity_scale_codec_crate() -> proc_macro2::TokenStream {
 	// This "hack" is required for the tests.
-	if env::var("CARGO_PKG_NAME").unwrap() == "parity-codec" {
-		quote!( extern crate parity_codec as _parity_codec; )
+	if env::var("CARGO_PKG_NAME").unwrap() == "parity-scale-codec" {
+		quote!( extern crate parity_scale_codec as _parity_scale_codec; )
 	} else {
-		match crate_name("parity-codec") {
+		match crate_name("parity-scale-codec") {
 			Ok(parity_codec_crate) => {
 				let ident = Ident::new(&parity_codec_crate, Span::call_site());
-				quote!( extern crate #ident as _parity_codec; )
+				quote!( extern crate #ident as _parity_scale_codec; )
 			},
 			Err(e) => Error::new(Span::call_site(), &e).to_compile_error(),
 		}
@@ -67,7 +67,7 @@ pub fn encode_derive(input: TokenStream) -> TokenStream {
 		&input.ident,
 		&mut input.generics,
 		&input.data,
-		parse_quote!(_parity_codec::Encode),
+		parse_quote!(_parity_scale_codec::Encode),
 		None,
 	) {
 		return e.to_compile_error().into();
@@ -79,7 +79,7 @@ pub fn encode_derive(input: TokenStream) -> TokenStream {
 	let encode_impl = encode::quote(&input.data, name);
 
 	let impl_block = quote! {
-		impl #impl_generics _parity_codec::Encode for #name #ty_generics #where_clause {
+		impl #impl_generics _parity_scale_codec::Encode for #name #ty_generics #where_clause {
 			#encode_impl
 		}
 	};
@@ -87,7 +87,7 @@ pub fn encode_derive(input: TokenStream) -> TokenStream {
 	let mut new_name = "_IMPL_ENCODE_FOR_".to_string();
 	new_name.push_str(name.to_string().trim_start_matches("r#"));
 	let dummy_const = Ident::new(&new_name, Span::call_site());
-	let parity_codec_crate = include_parity_codec_crate();
+	let parity_codec_crate = include_parity_scale_codec_crate();
 
 	let generated = quote! {
 		#[allow(non_upper_case_globals, unused_attributes, unused_qualifications)]
@@ -118,7 +118,7 @@ pub fn decode_derive(input: TokenStream) -> TokenStream {
 		&input.ident,
 		&mut input.generics,
 		&input.data,
-		parse_quote!(_parity_codec::Decode),
+		parse_quote!(_parity_scale_codec::Decode),
 		Some(parse_quote!(Default))
 	) {
 		return e.to_compile_error().into();
@@ -131,8 +131,10 @@ pub fn decode_derive(input: TokenStream) -> TokenStream {
 	let decoding = decode::quote(&input.data, name, &input_);
 
 	let impl_block = quote! {
-		impl #impl_generics _parity_codec::Decode for #name #ty_generics #where_clause {
-			fn decode<DecIn: _parity_codec::Input>(#input_: &mut DecIn) -> Result<Self, _parity_codec::Error> {
+		impl #impl_generics _parity_scale_codec::Decode for #name #ty_generics #where_clause {
+			fn decode<DecIn: _parity_scale_codec::Input>(
+				#input_: &mut DecIn
+			) -> Result<Self, _parity_scale_codec::Error> {
 				#decoding
 			}
 		}
@@ -141,7 +143,7 @@ pub fn decode_derive(input: TokenStream) -> TokenStream {
 	let mut new_name = "_IMPL_DECODE_FOR_".to_string();
 	new_name.push_str(name.to_string().trim_start_matches("r#"));
 	let dummy_const = Ident::new(&new_name, Span::call_site());
-	let parity_codec_crate = include_parity_codec_crate();
+	let parity_codec_crate = include_parity_scale_codec_crate();
 
 	let generated = quote! {
 		#[allow(non_upper_case_globals, unused_attributes, unused_qualifications)]

@@ -25,18 +25,18 @@
 #[macro_use]
 extern crate alloc;
 
-#[cfg(feature = "parity-codec-derive")]
+#[cfg(feature = "parity-scale-codec-derive")]
 #[allow(unused_imports)]
 #[macro_use]
-extern crate parity_codec_derive;
+extern crate parity_scale_codec_derive;
 
 #[cfg(all(feature = "std", test))]
 #[macro_use]
 extern crate serde_derive;
 
-#[cfg(feature = "parity-codec-derive")]
+#[cfg(feature = "parity-scale-codec-derive")]
 #[doc(hidden)]
-pub use parity_codec_derive::*;
+pub use parity_scale_codec_derive::*;
 
 #[cfg(feature = "std")]
 #[doc(hidden)]
