@@ -16,6 +16,7 @@ use parity_scale_codec::*;
 use parity_scale_codec_derive::{Encode, Decode};
 
 use criterion::{Criterion, black_box, Bencher, criterion_group, criterion_main};
+use bitvec::vec::BitVec;
 
 use std::time::Duration;
 
@@ -91,7 +92,7 @@ fn vec_append_with_encode_append(b: &mut Bencher) {
 		encoded_events_vec = events.encode();
 
 		for _ in 1..1000 {
-			encoded_events_vec = <Vec::<Event> as EncodeAppend>::append(
+			encoded_events_vec = <Vec<Event> as EncodeAppend>::append(
 				encoded_events_vec,
 				&[Event::ComplexEvent(data.to_vec(), 4, 5, 6, 9)],
 			).unwrap();
@@ -134,9 +135,39 @@ fn bench_fn(c: &mut Criterion) {
 	c.bench_function("array_vec_write_u128", array_vec_write_u128);
 }
 
+fn encode_decode_bitvec_u8(c: &mut Criterion) {
+	c.bench_function_over_inputs("bitvec_u8_encode - BitVec<u8>", |b, &size| {
+		let vec: BitVec = [true, false]
+			.iter()
+			.cloned()
+			.cycle()
+			.take(size)
+			.collect();
+
+		let vec = black_box(vec);
+		b.iter(|| vec.encode())
+	}, vec![1, 2, 5, 32, 1024]);
+
+	c.bench_function_over_inputs("bitvec_u8_decode - BitVec<u8>", |b, &size| {
+		let vec: BitVec = [true, false]
+			.iter()
+			.cloned()
+			.cycle()
+			.take(size)
+			.collect();
+
+		let vec = vec.encode();
+
+		let vec = black_box(vec);
+		b.iter(|| {
+			let _: BitVec = Decode::decode(&mut &vec[..]).unwrap();
+		})
+	}, vec![1, 2, 5, 32, 1024]);
+}
+
 criterion_group!{
 	name = benches;
 	config = Criterion::default().warm_up_time(Duration::from_millis(500)).without_plots();
-	targets = encode_decode_vec_u8, bench_fn
+	targets = encode_decode_vec_u8, bench_fn, encode_decode_bitvec_u8
 }
 criterion_main!(benches);
