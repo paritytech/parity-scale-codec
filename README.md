@@ -2,7 +2,7 @@
 
 Rust implementation of the SCALE (Simple Concatenated Aggregate Little-Endian) data format for types used in the Parity Substrate framework.
 
-<!-- Inspired from Gav's overview written for Subtrate docs site -->
+<!-- Inspired from Gav's codec overview written for Subtrate docs site -->
 SCALE is a light-weight format which allows encoding (and decoding) which makes it highly suitable for resource-constrained execution environments like blockchain runtimes and low-power, low-memory devices.
 
 It is important to note that the encoding context (knowledge of how the types and data structures look) needs to be known separately at both encoding and decoding ends. The encoded data does not include this contextual information.
@@ -41,7 +41,7 @@ The `CompactAs` trait is used for wrapping custom types/structs as compact types
 
 The `HasCompact` trait, if implemented, tells that the corresponding type is a compact encode-able type.
 
-## Examples
+## Usage Examples
 
 Following are some examples to demonstrate usage of the codec.
 
@@ -88,23 +88,7 @@ let mut dz: &[u8] = &[0];
 assert_eq!(EnumType::decode(&mut dz).ok(), None);
 ```
 
-### Types with HasCompact (compact encoding & decoding)
-
-```rust
-#[derive(Debug, PartialEq, Encode, Decode)]
-struct Test1HasCompact<T: HasCompact> {
-    #[codec(encoded_as = "<T as HasCompact>::Type")]
-    bar: T,
-}
-
-let test_val: (u64, usize) = (1073741823, 4);
-
-let encoded = Test1HasCompact { bar: test_val.0 }.encode();
-assert_eq!(encoded.len(), test_val.1);
-assert_eq!(<TestHasCompact<u64>>::decode(&mut &encoded[..]).unwrap().bar, test_val.0);
-```
-
-## Compact type with HasCompact
+### Compact type with HasCompact
 
 ```rust
 #[derive(Debug, PartialEq, Encode, Decode)]
@@ -124,6 +108,48 @@ let test_val: (u64, usize) = (0u64, 1usize);
 let encoded = Test1HasCompact { bar: test_val.0 }.encode();
 assert_eq!(encoded.len(), test_val.1);
 assert_eq!(<Test1CompactHasCompact<u64>>::decode(&mut &encoded[..]).unwrap().bar, test_val.0);
+```
+
+### Type with CompactAs
+
+```rust
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
+#[derive(PartialEq, Eq, Clone)]
+struct StructHasCompact(u32);
+
+impl CompactAs for StructHasCompact {
+    type As = u8;
+
+    fn encode_as(&self) -> &Self::As {
+        &12
+    }
+
+    fn decode_from(_: Self::As) -> Self {
+        StructHasCompact(12)
+    }
+}
+
+impl From<Compact<StructHasCompact>> for StructHasCompact {
+    fn from(_: Compact<StructHasCompact>) -> Self {
+        StructHasCompact(12)
+    }
+}
+
+#[derive(Debug, PartialEq, Encode, Decode)]
+enum TestGenericHasCompact<T> {
+    A {
+        #[codec(compact)] a: T
+    },
+}
+
+let a = TestGenericHasCompact::A::<StructHasCompact> {
+    a: StructHasCompact(12325678),
+};
+
+let encoded = a.encode();
+
+// while the actual length is more, it is compact enocoded as a u8, hence length is 2
+assert_eq!(encoded.len(), 2);
 ```
 
 ## Derive macros

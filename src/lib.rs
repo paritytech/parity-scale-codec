@@ -70,7 +70,7 @@
 //! 
 //! The `HasCompact` trait, if implemented, tells that the corresponding type is a compact encode-able type.
 //! 
-//! ## Examples
+//! ## Usage Examples
 //! 
 //! Following are some examples to demonstrate usage of the codec.
 //! 
@@ -122,28 +122,7 @@
 //! # fn main() { }
 //! ```
 //! 
-//! ### Types with HasCompact
-//! 
-//! ```
-//! use parity_scale_codec_derive::{Encode, Decode};;
-//! use parity_scale_codec::{Encode, Decode, HasCompact};
-//! 
-//! #[derive(Debug, PartialEq, Encode, Decode)]
-//! struct Test1HasCompact<T: HasCompact> {
-//!     #[codec(encoded_as = "<T as HasCompact>::Type")]
-//!     bar: T,
-//! }
-//! 
-//! let test_val: (u64, usize) = (1073741823, 4);
-//! 
-//! let encoded = Test1HasCompact { bar: test_val.0 }.encode();
-//! assert_eq!(encoded.len(), test_val.1);
-//! assert_eq!(<Test1HasCompact<u64>>::decode(&mut &encoded[..]).unwrap().bar, test_val.0);
-//! 
-//! # fn main() { }
-//! ```
-//! 
-//! ## Compact types with HasCompact
+//! ### Compact type with HasCompact
 //! 
 //! ```
 //! use parity_scale_codec_derive::{Encode, Decode};;
@@ -166,6 +145,54 @@
 //! let encoded = Test1HasCompact { bar: test_val.0 }.encode();
 //! assert_eq!(encoded.len(), test_val.1);
 //! assert_eq!(<Test1CompactHasCompact<u64>>::decode(&mut &encoded[..]).unwrap().bar, test_val.0);
+//! 
+//! # fn main() { }
+//! ```
+//! ### Type with CompactAs
+//! 
+//! ```rust
+//! 
+//! use serde_derive::{Serialize, Deserialize};
+//! use parity_scale_codec_derive::{Encode, Decode};;
+//! use parity_scale_codec::{Encode, Decode, Compact, HasCompact, CompactAs};
+//! 
+//! #[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
+//! #[derive(PartialEq, Eq, Clone)]
+//! struct StructHasCompact(u32);
+//! 
+//! impl CompactAs for StructHasCompact {
+//!     type As = u8;
+//! 
+//!     fn encode_as(&self) -> &Self::As {
+//!         &12
+//!     }
+//! 
+//!     fn decode_from(_: Self::As) -> Self {
+//!         StructHasCompact(12)
+//!     }
+//! }
+//! 
+//! impl From<Compact<StructHasCompact>> for StructHasCompact {
+//!     fn from(_: Compact<StructHasCompact>) -> Self {
+//!         StructHasCompact(12)
+//!     }
+//! }
+//! 
+//! #[derive(Debug, PartialEq, Encode, Decode)]
+//! enum TestGenericHasCompact<T> {
+//!     A {
+//!         #[codec(compact)] a: T
+//!     },
+//! }
+//! 
+//! let a = TestGenericHasCompact::A::<StructHasCompact> {
+//!     a: StructHasCompact(12325678),
+//! };
+//! 
+//! let encoded = a.encode();
+//! 
+//! // Because it is compact enocoded as a `u8`, hence length is 2.
+//! assert_eq!(encoded.len(), 2);
 //! 
 //! # fn main() { }
 //! ```
