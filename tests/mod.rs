@@ -372,7 +372,7 @@ fn generic_bound_hascompact() {
 	#[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
 	#[derive(PartialEq, Eq, Clone)]
 	// This struct does not impl Codec
-	struct StructHasCompact(u8);
+	struct StructHasCompact(u32);
 
 	impl CompactAs for StructHasCompact {
 		type As = u32;
