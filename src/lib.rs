@@ -161,7 +161,7 @@
 //! struct StructHasCompact(u32);
 //! 
 //! impl CompactAs for StructHasCompact {
-//!     type As = u8;
+//!     type As = u32;
 //! 
 //!     fn encode_as(&self) -> &Self::As {
 //!         &12
@@ -190,8 +190,6 @@
 //! };
 //! 
 //! let encoded = a.encode();
-//! 
-//! // Because it is compact enocoded as a `u8`, hence length is 2.
 //! assert_eq!(encoded.len(), 2);
 //! 
 //! # fn main() { }

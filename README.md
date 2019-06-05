@@ -118,7 +118,7 @@ assert_eq!(<Test1CompactHasCompact<u64>>::decode(&mut &encoded[..]).unwrap().bar
 struct StructHasCompact(u32);
 
 impl CompactAs for StructHasCompact {
-    type As = u8;
+    type As = u32;
 
     fn encode_as(&self) -> &Self::As {
         &12
@@ -147,8 +147,6 @@ let a = TestGenericHasCompact::A::<StructHasCompact> {
 };
 
 let encoded = a.encode();
-
-// while the actual length is more, it is compact enocoded as a u8, hence length is 2
 assert_eq!(encoded.len(), 2);
 ```
 

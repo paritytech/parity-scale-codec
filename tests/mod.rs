@@ -375,7 +375,7 @@ fn generic_bound_hascompact() {
 	struct StructHasCompact(u32);
 
 	impl CompactAs for StructHasCompact {
-		type As = u8;
+		type As = u32;
 		fn encode_as(&self) -> &Self::As {
 			&0
 		}
