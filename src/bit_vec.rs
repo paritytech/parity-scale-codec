@@ -53,14 +53,10 @@ impl<C: Cursor, T: Bits + FromByteSlice> Decode for BitVec<C, T> {
 			let mut vec = vec![0; required_bytes::<T>(bits)];
 			input.read(&mut vec)?;
 
-			Ok(if vec.is_empty() {
-				Self::new()
-			} else {
-				let mut result = Self::from_slice(T::from_byte_slice(&vec)?);
-				assert!(bits <= result.len());
-				unsafe { result.set_len(bits); }
-				result
-			})
+			let mut result = Self::from_slice(T::from_byte_slice(&vec)?);
+			assert!(bits <= result.len());
+			unsafe { result.set_len(bits); }
+			Ok(result)
 		})
 	}
 }
