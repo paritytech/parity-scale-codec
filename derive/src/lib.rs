@@ -158,3 +158,62 @@ pub fn decode_derive(input: TokenStream) -> TokenStream {
 
 	generated.into()
 }
+
+#[proc_macro_derive(CompactAs, attributes(codec))]
+pub fn decode_compact_as(input: TokenStream) -> TokenStream {
+	let mut input: DeriveInput = match syn::parse(input) {
+		Ok(input) => input,
+		Err(e) => return e.to_compile_error().into(),
+	};
+
+	if let Err(e) = trait_bounds::add(
+		&input.ident,
+		&mut input.generics,
+		&input.data,
+		parse_quote!(_parity_scale_codec::CompactAs),
+		None,
+	) {
+		return e.to_compile_error().into();
+	}
+
+	let name = &input.ident;
+	let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
+
+//	let decoding = decode::quote(&input.data, name, &input_);
+
+	let impl_block = quote! {
+		impl #impl_generics _parity_scale_codec::CompactAs for #name #ty_generics #where_clause {
+			type As = u32;
+			fn encode_as(&self) -> &u32 {
+				&self.0
+			}
+			fn decode_from(x: u32) -> #name #ty_generics {
+				#name(x)
+			}
+		}
+
+		impl #impl_generics From<_parity_scale_codec::Compact<#name #ty_generics>> for #name #ty_generics #where_clause {
+			fn from(x: _parity_scale_codec::Compact<#name #ty_generics>) -> #name #ty_generics {
+				x.0
+			}
+		}
+	};
+
+	let mut new_name = "_IMPL_COMPACTAS_FOR_".to_string();
+	new_name.push_str(name.to_string().trim_start_matches("r#"));
+	let dummy_const = Ident::new(&new_name, Span::call_site());
+	let parity_codec_crate = include_parity_scale_codec_crate();
+
+	let generated = quote! {
+		#[allow(non_upper_case_globals, unused_attributes, unused_qualifications)]
+		const #dummy_const: () = {
+			#[allow(unknown_lints)]
+			#[cfg_attr(feature = "cargo-clippy", allow(useless_attribute))]
+			#[allow(rust_2018_idioms)]
+			#parity_codec_crate
+			#impl_block
+		};
+	};
+
+	generated.into()
+}
