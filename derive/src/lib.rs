@@ -26,7 +26,7 @@ extern crate quote;
 
 use proc_macro::TokenStream;
 use proc_macro2::Span;
-use syn::{DeriveInput, Ident, parse::Error};
+use syn::{Data, Fields, DeriveInput, Ident, parse::Error};
 use proc_macro_crate::crate_name;
 
 use std::env;
@@ -179,16 +179,43 @@ pub fn decode_compact_as(input: TokenStream) -> TokenStream {
 	let name = &input.ident;
 	let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
-//	let decoding = decode::quote(&input.data, name, &input_);
+	let (inner_ty, inner_field, constructor) = match input.data {
+		Data::Struct(ref data) => {
+			match data.fields {
+				Fields::Named(ref fields) if fields.named.iter().count() == 1 => {
+					let field = fields.named.iter().next().expect("Exactly one field");
+					let field_name = &field.ident;
+					(&field.ty, quote!(&self.#field_name), quote!(#name { #field_name: x }))
+				},
+				Fields::Unnamed(ref fields) if fields.unnamed.iter().count() == 1 => {
+					let (id, field) = fields.unnamed.iter().enumerate().next().expect("Exactly one field");
+					let id = syn::Index::from(id);
+					(&field.ty, quote!(&self.#id), quote!(#name(x)))
+				},
+				_ => {
+					return Error::new(
+						Span::call_site(),
+						"Only structs with a single field can derive CompactAs"
+					).to_compile_error().into();
+				},
+			}
+		},
+		_ => {
+			return Error::new(
+				Span::call_site(),
+				"Only structs can derive CompactAs"
+			).to_compile_error().into();
+		},
+	};
 
 	let impl_block = quote! {
 		impl #impl_generics _parity_scale_codec::CompactAs for #name #ty_generics #where_clause {
-			type As = u32;
-			fn encode_as(&self) -> &u32 {
-				&self.0
+			type As = #inner_ty;
+			fn encode_as(&self) -> &#inner_ty {
+				#inner_field
 			}
-			fn decode_from(x: u32) -> #name #ty_generics {
-				#name(x)
+			fn decode_from(x: #inner_ty) -> #name #ty_generics {
+				#constructor
 			}
 		}
 

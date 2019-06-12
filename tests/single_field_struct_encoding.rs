@@ -34,6 +34,10 @@ struct Sh<T: HasCompact> {
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Encode, Decode, CompactAs)]
 struct U(u32);
 
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Encode, Decode, CompactAs)]
+struct U2 { a: u64 }
+
 #[derive(Debug, PartialEq, Encode, Decode)]
 struct USkip(#[codec(skip)] u32, u32, #[codec(skip)] u32);
 
