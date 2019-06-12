@@ -235,11 +235,17 @@ pub mod alloc {
 }
 
 mod codec;
+mod compact;
 mod joiner;
 mod keyedvec;
 #[cfg(feature = "bit-vec")]
 mod bit_vec;
 
-pub use self::codec::{Input, Output, Error, Encode, Decode, Codec, Compact, HasCompact, EncodeAsRef, CompactAs, EncodeAppend};
+pub use self::codec::{
+	Input, Output, Error, Encode, Decode, Codec, EncodeAsRef, EncodeAppend, WrapperTypeEncode,
+	WrapperTypeDecode, OptionBool,
+
+};
+pub use self::compact::{Compact, HasCompact, CompactAs};
 pub use self::joiner::Joiner;
 pub use self::keyedvec::KeyedVec;
