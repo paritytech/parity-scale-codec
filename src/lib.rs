@@ -77,7 +77,6 @@
 //! ### Simple types
 //! 
 //! ```
-//! use parity_scale_codec_derive::{Encode, Decode};
 //! use parity_scale_codec::{Encode, Decode};
 //! 
 //! #[derive(Debug, PartialEq, Encode, Decode)]
@@ -125,7 +124,6 @@
 //! ### Compact type with HasCompact
 //! 
 //! ```
-//! use parity_scale_codec_derive::{Encode, Decode};;
 //! use parity_scale_codec::{Encode, Decode, Compact, HasCompact};
 //! 
 //! #[derive(Debug, PartialEq, Encode, Decode)]
@@ -153,7 +151,6 @@
 //! ```rust
 //! 
 //! use serde_derive::{Serialize, Deserialize};
-//! use parity_scale_codec_derive::{Encode, Decode};;
 //! use parity_scale_codec::{Encode, Decode, Compact, HasCompact, CompactAs};
 //! 
 //! #[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]

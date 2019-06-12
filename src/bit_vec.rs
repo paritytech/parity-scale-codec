@@ -19,7 +19,8 @@ use std::mem;
 use bitvec::{vec::BitVec, bits::Bits, cursor::Cursor, slice::BitSlice, boxed::BitBox};
 use byte_slice_cast::{AsByteSlice, ToByteSlice, FromByteSlice, Error as FromByteSliceError};
 
-use crate::codec::{Encode, Decode, Input, Output, Compact, Error};
+use crate::codec::{Encode, Decode, Input, Output, Error};
+use crate::compact::Compact;
 
 impl From<FromByteSliceError> for Error {
 	fn from(e: FromByteSliceError) -> Error {
