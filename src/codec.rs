@@ -17,6 +17,7 @@
 use crate::alloc::vec::Vec;
 use crate::alloc::boxed::Box;
 use crate::alloc::collections::btree_map::BTreeMap;
+use crate::alloc::collections::VecDeque;
 use crate::alloc::collections::btree_set::BTreeSet;
 
 #[cfg(any(feature = "std", feature = "full"))]
@@ -1250,6 +1251,33 @@ impl<T: Decode + Ord> Decode for BTreeSet<T> {
 	}
 }
 
+impl<T: Encode + Ord> Encode for VecDeque<T> {
+	fn encode_to<W: Output>(&self, dest: &mut W) {
+		let len = self.len();
+		assert!(len <= u32::max_value() as usize, "Attempted to serialize a collection with too many elements.");
+		Compact(len as u32).encode_to(dest);
+
+		if let IsU8::Yes= <T as Encode>::IS_U8 {
+			let slices = self.as_slices();
+			let slices_transmute = unsafe {
+				std::mem::transmute::<(&[T], &[T]), (&[u8], &[u8])>(slices)
+			};
+			dest.write(slices_transmute.0);
+			dest.write(slices_transmute.1);
+		} else {
+			for item in self {
+				item.encode_to(dest);
+			}
+		}
+	}
+}
+
+impl<T: Decode + Ord> Decode for VecDeque<T> {
+	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
+		Ok(<Vec<T>>::decode(input)?.into())
+	}
+}
+
 impl Encode for () {
 	fn encode_to<W: Output>(&self, _dest: &mut W) {
 	}
@@ -1947,5 +1975,23 @@ mod tests {
 		for i in 8..=16 {
 			check_bound_high!(i, [(u128, U128_OUT_OF_RANGE)]);
 		}
+	}
+
+	#[test]
+	fn vec_deque_u8() {
+		let mut v_u8 = VecDeque::new();
+		let mut v_u16 = VecDeque::new();
+
+		for i in 0..50 {
+			v_u8.push_front(i as u8);
+			v_u16.push_front(i as u16);
+		}
+		for i in 50..100 {
+			v_u8.push_back(i as u8);
+			v_u16.push_back(i as u16);
+		}
+
+		assert_eq!(<VecDeque<u8>>::decode(&mut &v_u8.encode()[..]).unwrap(), v_u8);
+		assert_eq!(<VecDeque<u16>>::decode(&mut &v_u16.encode()[..]).unwrap(), v_u16);
 	}
 }
