@@ -36,22 +36,25 @@ mod encode;
 mod utils;
 mod trait_bounds;
 
+/// Include the `parity-scale-codec` crate under a known name (`_parity_scale_codec`).
+fn include_parity_scale_codec_crate() -> proc_macro2::TokenStream {
+	// This "hack" is required for the tests.
+	if env::var("CARGO_PKG_NAME").unwrap() == "parity-scale-codec" {
+		quote!( extern crate parity_scale_codec as _parity_scale_codec; )
+	} else {
+		match crate_name("parity-scale-codec") {
+			Ok(parity_codec_crate) => {
+				let ident = Ident::new(&parity_codec_crate, Span::call_site());
+				quote!( extern crate #ident as _parity_scale_codec; )
+			},
+			Err(e) => Error::new(Span::call_site(), &e).to_compile_error(),
+		}
+	}
+}
+
 /// Wraps the impl block in a "dummy const"
 fn wrap_with_dummy_const(input: &DeriveInput, prefix: &str, impl_block: proc_macro2::TokenStream) -> TokenStream {
-	let parity_codec_crate =
-		// This "hack" is required for the tests.
-		if env::var("CARGO_PKG_NAME").unwrap() == "parity-scale-codec" {
-			quote!( extern crate parity_scale_codec as _parity_scale_codec; )
-		} else {
-			match crate_name("parity-scale-codec") {
-				Ok(parity_codec_crate) => {
-					let ident = Ident::new(&parity_codec_crate, Span::call_site());
-					quote!( extern crate #ident as _parity_scale_codec; )
-				},
-				Err(e) => Error::new(Span::call_site(), &e).to_compile_error(),
-			}
-		};
-
+	let parity_codec_crate = include_parity_scale_codec_crate();
 	let mut new_name = prefix.to_string();
 	new_name.push_str(input.ident.to_string().trim_start_matches("r#"));
 	let dummy_const = Ident::new(&new_name, Span::call_site());
