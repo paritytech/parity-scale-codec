@@ -16,9 +16,7 @@
 
 use crate::alloc::vec::Vec;
 use crate::alloc::boxed::Box;
-use crate::alloc::collections::btree_map::BTreeMap;
-use crate::alloc::collections::VecDeque;
-use crate::alloc::collections::btree_set::BTreeSet;
+use crate::alloc::collections::{BTreeMap, BTreeSet, VecDeque, LinkedList, BinaryHeap};
 
 #[cfg(any(feature = "std", feature = "full"))]
 use crate::alloc::{
@@ -27,8 +25,9 @@ use crate::alloc::{
 };
 
 use core::{mem, slice, ops::Deref};
-use arrayvec::ArrayVec;
 use core::marker::PhantomData;
+use core::iter::FromIterator;
+use arrayvec::ArrayVec;
 
 #[cfg(feature = "std")]
 use std::fmt;
@@ -1203,52 +1202,38 @@ impl<T: Encode + Decode> EncodeAppend for Vec<T> {
 	}
 }
 
-impl<K: Encode + Ord, V: Encode> Encode for BTreeMap<K, V> {
-	fn encode_to<W: Output>(&self, dest: &mut W) {
-		let len = self.len();
-		assert!(len <= u32::max_value() as usize, "Attempted to serialize a collection with too many elements.");
-		Compact(len as u32).encode_to(dest);
-		for i in self.iter() {
-			i.encode_to(dest);
-		}
-	}
-}
-
-impl<K: Decode + Ord, V: Decode> Decode for BTreeMap<K, V> {
-	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
-		<Compact<u32>>::decode(input).and_then(move |Compact(len)| {
-			let mut r: BTreeMap<K, V> = BTreeMap::new();
-			for _ in 0..len {
-				let (key, v) = <(K, V)>::decode(input)?;
-				r.insert(key, v);
+macro_rules! impl_codec_through_iterator {
+	($(
+		$type:ty
+		{$( $encode_generics:tt )*}
+		{$( $decode_generics:tt )*}
+	)*) => {$(
+		impl<$($encode_generics)*> Encode for $type {
+			fn encode_to<W: Output>(&self, dest: &mut W) {
+				let len = self.len();
+				assert!(len <= u32::max_value() as usize, "Attempted to serialize a collection with too many elements.");
+				Compact(len as u32).encode_to(dest);
+				for i in self.iter() {
+					i.encode_to(dest);
+				}
 			}
-			Ok(r)
-		})
-	}
-}
-
-impl<T: Encode + Ord> Encode for BTreeSet<T> {
-	fn encode_to<W: Output>(&self, dest: &mut W) {
-		let len = self.len();
-		assert!(len <= u32::max_value() as usize, "Attempted to serialize a collection with too many elements.");
-		Compact(len as u32).encode_to(dest);
-		for i in self.iter() {
-			i.encode_to(dest);
 		}
-	}
+
+		impl<$($decode_generics)*> Decode for $type {
+			fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
+				<Compact<u32>>::decode(input).and_then(move |Compact(len)| {
+					Result::from_iter((0..len).map(|_| Decode::decode(input)))
+				})
+			}
+		}
+	)*}
 }
 
-impl<T: Decode + Ord> Decode for BTreeSet<T> {
-	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
-		<Compact<u32>>::decode(input).and_then(move |Compact(len)| {
-			let mut r: BTreeSet<T> = BTreeSet::new();
-			for _ in 0..len {
-				let t = T::decode(input)?;
-				r.insert(t);
-			}
-			Ok(r)
-		})
-	}
+impl_codec_through_iterator! {
+	BTreeMap<K, V> { K: Encode , V: Encode } { K: Decode + Ord, V: Decode }
+	BTreeSet<T> { T: Encode } { T: Decode + Ord }
+	LinkedList<T> { T: Encode } { T: Decode }
+	BinaryHeap<T> { T: Encode } { T: Decode + Ord }
 }
 
 impl<T: Encode + Ord> Encode for VecDeque<T> {
@@ -1978,7 +1963,7 @@ mod tests {
 	}
 
 	#[test]
-	fn vec_deque_u8() {
+	fn codec_vec_deque_u8_and_u16() {
 		let mut v_u8 = VecDeque::new();
 		let mut v_u16 = VecDeque::new();
 
@@ -1991,7 +1976,27 @@ mod tests {
 			v_u16.push_back(i as u16);
 		}
 
-		assert_eq!(<VecDeque<u8>>::decode(&mut &v_u8.encode()[..]).unwrap(), v_u8);
-		assert_eq!(<VecDeque<u16>>::decode(&mut &v_u16.encode()[..]).unwrap(), v_u16);
+		assert_eq!(Decode::decode(&mut &v_u8.encode()[..]), Ok(v_u8));
+		assert_eq!(Decode::decode(&mut &v_u16.encode()[..]), Ok(v_u16));
+	}
+
+	#[test]
+	fn codec_iterator() {
+		let a: BTreeSet<u32> = FromIterator::from_iter((0..10).flat_map(|_| 0..10u32));
+		let b: LinkedList<u32> = FromIterator::from_iter((0..10).flat_map(|_| 0..10u32));
+		let c: BinaryHeap<u32> = FromIterator::from_iter((0..10).flat_map(|_| 0..10u32));
+		let d: BTreeMap<u16, u32> = FromIterator::from_iter(
+			(0..10)
+				.flat_map(|_| 0..10u32)
+				.map(|i| (i as u16, i + 10))
+		);
+
+		assert_eq!(Decode::decode(&mut &a.encode()[..]), Ok(a));
+		assert_eq!(Decode::decode(&mut &b.encode()[..]), Ok(b));
+		assert_eq!(
+			Decode::decode(&mut &c.encode()[..]).map(BinaryHeap::into_sorted_vec),
+			Ok(c.into_sorted_vec()),
+		);
+		assert_eq!(Decode::decode(&mut &d.encode()[..]), Ok(d));
 	}
 }
