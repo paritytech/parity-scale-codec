@@ -102,3 +102,14 @@ pub fn get_skip(attrs: &Vec<Attribute>) -> Option<Span> {
 		None
 	})
 }
+
+pub fn filter_skip_named<'a>(fields: &'a syn::FieldsNamed) -> impl Iterator<Item=&Field> + 'a {
+	fields.named.iter()
+		.filter(|f| get_skip(&f.attrs).is_none())
+}
+
+pub fn filter_skip_unnamed<'a>(fields: &'a syn::FieldsUnnamed) -> impl Iterator<Item=(usize, &Field)> + 'a {
+	fields.unnamed.iter()
+		.enumerate()
+		.filter(|(_, f)| get_skip(&f.attrs).is_none())
+}
