@@ -1496,54 +1496,6 @@ mod tests {
 	}
 
 	#[test]
-	fn btree_map_works() {
-		let mut m: BTreeMap<u32, Vec<u8>> = BTreeMap::new();
-		m.insert(1, b"qwe".to_vec());
-		m.insert(2, b"qweasd".to_vec());
-		let encoded = m.encode();
-
-		assert_eq!(m, Decode::decode(&mut &encoded[..]).unwrap());
-
-		let mut m: BTreeMap<Vec<u8>, Vec<u8>> = BTreeMap::new();
-		m.insert(b"123".to_vec(), b"qwe".to_vec());
-		m.insert(b"1234".to_vec(), b"qweasd".to_vec());
-		let encoded = m.encode();
-
-		assert_eq!(m, Decode::decode(&mut &encoded[..]).unwrap());
-
-		let mut m: BTreeMap<Vec<u32>, Vec<u8>> = BTreeMap::new();
-		m.insert(vec![1, 2, 3], b"qwe".to_vec());
-		m.insert(vec![1, 2], b"qweasd".to_vec());
-		let encoded = m.encode();
-
-		assert_eq!(m, Decode::decode(&mut &encoded[..]).unwrap());
-	}
-
-	#[test]
-	fn btree_set_works() {
-		let mut m: BTreeSet<u32> = BTreeSet::new();
-		m.insert(1);
-		m.insert(2);
-		let encoded = m.encode();
-
-		assert_eq!(m, Decode::decode(&mut &encoded[..]).unwrap());
-
-		let mut m: BTreeSet<Vec<u8>> = BTreeSet::new();
-		m.insert(b"123".to_vec());
-		m.insert(b"1234".to_vec());
-		let encoded = m.encode();
-
-		assert_eq!(m, Decode::decode(&mut &encoded[..]).unwrap());
-
-		let mut m: BTreeSet<Vec<u32>> = BTreeSet::new();
-		m.insert(vec![1, 2, 3]);
-		m.insert(vec![1, 2]);
-		let encoded = m.encode();
-
-		assert_eq!(m, Decode::decode(&mut &encoded[..]).unwrap());
-	}
-
-	#[test]
 	fn encode_borrowed_tuple() {
 		let x = vec![1u8, 2, 3, 4];
 		let y = 128i64;
@@ -1982,21 +1934,36 @@ mod tests {
 
 	#[test]
 	fn codec_iterator() {
-		let a: BTreeSet<u32> = FromIterator::from_iter((0..10).flat_map(|_| 0..10u32));
-		let b: LinkedList<u32> = FromIterator::from_iter((0..10).flat_map(|_| 0..10u32));
-		let c: BinaryHeap<u32> = FromIterator::from_iter((0..10).flat_map(|_| 0..10u32));
-		let d: BTreeMap<u16, u32> = FromIterator::from_iter(
+		let t1: BTreeSet<u32> = FromIterator::from_iter((0..10).flat_map(|i| 0..i));
+		let t2: LinkedList<u32> = FromIterator::from_iter((0..10).flat_map(|i| 0..i));
+		let t3: BinaryHeap<u32> = FromIterator::from_iter((0..10).flat_map(|i| 0..i));
+		let t4: BTreeMap<u16, u32> = FromIterator::from_iter(
 			(0..10)
-				.flat_map(|_| 0..10u32)
+				.flat_map(|i| 0..i)
 				.map(|i| (i as u16, i + 10))
 		);
-
-		assert_eq!(Decode::decode(&mut &a.encode()[..]), Ok(a));
-		assert_eq!(Decode::decode(&mut &b.encode()[..]), Ok(b));
-		assert_eq!(
-			Decode::decode(&mut &c.encode()[..]).map(BinaryHeap::into_sorted_vec),
-			Ok(c.into_sorted_vec()),
+		let t5: BTreeSet<Vec<u8>> = FromIterator::from_iter((0..10).map(|i| Vec::from_iter(0..i)));
+		let t6: LinkedList<Vec<u8>> = FromIterator::from_iter((0..10).map(|i| Vec::from_iter(0..i)));
+		let t7: BinaryHeap<Vec<u8>> = FromIterator::from_iter((0..10).map(|i| Vec::from_iter(0..i)));
+		let t8: BTreeMap<Vec<u8>, u32> = FromIterator::from_iter(
+			(0..10)
+				.map(|i| Vec::from_iter(0..i))
+				.map(|i| (i.clone(), i.len() as u32))
 		);
-		assert_eq!(Decode::decode(&mut &d.encode()[..]), Ok(d));
+
+		assert_eq!(Decode::decode(&mut &t1.encode()[..]), Ok(t1));
+		assert_eq!(Decode::decode(&mut &t2.encode()[..]), Ok(t2));
+		assert_eq!(
+			Decode::decode(&mut &t3.encode()[..]).map(BinaryHeap::into_sorted_vec),
+			Ok(t3.into_sorted_vec()),
+		);
+		assert_eq!(Decode::decode(&mut &t4.encode()[..]), Ok(t4));
+		assert_eq!(Decode::decode(&mut &t5.encode()[..]), Ok(t5));
+		assert_eq!(Decode::decode(&mut &t6.encode()[..]), Ok(t6));
+		assert_eq!(
+			Decode::decode(&mut &t7.encode()[..]).map(BinaryHeap::into_sorted_vec),
+			Ok(t7.into_sorted_vec()),
+		);
+		assert_eq!(Decode::decode(&mut &t8.encode()[..]), Ok(t8));
 	}
 }
