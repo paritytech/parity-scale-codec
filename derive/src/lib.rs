@@ -36,20 +36,37 @@ mod encode;
 mod utils;
 mod trait_bounds;
 
-/// Include the `parity-scale-codec` crate under a known name (`_parity_scale_codec`).
-fn include_parity_scale_codec_crate() -> proc_macro2::TokenStream {
-	// This "hack" is required for the tests.
-	if env::var("CARGO_PKG_NAME").unwrap() == "parity-scale-codec" {
-		quote!( extern crate parity_scale_codec as _parity_scale_codec; )
-	} else {
-		match crate_name("parity-scale-codec") {
-			Ok(parity_codec_crate) => {
-				let ident = Ident::new(&parity_codec_crate, Span::call_site());
-				quote!( extern crate #ident as _parity_scale_codec; )
-			},
-			Err(e) => Error::new(Span::call_site(), &e).to_compile_error(),
-		}
-	}
+/// Wraps the impl block in a "dummy const"
+fn wrap_with_dummy_const(input: &DeriveInput, prefix: &str, impl_block: proc_macro2::TokenStream) -> TokenStream {
+	let parity_codec_crate =
+		// This "hack" is required for the tests.
+		if env::var("CARGO_PKG_NAME").unwrap() == "parity-scale-codec" {
+			quote!( extern crate parity_scale_codec as _parity_scale_codec; )
+		} else {
+			match crate_name("parity-scale-codec") {
+				Ok(parity_codec_crate) => {
+					let ident = Ident::new(&parity_codec_crate, Span::call_site());
+					quote!( extern crate #ident as _parity_scale_codec; )
+				},
+				Err(e) => Error::new(Span::call_site(), &e).to_compile_error(),
+			}
+		};
+
+	let mut new_name = prefix.to_string();
+	new_name.push_str(input.ident.to_string().trim_start_matches("r#"));
+	let dummy_const = Ident::new(&new_name, Span::call_site());
+
+	let generated = quote! {
+		#[allow(non_upper_case_globals, unused_attributes, unused_qualifications)]
+		const #dummy_const: () = {
+			#[allow(unknown_lints)]
+			#[cfg_attr(feature = "cargo-clippy", allow(useless_attribute))]
+			#[allow(rust_2018_idioms)]
+			#parity_codec_crate
+			#impl_block
+		};
+	};
+	generated.into()
 }
 
 #[proc_macro_derive(Encode, attributes(codec))]
@@ -84,23 +101,7 @@ pub fn encode_derive(input: TokenStream) -> TokenStream {
 		}
 	};
 
-	let mut new_name = "_IMPL_ENCODE_FOR_".to_string();
-	new_name.push_str(name.to_string().trim_start_matches("r#"));
-	let dummy_const = Ident::new(&new_name, Span::call_site());
-	let parity_codec_crate = include_parity_scale_codec_crate();
-
-	let generated = quote! {
-		#[allow(non_upper_case_globals, unused_attributes, unused_qualifications)]
-		const #dummy_const: () = {
-			#[allow(unknown_lints)]
-			#[cfg_attr(feature = "cargo-clippy", allow(useless_attribute))]
-			#[allow(rust_2018_idioms)]
-			#parity_codec_crate
-			#impl_block
-		};
-	};
-
-	generated.into()
+	wrap_with_dummy_const(&input, "_IMPL_ENCODE_FOR_", impl_block)
 }
 
 #[proc_macro_derive(Decode, attributes(codec))]
@@ -140,23 +141,7 @@ pub fn decode_derive(input: TokenStream) -> TokenStream {
 		}
 	};
 
-	let mut new_name = "_IMPL_DECODE_FOR_".to_string();
-	new_name.push_str(name.to_string().trim_start_matches("r#"));
-	let dummy_const = Ident::new(&new_name, Span::call_site());
-	let parity_codec_crate = include_parity_scale_codec_crate();
-
-	let generated = quote! {
-		#[allow(non_upper_case_globals, unused_attributes, unused_qualifications)]
-		const #dummy_const: () = {
-			#[allow(unknown_lints)]
-			#[cfg_attr(feature = "cargo-clippy", allow(useless_attribute))]
-			#[allow(rust_2018_idioms)]
-			#parity_codec_crate
-			#impl_block
-		};
-	};
-
-	generated.into()
+	wrap_with_dummy_const(&input, "_IMPL_DECODE_FOR_", impl_block)
 }
 
 #[proc_macro_derive(CompactAs, attributes(codec))]
@@ -226,21 +211,5 @@ pub fn decode_compact_as(input: TokenStream) -> TokenStream {
 		}
 	};
 
-	let mut new_name = "_IMPL_COMPACTAS_FOR_".to_string();
-	new_name.push_str(name.to_string().trim_start_matches("r#"));
-	let dummy_const = Ident::new(&new_name, Span::call_site());
-	let parity_codec_crate = include_parity_scale_codec_crate();
-
-	let generated = quote! {
-		#[allow(non_upper_case_globals, unused_attributes, unused_qualifications)]
-		const #dummy_const: () = {
-			#[allow(unknown_lints)]
-			#[cfg_attr(feature = "cargo-clippy", allow(useless_attribute))]
-			#[allow(rust_2018_idioms)]
-			#parity_codec_crate
-			#impl_block
-		};
-	};
-
-	generated.into()
+	wrap_with_dummy_const(&input, "_IMPL_COMPACTAS_FOR_", impl_block)
 }
