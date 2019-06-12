@@ -118,7 +118,7 @@ impl<'a> Input for &'a [u8] {
 		if into.len() > self.len() {
 			return Err("".into());
 		}
-		let len = ::core::cmp::min(into.len(), self.len());
+		let len = core::cmp::min(into.len(), self.len());
 		into[..len].copy_from_slice(&self[..len]);
 		*self = &self[len..];
 		Ok(len)

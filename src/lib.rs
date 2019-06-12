@@ -244,7 +244,6 @@ mod bit_vec;
 pub use self::codec::{
 	Input, Output, Error, Encode, Decode, Codec, EncodeAsRef, EncodeAppend, WrapperTypeEncode,
 	WrapperTypeDecode, OptionBool,
-
 };
 pub use self::compact::{Compact, HasCompact, CompactAs};
 pub use self::joiner::Joiner;

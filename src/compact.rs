@@ -1,11 +1,18 @@
-//! compact encoding:
-//! 0b00 00 00 00 / 00 00 00 00 / 00 00 00 00 / 00 00 00 00
-//!   xx xx xx 00															(0 .. 2**6)		(u8)
-//!   yL yL yL 01 / yH yH yH yL												(2**6 .. 2**14)	(u8, u16)  low LH high
-//!   zL zL zL 10 / zM zM zM zL / zM zM zM zM / zH zH zH zM					(2**14 .. 2**30)	(u16, u32)  low LMMH high
-//!   nn nn nn 11 [ / zz zz zz zz ]{4 + n}									(2**30 .. 2**536)	(u32, u64, u128, U256, U512, U520) straight LE-encoded
-//!
-//! Note: we use *LOW BITS* of the LSB in LE encoding to encode the 2 bit key.
+// Copyright 2019 Parity Technologies
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+//! [Compact encoding](https://docs.substrate.dev/docs/low-level-data-formats#section-compactgeneral-integers)
 
 use crate::codec::{Input, Output, Error, Encode, Decode, EncodeAsRef};
 
@@ -154,8 +161,8 @@ impl<'a, T> From<&'a T> for CompactRef<'a, T> {
 	fn from(x: &'a T) -> Self { CompactRef(x) }
 }
 
-impl<T> ::core::fmt::Debug for Compact<T> where T: ::core::fmt::Debug {
-	fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+impl<T> core::fmt::Debug for Compact<T> where T: core::fmt::Debug {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 		self.0.fmt(f)
 	}
 }
