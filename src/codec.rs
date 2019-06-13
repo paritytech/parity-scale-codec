@@ -1242,7 +1242,7 @@ impl<T: Encode + Ord> Encode for VecDeque<T> {
 		assert!(len <= u32::max_value() as usize, "Attempted to serialize a collection with too many elements.");
 		Compact(len as u32).encode_to(dest);
 
-		if let IsU8::Yes= <T as Encode>::IS_U8 {
+		if let IsU8::Yes = <T as Encode>::IS_U8 {
 			let slices = self.as_slices();
 			let slices_transmute = unsafe {
 				std::mem::transmute::<(&[T], &[T]), (&[u8], &[u8])>(slices)
@@ -1257,7 +1257,7 @@ impl<T: Encode + Ord> Encode for VecDeque<T> {
 	}
 }
 
-impl<T: Decode + Ord> Decode for VecDeque<T> {
+impl<T: Decode> Decode for VecDeque<T> {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		Ok(<Vec<T>>::decode(input)?.into())
 	}
