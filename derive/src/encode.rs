@@ -133,22 +133,11 @@ fn encode_fields<F>(
 fn try_impl_encode_single_field_optimisation(data: &Data) -> Option<TokenStream> {
 	let closure = &quote!(f);
 
-	fn filter_skip_named<'a>(fields: &'a syn::FieldsNamed) -> impl Iterator<Item=&Field> + 'a {
-		fields.named.iter()
-			.filter(|f| utils::get_skip(&f.attrs).is_none())
-	}
-
-	fn filter_skip_unnamed<'a>(fields: &'a syn::FieldsUnnamed) -> impl Iterator<Item=(usize, &Field)> + 'a {
-		fields.unnamed.iter()
-			.enumerate()
-			.filter(|(_, f)| utils::get_skip(&f.attrs).is_none())
-	}
-
 	let optimisation = match *data {
 		Data::Struct(ref data) => {
 			match data.fields {
-				Fields::Named(ref fields) if filter_skip_named(fields).count() == 1 => {
-					let field = filter_skip_named(fields).next().unwrap();
+				Fields::Named(ref fields) if utils::filter_skip_named(fields).count() == 1 => {
+					let field = utils::filter_skip_named(fields).next().unwrap();
 					let name = &field.ident;
 					Some(encode_single_field(
 						closure,
@@ -156,8 +145,8 @@ fn try_impl_encode_single_field_optimisation(data: &Data) -> Option<TokenStream>
 						quote!(&self.#name)
 					))
 				},
-				Fields::Unnamed(ref fields) if filter_skip_unnamed(fields).count() == 1 => {
-					let (id, field) = filter_skip_unnamed(fields).next().unwrap();
+				Fields::Unnamed(ref fields) if utils::filter_skip_unnamed(fields).count() == 1 => {
+					let (id, field) = utils::filter_skip_unnamed(fields).next().unwrap();
 					let id = syn::Index::from(id);
 
 					Some(encode_single_field(
