@@ -7,7 +7,7 @@ SCALE is a light-weight format which allows encoding (and decoding) which makes 
 
 It is important to note that the encoding context (knowledge of how the types and data structures look) needs to be known separately at both encoding and decoding ends. The encoded data does not include this contextual information.
 
-To get a better understanding of how the encoding is done for different types, take a look at the [low-level data formats overview page at the Substrate docs site](https://docs.substrate.dev/docs/low-level-data-formats).
+To get a better understanding of how the encoding is done for different types, take a look at the [low-level data formats overview page at the Substrate docs site](https://substrate.dev/docs/en/overview/low-level-data-format).
 
 ## Implementation
 
@@ -32,7 +32,7 @@ The `Decode` trait is used for deserialization/decoding of encoded data into the
 
 ### CompactAs
 
-The `CompactAs` trait is used for wrapping custom types/structs as compact types, which makes them even more space/memory efficient. The compact encoding is described [here](https://docs.substrate.dev/docs/low-level-data-formats#section-compactgeneral-integers).
+The `CompactAs` trait is used for wrapping custom types/structs as compact types, which makes them even more space/memory efficient. The compact encoding is described [here](https://substrate.dev/docs/en/overview/low-level-data-format#compact-general-integers).
 
 * `encode_as(&self) -> &Self::As`: Encodes the type (self) as a compact type. The type `As` is defined in the same trait and its implementation should be compact encode-able.
 * `decode_from(_: Self::As) -> Self`: Decodes the type (self) from a compact encode-able type.
