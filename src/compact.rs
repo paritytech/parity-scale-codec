@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! [Compact encoding](https://docs.substrate.dev/docs/low-level-data-formats#section-compactgeneral-integers)
+//! [Compact encoding](https://substrate.dev/docs/en/overview/low-level-data-format#compact-general-integers)
 
 use crate::codec::{Input, Output, Error, Encode, Decode, EncodeAsRef};
 
