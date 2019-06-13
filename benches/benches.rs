@@ -170,9 +170,4 @@ criterion_group!{
 	config = Criterion::default().warm_up_time(Duration::from_millis(500)).without_plots();
 	targets = encode_decode_vec_u8, bench_fn, encode_decode_bitvec_u8
 }
-criterion_group!{
-	name = vecdeque_strategy;
-	config = Criterion::default().warm_up_time(Duration::from_millis(500)).without_plots();
-	targets = 
-}
 criterion_main!(benches);
