@@ -225,9 +225,9 @@ pub trait EncodeAppend {
 
 /// Trait that allows the length of a collection to be read, without having
 /// to read and decode the entire elements.
-pub trait EncodeLength {
+pub trait DecodeLength {
 	/// Return the number of elements in `self_encoded`.
-	fn len(self_encoded: Vec<u8>) -> Result<u32, Error>;
+	fn len(self_encoded: &mut &[u8]) -> Result<u32, Error>;
 }
 
 /// Trait that allows zero-copy read of value-references from slices in LE format.
@@ -673,9 +673,9 @@ impl Decode for () {
 
 macro_rules! len_impl {
 	( $( $type:ident< $($g:ident),* > ),* ) => { $(
-		impl<$($g: Encode + Decode),*> EncodeLength for $type<$($g),*> {
-			fn len(self_encoded: Vec<u8>) -> Result<u32, Error> {
-				Ok(u32::from(Compact::<u32>::decode(&mut &self_encoded[..])?))
+		impl<$($g: Encode + Decode),*> DecodeLength for $type<$($g),*> {
+			fn len(self_encoded: &mut &[u8]) -> Result<u32, Error> {
+				Ok(u32::from(Compact::<u32>::decode(self_encoded)?))
 			}
 		}
 	)*}
@@ -1046,12 +1046,12 @@ mod tests {
 		assert_eq!(decoded, expected);
 	}
 
-	fn test_encode_length<T: Encode + Decode + EncodeLength>(thing: &T, len: usize) {
-		assert_eq!(<T as EncodeLength>::len(thing.encode()).unwrap(), len as u32);
+	fn test_encode_length<T: Encode + Decode + DecodeLength>(thing: &T, len: usize) {
+		assert_eq!(<T as DecodeLength>::len(&mut &thing.encode()[..]).unwrap(), len as u32);
 	}
 
 	#[test]
-	fn len_works_for_all_encode_types() {
+	fn len_works_for_all_decode_types() {
 		let vector = vec![10; 10];
 		let mut btree_map: BTreeMap<u32, u32> = BTreeMap::new();
 		btree_map.insert(1, 1);
