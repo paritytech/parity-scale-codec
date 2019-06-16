@@ -684,7 +684,7 @@ impl Decode for () {
 	}
 }
 
-macro_rules! len_impl {
+macro_rules! impl_len {
 	( $( $type:ident< $($g:ident),* > ),* ) => { $(
 		impl<$($g: Encode + Decode),*> DecodeLength for $type<$($g),*> {
 			fn len(self_encoded: &mut &[u8]) -> Result<u32, Error> {
@@ -694,7 +694,8 @@ macro_rules! len_impl {
 	)*}
 }
 
-len_impl!(Vec<T>, BTreeSet<T>, BTreeMap<K, V>);
+// Collection types that support compact decode length.
+impl_len!(Vec<T>, BTreeSet<T>, BTreeMap<K, V>, VecDeque<T>, BinaryHeap<T>, LinkedList<T>);
 
 macro_rules! tuple_impl {
 	($one:ident,) => {
@@ -1016,7 +1017,7 @@ mod tests {
 	}
 
 	#[test]
-	fn len_works_for_all_decode_types() {
+	fn len_works_for_decode_collection_types() {
 		let vector = vec![10; 10];
 		let mut btree_map: BTreeMap<u32, u32> = BTreeMap::new();
 		btree_map.insert(1, 1);
@@ -1024,10 +1025,22 @@ mod tests {
 		let mut btree_set: BTreeSet<u32> = BTreeSet::new();
 		btree_set.insert(1);
 		btree_set.insert(2);
+		let mut vd = VecDeque::new();
+		vd.push_front(1);
+		vd.push_front(2);
+		let mut bh = BinaryHeap::new();
+		bh.push(1);
+		bh.push(2);
+		let mut ll = LinkedList::new();
+		ll.push_back(1);
+		ll.push_back(2);
 
 		test_encode_length(&vector, 10);
 		test_encode_length(&btree_map, 2);
 		test_encode_length(&btree_set, 2);
+		test_encode_length(&vd, 2);
+		test_encode_length(&bh, 2);
+		test_encode_length(&ll, 2);
 	}
 
 	#[test]
