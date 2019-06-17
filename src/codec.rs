@@ -227,7 +227,7 @@ pub trait EncodeAppend {
 /// to read and decode the entire elements.
 pub trait DecodeLength {
 	/// Return the number of elements in `self_encoded`.
-	fn len(self_encoded: &mut &[u8]) -> Result<u32, Error>;
+	fn len(self_encoded: &mut &[u8]) -> Result<usize, Error>;
 }
 
 /// Trait that allows zero-copy read of value-references from slices in LE format.
@@ -686,9 +686,9 @@ impl Decode for () {
 
 macro_rules! impl_len {
 	( $( $type:ident< $($g:ident),* > ),* ) => { $(
-		impl<$($g: Encode + Decode),*> DecodeLength for $type<$($g),*> {
-			fn len(self_encoded: &mut &[u8]) -> Result<u32, Error> {
-				Ok(u32::from(Compact::<u32>::decode(self_encoded)?))
+		impl<$($g),*> DecodeLength for $type<$($g),*> {
+			fn len(self_encoded: &mut &[u8]) -> Result<usize, Error> {
+				Ok(u32::from(Compact::<u32>::decode(self_encoded)?) as usize)
 			}
 		}
 	)*}
@@ -1013,7 +1013,7 @@ mod tests {
 	}
 
 	fn test_encode_length<T: Encode + Decode + DecodeLength>(thing: &T, len: usize) {
-		assert_eq!(<T as DecodeLength>::len(&mut &thing.encode()[..]).unwrap(), len as u32);
+		assert_eq!(<T as DecodeLength>::len(&mut &thing.encode()[..]).unwrap(), len);
 	}
 
 	#[test]
