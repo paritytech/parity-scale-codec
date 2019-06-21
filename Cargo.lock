@@ -25,7 +25,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "parity-codec"
-version = "4.0.0"
+version = "4.1.0"
 dependencies = [
  "arrayvec 0.4.10 (registry+https://github.com/rust-lang/crates.io-index)",
  "bitvec 0.11.1 (registry+https://github.com/rust-lang/crates.io-index)",
