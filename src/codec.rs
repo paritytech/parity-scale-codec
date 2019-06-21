@@ -25,6 +25,7 @@ use crate::alloc::{
 };
 
 use core::{mem, slice};
+use core::convert::TryFrom;
 use arrayvec::ArrayVec;
 use core::marker::PhantomData;
 
@@ -153,6 +154,13 @@ pub trait EncodeAppend {
 
 	/// Append `to_append` items to the given `self_encoded` representation.
 	fn append(self_encoded: Vec<u8>, to_append: &[Self::Item]) -> Option<Vec<u8>>;
+}
+
+/// Trait that allows the length of a collection to be read, without having
+/// to read and decode the entire elements.
+pub trait DecodeLength {
+	/// Return the number of elements in `self_encoded`.
+	fn len(self_encoded: &[u8]) -> Option<usize>;
 }
 
 /// Trait that allows zero-copy read of value-references from slices in LE format.
@@ -976,6 +984,19 @@ impl Decode for () {
 	}
 }
 
+macro_rules! impl_len {
+	( $( $type:ident< $($g:ident),* > ),* ) => { $(
+		impl<$($g),*> DecodeLength for $type<$($g),*> {
+			fn len(mut self_encoded: &[u8]) -> Option<usize> {
+				usize::try_from(u32::from(Compact::<u32>::decode(&mut self_encoded)?)).ok()
+			}
+		}
+	)*}
+}
+
+// Collection types that support compact decode length.
+impl_len!(Vec<T>);
+
 macro_rules! tuple_impl {
 	($one:ident,) => {
 		impl<$one: Encode> Encode for ($one,) {
@@ -1351,6 +1372,20 @@ mod tests {
 			vec
 		});
 		assert_eq!(decoded, expected);
+	}
+
+	fn test_encode_length<T: Encode + Decode + DecodeLength>(thing: &T, len: usize) {
+		assert_eq!(<T as DecodeLength>::len(&mut &thing.encode()[..]).unwrap(), len);
+	}
+
+	#[test]
+	fn len_works_for_decode_collection_types() {
+		test_encode_length(&vec![10_u8; 0], 0);
+		test_encode_length(&vec![10_u8; 1], 1);
+		test_encode_length(&vec![10_u8; 10], 10);
+		test_encode_length(&vec![10_u32; 0], 0);
+		test_encode_length(&vec![10_u32; 1], 1);
+		test_encode_length(&vec![10_u32; 10], 10);
 	}
 
 	#[test]
