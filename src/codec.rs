@@ -225,12 +225,27 @@ pub trait EncodeAppend {
 	fn append(self_encoded: Vec<u8>, to_append: &[Self::Item]) -> Result<Vec<u8>, Error>;
 }
 
-/// Trait that allows the length of a collection to be read, without having
-/// to read and decode the entire elements.
-pub trait DecodeLength {
-	/// Return the number of elements in `self_encoded`.
-	fn len(self_encoded: &[u8]) -> Result<usize, Error>;
+/// Trait that allows decoding with a constraint.
+pub trait ConstrainedDecode<Constraint>: Decode {
+	/// Decode from the input. I is bounded on `Clone` because we may require two passes: first to check constraints
+	/// and then to decode.
+	fn decode_constrained<I: Input + Clone>(value: &mut I, constraint: Constraint) -> Result<Self, Error>;
 }
+
+/// No additional constraint.
+#[derive(Clone, Copy, Default)]
+pub struct NoConstraint;
+
+impl<T: Decode> ConstrainedDecode<NoConstraint> for T {
+	fn decode_constrained<I: Input + Clone>(value: &mut I, _constraint: NoConstraint) -> Result<Self, Error> {
+		Self::decode(value)
+	}
+}
+
+/// A constraint on the number of items. This is useful for collections which prepend a length, among
+/// other things.
+#[derive(Clone, Copy)]
+pub struct MaximumLength(pub usize);
 
 /// Trait that allows zero-copy read of value-references from slices in LE format.
 pub trait Decode: Sized {
@@ -686,19 +701,28 @@ impl Decode for () {
 	}
 }
 
-macro_rules! impl_len {
+macro_rules! impl_len_constraint {
 	( $( $type:ident< $($g:ident),* > ),* ) => { $(
-		impl<$($g),*> DecodeLength for $type<$($g),*> {
-			fn len(mut self_encoded: &[u8]) -> Result<usize, Error> {
-				usize::try_from(u32::from(Compact::<u32>::decode(&mut self_encoded)?))
-					.map_err(|_| "Failed convert decded size into usize.".into())
+		impl<$($g),*> ConstrainedDecode<MaximumLength> for $type<$($g),*> where Self: Decode {
+			fn decode_constrained<I: Input + Clone>(input: &mut I, MaximumLength(max_len): MaximumLength)
+				-> Result<Self, Error>
+			{
+				// clone the input to avoid consuming bytes.
+				let len = usize::try_from(u32::from(Compact::<u32>::decode(&mut input.clone())?))
+					.map_err(|_| "Failed convert decoded size into usize.")?;
+
+				if len > max_len {
+					Err("Length exceeded maximum".into())
+				} else {
+					Self::decode(input)
+				}
 			}
 		}
 	)*}
 }
 
 // Collection types that support compact decode length.
-impl_len!(Vec<T>, BTreeSet<T>, BTreeMap<K, V>, VecDeque<T>, BinaryHeap<T>, LinkedList<T>);
+impl_len_constraint!(Vec<T>, BTreeSet<T>, BTreeMap<K, V>, VecDeque<T>, BinaryHeap<T>, LinkedList<T>);
 
 macro_rules! tuple_impl {
 	($one:ident,) => {
@@ -1015,37 +1039,6 @@ mod tests {
 		assert_eq!(decoded, expected);
 	}
 
-	fn test_encode_length<T: Encode + Decode + DecodeLength>(thing: &T, len: usize) {
-		assert_eq!(<T as DecodeLength>::len(&mut &thing.encode()[..]).unwrap(), len);
-	}
-
-	#[test]
-	fn len_works_for_decode_collection_types() {
-		let vector = vec![10; 10];
-		let mut btree_map: BTreeMap<u32, u32> = BTreeMap::new();
-		btree_map.insert(1, 1);
-		btree_map.insert(2, 2);
-		let mut btree_set: BTreeSet<u32> = BTreeSet::new();
-		btree_set.insert(1);
-		btree_set.insert(2);
-		let mut vd = VecDeque::new();
-		vd.push_front(1);
-		vd.push_front(2);
-		let mut bh = BinaryHeap::new();
-		bh.push(1);
-		bh.push(2);
-		let mut ll = LinkedList::new();
-		ll.push_back(1);
-		ll.push_back(2);
-
-		test_encode_length(&vector, 10);
-		test_encode_length(&btree_map, 2);
-		test_encode_length(&btree_set, 2);
-		test_encode_length(&vd, 2);
-		test_encode_length(&bh, 2);
-		test_encode_length(&ll, 2);
-	}
-
 	#[test]
 	fn vec_of_string_encoded_as_expected() {
 		let value = vec![
@@ -1136,5 +1129,30 @@ mod tests {
 			Ok(t7.into_sorted_vec()),
 		);
 		assert_eq!(Decode::decode(&mut &t8.encode()[..]), Ok(t8));
+	}
+
+	#[test]
+	fn containers_implement_maximum_length_constraint() {
+		fn do_test<T: FromIterator<(u32, u32)> + std::fmt::Debug + PartialEq + Encode + ConstrainedDecode<MaximumLength>>() {
+			let constraint = MaximumLength(4);
+
+			let four = vec![(1u32, 1u32), (2, 2), (3, 3), (4, 4)].into_iter().collect::<T>();
+			let four_encoded = four.encode();
+
+			assert_eq!(
+				T::decode_constrained(&mut &four_encoded[..], constraint),
+				Ok(four),
+			);
+
+			let five = vec![(1u32, 1u32), (2, 2), (3, 3), (4, 4), (5, 5)].into_iter().collect::<T>();
+			let five_encoded = five.encode();
+			assert!(T::decode_constrained(&mut &five_encoded[..], constraint).is_err());
+		}
+
+		do_test::<Vec<(u32, u32)>>();
+		do_test::<VecDeque<(u32, u32)>>();
+		do_test::<BTreeSet<(u32, u32)>>();
+		do_test::<LinkedList<(u32, u32)>>();
+		do_test::<BTreeMap<u32, u32>>();
 	}
 }
