@@ -1507,8 +1507,8 @@ mod tests {
 
 	#[test]
 	fn encode_for_very_large_vec_works() {
-		let vec_u8 = vec![0u8; MAXIMUM_PREALLOCATION_SIZE+100];
-		let vec_u16 = vec![0u16; MAXIMUM_PREALLOCATION_SIZE+100];
+		let vec_u8 = vec![0u8; MAXIMUM_PREALLOCATION_SIZE + 100];
+		let vec_u16 = vec![0u16; MAXIMUM_PREALLOCATION_SIZE + 100];
 		assert_eq!(Vec::<u8>::decode(&mut &vec_u8.encode()[..][..]).unwrap(), vec_u8);
 		assert_eq!(Vec::<u16>::decode(&mut &vec_u16.encode()[..][..]).unwrap(), vec_u16);
 	}
