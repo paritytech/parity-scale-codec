@@ -799,22 +799,17 @@ impl Decode for Vec<u8> {
 				let mut buffer = vec![0; buffer_len];
 				let mut total_len_read = 0;
 
-				println!("try");
 				loop {
 					let len_read = input.read(&mut buffer[..buffer_len]);
 
-					println!("read_len:{}", len_read);
 					if len_read == 0 {
 						break
 					}
 
 					total_len_read += len_read;
 					vec.extend_from_slice(&buffer[..len_read]);
-					dbg!();
 				}
 
-					dbg!(total_len_read);
-					dbg!(len);
 				if total_len_read != len {
 					None
 				} else {
