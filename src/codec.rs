@@ -793,7 +793,7 @@ impl Decode for Vec<u8> {
 					Some(vec)
 				}
 			} else {
-				// if len is consider too much for preallocation then use dynamic allocation
+				// if len is considered too much for preallocation then use dynamic allocation
 				let mut vec = Vec::new();
 				let buffer_len = MAXIMUM_PREALLOCATION_SIZE;
 				let mut buffer = vec![0; buffer_len];
