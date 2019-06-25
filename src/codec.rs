@@ -20,7 +20,7 @@ use crate::alloc::collections::btree_map::BTreeMap;
 
 /// When decoding input we don't allocate too much in advance so a small crafted input can't
 /// trigger a big allocation.
-const MAX_PREALLOCATION_SIZE: usize = 4*1024;
+const MAX_PREALLOCATION_SIZE: usize = 4 * 1024;
 
 #[cfg(any(feature = "std", feature = "full"))]
 use crate::alloc::{
