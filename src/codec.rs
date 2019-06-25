@@ -787,7 +787,7 @@ impl Decode for Vec<u8> {
 
 			if len < MAXIMUM_PREALLOCATION_SIZE {
 				let mut vec = vec![0; len]; // len is ok here
-				if input.read(&mut vec[..len]) != len {
+				if input.read(&mut vec[..]) != len {
 					None
 				} else {
 					Some(vec)
