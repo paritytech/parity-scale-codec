@@ -1510,4 +1510,10 @@ mod tests {
 		assert_eq!(Vec::<u8>::decode(&mut &vec_u8.encode()[..][..]).unwrap(), vec_u8);
 		assert_eq!(Vec::<u16>::decode(&mut &vec_u16.encode()[..][..]).unwrap(), vec_u16);
 	}
+
+	#[test]
+	fn encode_for_null_size_vec_works() {
+		let vec: Vec<()> = vec![(); 10];
+		assert_eq!(Vec::<()>::decode(&mut &vec.encode()[..][..]).unwrap(), vec);
+	}
 }
