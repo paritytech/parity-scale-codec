@@ -18,6 +18,10 @@ use crate::alloc::vec::Vec;
 use crate::alloc::boxed::Box;
 use crate::alloc::collections::btree_map::BTreeMap;
 
+/// When decoding input we don't allocate too much in advance so a small crafted input can't
+/// trigger a big allocation.
+const MAX_PREALLOCATION_SIZE: usize = 4 * 1024;
+
 #[cfg(any(feature = "std", feature = "full"))]
 use crate::alloc::{
 	string::String,
@@ -789,10 +793,32 @@ impl Decode for Vec<u8> {
 	fn decode<I: Input>(input: &mut I) -> Option<Self> {
 		<Compact<u32>>::decode(input).and_then(move |Compact(len)| {
 			let len = len as usize;
-			let mut vec = vec![0; len];
-			if input.read(&mut vec[..len]) != len {
-				None
+
+			if len < MAX_PREALLOCATION_SIZE {
+				let mut vec = vec![0; len]; // len is ok here
+				if input.read(&mut vec[..]) != len {
+					None
+				} else {
+					Some(vec)
+				}
 			} else {
+				// if len is considered too much for preallocation then use dynamic allocation
+				let mut vec = Vec::new();
+				let mut remains = len;
+				let buffer_len = MAX_PREALLOCATION_SIZE;
+				let mut buffer = vec![0; buffer_len];
+
+				while remains != 0 {
+					let len_read = input.read(&mut buffer[..buffer_len.min(remains)]);
+
+					if len_read == 0 {
+						return None
+					}
+
+					remains -= len_read;
+					vec.extend_from_slice(&buffer[..len_read]);
+				}
+
 				Some(vec)
 			}
 		})
@@ -872,7 +898,11 @@ impl<T: Encode> Encode for Vec<T> {
 impl<T: Decode> Decode for Vec<T> {
 	fn decode<I: Input>(input: &mut I) -> Option<Self> {
 		<Compact<u32>>::decode(input).and_then(move |Compact(len)| {
-			let mut r = Vec::with_capacity(len as usize);
+			let max_pre_allocated_len = MAX_PREALLOCATION_SIZE.checked_div(mem::size_of::<T>())
+				.unwrap_or(0);
+
+			let pre_allocated_len = (len as usize).min(max_pre_allocated_len);
+			let mut r = Vec::with_capacity(pre_allocated_len);
 			for _ in 0..len {
 				r.push(T::decode(input)?);
 			}
@@ -1506,5 +1536,19 @@ mod tests {
 		CompactRef(&std::u32::MAX).using_encoded(|_| {});
 		CompactRef(&std::u64::MAX).using_encoded(|_| {});
 		CompactRef(&std::u128::MAX).using_encoded(|_| {});
+	}
+
+	#[test]
+	fn encode_for_very_large_vec_works() {
+		let vec_u8: Vec<u8> = (0..MAX_PREALLOCATION_SIZE*3).map(|i| i as u8).collect();
+		let vec_u16: Vec<u16> = (0..MAX_PREALLOCATION_SIZE*3).map(|i| i as u16).collect();
+		assert_eq!(Vec::<u8>::decode(&mut &vec_u8.encode()[..][..]).unwrap(), vec_u8);
+		assert_eq!(Vec::<u16>::decode(&mut &vec_u16.encode()[..][..]).unwrap(), vec_u16);
+	}
+
+	#[test]
+	fn encode_for_null_size_vec_works() {
+		let vec: Vec<()> = vec![(); 10];
+		assert_eq!(Vec::<()>::decode(&mut &vec.encode()[..][..]).unwrap(), vec);
 	}
 }
