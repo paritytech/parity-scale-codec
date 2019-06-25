@@ -18,8 +18,9 @@ use crate::alloc::vec::Vec;
 use crate::alloc::boxed::Box;
 use crate::alloc::collections::btree_map::BTreeMap;
 
-// This default has been choosen according to substrate network limit of 16MiB
-const MAXIMUM_PREALLOCATION_SIZE: usize = 16777216;
+/// When decoding input we don't allocate too much in advance so a small crafted input can't
+/// trigger a big allocation.
+const MAX_PREALLOCATION_SIZE: usize = 4*1024;
 
 #[cfg(any(feature = "std", feature = "full"))]
 use crate::alloc::{
@@ -785,7 +786,7 @@ impl Decode for Vec<u8> {
 		<Compact<u32>>::decode(input).and_then(move |Compact(len)| {
 			let len = len as usize;
 
-			if len < MAXIMUM_PREALLOCATION_SIZE {
+			if len < MAX_PREALLOCATION_SIZE {
 				let mut vec = vec![0; len]; // len is ok here
 				if input.read(&mut vec[..]) != len {
 					None
@@ -795,26 +796,23 @@ impl Decode for Vec<u8> {
 			} else {
 				// if len is considered too much for preallocation then use dynamic allocation
 				let mut vec = Vec::new();
-				let buffer_len = MAXIMUM_PREALLOCATION_SIZE;
+				let mut remains = len;
+				let buffer_len = MAX_PREALLOCATION_SIZE;
 				let mut buffer = vec![0; buffer_len];
 				let mut total_len_read = 0;
 
-				loop {
-					let len_read = input.read(&mut buffer[..buffer_len]);
+				while remains != 0 {
+					let len_read = input.read(&mut buffer[..buffer_len.min(remains)]);
 
 					if len_read == 0 {
-						break
+						return None
 					}
 
-					total_len_read += len_read;
+					remains -= len_read;
 					vec.extend_from_slice(&buffer[..len_read]);
 				}
 
-				if total_len_read != len {
-					None
-				} else {
-					Some(vec)
-				}
+				Some(vec)
 			}
 		})
 	}
@@ -893,7 +891,7 @@ impl<T: Encode> Encode for Vec<T> {
 impl<T: Decode> Decode for Vec<T> {
 	fn decode<I: Input>(input: &mut I) -> Option<Self> {
 		<Compact<u32>>::decode(input).and_then(move |Compact(len)| {
-			let max_pre_allocated_len = MAXIMUM_PREALLOCATION_SIZE / mem::size_of::<T>();
+			let max_pre_allocated_len = MAX_PREALLOCATION_SIZE / mem::size_of::<T>();
 
 			let pre_allocated_len = (len as usize).min(max_pre_allocated_len);
 			let mut r = Vec::with_capacity(pre_allocated_len);
@@ -1507,8 +1505,8 @@ mod tests {
 
 	#[test]
 	fn encode_for_very_large_vec_works() {
-		let vec_u8 = vec![0u8; MAXIMUM_PREALLOCATION_SIZE + 100];
-		let vec_u16 = vec![0u16; MAXIMUM_PREALLOCATION_SIZE + 100];
+		let vec_u8 = vec![0u8; MAX_PREALLOCATION_SIZE + 100];
+		let vec_u16 = vec![0u16; MAX_PREALLOCATION_SIZE + 100];
 		assert_eq!(Vec::<u8>::decode(&mut &vec_u8.encode()[..][..]).unwrap(), vec_u8);
 		assert_eq!(Vec::<u16>::decode(&mut &vec_u16.encode()[..][..]).unwrap(), vec_u16);
 	}
