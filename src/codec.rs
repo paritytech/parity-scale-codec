@@ -799,7 +799,6 @@ impl Decode for Vec<u8> {
 				let mut remains = len;
 				let buffer_len = MAX_PREALLOCATION_SIZE;
 				let mut buffer = vec![0; buffer_len];
-				let mut total_len_read = 0;
 
 				while remains != 0 {
 					let len_read = input.read(&mut buffer[..buffer_len.min(remains)]);
@@ -1505,8 +1504,8 @@ mod tests {
 
 	#[test]
 	fn encode_for_very_large_vec_works() {
-		let vec_u8 = vec![0u8; MAX_PREALLOCATION_SIZE + 100];
-		let vec_u16 = vec![0u16; MAX_PREALLOCATION_SIZE + 100];
+		let vec_u8: Vec<u8> = (0..MAX_PREALLOCATION_SIZE).map(|i| i as u8).collect();
+		let vec_u16: Vec<u16> = (0..MAX_PREALLOCATION_SIZE).map(|i| i as u16).collect();
 		assert_eq!(Vec::<u8>::decode(&mut &vec_u8.encode()[..][..]).unwrap(), vec_u8);
 		assert_eq!(Vec::<u16>::decode(&mut &vec_u16.encode()[..][..]).unwrap(), vec_u16);
 	}
