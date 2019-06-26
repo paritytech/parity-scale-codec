@@ -890,7 +890,8 @@ impl<T: Encode> Encode for Vec<T> {
 impl<T: Decode> Decode for Vec<T> {
 	fn decode<I: Input>(input: &mut I) -> Option<Self> {
 		<Compact<u32>>::decode(input).and_then(move |Compact(len)| {
-			let max_pre_allocated_len = MAX_PREALLOCATION_SIZE / mem::size_of::<T>();
+			let max_pre_allocated_len = MAX_PREALLOCATION_SIZE.checked_div(mem::size_of::<T>())
+				.unwrap_or(0);
 
 			let pre_allocated_len = (len as usize).min(max_pre_allocated_len);
 			let mut r = Vec::with_capacity(pre_allocated_len);
@@ -1508,5 +1509,11 @@ mod tests {
 		let vec_u16: Vec<u16> = (0..MAX_PREALLOCATION_SIZE*3).map(|i| i as u16).collect();
 		assert_eq!(Vec::<u8>::decode(&mut &vec_u8.encode()[..][..]).unwrap(), vec_u8);
 		assert_eq!(Vec::<u16>::decode(&mut &vec_u16.encode()[..][..]).unwrap(), vec_u16);
+	}
+
+	#[test]
+	fn encode_for_null_size_vec_works() {
+		let vec: Vec<()> = vec![(); 10];
+		assert_eq!(Vec::<()>::decode(&mut &vec.encode()[..][..]).unwrap(), vec);
 	}
 }
