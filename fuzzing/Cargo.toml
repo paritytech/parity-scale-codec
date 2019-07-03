@@ -1,0 +1,11 @@
+[package]
+name = "codec_fuzzer"
+version = "0.1.0"
+authors = ["Vincent Ulitzsch <vincent@srlabs.de>"]
+edition = "2018"
+
+[dependencies]
+parity-scale-codec = { path = "../", features=["derive"]}
+honggfuzz = ""
+
+[workspace]
