@@ -45,6 +45,10 @@ struct PrefixInput<'a, T> {
 }
 
 impl<'a, T: 'a + Input> Input for PrefixInput<'a, T> {
+	fn require_minimum_len(&mut self, len: usize) -> Result<(), Error> {
+		self.input.require_minimum_len(len.saturating_sub(self.prefix.iter().count()))
+	}
+
 	fn read(&mut self, buffer: &mut [u8]) -> Result<(), Error> {
 		match self.prefix.take() {
 			Some(v) if !buffer.is_empty() => {
@@ -135,6 +139,10 @@ where
 	T: CompactAs,
 	Compact<T::As>: Decode,
 {
+	fn min_encoded_len() -> usize {
+		<Compact<T::As>>::min_encoded_len()
+	}
+
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		Compact::<T::As>::decode(input)
 			.map(|x| Compact(<T as CompactAs>::decode_from(x.0)))
@@ -404,6 +412,10 @@ impl CompactLen<u128> for Compact<u128> {
 }
 
 impl Decode for Compact<()> {
+	fn min_encoded_len() -> usize {
+		0
+	}
+
 	fn decode<I: Input>(_input: &mut I) -> Result<Self, Error> {
 		Ok(Compact(()))
 	}
@@ -416,6 +428,10 @@ const U64_OUT_OF_RANGE: &'static str = "out of range decoding Compact<u64>";
 const U128_OUT_OF_RANGE: &'static str = "out of range decoding Compact<u128>";
 
 impl Decode for Compact<u8> {
+	fn min_encoded_len() -> usize {
+		1
+	}
+
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		let prefix = input.read_byte()?;
 		Ok(Compact(match prefix % 4 {
@@ -434,6 +450,10 @@ impl Decode for Compact<u8> {
 }
 
 impl Decode for Compact<u16> {
+	fn min_encoded_len() -> usize {
+		1
+	}
+
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		let prefix = input.read_byte()?;
 		Ok(Compact(match prefix % 4 {
@@ -460,6 +480,10 @@ impl Decode for Compact<u16> {
 }
 
 impl Decode for Compact<u32> {
+	fn min_encoded_len() -> usize {
+		1
+	}
+
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		let prefix = input.read_byte()?;
 		Ok(Compact(match prefix % 4 {
@@ -499,6 +523,10 @@ impl Decode for Compact<u32> {
 }
 
 impl Decode for Compact<u64> {
+	fn min_encoded_len() -> usize {
+		1
+	}
+
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		let prefix = input.read_byte()?;
 		Ok(Compact(match prefix % 4 {
@@ -554,6 +582,10 @@ impl Decode for Compact<u64> {
 }
 
 impl Decode for Compact<u128> {
+	fn min_encoded_len() -> usize {
+		1
+	}
+
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		let prefix = input.read_byte()?;
 		Ok(Compact(match prefix % 4 {

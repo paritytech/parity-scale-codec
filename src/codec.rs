@@ -94,6 +94,14 @@ impl From<&'static str> for Error {
 
 /// Trait that allows reading of data into a slice.
 pub trait Input {
+	// TODO TODO: if we do &mut self then the implementor can wait for having more data before
+	// answering maybe ?
+	// if we do &self then this is only static things (or hidden with RefCell but well we should do
+	// &mut self instead if so
+	// TODO TODO: a comment for why it is useful for
+	/// Require the input to be at least the len specified.
+	fn require_minimum_len(&mut self, len: usize) -> Result<(), Error>;
+
 	/// Read the exact number of bytes required to fill the given buffer.
 	///
 	/// Note that this function is similar to `std::io::Read::read_exact` and not
@@ -108,8 +116,15 @@ pub trait Input {
 	}
 }
 
-#[cfg(not(feature = "std"))]
 impl<'a> Input for &'a [u8] {
+	fn require_minimum_len(&mut self, len: usize) -> Result<(), Error> {
+		if self.len() < len {
+			return Err("Not enough data for required".into());
+		}
+
+		Ok(())
+	}
+
 	fn read(&mut self, into: &mut [u8]) -> Result<(), Error> {
 		if into.len() > self.len() {
 			return Err("Not enough data to fill buffer".into());
@@ -129,10 +144,46 @@ impl From<std::io::Error> for Error {
 }
 
 #[cfg(feature = "std")]
-impl<R: std::io::Read> Input for R {
-	fn read(&mut self, into: &mut [u8]) -> Result<(), Error> {
-		(self as &mut dyn std::io::Read).read_exact(into)?;
+pub struct IoReader<R: std::io::Read> {
+	buffer: Vec<u8>,
+	reader: R,
+}
+
+// TODO TODO: either test it or remove it
+#[cfg(feature = "std")]
+impl<R: std::io::Read> Input for IoReader<R> {
+	fn require_minimum_len(&mut self, len: usize) -> Result<(), Error> {
+		if self.buffer.len() >= len {
+			return Ok(())
+		}
+
+		let filled_len = self.buffer.len();
+		self.buffer.resize(len, 0);
+		self.reader.read_exact(&mut self.buffer[filled_len..])?;
 		Ok(())
+	}
+
+	fn read(&mut self, into: &mut [u8]) -> Result<(), Error> {
+		let into_len = into.len();
+		let buffer_len = self.buffer.len();
+		into.copy_from_slice(&self.buffer[..into_len.min(buffer_len)]);
+		self.buffer.resize(buffer_len - into_len.min(buffer_len), 0);
+
+		if into_len > buffer_len {
+			self.reader.read_exact(&mut into[buffer_len..])?;
+		}
+
+		Ok(())
+	}
+}
+
+#[cfg(feature = "std")]
+impl<R: std::io::Read> From<R> for IoReader<R> {
+	fn from(reader: R) -> Self {
+		IoReader {
+			buffer: vec![],
+			reader,
+		}
 	}
 }
 
@@ -231,6 +282,9 @@ pub trait Decode: Sized {
 	#[doc(hidden)]
 	const IS_U8: IsU8 = IsU8::No;
 
+	/// The minimum length of an encoded value.
+	fn min_encoded_len() -> usize;
+
 	/// Attempt to deserialise the value from input.
 	fn decode<I: Input>(value: &mut I) -> Result<Self, Error>;
 }
@@ -304,6 +358,10 @@ impl<T, X> Decode for X where
 	T: Decode + Into<X>,
 	X: WrapperTypeDecode<Wrapped=T>,
 {
+	fn min_encoded_len() -> usize {
+		T::min_encoded_len()
+	}
+
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		Ok(T::decode(input)?.into())
 	}
@@ -338,6 +396,10 @@ impl<T: Encode, E: Encode> Encode for Result<T, E> {
 }
 
 impl<T: Decode, E: Decode> Decode for Result<T, E> {
+	fn min_encoded_len() -> usize {
+		1 + T::min_encoded_len()
+	}
+
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		match input.read_byte()? {
 			0 => Ok(Ok(T::decode(input)?)),
@@ -372,6 +434,10 @@ impl Encode for OptionBool {
 }
 
 impl Decode for OptionBool {
+	fn min_encoded_len() -> usize {
+		1
+	}
+
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		match input.read_byte()? {
 			0 => Ok(OptionBool(None)),
@@ -401,7 +467,12 @@ impl<T: Encode> Encode for Option<T> {
 	}
 }
 
+// TODO TODO: hmm so an Option<[u8; 1024]> can do some damage no ?
 impl<T: Decode> Decode for Option<T> {
+	fn min_encoded_len() -> usize {
+		1
+	}
+
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		match input.read_byte()? {
 			0 => Ok(None),
@@ -422,7 +493,13 @@ macro_rules! impl_array {
 		}
 
 		impl<T: Decode> Decode for [T; $n] {
+			fn min_encoded_len() -> usize {
+				$n * T::min_encoded_len()
+			}
+
 			fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
+				input.require_minimum_len(Self::min_encoded_len())?;
+
 				let mut r = ArrayVec::new();
 				for _ in 0..$n {
 					r.push(T::decode(input)?);
@@ -479,6 +556,10 @@ impl Encode for str {
 impl<'a, T: ToOwned + ?Sized> Decode for Cow<'a, T>
 	where <T as ToOwned>::Owned: Decode,
 {
+	fn min_encoded_len() -> usize {
+		T::Owned::min_encoded_len()
+	}
+
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		Ok(Cow::Owned(Decode::decode(input)?))
 	}
@@ -489,6 +570,10 @@ impl<T> Encode for PhantomData<T> {
 }
 
 impl<T> Decode for PhantomData<T> {
+	fn min_encoded_len() -> usize {
+		0
+	}
+
 	fn decode<I: Input>(_input: &mut I) -> Result<Self, Error> {
 		Ok(PhantomData)
 	}
@@ -496,6 +581,10 @@ impl<T> Decode for PhantomData<T> {
 
 #[cfg(any(feature = "std", feature = "full"))]
 impl Decode for String {
+	fn min_encoded_len() -> usize {
+		<Vec<u8>>::min_encoded_len()
+	}
+
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		Ok(Self::from_utf8_lossy(&Vec::decode(input)?).into())
 	}
@@ -528,16 +617,22 @@ impl<T: Encode> Encode for [T] {
 }
 
 impl<T: Decode> Decode for Vec<T> {
+	fn min_encoded_len() -> usize {
+		<Compact<u32>>::min_encoded_len()
+	}
+
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		<Compact<u32>>::decode(input).and_then(move |Compact(len)| {
 			let len = len as usize;
 			if let IsU8::Yes = <T as Decode>::IS_U8 {
+				input.require_minimum_len(len)?;
 				let mut r = vec![0; len];
 
 				input.read(&mut r[..len])?;
 				let r = unsafe { std::mem::transmute::<Vec<u8>, Vec<T>>(r) };
 				Ok(r)
 			} else {
+				input.require_minimum_len(len * T::min_encoded_len())?;
 				let mut r = Vec::with_capacity(len);
 				for _ in 0..len {
 					r.push(T::decode(input)?);
@@ -615,6 +710,10 @@ macro_rules! impl_codec_through_iterator {
 		}
 
 		impl<$($decode_generics)*> Decode for $type {
+			fn min_encoded_len() -> usize {
+				<Compact<u32>>::min_encoded_len()
+			}
+
 			fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 				<Compact<u32>>::decode(input).and_then(move |Compact(len)| {
 					Result::from_iter((0..len).map(|_| Decode::decode(input)))
@@ -653,6 +752,10 @@ impl<T: Encode + Ord> Encode for VecDeque<T> {
 }
 
 impl<T: Decode> Decode for VecDeque<T> {
+	fn min_encoded_len() -> usize {
+		<Vec<T>>::min_encoded_len()
+	}
+
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		Ok(<Vec<T>>::decode(input)?.into())
 	}
@@ -672,6 +775,10 @@ impl Encode for () {
 }
 
 impl Decode for () {
+	fn min_encoded_len() -> usize {
+		0
+	}
+
 	fn decode<I: Input>(_: &mut I) -> Result<(), Error> {
 		Ok(())
 	}
@@ -712,6 +819,10 @@ macro_rules! tuple_impl {
 		}
 
 		impl<$one: Decode> Decode for ($one,) {
+			fn min_encoded_len() -> usize {
+				$one::min_encoded_len()
+			}
+
 			fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 				match $one::decode(input) {
 					Err(e) => Err(e),
@@ -747,7 +858,12 @@ macro_rules! tuple_impl {
 		impl<$first: Decode, $($rest: Decode),+>
 		Decode for
 		($first, $($rest),+) {
+			fn min_encoded_len() -> usize {
+				$first::min_encoded_len() $( + $rest::min_encoded_len() )+
+			}
+
 			fn decode<INPUT: Input>(input: &mut INPUT) -> Result<Self, super::Error> {
+
 				Ok((
 					match $first::decode(input) {
 						Ok(x) => x,
@@ -821,6 +937,10 @@ macro_rules! impl_endians {
 		}
 
 		impl Decode for $t {
+			fn min_encoded_len() -> usize {
+				mem::size_of::<$t>()
+			}
+
 			fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 				let size = mem::size_of::<$t>();
 				assert!(size > 0, "EndianSensitive can never be implemented for a zero-sized type.");
@@ -868,6 +988,10 @@ macro_rules! impl_non_endians {
 
 		impl Decode for $t {
 			$( const $is_u8: IsU8 = IsU8::Yes; )?
+
+			fn min_encoded_len() -> usize {
+				mem::size_of::<$t>()
+			}
 
 			fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 				let size = mem::size_of::<$t>();

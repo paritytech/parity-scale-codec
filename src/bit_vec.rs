@@ -47,6 +47,10 @@ impl<C: Cursor, T: Bits + ToByteSlice> Encode for BitVec<C, T> {
 }
 
 impl<C: Cursor, T: Bits + FromByteSlice> Decode for BitVec<C, T> {
+	fn min_encoded_len() -> usize {
+		<Compact<u32>>::min_encoded_len()
+	}
+
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		<Compact<u32>>::decode(input).and_then(move |Compact(bits)| {
 			let bits = bits as usize;
@@ -69,6 +73,10 @@ impl<C: Cursor, T: Bits + ToByteSlice> Encode for BitBox<C, T> {
 }
 
 impl<C: Cursor, T: Bits + FromByteSlice> Decode for BitBox<C, T> {
+	fn min_encoded_len() -> usize {
+		<BitVec<C, T>>::min_encoded_len()
+	}
+
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		Ok(Self::from_bitslice(BitVec::<C, T>::decode(input)?.as_bitslice()))
 	}

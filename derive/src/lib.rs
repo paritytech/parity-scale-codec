@@ -132,14 +132,24 @@ pub fn decode_derive(input: TokenStream) -> TokenStream {
 	let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
 	let input_ = quote!(input);
-	let decoding = decode::quote(&input.data, name, &input_);
+	let impl_ = match decode::quote(&input.data, name, &input_) {
+		Ok(impl_) => impl_,
+		Err(e) => return e.into(),
+	};
+
+	let decode = impl_.decode;
+	let min_encoded_len = impl_.min_encoded_len;
 
 	let impl_block = quote! {
 		impl #impl_generics _parity_scale_codec::Decode for #name #ty_generics #where_clause {
+			fn min_encoded_len() -> usize {
+				#min_encoded_len
+			}
+
 			fn decode<DecIn: _parity_scale_codec::Input>(
 				#input_: &mut DecIn
 			) -> Result<Self, _parity_scale_codec::Error> {
-				#decoding
+				#decode
 			}
 		}
 	};
