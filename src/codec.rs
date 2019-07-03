@@ -94,7 +94,7 @@ impl From<&'static str> for Error {
 
 /// Trait that allows reading of data into a slice.
 pub trait Input {
-	/// Read the exact number of bytes required to fill the specified buffer `into`.
+	/// Read the exact number of bytes required to fill the given buffer.
 	///
 	/// Note that this function is similar to `std::io::Read::read_exact` and not
 	/// `std::io::Read::read`.
@@ -112,10 +112,10 @@ pub trait Input {
 impl<'a> Input for &'a [u8] {
 	fn read(&mut self, into: &mut [u8]) -> Result<(), Error> {
 		if into.len() > self.len() {
-			return Err("input length smaller than given buffer".into());
+			return Err("Not enough data to fill buffer".into());
 		}
 		let len = into.len();
-		into[..len].copy_from_slice(&self[..len]);
+		into.copy_from_slice(&self[..len]);
 		*self = &self[len..];
 		Ok(())
 	}
