@@ -45,12 +45,12 @@ struct PrefixInput<'a, T> {
 }
 
 impl<'a, T: 'a + Input> Input for PrefixInput<'a, T> {
-	fn read(&mut self, buffer: &mut [u8]) -> Result<usize, Error> {
+	fn read(&mut self, buffer: &mut [u8]) -> Result<(), Error> {
 		match self.prefix.take() {
 			Some(v) if !buffer.is_empty() => {
 				buffer[0] = v;
-				let res = 1 + self.input.read(&mut buffer[1..])?;
-				Ok(res)
+				self.input.read(&mut buffer[1..])?;
+				Ok(())
 			}
 			_ => self.input.read(buffer)
 		}
