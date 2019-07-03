@@ -94,17 +94,11 @@ impl From<&'static str> for Error {
 
 /// Trait that allows reading of data into a slice.
 pub trait Input {
-	/// Read into the provided input slice. Returns the number of bytes read.
+	/// Read the exact number of bytes required to fill the specified buffer `into`.
 	///
-	/// Note that this function should be more like `std::io::Read::read_exact`
-	/// than `std::io::Read::read`. I.e. the buffer should always be filled
-	/// with as many bytes as available and if `n < into.len()` is returned
-	/// then it should mean that there was not enough bytes available and the
-	/// `Input` is drained.
-	///
-	/// Callers of this function should not need to call again if `n < into.len()`
-	/// is returned.
-	fn read(&mut self, into: &mut [u8]) -> Result<usize, Error>;
+	/// Note that this function is similar to `std::io::Read::read_exact` and not
+	/// `std::io::Read::read`.
+	fn read(&mut self, into: &mut [u8]) -> Result<(), Error>;
 
 	/// Read a single byte from the input.
 	fn read_byte(&mut self) -> Result<u8, Error> {
@@ -116,14 +110,14 @@ pub trait Input {
 
 #[cfg(not(feature = "std"))]
 impl<'a> Input for &'a [u8] {
-	fn read(&mut self, into: &mut [u8]) -> Result<usize, Error> {
+	fn read(&mut self, into: &mut [u8]) -> Result<(), Error> {
 		if into.len() > self.len() {
-			return Err("".into());
+			return Err("input length smaller than given buffer".into());
 		}
-		let len = core::cmp::min(into.len(), self.len());
+		let len = into.len();
 		into[..len].copy_from_slice(&self[..len]);
 		*self = &self[len..];
-		Ok(len)
+		Ok(())
 	}
 }
 
@@ -136,9 +130,9 @@ impl From<std::io::Error> for Error {
 
 #[cfg(feature = "std")]
 impl<R: std::io::Read> Input for R {
-	fn read(&mut self, into: &mut [u8]) -> Result<usize, Error> {
+	fn read(&mut self, into: &mut [u8]) -> Result<(), Error> {
 		(self as &mut dyn std::io::Read).read_exact(into)?;
-		Ok(into.len())
+		Ok(())
 	}
 }
 
@@ -540,12 +534,9 @@ impl<T: Decode> Decode for Vec<T> {
 			if let IsU8::Yes = <T as Decode>::IS_U8 {
 				let mut r = vec![0; len];
 
-				if input.read(&mut r[..len])? != len {
-					Err(Error::from("Input vector len doesn't match prefix specified"))
-				} else {
-					let r = unsafe { std::mem::transmute::<Vec<u8>, Vec<T>>(r) };
-					Ok(r)
-				}
+				input.read(&mut r[..len])?;
+				let r = unsafe { std::mem::transmute::<Vec<u8>, Vec<T>>(r) };
+				Ok(r)
 			} else {
 				let mut r = Vec::with_capacity(len);
 				for _ in 0..len {
