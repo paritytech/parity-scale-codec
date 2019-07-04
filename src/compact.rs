@@ -45,8 +45,8 @@ struct PrefixInput<'a, T> {
 }
 
 impl<'a, T: 'a + Input> Input for PrefixInput<'a, T> {
-	fn require_minimum_len(&mut self, len: usize) -> Result<(), Error> {
-		self.input.require_minimum_len(len.saturating_sub(self.prefix.iter().count()))
+	fn require_min_len(&mut self, len: usize) -> Result<(), Error> {
+		self.input.require_min_len(len.saturating_sub(self.prefix.iter().count()))
 	}
 
 	fn read(&mut self, buffer: &mut [u8]) -> Result<(), Error> {

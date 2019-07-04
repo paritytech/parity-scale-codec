@@ -28,6 +28,7 @@ The `Encode` trait is used for encoding of data into the SCALE format. The `Enco
 
 The `Decode` trait is used for deserialization/decoding of encoded data into the respective types.
 
+* `fn min_encoded_len() -> usize`: The minimum lenght a valid encoded value can have.
 * `fn decode<I: Input>(value: &mut I) -> Result<Self, Error>`: Tries to decode the value from SCALE format to the type it is called on. Returns an `Err` if the decoding fails.
 
 ### CompactAs
