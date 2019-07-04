@@ -652,6 +652,20 @@ impl Decode for Compact<u128> {
 mod tests {
 	use super::*;
 
+	/// Mock
+	pub trait DecodeM: Decode {
+		fn decode_m(value: &mut &[u8]) -> Result<Self, Error> {
+			let len = value.len();
+			let res = Self::decode(value);
+			if res.is_ok() {
+				assert!(len - value.len() >= Self::min_encoded_len());
+			}
+			res
+		}
+	}
+
+	impl<T: Decode> DecodeM for T {}
+
 	#[test]
 	fn compact_128_encoding_works() {
 		let tests = [
@@ -666,7 +680,7 @@ mod tests {
 			let encoded = Compact(n as u128).encode();
 			assert_eq!(encoded.len(), l);
 			assert_eq!(Compact::compact_len(&n), l);
-			assert_eq!(<Compact<u128>>::decode(&mut &encoded[..]).unwrap().0, n);
+			assert_eq!(<Compact<u128>>::decode_m(&mut &encoded[..]).unwrap().0, n);
 		}
 	}
 
@@ -682,7 +696,7 @@ mod tests {
 			let encoded = Compact(n as u64).encode();
 			assert_eq!(encoded.len(), l);
 			assert_eq!(Compact::compact_len(&n), l);
-			assert_eq!(<Compact<u64>>::decode(&mut &encoded[..]).unwrap().0, n);
+			assert_eq!(<Compact<u64>>::decode_m(&mut &encoded[..]).unwrap().0, n);
 		}
 	}
 
@@ -693,7 +707,7 @@ mod tests {
 			let encoded = Compact(n as u32).encode();
 			assert_eq!(encoded.len(), l);
 			assert_eq!(Compact::compact_len(&n), l);
-			assert_eq!(<Compact<u32>>::decode(&mut &encoded[..]).unwrap().0, n);
+			assert_eq!(<Compact<u32>>::decode_m(&mut &encoded[..]).unwrap().0, n);
 		}
 	}
 
@@ -704,9 +718,9 @@ mod tests {
 			let encoded = Compact(n as u16).encode();
 			assert_eq!(encoded.len(), l);
 			assert_eq!(Compact::compact_len(&n), l);
-			assert_eq!(<Compact<u16>>::decode(&mut &encoded[..]).unwrap().0, n);
+			assert_eq!(<Compact<u16>>::decode_m(&mut &encoded[..]).unwrap().0, n);
 		}
-		assert!(<Compact<u16>>::decode(&mut &Compact(65536u32).encode()[..]).is_err());
+		assert!(<Compact<u16>>::decode_m(&mut &Compact(65536u32).encode()[..]).is_err());
 	}
 
 	#[test]
@@ -716,9 +730,9 @@ mod tests {
 			let encoded = Compact(n as u8).encode();
 			assert_eq!(encoded.len(), l);
 			assert_eq!(Compact::compact_len(&n), l);
-			assert_eq!(<Compact<u8>>::decode(&mut &encoded[..]).unwrap().0, n);
+			assert_eq!(<Compact<u8>>::decode_m(&mut &encoded[..]).unwrap().0, n);
 		}
-		assert!(<Compact<u8>>::decode(&mut &Compact(256u32).encode()[..]).is_err());
+		assert!(<Compact<u8>>::decode_m(&mut &Compact(256u32).encode()[..]).is_err());
 	}
 
 	fn hexify(bytes: &[u8]) -> String {
@@ -747,26 +761,26 @@ mod tests {
 			// Verify u64 encoding
 			let encoded = Compact(n as u64).encode();
 			assert_eq!(hexify(&encoded), s);
-			assert_eq!(<Compact<u64>>::decode(&mut &encoded[..]).unwrap().0, n);
+			assert_eq!(<Compact<u64>>::decode_m(&mut &encoded[..]).unwrap().0, n);
 
 			// Verify encodings for lower-size uints are compatible with u64 encoding
 			if n <= u32::max_value() as u64 {
-				assert_eq!(<Compact<u32>>::decode(&mut &encoded[..]).unwrap().0, n as u32);
+				assert_eq!(<Compact<u32>>::decode_m(&mut &encoded[..]).unwrap().0, n as u32);
 				let encoded = Compact(n as u32).encode();
 				assert_eq!(hexify(&encoded), s);
-				assert_eq!(<Compact<u64>>::decode(&mut &encoded[..]).unwrap().0, n as u64);
+				assert_eq!(<Compact<u64>>::decode_m(&mut &encoded[..]).unwrap().0, n as u64);
 			}
 			if n <= u16::max_value() as u64 {
-				assert_eq!(<Compact<u16>>::decode(&mut &encoded[..]).unwrap().0, n as u16);
+				assert_eq!(<Compact<u16>>::decode_m(&mut &encoded[..]).unwrap().0, n as u16);
 				let encoded = Compact(n as u16).encode();
 				assert_eq!(hexify(&encoded), s);
-				assert_eq!(<Compact<u64>>::decode(&mut &encoded[..]).unwrap().0, n as u64);
+				assert_eq!(<Compact<u64>>::decode_m(&mut &encoded[..]).unwrap().0, n as u64);
 			}
 			if n <= u8::max_value() as u64 {
-				assert_eq!(<Compact<u8>>::decode(&mut &encoded[..]).unwrap().0, n as u8);
+				assert_eq!(<Compact<u8>>::decode_m(&mut &encoded[..]).unwrap().0, n as u8);
 				let encoded = Compact(n as u8).encode();
 				assert_eq!(hexify(&encoded), s);
-				assert_eq!(<Compact<u64>>::decode(&mut &encoded[..]).unwrap().0, n as u64);
+				assert_eq!(<Compact<u64>>::decode_m(&mut &encoded[..]).unwrap().0, n as u64);
 			}
 		}
 	}
@@ -799,7 +813,7 @@ mod tests {
 			let encoded = compact.encode();
 			assert_eq!(encoded.len(), l);
 			assert_eq!(Compact::compact_len(&n), l);
-			let decoded = <Compact<Wrapper>>::decode(&mut & encoded[..]).unwrap();
+			let decoded = <Compact<Wrapper>>::decode_m(&mut & encoded[..]).unwrap();
 			let wrapper: Wrapper = decoded.into();
 			assert_eq!(wrapper, Wrapper(n));
 		}
@@ -850,7 +864,7 @@ mod tests {
 		};
 		( $m:expr, $ty:ty, $typ1:ty, $ty2:ty, $ty2_err:expr) => {
 			let enc = ((<$ty>::max_value() >> 2) as $typ1 << 2) | $m;
-			assert_eq!(Compact::<$ty2>::decode(&mut &enc.to_le_bytes()[..]),
+			assert_eq!(Compact::<$ty2>::decode_m(&mut &enc.to_le_bytes()[..]),
 				Err($ty2_err.into()));
 		};
 	}
@@ -861,7 +875,7 @@ mod tests {
 			)*
 		};
 		( $ty2:ty, $ty2_err:expr ) => {
-			assert_eq!(Compact::<$ty2>::decode(&mut &[0b11, 0xff, 0xff, 0xff, 0xff >> 2][..]),
+			assert_eq!(Compact::<$ty2>::decode_m(&mut &[0b11, 0xff, 0xff, 0xff, 0xff >> 2][..]),
 				Err($ty2_err.into()));
 		};
 	}
@@ -878,7 +892,7 @@ mod tests {
 				dest.push(u8::max_value());
 			}
 			dest.push(0);
-			assert_eq!(Compact::<$ty2>::decode(&mut &dest[..]),
+			assert_eq!(Compact::<$ty2>::decode_m(&mut &dest[..]),
 				Err($ty2_err.into()));
 		};
 	}
@@ -894,7 +908,7 @@ mod tests {
 			(u64::max_value() << 16) - 1,
 		].into_iter() {
 			let e = Compact::<u64>::encode(&Compact(*a));
-			let d = Compact::<u64>::decode(&mut &e[..]).unwrap().0;
+			let d = Compact::<u64>::decode_m(&mut &e[..]).unwrap().0;
 			assert_eq!(*a, d);
 		}
 	}
@@ -908,7 +922,7 @@ mod tests {
 			u128::max_value() - 10,
 		].into_iter() {
 			let e = Compact::<u128>::encode(&Compact(*a));
-			let d = Compact::<u128>::decode(&mut &e[..]).unwrap().0;
+			let d = Compact::<u128>::decode_m(&mut &e[..]).unwrap().0;
 			assert_eq!(*a, d);
 		}
 	}

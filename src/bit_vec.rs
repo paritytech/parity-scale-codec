@@ -93,6 +93,20 @@ mod tests {
 	use super::*;
 	use bitvec::{bitvec, cursor::BigEndian};
 
+	/// Mock
+	pub trait DecodeM: Decode {
+		fn decode_m(value: &mut &[u8]) -> Result<Self, Error> {
+			let len = value.len();
+			let res = Self::decode(value);
+			if res.is_ok() {
+				assert!(len - value.len() >= Self::min_encoded_len());
+			}
+			res
+		}
+	}
+
+	impl<T: Decode> DecodeM for T {}
+
 	macro_rules! test_data {
 		($inner_type: ty) => (
 			[
@@ -154,7 +168,7 @@ mod tests {
 	fn bitvec_u8() {
 		for v in &test_data!(u8) {
 			let encoded = v.encode();
-			assert_eq!(*v, BitVec::<BigEndian, u8>::decode(&mut &encoded[..]).unwrap());
+			assert_eq!(*v, BitVec::<BigEndian, u8>::decode_m(&mut &encoded[..]).unwrap());
 		}
 	}
 
@@ -162,7 +176,7 @@ mod tests {
 	fn bitvec_u16() {
 		for v in &test_data!(u16) {
 			let encoded = v.encode();
-			assert_eq!(*v, BitVec::<BigEndian, u16>::decode(&mut &encoded[..]).unwrap());
+			assert_eq!(*v, BitVec::<BigEndian, u16>::decode_m(&mut &encoded[..]).unwrap());
 		}
 	}
 
@@ -170,7 +184,7 @@ mod tests {
 	fn bitvec_u32() {
 		for v in &test_data!(u32) {
 			let encoded = v.encode();
-			assert_eq!(*v, BitVec::<BigEndian, u32>::decode(&mut &encoded[..]).unwrap());
+			assert_eq!(*v, BitVec::<BigEndian, u32>::decode_m(&mut &encoded[..]).unwrap());
 		}
 	}
 
@@ -178,7 +192,7 @@ mod tests {
 	fn bitvec_u64() {
 		for v in &test_data!(u64) {
 			let encoded = v.encode();
-			assert_eq!(*v, BitVec::<BigEndian, u64>::decode(&mut &encoded[..]).unwrap());
+			assert_eq!(*v, BitVec::<BigEndian, u64>::decode_m(&mut &encoded[..]).unwrap());
 		}
 	}
 
@@ -187,7 +201,7 @@ mod tests {
 		let data: &[u8] = &[0x69];
 		let slice: &BitSlice = data.into();
 		let encoded = slice.encode();
-		let decoded = BitVec::<BigEndian, u8>::decode(&mut &encoded[..]).unwrap();
+		let decoded = BitVec::<BigEndian, u8>::decode_m(&mut &encoded[..]).unwrap();
 		assert_eq!(slice, decoded.as_bitslice());
 	}
 
@@ -196,7 +210,7 @@ mod tests {
 		let data: &[u8] = &[5, 10];
 		let bb: BitBox = data.into();
 		let encoded = bb.encode();
-		let decoded = BitBox::<BigEndian, u8>::decode(&mut &encoded[..]).unwrap();
+		let decoded = BitBox::<BigEndian, u8>::decode_m(&mut &encoded[..]).unwrap();
 		assert_eq!(bb, decoded);
 	}
 }

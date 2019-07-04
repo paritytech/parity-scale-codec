@@ -1017,6 +1017,19 @@ mod tests {
 	use super::*;
 	use std::borrow::Cow;
 
+	pub trait DecodeM: Decode {
+		fn decode_m(value: &mut &[u8]) -> Result<Self, Error> {
+			let len = value.len();
+			let res = Self::decode(value);
+			if res.is_ok() {
+				assert!(len - value.len() >= Self::min_encoded_len());
+			}
+			res
+		}
+	}
+
+	impl<T: Decode> DecodeM for T {}
+
 	#[test]
 	fn vec_is_slicable() {
 		let v = b"Hello world".to_vec();
@@ -1032,7 +1045,7 @@ mod tests {
 
 		let encoded = (&x, &y).encode();
 
-		assert_eq!((x, y), Decode::decode(&mut &encoded[..]).unwrap());
+		assert_eq!((x, y), DecodeM::decode_m(&mut &encoded[..]).unwrap());
 	}
 
 	#[test]
@@ -1041,7 +1054,7 @@ mod tests {
 		let y = Cow::Borrowed(&x);
 		assert_eq!(x.encode(), y.encode());
 
-		let z: Cow<'_, [u32]> = Cow::decode(&mut &x.encode()[..]).unwrap();
+		let z: Cow<'_, [u32]> = Cow::decode_m(&mut &x.encode()[..]).unwrap();
 		assert_eq!(*z, *x);
 	}
 
@@ -1051,7 +1064,7 @@ mod tests {
 		let y = Cow::Borrowed(&x);
 		assert_eq!(x.encode(), y.encode());
 
-		let z: Cow<'_, str> = Cow::decode(&mut &x.encode()[..]).unwrap();
+		let z: Cow<'_, str> = Cow::decode_m(&mut &x.encode()[..]).unwrap();
 		assert_eq!(*z, *x);
 	}
 
@@ -1064,7 +1077,7 @@ mod tests {
 		let value = String::from("Hello, World!");
 		let encoded = value.encode();
 		assert_eq!(hexify(&encoded), "34 48 65 6c 6c 6f 2c 20 57 6f 72 6c 64 21");
-		assert_eq!(<String>::decode(&mut &encoded[..]).unwrap(), value);
+		assert_eq!(<String>::decode_m(&mut &encoded[..]).unwrap(), value);
 	}
 
 	#[test]
@@ -1072,7 +1085,7 @@ mod tests {
 		let value = vec![0u8, 1, 1, 2, 3, 5, 8, 13, 21, 34];
 		let encoded = value.encode();
 		assert_eq!(hexify(&encoded), "28 00 01 01 02 03 05 08 0d 15 22");
-		assert_eq!(<Vec<u8>>::decode(&mut &encoded[..]).unwrap(), value);
+		assert_eq!(<Vec<u8>>::decode_m(&mut &encoded[..]).unwrap(), value);
 	}
 
 	#[test]
@@ -1080,7 +1093,7 @@ mod tests {
 		let value = vec![0i16, 1, -1, 2, -2, 3, -3];
 		let encoded = value.encode();
 		assert_eq!(hexify(&encoded), "1c 00 00 01 00 ff ff 02 00 fe ff 03 00 fd ff");
-		assert_eq!(<Vec<i16>>::decode(&mut &encoded[..]).unwrap(), value);
+		assert_eq!(<Vec<i16>>::decode_m(&mut &encoded[..]).unwrap(), value);
 	}
 
 	#[test]
@@ -1088,7 +1101,7 @@ mod tests {
 		let value = vec![Some(1i8), Some(-1), None];
 		let encoded = value.encode();
 		assert_eq!(hexify(&encoded), "0c 01 01 01 ff 00");
-		assert_eq!(<Vec<Option<i8>>>::decode(&mut &encoded[..]).unwrap(), value);
+		assert_eq!(<Vec<Option<i8>>>::decode_m(&mut &encoded[..]).unwrap(), value);
 	}
 
 	#[test]
@@ -1096,7 +1109,7 @@ mod tests {
 		let value = vec![OptionBool(Some(true)), OptionBool(Some(false)), OptionBool(None)];
 		let encoded = value.encode();
 		assert_eq!(hexify(&encoded), "0c 01 02 00");
-		assert_eq!(<Vec<OptionBool>>::decode(&mut &encoded[..]).unwrap(), value);
+		assert_eq!(<Vec<OptionBool>>::decode_m(&mut &encoded[..]).unwrap(), value);
 	}
 
 	#[test]
@@ -1107,7 +1120,7 @@ mod tests {
 			<Vec<u32> as EncodeAppend>::append(encoded, &[v]).unwrap()
 		});
 
-		let decoded = Vec::<u32>::decode(&mut &encoded[..]).unwrap();
+		let decoded = Vec::<u32>::decode_m(&mut &encoded[..]).unwrap();
 		assert_eq!(decoded, (0..max_value).collect::<Vec<_>>());
 	}
 
@@ -1119,7 +1132,7 @@ mod tests {
 			<Vec<u32> as EncodeAppend>::append(encoded, &[v, v, v, v]).unwrap()
 		});
 
-		let decoded = Vec::<u32>::decode(&mut &encoded[..]).unwrap();
+		let decoded = Vec::<u32>::decode_m(&mut &encoded[..]).unwrap();
 		let expected = (0..max_value).fold(Vec::new(), |mut vec, i| {
 			vec.append(&mut vec![i, i, i, i]);
 			vec
@@ -1127,7 +1140,7 @@ mod tests {
 		assert_eq!(decoded, expected);
 	}
 
-	fn test_encode_length<T: Encode + Decode + DecodeLength>(thing: &T, len: usize) {
+	fn test_encode_length<T: Encode + DecodeM + DecodeLength>(thing: &T, len: usize) {
 		assert_eq!(<T as DecodeLength>::len(&mut &thing.encode()[..]).unwrap(), len);
 	}
 
@@ -1171,7 +1184,7 @@ mod tests {
 			b8 20 d0 bc d0 b8 d1 80 30 e4 b8 89 e5 9b bd e6 bc 94 e4 b9 89 bc d8 a3 d9 8e d9 84 d9 92 \
 			d9 81 20 d9 84 d9 8e d9 8a d9 92 d9 84 d9 8e d8 a9 20 d9 88 d9 8e d9 84 d9 8e d9 8a d9 92 \
 			d9 84 d9 8e d8 a9 e2 80 8e");
-		assert_eq!(<Vec<String>>::decode(&mut &encoded[..]).unwrap(), value);
+		assert_eq!(<Vec<String>>::decode_m(&mut &encoded[..]).unwrap(), value);
 	}
 
 	#[derive(Debug, PartialEq)]
@@ -1194,7 +1207,7 @@ mod tests {
 		let result = vec![0b1100];
 
 		assert_eq!(MyWrapper(3u32.into()).encode(), result);
-		assert_eq!(MyWrapper::decode(&mut &*result).unwrap(), MyWrapper(3_u32.into()));
+		assert_eq!(MyWrapper::decode_m(&mut &*result).unwrap(), MyWrapper(3_u32.into()));
 	}
 
 	#[test]
@@ -1211,8 +1224,8 @@ mod tests {
 			v_u16.push_back(i as u16);
 		}
 
-		assert_eq!(Decode::decode(&mut &v_u8.encode()[..]), Ok(v_u8));
-		assert_eq!(Decode::decode(&mut &v_u16.encode()[..]), Ok(v_u16));
+		assert_eq!(DecodeM::decode_m(&mut &v_u8.encode()[..]), Ok(v_u8));
+		assert_eq!(DecodeM::decode_m(&mut &v_u16.encode()[..]), Ok(v_u16));
 	}
 
 	#[test]
@@ -1234,19 +1247,19 @@ mod tests {
 				.map(|i| (i.clone(), i.len() as u32))
 		);
 
-		assert_eq!(Decode::decode(&mut &t1.encode()[..]), Ok(t1));
-		assert_eq!(Decode::decode(&mut &t2.encode()[..]), Ok(t2));
+		assert_eq!(DecodeM::decode_m(&mut &t1.encode()[..]), Ok(t1));
+		assert_eq!(DecodeM::decode_m(&mut &t2.encode()[..]), Ok(t2));
 		assert_eq!(
-			Decode::decode(&mut &t3.encode()[..]).map(BinaryHeap::into_sorted_vec),
+			DecodeM::decode_m(&mut &t3.encode()[..]).map(BinaryHeap::into_sorted_vec),
 			Ok(t3.into_sorted_vec()),
 		);
-		assert_eq!(Decode::decode(&mut &t4.encode()[..]), Ok(t4));
-		assert_eq!(Decode::decode(&mut &t5.encode()[..]), Ok(t5));
-		assert_eq!(Decode::decode(&mut &t6.encode()[..]), Ok(t6));
+		assert_eq!(DecodeM::decode_m(&mut &t4.encode()[..]), Ok(t4));
+		assert_eq!(DecodeM::decode_m(&mut &t5.encode()[..]), Ok(t5));
+		assert_eq!(DecodeM::decode_m(&mut &t6.encode()[..]), Ok(t6));
 		assert_eq!(
-			Decode::decode(&mut &t7.encode()[..]).map(BinaryHeap::into_sorted_vec),
+			DecodeM::decode_m(&mut &t7.encode()[..]).map(BinaryHeap::into_sorted_vec),
 			Ok(t7.into_sorted_vec()),
 		);
-		assert_eq!(Decode::decode(&mut &t8.encode()[..]), Ok(t8));
+		assert_eq!(DecodeM::decode_m(&mut &t8.encode()[..]), Ok(t8));
 	}
 }
