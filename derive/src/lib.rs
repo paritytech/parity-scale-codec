@@ -138,7 +138,9 @@ pub fn decode_derive(input: TokenStream) -> TokenStream {
 		impl #impl_generics _parity_scale_codec::Decode for #name #ty_generics #where_clause {
 			fn decode<DecIn: _parity_scale_codec::Input>(
 				#input_: &mut DecIn
-			) -> Result<Self, _parity_scale_codec::Error> {
+			) -> Result<Self, _parity_scale_codec::Error> where
+				_parity_scale_codec::Error: From<DecIn::Error>
+			{
 				#decoding
 			}
 		}

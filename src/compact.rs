@@ -14,7 +14,9 @@
 
 //! [Compact encoding](https://substrate.dev/docs/en/overview/low-level-data-format#compact-general-integers)
 
-use crate::codec::{Input, Output, Error, Encode, Decode, EncodeAsRef};
+use crate::codec::{Error, Encode, Decode, EncodeAsRef};
+use crate::alloc::vec::Vec;
+use codec_io::{Input, Output};
 
 use arrayvec::ArrayVec;
 
@@ -44,7 +46,11 @@ struct PrefixInput<'a, T> {
 	input: &'a mut T,
 }
 
-impl<'a, T: 'a + Input> Input for PrefixInput<'a, T> {
+impl<'a, T: 'a + Input> Input for PrefixInput<'a, T> where
+	Error: From<T::Error>
+{
+	type Error = Error;
+
 	fn read(&mut self, buffer: &mut [u8]) -> Result<(), Error> {
 		match self.prefix.take() {
 			Some(v) if !buffer.is_empty() => {
@@ -52,7 +58,7 @@ impl<'a, T: 'a + Input> Input for PrefixInput<'a, T> {
 				self.input.read(&mut buffer[1..])?;
 				Ok(())
 			}
-			_ => self.input.read(buffer)
+			_ => Ok(self.input.read(buffer)?)
 		}
 	}
 }
@@ -135,7 +141,9 @@ where
 	T: CompactAs,
 	Compact<T::As>: Decode,
 {
-	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
+	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> where
+		Error: From<I::Error>
+	{
 		Compact::<T::As>::decode(input)
 			.map(|x| Compact(<T as CompactAs>::decode_from(x.0)))
 	}
@@ -416,12 +424,14 @@ const U64_OUT_OF_RANGE: &'static str = "out of range decoding Compact<u64>";
 const U128_OUT_OF_RANGE: &'static str = "out of range decoding Compact<u128>";
 
 impl Decode for Compact<u8> {
-	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
+	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> where
+		Error: From<I::Error>
+	{
 		let prefix = input.read_byte()?;
 		Ok(Compact(match prefix % 4 {
 			0 => prefix >> 2,
 			1 => {
-				let x = u16::decode(&mut PrefixInput{prefix: Some(prefix), input})? >> 2;
+				let x = u16::decode::<PrefixInput<I>>(&mut PrefixInput{prefix: Some(prefix), input})? >> 2;
 				if x > 0b00111111 && x <= 255 {
 					x as u8
 				} else {
@@ -434,12 +444,14 @@ impl Decode for Compact<u8> {
 }
 
 impl Decode for Compact<u16> {
-	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
+	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> where
+		Error: From<I::Error>
+	{
 		let prefix = input.read_byte()?;
 		Ok(Compact(match prefix % 4 {
 			0 => u16::from(prefix) >> 2,
 			1 => {
-				let x = u16::decode(&mut PrefixInput{prefix: Some(prefix), input})? >> 2;
+				let x = u16::decode::<PrefixInput<I>>(&mut PrefixInput{prefix: Some(prefix), input})? >> 2;
 				if x > 0b00111111 && x <= 0b00111111_11111111 {
 					u16::from(x)
 				} else {
@@ -447,7 +459,7 @@ impl Decode for Compact<u16> {
 				}
 			},
 			2 => {
-				let x = u32::decode(&mut PrefixInput{prefix: Some(prefix), input})? >> 2;
+				let x = u32::decode::<PrefixInput<I>>(&mut PrefixInput{prefix: Some(prefix), input})? >> 2;
 				if x > 0b00111111_11111111 && x < 65536 {
 					x as u16
 				} else {
@@ -460,12 +472,14 @@ impl Decode for Compact<u16> {
 }
 
 impl Decode for Compact<u32> {
-	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
+	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> where
+		Error: From<I::Error>
+	{
 		let prefix = input.read_byte()?;
 		Ok(Compact(match prefix % 4 {
 			0 => u32::from(prefix) >> 2,
 			1 => {
-				let x = u16::decode(&mut PrefixInput{prefix: Some(prefix), input})? >> 2;
+				let x = u16::decode::<PrefixInput<I>>(&mut PrefixInput{prefix: Some(prefix), input})? >> 2;
 				if x > 0b00111111 && x <= 0b00111111_11111111 {
 					u32::from(x)
 				} else {
@@ -473,7 +487,7 @@ impl Decode for Compact<u32> {
 				}
 			},
 			2 => {
-				let x = u32::decode(&mut PrefixInput{prefix: Some(prefix), input})? >> 2;
+				let x = u32::decode::<PrefixInput<I>>(&mut PrefixInput{prefix: Some(prefix), input})? >> 2;
 				if x > 0b00111111_11111111 && x <= u32::max_value() >> 2 {
 					u32::from(x)
 				} else {
@@ -499,12 +513,14 @@ impl Decode for Compact<u32> {
 }
 
 impl Decode for Compact<u64> {
-	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
+	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> where
+		Error: From<I::Error>
+	{
 		let prefix = input.read_byte()?;
 		Ok(Compact(match prefix % 4 {
 			0 => u64::from(prefix) >> 2,
 			1 => {
-				let x = u16::decode(&mut PrefixInput{prefix: Some(prefix), input})? >> 2;
+				let x = u16::decode::<PrefixInput<I>>(&mut PrefixInput{prefix: Some(prefix), input})? >> 2;
 				if x > 0b00111111 && x <= 0b00111111_11111111 {
 					u64::from(x)
 				} else {
@@ -512,7 +528,7 @@ impl Decode for Compact<u64> {
 				}
 			},
 			2 => {
-				let x = u32::decode(&mut PrefixInput{prefix: Some(prefix), input})? >> 2;
+				let x = u32::decode::<PrefixInput<I>>(&mut PrefixInput{prefix: Some(prefix), input})? >> 2;
 				if x > 0b00111111_11111111 && x <= u32::max_value() >> 2 {
 					u64::from(x)
 				} else {
@@ -554,12 +570,14 @@ impl Decode for Compact<u64> {
 }
 
 impl Decode for Compact<u128> {
-	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
+	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> where
+		Error: From<I::Error>
+	{
 		let prefix = input.read_byte()?;
 		Ok(Compact(match prefix % 4 {
 			0 => u128::from(prefix) >> 2,
 			1 => {
-				let x = u16::decode(&mut PrefixInput{prefix: Some(prefix), input})? >> 2;
+				let x = u16::decode::<PrefixInput<I>>(&mut PrefixInput{prefix: Some(prefix), input})? >> 2;
 				if x > 0b00111111 && x <= 0b00111111_11111111 {
 					u128::from(x)
 				} else {
@@ -567,7 +585,7 @@ impl Decode for Compact<u128> {
 				}
 			},
 			2 => {
-				let x = u32::decode(&mut PrefixInput{prefix: Some(prefix), input})? >> 2;
+				let x = u32::decode::<PrefixInput<I>>(&mut PrefixInput{prefix: Some(prefix), input})? >> 2;
 				if x > 0b00111111_11111111 && x <= u32::max_value() >> 2 {
 					u128::from(x)
 				} else {

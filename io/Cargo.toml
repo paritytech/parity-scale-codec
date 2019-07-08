@@ -1,0 +1,13 @@
+[package]
+name = "codec-io"
+description = "Common Input/Output trait definition shared by encoding libraries."
+version = "0.1.0"
+authors = ["Parity Technologies <admin@parity.io>"]
+license = "Apache-2.0"
+repository = "https://github.com/paritytech/parity-scale-codec"
+categories = ["encoding"]
+edition = "2018"
+
+[features]
+default = ["std"]
+std = []

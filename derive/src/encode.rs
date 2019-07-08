@@ -100,9 +100,10 @@ fn encode_fields<F>(
 			let field_type = &f.ty;
 			quote_spanned! {
 				f.span() => {
-					#dest.push(
+					_parity_scale_codec::Encode::encode_to(
 						&<<#field_type as _parity_scale_codec::HasCompact>::Type as
-							_parity_scale_codec::EncodeAsRef<'_, #field_type>>::RefType::from(#field)
+							_parity_scale_codec::EncodeAsRef<'_, #field_type>>::RefType::from(#field),
+						#dest
 					);
 				}
 			}
@@ -110,18 +111,17 @@ fn encode_fields<F>(
 			let field_type = &f.ty;
 			quote_spanned! {
 				f.span() => {
-					#dest.push(
+					_parity_scale_codec::Encode::encode_to(
 						&<#encoded_as as
-							_parity_scale_codec::EncodeAsRef<'_, #field_type>>::RefType::from(#field)
+							_parity_scale_codec::EncodeAsRef<'_, #field_type>>::RefType::from(#field),
+						#dest
 					);
 				}
 			}
 		} else if skip {
 			quote! {}
 		} else {
-			quote_spanned! { f.span() =>
-					#dest.push(#field);
-			}
+			quote_spanned! { f.span() => _parity_scale_codec::Encode::encode_to(#field, #dest); }
 		}
 	});
 
