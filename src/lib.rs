@@ -60,7 +60,7 @@ mod bit_vec;
 
 pub use self::codec::{
 	Input, Output, Encode, Decode, Codec, Compact, HasCompact, EncodeAsRef,
-	CompactAs, EncodeAppend
+	CompactAs, EncodeAppend, DecodeLength,
 };
 pub use self::joiner::Joiner;
 pub use self::keyedvec::KeyedVec;
