@@ -23,40 +23,38 @@
 
 extern crate alloc;
 
+/// I/O error type for basic `no_std` environment.
+#[cfg(not(feature = "std"))]
+pub enum Error {
+	/// Not enough data to fill the buffer.
+	NotEnoughData,
+}
+
+/// I/O error type for `std`. Alias of std::io::Error.
+#[cfg(feature = "std")]
+pub type Error = std::io::Error;
+
 /// Trait that allows reading of data into a slice.
 pub trait Input {
-	/// Error type of this input.
-	type Error;
-
 	/// Read the exact number of bytes required to fill the given buffer.
 	///
 	/// Note that this function is similar to `std::io::Read::read_exact` and not
 	/// `std::io::Read::read`.
-	fn read(&mut self, into: &mut [u8]) -> Result<(), Self::Error>;
+	fn read(&mut self, into: &mut [u8]) -> Result<(), Error>;
 
 	/// Read a single byte from the input.
-	fn read_byte(&mut self) -> Result<u8, Self::Error> {
+	fn read_byte(&mut self) -> Result<u8, Error> {
 		let mut buf = [0u8];
 		self.read(&mut buf[..])?;
 		Ok(buf[0])
 	}
 }
 
-/// Error for slice-based input. Only used in `no_std` environments.
-#[cfg(not(feature = "std"))]
-#[derive(PartialEq, Eq, Clone)]
-pub enum SliceInputError {
-	/// Not enough data to fill the buffer.
-	NotEnoughData,
-}
-
 #[cfg(not(feature = "std"))]
 impl<'a> Input for &'a [u8] {
-	type Error = SliceInputError;
-
-	fn read(&mut self, into: &mut [u8]) -> Result<(), SliceInputError> {
+	fn read(&mut self, into: &mut [u8]) -> Result<(), Error> {
 		if into.len() > self.len() {
-			return Err(SliceInputError::NotEnoughData);
+			return Err(Error::NotEnoughData);
 		}
 		let len = into.len();
 		into.copy_from_slice(&self[..len]);
@@ -67,8 +65,6 @@ impl<'a> Input for &'a [u8] {
 
 #[cfg(feature = "std")]
 impl<R: std::io::Read> Input for R {
-	type Error = std::io::Error;
-
 	fn read(&mut self, into: &mut [u8]) -> Result<(), std::io::Error> {
 		(self as &mut dyn std::io::Read).read_exact(into)?;
 		Ok(())
