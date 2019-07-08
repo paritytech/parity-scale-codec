@@ -103,7 +103,7 @@ fn encode_fields<F>(
 					_parity_scale_codec::Encode::encode_to(
 						&<<#field_type as _parity_scale_codec::HasCompact>::Type as
 							_parity_scale_codec::EncodeAsRef<'_, #field_type>>::RefType::from(#field),
-						#dest
+						#dest,
 					);
 				}
 			}
