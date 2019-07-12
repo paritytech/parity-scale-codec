@@ -16,7 +16,7 @@
 
 use std::mem;
 
-use bitvec::{vec::BitVec, bits::Bits, cursor::Cursor, slice::BitSlice, boxed::BitBox};
+use bitvec::{vec::BitVec, store::BitStore, cursor::Cursor, slice::BitSlice, boxed::BitBox};
 use byte_slice_cast::{AsByteSlice, ToByteSlice, FromByteSlice, Error as FromByteSliceError};
 
 use crate::codec::{Encode, Decode, Input, Output, Error};
@@ -31,7 +31,7 @@ impl From<FromByteSliceError> for Error {
 	}
 }
 
-impl<C: Cursor, T: Bits + ToByteSlice> Encode for BitSlice<C, T> {
+impl<C: Cursor, T: BitStore + ToByteSlice> Encode for BitSlice<C, T> {
 	fn encode_to<W: Output>(&self, dest: &mut W) {
 		let len = self.len();
 		assert!(len <= u32::max_value() as usize, "Attempted to serialize a collection with too many elements.");
@@ -40,13 +40,13 @@ impl<C: Cursor, T: Bits + ToByteSlice> Encode for BitSlice<C, T> {
 	}
 }
 
-impl<C: Cursor, T: Bits + ToByteSlice> Encode for BitVec<C, T> {
+impl<C: Cursor, T: BitStore + ToByteSlice> Encode for BitVec<C, T> {
 	fn encode_to<W: Output>(&self, dest: &mut W) {
 		self.as_bitslice().encode_to(dest)
 	}
 }
 
-impl<C: Cursor, T: Bits + FromByteSlice> Decode for BitVec<C, T> {
+impl<C: Cursor, T: BitStore + FromByteSlice> Decode for BitVec<C, T> {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		<Compact<u32>>::decode(input).and_then(move |Compact(bits)| {
 			let bits = bits as usize;
@@ -62,13 +62,13 @@ impl<C: Cursor, T: Bits + FromByteSlice> Decode for BitVec<C, T> {
 	}
 }
 
-impl<C: Cursor, T: Bits + ToByteSlice> Encode for BitBox<C, T> {
+impl<C: Cursor, T: BitStore + ToByteSlice> Encode for BitBox<C, T> {
 	fn encode_to<W: Output>(&self, dest: &mut W) {
 		self.as_bitslice().encode_to(dest)
 	}
 }
 
-impl<C: Cursor, T: Bits + FromByteSlice> Decode for BitBox<C, T> {
+impl<C: Cursor, T: BitStore + FromByteSlice> Decode for BitBox<C, T> {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		Ok(Self::from_bitslice(BitVec::<C, T>::decode(input)?.as_bitslice()))
 	}

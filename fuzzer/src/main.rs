@@ -1,6 +1,7 @@
 use parity_scale_codec::{Encode, Decode, Compact};
 use std::collections::{BTreeMap, BTreeSet, VecDeque, LinkedList, BinaryHeap};
 use honggfuzz::fuzz;
+use bitvec::{vec::BitVec, cursor::BigEndian};
 
 #[derive(Encode, Decode)]
 pub struct MockStruct{
@@ -93,6 +94,8 @@ fn fuzz_one_input(data: &[u8]){
 		BinaryHeap<u32>,
 		MockStruct,
 		MockEnum,
+		BitVec<BigEndian, u8>,
+		BitVec<BigEndian, u32>,
 	}
 }
 

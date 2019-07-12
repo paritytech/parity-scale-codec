@@ -12,14 +12,14 @@ edition = "2018"
 arrayvec = { version = "0.4", default-features = false, features = ["array-sizes-33-128", "array-sizes-129-255"] }
 serde = { version = "1.0", optional = true }
 parity-scale-codec-derive = { path = "derive", version = "1.0", default-features = false, optional = true }
-bitvec = { version = "0.11", default-features = false, features = ["alloc"], optional = true }
+bitvec = { version = "0.14.0", default-features = false, features = ["alloc"], optional = true }
 byte-slice-cast = { version = "0.3.1", optional = true }
 
 [dev-dependencies]
 serde_derive = { version = "1.0" }
 parity-scale-codec-derive = { path = "derive", version = "1.0", default-features = false }
 criterion = "0.2"
-bitvec = "0.11"
+bitvec = "0.14.0"
 
 [[bench]]
 name = "benches"
