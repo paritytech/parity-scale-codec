@@ -44,4 +44,5 @@ full = []
 [workspace]
 members = [
 	"derive",
+	"fuzzer",
 ]
