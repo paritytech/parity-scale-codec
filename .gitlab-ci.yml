@@ -52,6 +52,7 @@ test:fuzzing:
   stage:                           test
   before_script:
     - cargo install honggfuzz
+    - apt-get install libunwind-devel
   script:
     - cd fuzzer && HFUZZ_RUN_ARGS="-t 5 -n 2 -v -N 10000 --exit_upon_crash" cargo hfuzz run codec-fuzzer
   only:
