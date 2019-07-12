@@ -1,6 +1,3 @@
-#[macro_use]
-extern crate parity_scale_codec_derive;
-
 use parity_scale_codec::{Encode, Decode};
 
 #[test]

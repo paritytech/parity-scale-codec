@@ -1,53 +1,69 @@
-# Parity SCALE Codec
+## Parity SCALE Codec
 
-Rust implementation of the SCALE (Simple Concatenated Aggregate Little-Endian) data format for types used in the Parity Substrate framework.
+Rust implementation of the SCALE (Simple Concatenated Aggregate Little-Endian) data format
+for types used in the Parity Substrate framework.
 
-<!-- Inspired from Gav's codec overview written for Subtrate docs site -->
-SCALE is a light-weight format which allows encoding (and decoding) which makes it highly suitable for resource-constrained execution environments like blockchain runtimes and low-power, low-memory devices.
+SCALE is a light-weight format which allows encoding (and decoding) which makes it highly
+suitable for resource-constrained execution environments like blockchain runtimes and low-power,
+low-memory devices.
 
-It is important to note that the encoding context (knowledge of how the types and data structures look) needs to be known separately at both encoding and decoding ends. The encoded data does not include this contextual information.
+It is important to note that the encoding context (knowledge of how the types and data structures look)
+needs to be known separately at both encoding and decoding ends.
+The encoded data does not include this contextual information.
 
-To get a better understanding of how the encoding is done for different types, take a look at the [low-level data formats overview page at the Substrate docs site](https://substrate.dev/docs/en/overview/low-level-data-format).
+To get a better understanding of how the encoding is done for different types,
+take a look at the
+[low-level data formats overview page at the Substrate docs site](https://substrate.dev/docs/en/overview/low-level-data-format).
 
-## Implementation
+### Implementation
 
 The codec is implemented using the following traits:
 
-### Encode
+#### Encode
 
 The `Encode` trait is used for encoding of data into the SCALE format. The `Encode` trait contains the following functions:
-
-* `size_hint(&self) -> usize`: Gets the capacity (in bytes) required for the encoded data. This is to avoid double-allocation of memory needed for the encoding. It can be an estimate and does not need to be an exact number. If the size is not known, even no good maximum, then we can skip this function from the trait implementation. This is required to be a cheap operation, so should not involve iterations etc.
+* `size_hint(&self) -> usize`: Gets the capacity (in bytes) required for the encoded data.
+This is to avoid double-allocation of memory needed for the encoding.
+It can be an estimate and does not need to be an exact number.
+If the size is not known, even no good maximum, then we can skip this function from the trait implementation.
+This is required to be a cheap operation, so should not involve iterations etc.
 * `encode_to<T: Output>(&self, dest: &mut T)`: Encodes the value and appends it to a destination buffer.
 * `encode(&self) -> Vec<u8>`: Encodes the type data and returns a slice.
-* `using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R`: Encodes the type data and executes a closure on the encoded value. Returns the result from the executed closure.
+* `using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R`: Encodes the type data and executes a closure on the encoded value.
+Returns the result from the executed closure.
 
-**Note:** Implementations should override `using_encoded` for value types and `encode_to` for allocating types. `size_hint` should be implemented for all types, wherever possible. Wrapper types should override all methods.
+**Note:** Implementations should override `using_encoded` for value types and `encode_to` for allocating types.
+`size_hint` should be implemented for all types, wherever possible. Wrapper types should override all methods.
 
-### Decode
+#### Decode
 
 The `Decode` trait is used for deserialization/decoding of encoded data into the respective types.
 
-* `fn decode<I: Input>(value: &mut I) -> Result<Self, Error>`: Tries to decode the value from SCALE format to the type it is called on. Returns an `Err` if the decoding fails.
+* `fn decode<I: Input>(value: &mut I) -> Result<Self, Error>`: Tries to decode the value from SCALE format to the type it is called on.
+Returns an `Err` if the decoding fails.
 
-### CompactAs
+#### CompactAs
 
-The `CompactAs` trait is used for wrapping custom types/structs as compact types, which makes them even more space/memory efficient. The compact encoding is described [here](https://substrate.dev/docs/en/overview/low-level-data-format#compact-general-integers).
+The `CompactAs` trait is used for wrapping custom types/structs as compact types, which makes them even more space/memory efficient.
+The compact encoding is described [here](https://substrate.dev/docs/en/overview/low-level-data-format#compact-general-integers).
 
-* `encode_as(&self) -> &Self::As`: Encodes the type (self) as a compact type. The type `As` is defined in the same trait and its implementation should be compact encode-able.
+* `encode_as(&self) -> &Self::As`: Encodes the type (self) as a compact type.
+The type `As` is defined in the same trait and its implementation should be compact encode-able.
 * `decode_from(_: Self::As) -> Self`: Decodes the type (self) from a compact encode-able type.
 
-### HasCompact
+#### HasCompact
 
 The `HasCompact` trait, if implemented, tells that the corresponding type is a compact encode-able type.
 
-## Usage Examples
+### Usage Examples
 
 Following are some examples to demonstrate usage of the codec.
 
-### Simple types
+#### Simple types
 
 ```rust
+use parity_scale_codec::{Encode, Decode};
+
 #[derive(Debug, PartialEq, Encode, Decode)]
 enum EnumType {
 	#[codec(index = "15")]
@@ -86,11 +102,14 @@ assert_eq!(EnumType::decode(&mut dc).ok(), Some(c));
 
 let mut dz: &[u8] = &[0];
 assert_eq!(EnumType::decode(&mut dz).ok(), None);
+
 ```
 
-### Compact type with HasCompact
+#### Compact type with HasCompact
 
 ```rust
+use parity_scale_codec::{Encode, Decode, Compact, HasCompact};
+
 #[derive(Debug, PartialEq, Encode, Decode)]
 struct Test1CompactHasCompact<T: HasCompact> {
     #[codec(compact)]
@@ -108,11 +127,15 @@ let test_val: (u64, usize) = (0u64, 1usize);
 let encoded = Test1HasCompact { bar: test_val.0 }.encode();
 assert_eq!(encoded.len(), test_val.1);
 assert_eq!(<Test1CompactHasCompact<u64>>::decode(&mut &encoded[..]).unwrap().bar, test_val.0);
-```
 
-### Type with CompactAs
+```
+#### Type with CompactAs
 
 ```rust
+
+use serde_derive::{Serialize, Deserialize};
+use parity_scale_codec::{Encode, Decode, Compact, HasCompact, CompactAs};
+
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
 #[derive(PartialEq, Eq, Clone)]
 struct StructHasCompact(u32);
@@ -148,12 +171,7 @@ let a = TestGenericHasCompact::A::<StructHasCompact> {
 
 let encoded = a.encode();
 assert_eq!(encoded.len(), 2);
+
 ```
 
-## Derive macros
-
-This repository also contains an implementation of derive macros for the Parity SCALE codec. These macros can be used to implement the encode and decode functions for types using attributes. For reference, see the `derive` attributes on the types defined in the examples above.
-
-## License
-
-This Rust implementation of Parity SCALE Codec is licenced under the [Apache 2 license](./LICENSE).
+License: Apache-2.0
