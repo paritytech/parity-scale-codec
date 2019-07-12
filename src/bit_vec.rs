@@ -14,7 +14,7 @@
 
 //! `BitVec` specific serialization.
 
-use std::mem;
+use core::mem;
 
 use bitvec::{vec::BitVec, store::BitStore, cursor::Cursor, slice::BitSlice, boxed::BitBox};
 use byte_slice_cast::{AsByteSlice, ToByteSlice, FromByteSlice, Error as FromByteSliceError};
