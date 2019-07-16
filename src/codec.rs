@@ -115,7 +115,7 @@ pub trait Input {
 impl<'a> Input for &'a [u8] {
 	fn require_min_len(&mut self, len: usize) -> Result<(), Error> {
 		if self.len() < len {
-			return Err("Not enough data for required".into());
+			return Err("Not enough data for required minimum length".into());
 		}
 
 		Ok(())

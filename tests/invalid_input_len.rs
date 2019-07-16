@@ -8,8 +8,8 @@ fn vec_of_vec() {
 	let input = &mut &input[..];
 
 	let input_start_len = input.len();
-	let res = <Vec<Vec<()>>>::decode(input);
-	assert!(res.is_err());
+	let msg = <Vec<Vec<()>>>::decode(input).unwrap_err().what();
+	assert_eq!(msg, "Not enough data for required minimum length");
 
 	// Decoding stopped early, before vec allocation.
 	assert_eq!(input.len(), input_start_len - 1);
