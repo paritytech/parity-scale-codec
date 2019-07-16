@@ -92,20 +92,7 @@ fn required_bytes<T>(bits: usize) -> usize {
 mod tests {
 	use super::*;
 	use bitvec::{bitvec, cursor::BigEndian};
-
-	/// Mock
-	pub trait DecodeM: Decode {
-		fn decode_m(value: &mut &[u8]) -> Result<Self, Error> {
-			let len = value.len();
-			let res = Self::decode(value);
-			if res.is_ok() {
-				assert!(len - value.len() >= Self::min_encoded_len());
-			}
-			res
-		}
-	}
-
-	impl<T: Decode> DecodeM for T {}
+	use crate::codec::DecodeM;
 
 	macro_rules! test_data {
 		($inner_type: ty) => (

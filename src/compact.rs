@@ -651,20 +651,7 @@ impl Decode for Compact<u128> {
 #[cfg(test)]
 mod tests {
 	use super::*;
-
-	/// Mock
-	pub trait DecodeM: Decode {
-		fn decode_m(value: &mut &[u8]) -> Result<Self, Error> {
-			let len = value.len();
-			let res = Self::decode(value);
-			if res.is_ok() {
-				assert!(len - value.len() >= Self::min_encoded_len());
-			}
-			res
-		}
-	}
-
-	impl<T: Decode> DecodeM for T {}
+	use crate::codec::DecodeM;
 
 	#[test]
 	fn compact_128_encoding_works() {

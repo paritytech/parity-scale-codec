@@ -1010,24 +1010,25 @@ macro_rules! impl_non_endians {
 impl_endians!(u16, u32, u64, u128, i16, i32, i64, i128);
 impl_non_endians!(u8 {IS_U8}, i8, bool);
 
+#[cfg(test)]
+pub trait DecodeM: Decode {
+	fn decode_m(value: &mut &[u8]) -> Result<Self, Error> {
+		let len = value.len();
+		let res = Self::decode(value);
+		if res.is_ok() {
+			assert!(len - value.len() >= Self::min_encoded_len());
+		}
+		res
+	}
+}
+
+#[cfg(test)]
+impl<T: Decode> DecodeM for T {}
 
 #[cfg(test)]
 mod tests {
 	use super::*;
 	use std::borrow::Cow;
-
-	pub trait DecodeM: Decode {
-		fn decode_m(value: &mut &[u8]) -> Result<Self, Error> {
-			let len = value.len();
-			let res = Self::decode(value);
-			if res.is_ok() {
-				assert!(len - value.len() >= Self::min_encoded_len());
-			}
-			res
-		}
-	}
-
-	impl<T: Decode> DecodeM for T {}
 
 	#[test]
 	fn vec_is_slicable() {

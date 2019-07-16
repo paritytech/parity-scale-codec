@@ -1,22 +1,12 @@
 #[macro_use]
 extern crate parity_scale_codec_derive;
 
-use parity_scale_codec::{Compact, Encode, HasCompact, Decode, Error};
+use parity_scale_codec::{Compact, Encode, HasCompact};
 use serde_derive::{Serialize, Deserialize};
 
-/// Mock
-pub trait DecodeM: Decode {
-	fn decode_m(value: &mut &[u8]) -> Result<Self, Error> {
-		let len = value.len();
-		let res = Self::decode(value);
-		if res.is_ok() {
-			assert!(len - value.len() >= Self::min_encoded_len());
-		}
-		res
-	}
-}
+mod mock;
 
-impl<T: Decode> DecodeM for T {}
+use mock::DecodeM;
 
 #[derive(Debug, PartialEq, Encode, Decode)]
 struct S {
