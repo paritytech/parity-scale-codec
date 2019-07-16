@@ -12,8 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use proc_macro2::Span;
-use syn::{Generics, Ident, visit::{Visit, self}, Type, TypePath};
+use syn::{Generics, Ident, visit::{Visit, self}, Type, TypePath, spanned::Spanned};
 use std::iter;
 
 /// Visits the ast and checks if one of the given idents is found.
@@ -226,7 +225,10 @@ fn collect_types(
 				}
 			}).collect(),
 
-		Data::Union(_) => return Err(Error::new(Span::call_site(), "Union types are not supported.")),
+		Data::Union(ref data) => return Err(Error::new(
+			data.union_token.span(),
+			"Union types are not supported."
+		)),
 	};
 
 	Ok(types)

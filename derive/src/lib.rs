@@ -134,7 +134,7 @@ pub fn decode_derive(input: TokenStream) -> TokenStream {
 	let input_ = quote!(input);
 	let impl_ = match decode::quote(&input.data, name, &input_) {
 		Ok(impl_) => impl_,
-		Err(e) => return e.into(),
+		Err(e) => return e.to_compile_error().into(),
 	};
 
 	let decode = impl_.decode;
@@ -186,7 +186,6 @@ pub fn compact_as_derive(input: TokenStream) -> TokenStream {
 		}
 	}
 
-	let call_site = Span::call_site();
 	let (inner_ty, inner_field, constructor) = match input.data {
 		Data::Struct(ref data) => {
 			match data.fields {
@@ -198,7 +197,7 @@ pub fn compact_as_derive(input: TokenStream) -> TokenStream {
 					});
 					let field = utils::filter_skip_named(fields).next().expect("Exactly one field");
 					let field_name = &field.ident;
-					let constructor = quote_spanned!(call_site=> #name { #( #recurse, )* });
+					let constructor = quote!( #name { #( #recurse, )* } );
 					(&field.ty, quote!(&self.#field_name), constructor)
 				},
 				Fields::Unnamed(ref fields) if utils::filter_skip_unnamed(fields).count() == 1 => {
@@ -208,22 +207,20 @@ pub fn compact_as_derive(input: TokenStream) -> TokenStream {
 					});
 					let (id, field) = utils::filter_skip_unnamed(fields).next().expect("Exactly one field");
 					let id = syn::Index::from(id);
-					let constructor = quote_spanned!(call_site=> #name(#( #recurse, )*));
+					let constructor = quote!( #name(#( #recurse, )*) );
 					(&field.ty, quote!(&self.#id), constructor)
 				},
 				_ => {
 					return Error::new(
-						Span::call_site(),
+						data.fields.span(),
 						"Only structs with a single non-skipped field can derive CompactAs"
 					).to_compile_error().into();
 				},
 			}
 		},
-		_ => {
-			return Error::new(
-				Span::call_site(),
-				"Only structs can derive CompactAs"
-			).to_compile_error().into();
+		Data::Enum(syn::DataEnum { enum_token: syn::token::Enum { span }, .. }) |
+		Data::Union(syn::DataUnion { union_token: syn::token::Union { span }, .. }) => {
+			return Error::new(span, "Only structs can derive CompactAs").to_compile_error().into();
 		},
 	};
 

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use proc_macro2::{Span, TokenStream, Ident};
+use proc_macro2::{TokenStream, Ident};
 use syn::{Data, Fields, Field, spanned::Spanned, Error};
 use crate::utils;
 use std::iter::FromIterator;
@@ -22,23 +22,21 @@ pub struct Impl {
 	pub min_encoded_len: TokenStream,
 }
 
-pub fn quote(data: &Data, type_name: &Ident, input: &TokenStream) -> Result<Impl, TokenStream> {
-	let call_site = Span::call_site();
+pub fn quote(data: &Data, type_name: &Ident, input: &TokenStream) -> Result<Impl, Error> {
 	match *data {
 		Data::Struct(ref data) => match data.fields {
 			Fields::Named(_) | Fields::Unnamed(_) => fields_impl(
-				call_site,
 				quote! { #type_name },
 				input,
 				&data.fields,
 			),
 			Fields::Unit => {
-				let decode = quote_spanned! {call_site =>
+				let decode = quote_spanned! { data.fields.span() =>
 					drop(#input);
 					Ok(#type_name)
 				};
 
-				let min_encoded_len = quote_spanned! {call_site =>
+				let min_encoded_len = quote_spanned! { data.fields.span() =>
 					0
 				};
 
@@ -50,9 +48,9 @@ pub fn quote(data: &Data, type_name: &Ident, input: &TokenStream) -> Result<Impl
 
 			if data_variants().count() > 256 {
 				return Err(Error::new(
-					Span::call_site(),
+					data.variants.span(),
 					"Currently only enums with at most 256 variants are encodable."
-				).to_compile_error());
+				));
 			}
 
 			let recurse = data_variants().enumerate().map(|(i, v)| {
@@ -60,7 +58,6 @@ pub fn quote(data: &Data, type_name: &Ident, input: &TokenStream) -> Result<Impl
 				let index = utils::index(v, i);
 
 				let impl_ = fields_impl(
-					call_site,
 					quote! { #type_name :: #name },
 					input,
 					&v.fields,
@@ -82,7 +79,7 @@ pub fn quote(data: &Data, type_name: &Ident, input: &TokenStream) -> Result<Impl
 				Ok(Impl { decode, min_encoded_len })
 			});
 
-			let recurse: Vec<_> = Result::<_, TokenStream>::from_iter(recurse)?;
+			let recurse: Vec<_> = Result::<_, Error>::from_iter(recurse)?;
 
 			let recurse_decode = recurse.iter().map(|i| &i.decode);
 			let recurse_min_encoded_len = recurse.iter().map(|i| &i.min_encoded_len);
@@ -103,22 +100,23 @@ pub fn quote(data: &Data, type_name: &Ident, input: &TokenStream) -> Result<Impl
 
 			Ok(Impl { decode, min_encoded_len })
 		},
-		Data::Union(_) => Err(
-			Error::new(Span::call_site(), "Union types are not supported.").to_compile_error()
-		),
+		Data::Union(ref data) => Err(Error::new(
+			data.union_token.span(),
+			"Union types are not supported."
+		)),
 	}
 }
 
-fn field_impl(field: &Field, name: &String, input: &TokenStream) -> Result<Impl, TokenStream> {
+fn field_impl(field: &Field, name: &String, input: &TokenStream) -> Result<Impl, Error> {
 	let encoded_as = utils::get_encoded_as_type(field);
 	let compact = utils::get_enable_compact(field);
 	let skip = utils::get_skip(&field.attrs).is_some();
 
 	if encoded_as.is_some() as u8 + compact as u8 + skip as u8 > 1 {
 		return Err(Error::new(
-			Span::call_site(),
+			field.span(),
 			"`encoded_as`, `compact` and `skip` can only be used one at a time!"
-		).to_compile_error());
+		));
 	}
 
 	let err_msg = format!("Error decoding field {}", name);
@@ -188,11 +186,10 @@ fn field_impl(field: &Field, name: &String, input: &TokenStream) -> Result<Impl,
 }
 
 fn fields_impl(
-	call_site: Span,
 	name: TokenStream,
 	input: &TokenStream,
 	fields: &Fields
-) -> Result<Impl, TokenStream> {
+) -> Result<Impl, Error> {
 	match *fields {
 		Fields::Named(ref fields) => {
 			let recurse = fields.named.iter().map(|f| {
@@ -217,18 +214,18 @@ fn fields_impl(
 				Ok(Impl { decode, min_encoded_len })
 			});
 
-			let recurse: Vec<_> = Result::<_, TokenStream>::from_iter(recurse)?;
+			let recurse: Vec<_> = Result::<_, Error>::from_iter(recurse)?;
 
 			let recurse_decode = recurse.iter().map(|i| &i.decode);
 			let recurse_min_encoded_len = recurse.iter().map(|i| &i.min_encoded_len);
 
-			let decode = quote_spanned! {call_site =>
+			let decode = quote_spanned! { fields.span() =>
 				Ok(#name {
 					#( #recurse_decode, )*
 				})
 			};
 
-			let min_encoded_len = quote_spanned! {call_site =>
+			let min_encoded_len = quote_spanned! { fields.span() =>
 				0 #( + #recurse_min_encoded_len )*
 			};
 
@@ -246,24 +243,24 @@ fn fields_impl(
 			let recurse_decode = recurse.iter().map(|i| &i.decode);
 			let recurse_min_encoded_len = recurse.iter().map(|i| &i.min_encoded_len);
 
-			let decode = quote_spanned! {call_site =>
+			let decode = quote_spanned! { fields.span() =>
 				Ok(#name (
 					#( #recurse_decode, )*
 				))
 			};
 
-			let min_encoded_len = quote_spanned! {call_site =>
+			let min_encoded_len = quote_spanned! { fields.span() =>
 				0 #( + #recurse_min_encoded_len )*
 			};
 
 			Ok(Impl { decode, min_encoded_len })
 		},
 		Fields::Unit => {
-			let decode = quote_spanned! {call_site =>
+			let decode = quote_spanned! { fields.span() =>
 				Ok(#name)
 			};
 
-			let min_encoded_len = quote_spanned! {call_site =>
+			let min_encoded_len = quote_spanned! { fields.span() =>
 				0
 			};
 
