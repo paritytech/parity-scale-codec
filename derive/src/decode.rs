@@ -72,8 +72,9 @@ pub fn quote(data: &Data, type_name: &Ident, input: &TokenStream) -> Result<Impl
 					},
 				};
 
+				let variant_index_len = 1usize;
 				let min_encoded_len = quote_spanned! { v.span() =>
-					1 + #impl_min_encoded_len
+					#variant_index_len + #impl_min_encoded_len
 				};
 
 				Ok(Impl { decode, min_encoded_len })

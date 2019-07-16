@@ -464,7 +464,6 @@ impl<T: Encode> Encode for Option<T> {
 	}
 }
 
-// TODO TODO: hmm so an Option<[u8; 1024]> can do some damage no ?
 impl<T: Decode> Decode for Option<T> {
 	fn min_encoded_len() -> usize {
 		1
