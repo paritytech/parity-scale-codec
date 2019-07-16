@@ -17,6 +17,9 @@ use syn::{Data, Fields, Field, spanned::Spanned, Error};
 use crate::utils;
 use std::iter::FromIterator;
 
+// Encode macro use one byte to encode the index of the variant when encoding an enum.
+const ENUM_VARIANT_INDEX_ENCODED_LEN: usize = 1;
+
 pub struct Impl {
 	pub decode: TokenStream,
 	pub min_encoded_len: TokenStream,
@@ -72,9 +75,8 @@ pub fn quote(data: &Data, type_name: &Ident, input: &TokenStream) -> Result<Impl
 					},
 				};
 
-				let variant_index_len = 1usize;
 				let min_encoded_len = quote_spanned! { v.span() =>
-					#variant_index_len + #impl_min_encoded_len
+					#ENUM_VARIANT_INDEX_ENCODED_LEN + #impl_min_encoded_len
 				};
 
 				Ok(Impl { decode, min_encoded_len })
