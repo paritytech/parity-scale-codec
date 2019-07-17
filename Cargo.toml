@@ -1,7 +1,7 @@
 [package]
 name = "parity-scale-codec"
 description = "SCALE - Simple Concatenating Aggregated Little Endians"
-version = "1.0.0"
+version = "1.0.1"
 authors = ["Parity Technologies <admin@parity.io>"]
 license = "Apache-2.0"
 repository = "https://github.com/paritytech/parity-scale-codec"
@@ -38,7 +38,7 @@ bit-vec = ["bitvec", "byte-slice-cast"]
 #
 # Provides implementations for more data structures than just Vec and Box.
 # Concretely it will provide parity-scale-codec implementations for many types
-# that can be found in std and/or alloc (nightly).
+# that can be found in std and/or alloc.
 full = []
 
 [workspace]

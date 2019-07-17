@@ -206,7 +206,6 @@
 #![warn(missing_docs)]
 
 #![cfg_attr(not(feature = "std"), no_std)]
-#![cfg_attr(not(feature = "std"), feature(alloc))]
 
 #[cfg(not(feature = "std"))]
 #[macro_use]
@@ -233,13 +232,8 @@ pub mod alloc {
 	pub use std::string;
 	pub use std::borrow;
 	pub use std::collections;
-
-	#[cfg(feature = "full")]
-	mod full {
-		pub use std::borrow;
-	}
-	#[cfg(feature = "full")]
-	pub use self::full::*;
+	pub use std::sync;
+	pub use std::rc;
 }
 
 mod codec;
