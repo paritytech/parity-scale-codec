@@ -1,4 +1,4 @@
-## Parity SCALE Codec
+# Parity SCALE Codec
 
 Rust implementation of the SCALE (Simple Concatenated Aggregate Little-Endian) data format
 for types used in the Parity Substrate framework.
@@ -15,11 +15,11 @@ To get a better understanding of how the encoding is done for different types,
 take a look at the
 [low-level data formats overview page at the Substrate docs site](https://substrate.dev/docs/en/overview/low-level-data-format).
 
-### Implementation
+## Implementation
 
 The codec is implemented using the following traits:
 
-#### Encode
+### Encode
 
 The `Encode` trait is used for encoding of data into the SCALE format. The `Encode` trait contains the following functions:
 * `size_hint(&self) -> usize`: Gets the capacity (in bytes) required for the encoded data.
@@ -35,7 +35,7 @@ Returns the result from the executed closure.
 **Note:** Implementations should override `using_encoded` for value types and `encode_to` for allocating types.
 `size_hint` should be implemented for all types, wherever possible. Wrapper types should override all methods.
 
-#### Decode
+### Decode
 
 The `Decode` trait is used for deserialization/decoding of encoded data into the respective types.
 
@@ -43,7 +43,7 @@ The `Decode` trait is used for deserialization/decoding of encoded data into the
 Returns an `Err` if the decoding fails.
 * `fn min_encoded_len() -> usize`: The minimum length a valid encoded value can have.
 
-#### CompactAs
+### CompactAs
 
 The `CompactAs` trait is used for wrapping custom types/structs as compact types, which makes them even more space/memory efficient.
 The compact encoding is described [here](https://substrate.dev/docs/en/overview/low-level-data-format#compact-general-integers).
@@ -52,15 +52,15 @@ The compact encoding is described [here](https://substrate.dev/docs/en/overview/
 The type `As` is defined in the same trait and its implementation should be compact encode-able.
 * `decode_from(_: Self::As) -> Self`: Decodes the type (self) from a compact encode-able type.
 
-#### HasCompact
+### HasCompact
 
 The `HasCompact` trait, if implemented, tells that the corresponding type is a compact encode-able type.
 
-### Usage Examples
+## Usage Examples
 
 Following are some examples to demonstrate usage of the codec.
 
-#### Simple types
+### Simple types
 
 ```rust
 use parity_scale_codec::{Encode, Decode};
@@ -106,7 +106,7 @@ assert_eq!(EnumType::decode(&mut dz).ok(), None);
 
 ```
 
-#### Compact type with HasCompact
+### Compact type with HasCompact
 
 ```rust
 use parity_scale_codec::{Encode, Decode, Compact, HasCompact};
@@ -130,7 +130,7 @@ assert_eq!(encoded.len(), test_val.1);
 assert_eq!(<Test1CompactHasCompact<u64>>::decode(&mut &encoded[..]).unwrap().bar, test_val.0);
 
 ```
-#### Type with CompactAs
+### Type with CompactAs
 
 ```rust
 
