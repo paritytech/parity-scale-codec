@@ -12,85 +12,122 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use proc_macro2::{Span, TokenStream, Ident};
+use proc_macro2::{TokenStream, Ident};
 use syn::{Data, Fields, Field, spanned::Spanned, Error};
 use crate::utils;
+use std::iter::FromIterator;
 
-pub fn quote(data: &Data, type_name: &Ident, input: &TokenStream) -> TokenStream {
-	let call_site = Span::call_site();
+// Encode macro use one byte to encode the index of the variant when encoding an enum.
+const ENUM_VARIANT_INDEX_ENCODED_LEN: usize = 1;
+
+pub struct Impl {
+	pub decode: TokenStream,
+	pub min_encoded_len: TokenStream,
+}
+
+pub fn quote(data: &Data, type_name: &Ident, input: &TokenStream) -> Result<Impl, Error> {
 	match *data {
 		Data::Struct(ref data) => match data.fields {
-			Fields::Named(_) | Fields::Unnamed(_) => create_instance(
-				call_site,
+			Fields::Named(_) | Fields::Unnamed(_) => fields_impl(
 				quote! { #type_name },
 				input,
 				&data.fields,
 			),
 			Fields::Unit => {
-				quote_spanned! {call_site =>
+				let decode = quote_spanned! { data.fields.span() =>
 					drop(#input);
 					Ok(#type_name)
-				}
+				};
+
+				let min_encoded_len = quote_spanned! { data.fields.span() =>
+					0
+				};
+
+				Ok(Impl { decode, min_encoded_len })
 			},
 		},
 		Data::Enum(ref data) => {
 			let data_variants = || data.variants.iter().filter(|variant| crate::utils::get_skip(&variant.attrs).is_none());
 
 			if data_variants().count() > 256 {
-				return Error::new(
-					Span::call_site(),
+				return Err(Error::new(
+					data.variants.span(),
 					"Currently only enums with at most 256 variants are encodable."
-				).to_compile_error();
+				));
 			}
 
 			let recurse = data_variants().enumerate().map(|(i, v)| {
 				let name = &v.ident;
 				let index = utils::index(v, i);
 
-				let create = create_instance(
-					call_site,
+				let impl_ = fields_impl(
 					quote! { #type_name :: #name },
 					input,
 					&v.fields,
-				);
+				)?;
 
-				quote_spanned! { v.span() =>
+				let impl_decode = impl_.decode;
+				let impl_min_encoded_len = impl_.min_encoded_len;
+
+				let decode = quote_spanned! { v.span() =>
 					x if x == #index as u8 => {
-						#create
+						#impl_decode
 					},
-				}
+				};
+
+				let min_encoded_len = quote_spanned! { v.span() =>
+					#ENUM_VARIANT_INDEX_ENCODED_LEN + #impl_min_encoded_len
+				};
+
+				Ok(Impl { decode, min_encoded_len })
 			});
 
+			let recurse: Vec<_> = Result::<_, Error>::from_iter(recurse)?;
+
+			let recurse_decode = recurse.iter().map(|i| &i.decode);
+			let recurse_min_encoded_len = recurse.iter().map(|i| &i.min_encoded_len);
+
 			let err_msg = format!("No such variant in enum {}", type_name);
-			quote! {
+			let decode = quote! {
 				match #input.read_byte()? {
-					#( #recurse )*
+					#( #recurse_decode )*
 					x => Err(#err_msg.into()),
 				}
-			}
+			};
 
+			let min_encoded_len = quote! {
+				let mut res = usize::max_value();
+				#( res = res.min( #recurse_min_encoded_len); )*
+				res
+			};
+
+			Ok(Impl { decode, min_encoded_len })
 		},
-		Data::Union(_) => Error::new(Span::call_site(), "Union types are not supported.").to_compile_error(),
+		Data::Union(ref data) => Err(Error::new(
+			data.union_token.span(),
+			"Union types are not supported."
+		)),
 	}
 }
 
-fn create_decode_expr(field: &Field, name: &String, input: &TokenStream) -> TokenStream {
+fn field_impl(field: &Field, name: &String, input: &TokenStream) -> Result<Impl, Error> {
 	let encoded_as = utils::get_encoded_as_type(field);
 	let compact = utils::get_enable_compact(field);
 	let skip = utils::get_skip(&field.attrs).is_some();
 
 	if encoded_as.is_some() as u8 + compact as u8 + skip as u8 > 1 {
-		return Error::new(
-			Span::call_site(),
+		return Err(Error::new(
+			field.span(),
 			"`encoded_as`, `compact` and `skip` can only be used one at a time!"
-		).to_compile_error();
+		));
 	}
 
 	let err_msg = format!("Error decoding field {}", name);
 
+
 	if compact {
 		let field_type = &field.ty;
-		quote_spanned! { field.span() =>
+		let decode = quote_spanned! { field.span() =>
 			{
 				let res = <
 					<#field_type as _parity_scale_codec::HasCompact>::Type as _parity_scale_codec::Decode
@@ -100,9 +137,17 @@ fn create_decode_expr(field: &Field, name: &String, input: &TokenStream) -> Toke
 					Ok(a) => a.into(),
 				}
 			}
-		}
+		};
+
+		let min_encoded_len = quote_spanned! { field.span() =>
+			<
+				<#field_type as _parity_scale_codec::HasCompact>::Type as _parity_scale_codec::Decode
+			>::min_encoded_len()
+		};
+
+		Ok(Impl { decode, min_encoded_len })
 	} else if let Some(encoded_as) = encoded_as {
-		quote_spanned! { field.span() =>
+		let decode = quote_spanned! { field.span() =>
 			{
 				let res = <#encoded_as as _parity_scale_codec::Decode>::decode(#input);
 				match res {
@@ -110,11 +155,22 @@ fn create_decode_expr(field: &Field, name: &String, input: &TokenStream) -> Toke
 					Ok(a) => a.into(),
 				}
 			}
-		}
+		};
+
+		let min_encoded_len = quote_spanned! { field.span() =>
+			<#encoded_as as _parity_scale_codec::Decode>::min_encoded_len()
+		};
+
+		Ok(Impl { decode, min_encoded_len })
 	} else if skip {
-		quote_spanned! { field.span() => Default::default() }
+		let decode = quote_spanned! { field.span() => Default::default() };
+
+		let min_encoded_len = quote_spanned! { field.span() => 0 };
+
+		Ok(Impl { decode, min_encoded_len })
 	} else {
-		quote_spanned! { field.span() =>
+		let field_type = &field.ty;
+		let decode = quote_spanned! { field.span() =>
 			{
 				let res = _parity_scale_codec::Decode::decode(#input);
 				match res {
@@ -122,16 +178,21 @@ fn create_decode_expr(field: &Field, name: &String, input: &TokenStream) -> Toke
 					Ok(a) => a,
 				}
 			}
-		}
+		};
+
+		let min_encoded_len = quote_spanned! { field.span() =>
+			<#field_type as _parity_scale_codec::Decode>::min_encoded_len()
+		};
+
+		Ok(Impl { decode, min_encoded_len })
 	}
 }
 
-fn create_instance(
-	call_site: Span,
+fn fields_impl(
 	name: TokenStream,
 	input: &TokenStream,
 	fields: &Fields
-) -> TokenStream {
+) -> Result<Impl, Error> {
 	match *fields {
 		Fields::Named(ref fields) => {
 			let recurse = fields.named.iter().map(|f| {
@@ -140,36 +201,73 @@ fn create_instance(
 					Some(a) => format!("{}.{}", name, a),
 					None => format!("{}", name),
 				};
-				let decode = create_decode_expr(f, &field, input);
+				let impl_ = field_impl(f, &field, input)?;
 
-				quote_spanned! { f.span() =>
-					#name_ident: #decode
-				}
+				let impl_decode = impl_.decode;
+
+				let decode = quote_spanned! { f.span() =>
+					#name_ident: #impl_decode
+				};
+
+				let impl_min_encoded_len = impl_.min_encoded_len;
+				let min_encoded_len = quote_spanned! { f.span() =>
+					#impl_min_encoded_len
+				};
+
+				Ok(Impl { decode, min_encoded_len })
 			});
 
-			quote_spanned! {call_site =>
+			let recurse: Vec<_> = Result::<_, Error>::from_iter(recurse)?;
+
+			let recurse_decode = recurse.iter().map(|i| &i.decode);
+			let recurse_min_encoded_len = recurse.iter().map(|i| &i.min_encoded_len);
+
+			let decode = quote_spanned! { fields.span() =>
 				Ok(#name {
-					#( #recurse, )*
+					#( #recurse_decode, )*
 				})
-			}
+			};
+
+			let min_encoded_len = quote_spanned! { fields.span() =>
+				0 #( + #recurse_min_encoded_len )*
+			};
+
+			Ok(Impl { decode, min_encoded_len })
 		},
 		Fields::Unnamed(ref fields) => {
 			let recurse = fields.unnamed.iter().enumerate().map(|(i, f) | {
 				let name = format!("{}.{}", name, i);
 
-				create_decode_expr(f, &name, input)
+				field_impl(f, &name, input)
 			});
 
-			quote_spanned! {call_site =>
+			let recurse: Vec<_> = Result::from_iter(recurse)?;
+
+			let recurse_decode = recurse.iter().map(|i| &i.decode);
+			let recurse_min_encoded_len = recurse.iter().map(|i| &i.min_encoded_len);
+
+			let decode = quote_spanned! { fields.span() =>
 				Ok(#name (
-					#( #recurse, )*
+					#( #recurse_decode, )*
 				))
-			}
+			};
+
+			let min_encoded_len = quote_spanned! { fields.span() =>
+				0 #( + #recurse_min_encoded_len )*
+			};
+
+			Ok(Impl { decode, min_encoded_len })
 		},
 		Fields::Unit => {
-			quote_spanned! {call_site =>
+			let decode = quote_spanned! { fields.span() =>
 				Ok(#name)
-			}
+			};
+
+			let min_encoded_len = quote_spanned! { fields.span() =>
+				0
+			};
+
+			Ok(Impl { decode, min_encoded_len })
 		},
 	}
 }

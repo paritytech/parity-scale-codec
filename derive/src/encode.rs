@@ -89,7 +89,7 @@ fn encode_fields<F>(
 
 		if encoded_as.is_some() as u8 + compact as u8 + skip as u8 > 1 {
 			return Error::new(
-				Span::call_site(),
+				f.span(),
 				"`encoded_as`, `compact` and `skip` can only be used one at a time!"
 			).to_compile_error();
 		}
@@ -197,7 +197,7 @@ fn impl_encode(data: &Data, type_name: &Ident) -> TokenStream {
 
 			if data_variants().count() > 256 {
 				return Error::new(
-					Span::call_site(),
+					data.variants.span(),
 					"Currently only enums with at most 256 variants are encodable."
 				).to_compile_error();
 			}
@@ -274,7 +274,10 @@ fn impl_encode(data: &Data, type_name: &Ident) -> TokenStream {
 				}
 			}
 		},
-		Data::Union(_) => Error::new(Span::call_site(), "Union types are not supported.").to_compile_error(),
+		Data::Union(ref data) => Error::new(
+			data.union_token.span(),
+			"Union types are not supported."
+		).to_compile_error(),
 	};
 
 	quote! {
