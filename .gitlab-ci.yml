@@ -20,10 +20,24 @@ cache:
 
 #### stage:                        test
 
-test:rust:stable:
+test:rust:stable:derive:
   stage:                           test
   script:
-    - time cargo test --verbose --all --features bit-vec
+    - time cargo test --verbose --all --features bit-vec,derive
+  only:
+    - triggers
+    - tags
+    - master
+    - schedules
+    - web
+    - /^[0-9]+$/
+  tags:
+    - rust
+
+test:rust:stable:no_derive:
+  stage:                           test
+  script:
+    - time cargo test --verbose --features bit-vec
   only:
     - triggers
     - tags
@@ -37,7 +51,7 @@ test:rust:stable:
 bench:rust:nightly:
   stage:                           test
   script:
-    - time cargo +nightly bench --features bit-vec
+    - time cargo +nightly bench --features bit-vec,derive
   only:
     - triggers
     - tags
@@ -53,7 +67,7 @@ bench:rust:nightly:
 build:linux:ubuntu:amd64:
   stage:                           build
   script:
-    - cargo build --verbose --release --features bit-vec
+    - cargo build --verbose --release --features bit-vec,derive
   only:
     - master
     - tags

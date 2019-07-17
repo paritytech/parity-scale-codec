@@ -77,6 +77,10 @@
 //! ### Simple types
 //!
 //! ```
+//! # // Import macros if derive feature is not used.
+//! # #[cfg(not(feature="derive"))]
+//! # use parity_scale_codec_derive::{Encode, Decode};
+//!
 //! use parity_scale_codec::{Encode, Decode};
 //!
 //! #[derive(Debug, PartialEq, Encode, Decode)]
@@ -124,6 +128,10 @@
 //! ### Compact type with HasCompact
 //!
 //! ```
+//! # // Import macros if derive feature is not used.
+//! # #[cfg(not(feature="derive"))]
+//! # use parity_scale_codec_derive::{Encode, Decode};
+//!
 //! use parity_scale_codec::{Encode, Decode, Compact, HasCompact};
 //!
 //! #[derive(Debug, PartialEq, Encode, Decode)]
@@ -149,6 +157,9 @@
 //! ### Type with CompactAs
 //!
 //! ```rust
+//! # // Import macros if derive feature is not used.
+//! # #[cfg(not(feature="derive"))]
+//! # use parity_scale_codec_derive::{Encode, Decode};
 //!
 //! use serde_derive::{Serialize, Deserialize};
 //! use parity_scale_codec::{Encode, Decode, Compact, HasCompact, CompactAs};

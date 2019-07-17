@@ -1,5 +1,7 @@
-#[macro_use]
-extern crate parity_scale_codec_derive;
+#[cfg(not(feature="derive"))]
+use parity_scale_codec_derive::{Encode, Decode, CompactAs};
+#[cfg(feature="derive")]
+use parity_scale_codec::CompactAs;
 
 use parity_scale_codec::{Compact, Encode, HasCompact, Decode};
 use serde_derive::{Serialize, Deserialize};
