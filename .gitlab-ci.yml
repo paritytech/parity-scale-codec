@@ -20,7 +20,7 @@ cache:
 
 #### stage:                        test
 
-test:rust:stable:derive:
+test:rust:stable:
   stage:                           test
   script:
     - time cargo test --verbose --all --features bit-vec,derive
