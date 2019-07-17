@@ -12,13 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#[macro_use]
-extern crate serde_derive;
-
-#[macro_use]
-extern crate parity_scale_codec_derive;
+#[cfg(not(feature="derive"))]
+use parity_scale_codec_derive::{Encode, Decode};
 
 use parity_scale_codec::{Encode, Decode, HasCompact, Compact, EncodeAsRef, CompactAs};
+use serde_derive::{Serialize, Deserialize};
 
 mod mock;
 

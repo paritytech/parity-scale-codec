@@ -79,6 +79,12 @@ mod tests {
 	}
 
 	impl Decode for TestStruct {
+		fn min_encoded_len() -> usize {
+			Vec::<u32>::min_encoded_len()
+				+ u8::min_encoded_len()
+				+ Compact::<u128>::min_encoded_len()
+		}
+
 		fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 			Ok(
 				Self {
