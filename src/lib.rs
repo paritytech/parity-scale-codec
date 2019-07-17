@@ -248,6 +248,7 @@ mod joiner;
 mod keyedvec;
 #[cfg(feature = "bit-vec")]
 mod bit_vec;
+mod decode_all;
 
 pub use self::codec::{
 	Input, Output, Error, Encode, Decode, Codec, EncodeAsRef, EncodeAppend, WrapperTypeEncode,
@@ -256,3 +257,4 @@ pub use self::codec::{
 pub use self::compact::{Compact, HasCompact, CompactAs};
 pub use self::joiner::Joiner;
 pub use self::keyedvec::KeyedVec;
+pub use self::decode_all::DecodeAll;

@@ -41,6 +41,7 @@ The `Decode` trait is used for deserialization/decoding of encoded data into the
 
 * `fn decode<I: Input>(value: &mut I) -> Result<Self, Error>`: Tries to decode the value from SCALE format to the type it is called on.
 Returns an `Err` if the decoding fails.
+* `fn min_encoded_len() -> usize`: The minimum length a valid encoded value can have.
 
 #### CompactAs
 

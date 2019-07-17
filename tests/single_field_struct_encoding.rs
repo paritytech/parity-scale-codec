@@ -1,10 +1,14 @@
 #[cfg(not(feature="derive"))]
 use parity_scale_codec_derive::{Encode, Decode, CompactAs};
 #[cfg(feature="derive")]
-use parity_scale_codec::CompactAs;
+use parity_scale_codec::{Decode, CompactAs};
 
-use parity_scale_codec::{Compact, Encode, HasCompact, Decode};
+use parity_scale_codec::{Compact, Encode, HasCompact};
 use serde_derive::{Serialize, Deserialize};
+
+mod mock;
+
+use mock::DecodeM;
 
 #[derive(Debug, PartialEq, Encode, Decode)]
 struct S {
@@ -102,16 +106,16 @@ fn test_encoding() {
 	assert_eq!(s_skip_cas.encode(), s_skip_cas_encoded);
 	assert_eq!(uh.encode(), uh_encoded);
 
-	assert_eq!(s, S::decode(&mut s_encoded).unwrap());
-	assert_eq!(s_skip, SSkip::decode(&mut s_skip_encoded).unwrap());
-	assert_eq!(sc, Sc::decode(&mut sc_encoded).unwrap());
-	assert_eq!(sh, Sh::decode(&mut sh_encoded).unwrap());
-	assert_eq!(u, U::decode(&mut u_encoded).unwrap());
-	assert_eq!(u_skip, USkip::decode(&mut u_skip_encoded).unwrap());
-	assert_eq!(uc, Uc::decode(&mut uc_encoded).unwrap());
-	assert_eq!(ucom, <Compact::<U>>::decode(&mut ucom_encoded).unwrap());
-	assert_eq!(ucas, Ucas::decode(&mut ucas_encoded).unwrap());
-	assert_eq!(u_skip_cas, USkipcas::decode(&mut u_skip_cas_encoded).unwrap());
-	assert_eq!(s_skip_cas, SSkipcas::decode(&mut s_skip_cas_encoded).unwrap());
-	assert_eq!(uh, Uh::decode(&mut uh_encoded).unwrap());
+	assert_eq!(s, S::decode_m(&mut s_encoded).unwrap());
+	assert_eq!(s_skip, SSkip::decode_m(&mut s_skip_encoded).unwrap());
+	assert_eq!(sc, Sc::decode_m(&mut sc_encoded).unwrap());
+	assert_eq!(sh, Sh::decode_m(&mut sh_encoded).unwrap());
+	assert_eq!(u, U::decode_m(&mut u_encoded).unwrap());
+	assert_eq!(u_skip, USkip::decode_m(&mut u_skip_encoded).unwrap());
+	assert_eq!(uc, Uc::decode_m(&mut uc_encoded).unwrap());
+	assert_eq!(ucom, <Compact::<U>>::decode_m(&mut ucom_encoded).unwrap());
+	assert_eq!(ucas, Ucas::decode_m(&mut ucas_encoded).unwrap());
+	assert_eq!(u_skip_cas, USkipcas::decode_m(&mut u_skip_cas_encoded).unwrap());
+	assert_eq!(s_skip_cas, SSkipcas::decode_m(&mut s_skip_cas_encoded).unwrap());
+	assert_eq!(uh, Uh::decode_m(&mut uh_encoded).unwrap());
 }
