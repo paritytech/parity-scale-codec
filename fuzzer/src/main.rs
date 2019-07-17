@@ -59,7 +59,18 @@ macro_rules! fuzz_types {
 		let num = $counter;
 		$(
 			if $data[0] % num == $index {
-				let _ = <$parsed>::decode(&mut &$data[1..]);
+				let mut input = &$data[1..];
+				let input_start_len = input.len();
+
+				// Check that decode doesn't panic.
+				let result = <$parsed>::decode(&mut input);
+
+				// Check that min_encoded_len is valid.
+				if result.is_ok() {
+					let encoded_len = input_start_len - input.len();
+					assert!(<$parsed>::min_encoded_len() <= encoded_len);
+				}
+
 				return
 			}
 		)*
