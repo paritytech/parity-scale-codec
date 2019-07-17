@@ -82,7 +82,7 @@ version = "0.1.0"
 dependencies = [
  "bitvec 0.14.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "honggfuzz 0.5.45 (registry+https://github.com/rust-lang/crates.io-index)",
- "parity-scale-codec 1.0.1",
+ "parity-scale-codec 1.0.2",
 ]
 
 [[package]]
@@ -264,7 +264,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "parity-scale-codec"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "arrayvec 0.4.10 (registry+https://github.com/rust-lang/crates.io-index)",
  "bitvec 0.14.0 (registry+https://github.com/rust-lang/crates.io-index)",
