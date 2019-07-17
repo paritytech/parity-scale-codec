@@ -48,6 +48,48 @@ test:rust:stable:no_derive:
   tags:
     - rust
 
+check:rust:stable:no_derive_no_std_full:
+  stage:                           test
+  script:
+    - time cargo check --verbose --no-default-features --features bit-vec,full
+  only:
+    - triggers
+    - tags
+    - master
+    - schedules
+    - web
+    - /^[0-9]+$/
+  tags:
+    - rust
+
+check:rust:stable:no_derive_no_std:
+  stage:                           test
+  script:
+    - time cargo check --verbose --no-default-features --features bit-vec
+  only:
+    - triggers
+    - tags
+    - master
+    - schedules
+    - web
+    - /^[0-9]+$/
+  tags:
+    - rust
+
+check:rust:stable:no_derive_full:
+  stage:                           test
+  script:
+    - time cargo check --verbose --features bit-vec,full
+  only:
+    - triggers
+    - tags
+    - master
+    - schedules
+    - web
+    - /^[0-9]+$/
+  tags:
+    - rust
+
 bench:rust:nightly:
   stage:                           test
   script:

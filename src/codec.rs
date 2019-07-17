@@ -17,13 +17,14 @@
 use crate::alloc::vec::Vec;
 use crate::alloc::boxed::Box;
 use crate::alloc::collections::{BTreeMap, BTreeSet, VecDeque, LinkedList, BinaryHeap};
-
 use crate::compact::{Compact, CompactLen};
 
 #[cfg(any(feature = "std", feature = "full"))]
 use crate::alloc::{
 	string::String,
-	borrow::Cow,
+	borrow::{Cow, ToOwned},
+	sync::Arc,
+	rc::Rc,
 };
 
 use core::{mem, slice, ops::Deref};
@@ -44,6 +45,7 @@ pub struct Error(&'static str);
 
 #[cfg(not(feature = "std"))]
 #[derive(PartialEq)]
+/// Undescriptive error type when compiled for no std
 pub struct Error;
 
 impl Error {
@@ -145,7 +147,6 @@ pub struct IoReader<R: std::io::Read> {
 	reader: R,
 }
 
-// TODO TODO: either test it or remove it
 #[cfg(feature = "std")]
 impl<R: std::io::Read> Input for IoReader<R> {
 	fn require_min_len(&mut self, len: usize) -> Result<(), Error> {
@@ -305,9 +306,9 @@ impl<'a, T: ?Sized> WrapperTypeEncode for &'a mut T {}
 #[cfg(any(feature = "std", feature = "full"))]
 impl<'a, T: ToOwned + ?Sized> WrapperTypeEncode for Cow<'a, T> {}
 #[cfg(any(feature = "std", feature = "full"))]
-impl<T: ?Sized> WrapperTypeEncode for std::sync::Arc<T> {}
+impl<T: ?Sized> WrapperTypeEncode for Arc<T> {}
 #[cfg(any(feature = "std", feature = "full"))]
-impl<T: ?Sized> WrapperTypeEncode for std::rc::Rc<T> {}
+impl<T: ?Sized> WrapperTypeEncode for Rc<T> {}
 #[cfg(any(feature = "std", feature = "full"))]
 impl WrapperTypeEncode for String {}
 
@@ -343,11 +344,11 @@ impl<T> WrapperTypeDecode for Box<T> {
 	type Wrapped = T;
 }
 #[cfg(any(feature = "std", feature = "full"))]
-impl<T> WrapperTypeDecode for std::sync::Arc<T> {
+impl<T> WrapperTypeDecode for Arc<T> {
 	type Wrapped = T;
 }
 #[cfg(any(feature = "std", feature = "full"))]
-impl<T> WrapperTypeDecode for std::rc::Rc<T> {
+impl<T> WrapperTypeDecode for Rc<T> {
 	type Wrapped = T;
 }
 
@@ -601,7 +602,7 @@ impl<T: Encode> Encode for [T] {
 		Compact(len as u32).encode_to(dest);
 		if let IsU8::Yes= <T as Encode>::IS_U8 {
 			let self_transmute = unsafe {
-				std::mem::transmute::<&[T], &[u8]>(self)
+				core::mem::transmute::<&[T], &[u8]>(self)
 			};
 			dest.write(self_transmute)
 		} else {
@@ -625,7 +626,7 @@ impl<T: Decode> Decode for Vec<T> {
 				let mut r = vec![0; len];
 
 				input.read(&mut r[..len])?;
-				let r = unsafe { std::mem::transmute::<Vec<u8>, Vec<T>>(r) };
+				let r = unsafe { core::mem::transmute::<Vec<u8>, Vec<T>>(r) };
 				Ok(r)
 			} else {
 				input.require_min_len(len * T::min_encoded_len())?;
@@ -735,7 +736,7 @@ impl<T: Encode + Ord> Encode for VecDeque<T> {
 		if let IsU8::Yes = <T as Encode>::IS_U8 {
 			let slices = self.as_slices();
 			let slices_transmute = unsafe {
-				std::mem::transmute::<(&[T], &[T]), (&[u8], &[u8])>(slices)
+				core::mem::transmute::<(&[T], &[T]), (&[u8], &[u8])>(slices)
 			};
 			dest.write(slices_transmute.0);
 			dest.write(slices_transmute.1);
@@ -879,7 +880,7 @@ macro_rules! tuple_impl {
 
 #[allow(non_snake_case)]
 mod inner_tuple_impl {
-	use super::{Error, Input, Output, Decode, Encode};
+	use super::{Error, Input, Output, Decode, Encode, Vec};
 	tuple_impl!(A, B, C, D, E, F, G, H, I, J, K,);
 }
 

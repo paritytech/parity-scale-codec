@@ -14,6 +14,7 @@
 
 //! [Compact encoding](https://substrate.dev/docs/en/overview/low-level-data-format#compact-general-integers)
 
+use crate::alloc::vec::Vec;
 use crate::codec::{Input, Output, Error, Encode, Decode, EncodeAsRef};
 
 use arrayvec::ArrayVec;

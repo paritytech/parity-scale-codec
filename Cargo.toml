@@ -38,7 +38,7 @@ bit-vec = ["bitvec", "byte-slice-cast"]
 #
 # Provides implementations for more data structures than just Vec and Box.
 # Concretely it will provide parity-scale-codec implementations for many types
-# that can be found in std and/or alloc (nightly).
+# that can be found in std and/or alloc.
 full = []
 
 [workspace]
