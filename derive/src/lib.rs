@@ -148,7 +148,7 @@ pub fn decode_derive(input: TokenStream) -> TokenStream {
 
 			fn decode<DecIn: _parity_scale_codec::Input>(
 				#input_: &mut DecIn
-			) -> Result<Self, _parity_scale_codec::Error> {
+			) -> core::result::Result<Self, _parity_scale_codec::Error> {
 				#decode
 			}
 		}
