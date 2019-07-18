@@ -480,3 +480,18 @@ fn codec_vec_u8() {
 		assert_eq!(v, &Vec::<u8>::decode_m(&mut &e[..]).unwrap());
 	}
 }
+
+#[test]
+fn recursive_type() {
+	#[derive(Encode, Decode)]
+	pub enum Foo {
+		T(Box<Bar>),
+		A,
+	}
+
+	#[derive(Encode, Decode)]
+	pub struct Bar {
+		field: Foo,
+	}
+
+}

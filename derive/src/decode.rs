@@ -98,6 +98,10 @@ pub fn quote(data: &Data, type_name: &Ident, input: &TokenStream) -> Result<Impl
 			let min_encoded_len = quote! {
 				let mut res = usize::max_value();
 				#( res = res.min( #recurse_min_encoded_len); )*
+				// TODO TODO: this is a quick fix, better to have saturation maybe ?
+				if res == usize::max_value() {
+					res = 0;
+				}
 				res
 			};
 

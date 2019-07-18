@@ -35,6 +35,8 @@ use arrayvec::ArrayVec;
 #[cfg(feature = "std")]
 use std::fmt;
 
+// TODO TODO: make most + saturating add same for derive ??
+
 use core::convert::TryFrom;
 
 /// Descriptive error type
@@ -135,11 +137,33 @@ impl<'a> Input for &'a [u8] {
 
 #[cfg(feature = "std")]
 impl From<std::io::Error> for Error {
-	fn from(_err: std::io::Error) -> Self {
-		"io error".into()
+	fn from(err: std::io::Error) -> Self {
+		use std::io::ErrorKind::*;
+		match err.kind() {
+			NotFound => "io error: NotFound".into(),
+			PermissionDenied => "io error: PermissionDenied".into(),
+			ConnectionRefused => "io error: ConnectionRefused".into(),
+			ConnectionReset => "io error: ConnectionReset".into(),
+			ConnectionAborted => "io error: ConnectionAborted".into(),
+			NotConnected => "io error: NotConnected".into(),
+			AddrInUse => "io error: AddrInUse".into(),
+			AddrNotAvailable => "io error: AddrNotAvailable".into(),
+			BrokenPipe => "io error: BrokenPipe".into(),
+			AlreadyExists => "io error: AlreadyExists".into(),
+			WouldBlock => "io error: WouldBlock".into(),
+			InvalidInput => "io error: InvalidInput".into(),
+			InvalidData => "io error: InvalidData".into(),
+			TimedOut => "io error: TimedOut".into(),
+			WriteZero => "io error: WriteZero".into(),
+			Interrupted => "io error: Interrupted".into(),
+			Other => "io error: Other".into(),
+			UnexpectedEof => "io error: UnexpectedEof".into(),
+			_ => "io error: Unkown".into(),
+		}
 	}
 }
 
+/// Wrapper around `io::Read` that implements `Input` using an internal buffer.
 #[cfg(feature = "std")]
 pub struct IoReader<R: std::io::Read> {
 	buffer: Vec<u8>,
@@ -149,6 +173,7 @@ pub struct IoReader<R: std::io::Read> {
 #[cfg(feature = "std")]
 impl<R: std::io::Read> Input for IoReader<R> {
 	fn require_min_len(&mut self, len: usize) -> Result<(), Error> {
+		dbg!();
 		if self.buffer.len() >= len {
 			return Ok(())
 		}
@@ -156,17 +181,21 @@ impl<R: std::io::Read> Input for IoReader<R> {
 		let filled_len = self.buffer.len();
 		self.buffer.resize(len, 0);
 		self.reader.read_exact(&mut self.buffer[filled_len..])?;
+		// TODO TODO: on error it should make its buffer back to original len ?
 		Ok(())
 	}
 
 	fn read(&mut self, into: &mut [u8]) -> Result<(), Error> {
+		dbg!();
 		let into_len = into.len();
 		let buffer_len = self.buffer.len();
-		into.copy_from_slice(&self.buffer[..into_len.min(buffer_len)]);
-		self.buffer.resize(buffer_len - into_len.min(buffer_len), 0);
+		let min_len = into_len.min(buffer_len);
 
-		if into_len > buffer_len {
-			self.reader.read_exact(&mut into[buffer_len..])?;
+		into[..min_len].copy_from_slice(&self.buffer[..min_len]);
+		self.buffer.resize(buffer_len - min_len, 0);
+
+		if into_len > min_len {
+			self.reader.read_exact(&mut into[min_len..])?;
 		}
 
 		Ok(())
@@ -628,7 +657,7 @@ impl<T: Decode> Decode for Vec<T> {
 				let r = unsafe { core::mem::transmute::<Vec<u8>, Vec<T>>(r) };
 				Ok(r)
 			} else {
-				input.require_min_len(len * T::min_encoded_len())?;
+				input.require_min_len(len.saturating_mul(T::min_encoded_len()))?;
 				let mut r = Vec::with_capacity(len);
 				for _ in 0..len {
 					r.push(T::decode(input)?);
@@ -1261,5 +1290,31 @@ mod tests {
 			Ok(t7.into_sorted_vec()),
 		);
 		assert_eq!(DecodeM::decode_m(&mut &t8.encode()[..]), Ok(t8));
+	}
+
+	#[test]
+	fn io_reader_works() {
+		let input = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9][..];
+		let mut io_reader = IoReader::from(input);
+		assert_eq!(io_reader.read_byte(), Ok(0));
+		let mut into = [0u8; 2];
+		assert_eq!(io_reader.read(&mut into), Ok(()));
+		assert_eq!(into, [1, 2]);
+		assert_eq!(io_reader.require_min_len(1), Ok(()));
+		assert_eq!(io_reader.read(&mut into), Ok(()));
+		assert_eq!(into, [3, 4]);
+		assert_eq!(io_reader.require_min_len(2), Ok(()));
+		assert_eq!(io_reader.read(&mut into), Ok(()));
+		assert_eq!(into, [5, 6]);
+		assert_eq!(io_reader.require_min_len(10).err().unwrap().what(), "io error: UnexpectedEof");
+
+		let input = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9][..];
+		let mut io_reader = IoReader::from(input);
+		assert_eq!(io_reader.require_min_len(9), Ok(()));
+		assert_eq!(io_reader.require_min_len(9), Ok(()));
+		assert_eq!(io_reader.require_min_len(4), Ok(()));
+		assert_eq!(io_reader.read(&mut into), Ok(()));
+		assert_eq!(into, [0, 1]);
+		assert_eq!(io_reader.require_min_len(9).err().unwrap().what(), "io error: UnexpectedEof");
 	}
 }
