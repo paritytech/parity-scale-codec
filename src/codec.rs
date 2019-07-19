@@ -37,15 +37,14 @@ use std::fmt;
 
 use core::convert::TryFrom;
 
-#[cfg_attr(feature = "std", derive(Debug))]
-#[derive(PartialEq)]
-#[cfg(feature = "std")]
 /// Descriptive error type
+#[cfg(feature = "std")]
+#[derive(PartialEq, Debug)]
 pub struct Error(&'static str);
 
-#[cfg(not(feature = "std"))]
-#[derive(PartialEq)]
 /// Undescriptive error type when compiled for no std
+#[cfg(not(feature = "std"))]
+#[derive(PartialEq, Debug)]
 pub struct Error;
 
 impl Error {
