@@ -248,8 +248,6 @@ pub use self::codec::{
 	Input, Output, Error, Encode, Decode, Codec, EncodeAsRef, EncodeAppend, WrapperTypeEncode,
 	WrapperTypeDecode, OptionBool,
 };
-#[cfg(feature = "std")]
-pub use self::codec::IoReader;
 pub use self::compact::{Compact, HasCompact, CompactAs};
 pub use self::joiner::Joiner;
 pub use self::keyedvec::KeyedVec;

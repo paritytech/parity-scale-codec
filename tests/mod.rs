@@ -18,10 +18,6 @@ use parity_scale_codec_derive::{Encode, Decode};
 use parity_scale_codec::{Encode, Decode, HasCompact, Compact, EncodeAsRef, CompactAs};
 use serde_derive::{Serialize, Deserialize};
 
-mod mock;
-
-use mock::DecodeM;
-
 #[derive(Debug, PartialEq, Encode, Decode)]
 struct Unit;
 
@@ -126,13 +122,13 @@ fn should_work_for_simple_enum() {
 	});
 
 	let mut da: &[u8] = b"\x0f";
-	assert_eq!(EnumType::decode_m(&mut da).ok(), Some(a));
+	assert_eq!(EnumType::decode(&mut da).ok(), Some(a));
 	let mut db: &[u8] = b"\x01\x01\0\0\0\x02\0\0\0\0\0\0\0";
-	assert_eq!(EnumType::decode_m(&mut db).ok(), Some(b));
+	assert_eq!(EnumType::decode(&mut db).ok(), Some(b));
 	let mut dc: &[u8] = b"\x02\x01\0\0\0\x02\0\0\0\0\0\0\0";
-	assert_eq!(EnumType::decode_m(&mut dc).ok(), Some(c));
+	assert_eq!(EnumType::decode(&mut dc).ok(), Some(c));
 	let mut dz: &[u8] = &[0];
-	assert_eq!(EnumType::decode_m(&mut dz).ok(), None);
+	assert_eq!(EnumType::decode(&mut dz).ok(), None);
 }
 
 #[test]
@@ -148,13 +144,13 @@ fn should_work_for_enum_with_discriminant() {
 	});
 
 	let mut da: &[u8] = &[1];
-	assert_eq!(EnumWithDiscriminant::decode_m(&mut da), Ok(EnumWithDiscriminant::A));
+	assert_eq!(EnumWithDiscriminant::decode(&mut da), Ok(EnumWithDiscriminant::A));
 	let mut db: &[u8] = &[15];
-	assert_eq!(EnumWithDiscriminant::decode_m(&mut db), Ok(EnumWithDiscriminant::B));
+	assert_eq!(EnumWithDiscriminant::decode(&mut db), Ok(EnumWithDiscriminant::B));
 	let mut dc: &[u8] = &[255];
-	assert_eq!(EnumWithDiscriminant::decode_m(&mut dc), Ok(EnumWithDiscriminant::C));
+	assert_eq!(EnumWithDiscriminant::decode(&mut dc), Ok(EnumWithDiscriminant::C));
 	let mut dz: &[u8] = &[2];
-	assert_eq!(EnumWithDiscriminant::decode_m(&mut dz).ok(), None);
+	assert_eq!(EnumWithDiscriminant::decode(&mut dz).ok(), None);
 }
 
 #[test]
@@ -170,7 +166,7 @@ fn should_derive_encode() {
 fn should_derive_decode() {
 	let slice = b"\x0f\0\0\0\x09\0\0\0\0\0\0\0\x2cHello world".to_vec();
 
-	let v = TestType::decode_m(&mut &*slice);
+	let v = TestType::decode(&mut &*slice);
 
 	assert_eq!(v, Ok(TestType::new(15, 9, b"Hello world".to_vec())));
 }
@@ -184,7 +180,7 @@ fn should_work_for_unit() {
 	});
 
 	let mut a: &[u8] = &[];
-	assert_eq!(Unit::decode_m(&mut a), Ok(Unit));
+	assert_eq!(Unit::decode(&mut a), Ok(Unit));
 }
 
 #[test]
@@ -196,42 +192,42 @@ fn should_work_for_indexed() {
 	});
 
 	let mut v: &[u8] = b"\x01\0\0\0\x02\0\0\0\0\0\0\0";
-	assert_eq!(Indexed::decode_m(&mut v), Ok(Indexed(1, 2)));
+	assert_eq!(Indexed::decode(&mut v), Ok(Indexed(1, 2)));
 }
 
 #[test]
 #[should_panic(expected = "Error decoding field Indexed.0")]
 fn correct_error_for_indexed_0() {
 	let mut wrong: &[u8] = b"\x08";
-	Indexed::decode_m(&mut wrong).unwrap();
+	Indexed::decode(&mut wrong).unwrap();
 }
 
 #[test]
 #[should_panic(expected = "Error decoding field Indexed.1")]
 fn correct_error_for_indexed_1() {
 	let mut wrong: &[u8] = b"\0\0\0\0\x01";
-	Indexed::decode_m(&mut wrong).unwrap();
+	Indexed::decode(&mut wrong).unwrap();
 }
 
 #[test]
 #[should_panic(expected = "Error decoding field EnumType :: B.0")]
 fn correct_error_for_enumtype() {
 	let mut wrong: &[u8] = b"\x01";
-	EnumType::decode_m(&mut wrong).unwrap();
+	EnumType::decode(&mut wrong).unwrap();
 }
 
 #[test]
 #[should_panic(expected = "Error decoding field Struct.a")]
 fn correct_error_for_named_struct_1() {
 	let mut wrong: &[u8] = b"\x01";
-	Struct::<u32, u32, u32>::decode_m(&mut wrong).unwrap();
+	Struct::<u32, u32, u32>::decode(&mut wrong).unwrap();
 }
 
 #[test]
 #[should_panic(expected = "Error decoding field Struct.b")]
 fn correct_error_for_named_struct_2() {
 	let mut wrong: &[u8] = b"\0\0\0\0\x01";
-	Struct::<u32, u32, u32>::decode_m(&mut wrong).unwrap();
+	Struct::<u32, u32, u32>::decode(&mut wrong).unwrap();
 }
 
 const U64_TEST_COMPACT_VALUES: &[(u64, usize)] = &[
@@ -254,7 +250,7 @@ fn encoded_as_with_has_compact_works() {
 		let encoded = TestHasCompact { bar: n }.encode();
 		println!("{}", n);
 		assert_eq!(encoded.len(), l);
-		assert_eq!(<TestHasCompact<u64>>::decode_m(&mut &encoded[..]).unwrap().bar, n);
+		assert_eq!(<TestHasCompact<u64>>::decode(&mut &encoded[..]).unwrap().bar, n);
 	}
 }
 
@@ -264,7 +260,7 @@ fn compact_with_has_compact_works() {
 		let encoded = TestHasCompact { bar: n }.encode();
 		println!("{}", n);
 		assert_eq!(encoded.len(), l);
-		assert_eq!(<TestCompactHasCompact<u64>>::decode_m(&mut &encoded[..]).unwrap().bar, n);
+		assert_eq!(<TestCompactHasCompact<u64>>::decode(&mut &encoded[..]).unwrap().bar, n);
 	}
 }
 
@@ -280,7 +276,7 @@ fn enum_compact_and_encoded_as_with_has_compact_works() {
 			let encoded = value.encode();
 			println!("{:?}", value);
 			assert_eq!(encoded.len(), l);
-			assert_eq!(&<TestHasCompactEnum<u64>>::decode_m(&mut &encoded[..]).unwrap(), value);
+			assert_eq!(&<TestHasCompactEnum<u64>>::decode(&mut &encoded[..]).unwrap(), value);
 		}
 	}
 }
@@ -290,7 +286,7 @@ fn compact_meta_attribute_works() {
 	for &(n, l) in U64_TEST_COMPACT_VALUES {
 		let encoded = TestCompactAttribute { bar: n }.encode();
 		assert_eq!(encoded.len(), l);
-		assert_eq!(TestCompactAttribute::decode_m(&mut &encoded[..]).unwrap().bar, n);
+		assert_eq!(TestCompactAttribute::decode(&mut &encoded[..]).unwrap().bar, n);
 	}
 }
 
@@ -300,7 +296,7 @@ fn enum_compact_meta_attribute_works() {
 		for value in [ TestCompactAttributeEnum::Unnamed(n), TestCompactAttributeEnum::Named { bar: n } ].iter() {
 			let encoded = value.encode();
 			assert_eq!(encoded.len(), l);
-			assert_eq!(&TestCompactAttributeEnum::decode_m(&mut &encoded[..]).unwrap(), value);
+			assert_eq!(&TestCompactAttributeEnum::decode(&mut &encoded[..]).unwrap(), value);
 		}
 	}
 }
@@ -329,7 +325,7 @@ fn associated_type_bounds() {
 
 	let value: Struct<TraitImplementor, u64> = Struct { field: (vec![1, 2, 3], 42) };
 	let encoded = value.encode();
-	let decoded: Struct<TraitImplementor, u64> = Struct::decode_m(&mut &encoded[..]).unwrap();
+	let decoded: Struct<TraitImplementor, u64> = Struct::decode(&mut &encoded[..]).unwrap();
 	assert_eq!(value, decoded);
 }
 
@@ -465,7 +461,7 @@ fn encode_decode_empty_enum() {
     fn impls_encode_decode<T: Encode + Decode>() {}
 	impls_encode_decode::<EmptyEnumDerive>();
 
-	assert_eq!(EmptyEnumDerive::decode_m(&mut &[1, 2, 3][..]), Err("No such variant in enum EmptyEnumDerive".into()));
+	assert_eq!(EmptyEnumDerive::decode(&mut &[1, 2, 3][..]), Err("No such variant in enum EmptyEnumDerive".into()));
 }
 
 #[test]
@@ -477,7 +473,7 @@ fn codec_vec_u8() {
 		vec![0u8; 1000],
 	].into_iter() {
 		let e = v.encode();
-		assert_eq!(v, &Vec::<u8>::decode_m(&mut &e[..]).unwrap());
+		assert_eq!(v, &Vec::<u8>::decode(&mut &e[..]).unwrap());
 	}
 }
 

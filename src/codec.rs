@@ -35,8 +35,6 @@ use arrayvec::ArrayVec;
 #[cfg(feature = "std")]
 use std::fmt;
 
-// TODO TODO: make most + saturating add same for derive ??
-
 use core::convert::TryFrom;
 
 /// Descriptive error type
@@ -97,10 +95,6 @@ impl From<&'static str> for Error {
 
 /// Trait that allows reading of data into a slice.
 pub trait Input {
-	/// Require the input to be at least the len specified. This allow to ensure a valid value can
-	/// be constructed with the given input, thus allowing allocating memory upfront.
-	fn require_min_len(&mut self, len: usize) -> Result<(), Error>;
-
 	/// Read the exact number of bytes required to fill the given buffer.
 	///
 	/// Note that this function is similar to `std::io::Read::read_exact` and not
@@ -115,15 +109,8 @@ pub trait Input {
 	}
 }
 
+#[cfg(not(feature = "std"))]
 impl<'a> Input for &'a [u8] {
-	fn require_min_len(&mut self, len: usize) -> Result<(), Error> {
-		if self.len() < len {
-			return Err("Not enough data for required minimum length".into());
-		}
-
-		Ok(())
-	}
-
 	fn read(&mut self, into: &mut [u8]) -> Result<(), Error> {
 		if into.len() > self.len() {
 			return Err("Not enough data to fill buffer".into());
@@ -163,52 +150,11 @@ impl From<std::io::Error> for Error {
 	}
 }
 
-/// Wrapper around `io::Read` that implements `Input` using an internal buffer.
 #[cfg(feature = "std")]
-pub struct IoReader<R: std::io::Read> {
-	buffer: Vec<u8>,
-	reader: R,
-}
-
-#[cfg(feature = "std")]
-impl<R: std::io::Read> Input for IoReader<R> {
-	fn require_min_len(&mut self, len: usize) -> Result<(), Error> {
-		dbg!();
-		if self.buffer.len() >= len {
-			return Ok(())
-		}
-
-		let filled_len = self.buffer.len();
-		self.buffer.resize(len, 0);
-		self.reader.read_exact(&mut self.buffer[filled_len..])?;
-		// TODO TODO: on error it should make its buffer back to original len ?
-		Ok(())
-	}
-
+impl<R: std::io::Read> Input for R {
 	fn read(&mut self, into: &mut [u8]) -> Result<(), Error> {
-		dbg!();
-		let into_len = into.len();
-		let buffer_len = self.buffer.len();
-		let min_len = into_len.min(buffer_len);
-
-		into[..min_len].copy_from_slice(&self.buffer[..min_len]);
-		self.buffer.resize(buffer_len - min_len, 0);
-
-		if into_len > min_len {
-			self.reader.read_exact(&mut into[min_len..])?;
-		}
-
+		(self as &mut dyn std::io::Read).read_exact(into)?;
 		Ok(())
-	}
-}
-
-#[cfg(feature = "std")]
-impl<R: std::io::Read> From<R> for IoReader<R> {
-	fn from(reader: R) -> Self {
-		IoReader {
-			buffer: vec![],
-			reader,
-		}
 	}
 }
 
@@ -307,10 +253,6 @@ pub trait Decode: Sized {
 	#[doc(hidden)]
 	const IS_U8: IsU8 = IsU8::No;
 
-	/// The minimum length of an encoded value. This is used to prevent allocating memory on
-	/// crafted wrong input.
-	fn min_encoded_len() -> usize;
-
 	/// Attempt to deserialise the value from input.
 	fn decode<I: Input>(value: &mut I) -> Result<Self, Error>;
 }
@@ -384,10 +326,6 @@ impl<T, X> Decode for X where
 	T: Decode + Into<X>,
 	X: WrapperTypeDecode<Wrapped=T>,
 {
-	fn min_encoded_len() -> usize {
-		T::min_encoded_len()
-	}
-
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		Ok(T::decode(input)?.into())
 	}
@@ -422,10 +360,6 @@ impl<T: Encode, E: Encode> Encode for Result<T, E> {
 }
 
 impl<T: Decode, E: Decode> Decode for Result<T, E> {
-	fn min_encoded_len() -> usize {
-		1 + T::min_encoded_len()
-	}
-
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		match input.read_byte()? {
 			0 => Ok(Ok(T::decode(input)?)),
@@ -460,10 +394,6 @@ impl Encode for OptionBool {
 }
 
 impl Decode for OptionBool {
-	fn min_encoded_len() -> usize {
-		1
-	}
-
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		match input.read_byte()? {
 			0 => Ok(OptionBool(None)),
@@ -494,10 +424,6 @@ impl<T: Encode> Encode for Option<T> {
 }
 
 impl<T: Decode> Decode for Option<T> {
-	fn min_encoded_len() -> usize {
-		1
-	}
-
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		match input.read_byte()? {
 			0 => Ok(None),
@@ -518,13 +444,7 @@ macro_rules! impl_array {
 		}
 
 		impl<T: Decode> Decode for [T; $n] {
-			fn min_encoded_len() -> usize {
-				$n * T::min_encoded_len()
-			}
-
 			fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
-				input.require_min_len(Self::min_encoded_len())?;
-
 				let mut r = ArrayVec::new();
 				for _ in 0..$n {
 					r.push(T::decode(input)?);
@@ -581,10 +501,6 @@ impl Encode for str {
 impl<'a, T: ToOwned + ?Sized> Decode for Cow<'a, T>
 	where <T as ToOwned>::Owned: Decode,
 {
-	fn min_encoded_len() -> usize {
-		T::Owned::min_encoded_len()
-	}
-
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		Ok(Cow::Owned(Decode::decode(input)?))
 	}
@@ -595,10 +511,6 @@ impl<T> Encode for PhantomData<T> {
 }
 
 impl<T> Decode for PhantomData<T> {
-	fn min_encoded_len() -> usize {
-		0
-	}
-
 	fn decode<I: Input>(_input: &mut I) -> Result<Self, Error> {
 		Ok(PhantomData)
 	}
@@ -606,10 +518,6 @@ impl<T> Decode for PhantomData<T> {
 
 #[cfg(any(feature = "std", feature = "full"))]
 impl Decode for String {
-	fn min_encoded_len() -> usize {
-		<Vec<u8>>::min_encoded_len()
-	}
-
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		Ok(Self::from_utf8_lossy(&Vec::decode(input)?).into())
 	}
@@ -642,22 +550,16 @@ impl<T: Encode> Encode for [T] {
 }
 
 impl<T: Decode> Decode for Vec<T> {
-	fn min_encoded_len() -> usize {
-		<Compact<u32>>::min_encoded_len()
-	}
-
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		<Compact<u32>>::decode(input).and_then(move |Compact(len)| {
 			let len = len as usize;
 			if let IsU8::Yes = <T as Decode>::IS_U8 {
-				input.require_min_len(len)?;
 				let mut r = vec![0; len];
 
 				input.read(&mut r[..len])?;
 				let r = unsafe { core::mem::transmute::<Vec<u8>, Vec<T>>(r) };
 				Ok(r)
 			} else {
-				input.require_min_len(len.saturating_mul(T::min_encoded_len()))?;
 				let mut r = Vec::with_capacity(len);
 				for _ in 0..len {
 					r.push(T::decode(input)?);
@@ -735,10 +637,6 @@ macro_rules! impl_codec_through_iterator {
 		}
 
 		impl<$($decode_generics)*> Decode for $type {
-			fn min_encoded_len() -> usize {
-				<Compact<u32>>::min_encoded_len()
-			}
-
 			fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 				<Compact<u32>>::decode(input).and_then(move |Compact(len)| {
 					Result::from_iter((0..len).map(|_| Decode::decode(input)))
@@ -777,10 +675,6 @@ impl<T: Encode + Ord> Encode for VecDeque<T> {
 }
 
 impl<T: Decode> Decode for VecDeque<T> {
-	fn min_encoded_len() -> usize {
-		<Vec<T>>::min_encoded_len()
-	}
-
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		Ok(<Vec<T>>::decode(input)?.into())
 	}
@@ -800,10 +694,6 @@ impl Encode for () {
 }
 
 impl Decode for () {
-	fn min_encoded_len() -> usize {
-		0
-	}
-
 	fn decode<I: Input>(_: &mut I) -> Result<(), Error> {
 		Ok(())
 	}
@@ -844,10 +734,6 @@ macro_rules! tuple_impl {
 		}
 
 		impl<$one: Decode> Decode for ($one,) {
-			fn min_encoded_len() -> usize {
-				$one::min_encoded_len()
-			}
-
 			fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 				match $one::decode(input) {
 					Err(e) => Err(e),
@@ -883,12 +769,7 @@ macro_rules! tuple_impl {
 		impl<$first: Decode, $($rest: Decode),+>
 		Decode for
 		($first, $($rest),+) {
-			fn min_encoded_len() -> usize {
-				$first::min_encoded_len() $( + $rest::min_encoded_len() )+
-			}
-
 			fn decode<INPUT: Input>(input: &mut INPUT) -> Result<Self, super::Error> {
-
 				Ok((
 					match $first::decode(input) {
 						Ok(x) => x,
@@ -962,10 +843,6 @@ macro_rules! impl_endians {
 		}
 
 		impl Decode for $t {
-			fn min_encoded_len() -> usize {
-				mem::size_of::<$t>()
-			}
-
 			fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 				let size = mem::size_of::<$t>();
 				assert!(size > 0, "EndianSensitive can never be implemented for a zero-sized type.");
@@ -1014,10 +891,6 @@ macro_rules! impl_non_endians {
 		impl Decode for $t {
 			$( const $is_u8: IsU8 = IsU8::Yes; )?
 
-			fn min_encoded_len() -> usize {
-				mem::size_of::<$t>()
-			}
-
 			fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 				let size = mem::size_of::<$t>();
 				assert!(size > 0, "EndianSensitive can never be implemented for a zero-sized type.");
@@ -1039,20 +912,6 @@ macro_rules! impl_non_endians {
 impl_endians!(u16, u32, u64, u128, i16, i32, i64, i128);
 impl_non_endians!(u8 {IS_U8}, i8, bool);
 
-#[cfg(test)]
-pub trait DecodeM: Decode {
-	fn decode_m(value: &mut &[u8]) -> Result<Self, Error> {
-		let len = value.len();
-		let res = Self::decode(value);
-		if res.is_ok() {
-			assert!(len - value.len() >= Self::min_encoded_len());
-		}
-		res
-	}
-}
-
-#[cfg(test)]
-impl<T: Decode> DecodeM for T {}
 
 #[cfg(test)]
 mod tests {
@@ -1074,7 +933,7 @@ mod tests {
 
 		let encoded = (&x, &y).encode();
 
-		assert_eq!((x, y), DecodeM::decode_m(&mut &encoded[..]).unwrap());
+		assert_eq!((x, y), Decode::decode(&mut &encoded[..]).unwrap());
 	}
 
 	#[test]
@@ -1083,7 +942,7 @@ mod tests {
 		let y = Cow::Borrowed(&x);
 		assert_eq!(x.encode(), y.encode());
 
-		let z: Cow<'_, [u32]> = Cow::decode_m(&mut &x.encode()[..]).unwrap();
+		let z: Cow<'_, [u32]> = Cow::decode(&mut &x.encode()[..]).unwrap();
 		assert_eq!(*z, *x);
 	}
 
@@ -1093,7 +952,7 @@ mod tests {
 		let y = Cow::Borrowed(&x);
 		assert_eq!(x.encode(), y.encode());
 
-		let z: Cow<'_, str> = Cow::decode_m(&mut &x.encode()[..]).unwrap();
+		let z: Cow<'_, str> = Cow::decode(&mut &x.encode()[..]).unwrap();
 		assert_eq!(*z, *x);
 	}
 
@@ -1106,7 +965,7 @@ mod tests {
 		let value = String::from("Hello, World!");
 		let encoded = value.encode();
 		assert_eq!(hexify(&encoded), "34 48 65 6c 6c 6f 2c 20 57 6f 72 6c 64 21");
-		assert_eq!(<String>::decode_m(&mut &encoded[..]).unwrap(), value);
+		assert_eq!(<String>::decode(&mut &encoded[..]).unwrap(), value);
 	}
 
 	#[test]
@@ -1114,7 +973,7 @@ mod tests {
 		let value = vec![0u8, 1, 1, 2, 3, 5, 8, 13, 21, 34];
 		let encoded = value.encode();
 		assert_eq!(hexify(&encoded), "28 00 01 01 02 03 05 08 0d 15 22");
-		assert_eq!(<Vec<u8>>::decode_m(&mut &encoded[..]).unwrap(), value);
+		assert_eq!(<Vec<u8>>::decode(&mut &encoded[..]).unwrap(), value);
 	}
 
 	#[test]
@@ -1122,7 +981,7 @@ mod tests {
 		let value = vec![0i16, 1, -1, 2, -2, 3, -3];
 		let encoded = value.encode();
 		assert_eq!(hexify(&encoded), "1c 00 00 01 00 ff ff 02 00 fe ff 03 00 fd ff");
-		assert_eq!(<Vec<i16>>::decode_m(&mut &encoded[..]).unwrap(), value);
+		assert_eq!(<Vec<i16>>::decode(&mut &encoded[..]).unwrap(), value);
 	}
 
 	#[test]
@@ -1130,7 +989,7 @@ mod tests {
 		let value = vec![Some(1i8), Some(-1), None];
 		let encoded = value.encode();
 		assert_eq!(hexify(&encoded), "0c 01 01 01 ff 00");
-		assert_eq!(<Vec<Option<i8>>>::decode_m(&mut &encoded[..]).unwrap(), value);
+		assert_eq!(<Vec<Option<i8>>>::decode(&mut &encoded[..]).unwrap(), value);
 	}
 
 	#[test]
@@ -1138,7 +997,7 @@ mod tests {
 		let value = vec![OptionBool(Some(true)), OptionBool(Some(false)), OptionBool(None)];
 		let encoded = value.encode();
 		assert_eq!(hexify(&encoded), "0c 01 02 00");
-		assert_eq!(<Vec<OptionBool>>::decode_m(&mut &encoded[..]).unwrap(), value);
+		assert_eq!(<Vec<OptionBool>>::decode(&mut &encoded[..]).unwrap(), value);
 	}
 
 	#[test]
@@ -1149,7 +1008,7 @@ mod tests {
 			<Vec<u32> as EncodeAppend>::append(encoded, &[v]).unwrap()
 		});
 
-		let decoded = Vec::<u32>::decode_m(&mut &encoded[..]).unwrap();
+		let decoded = Vec::<u32>::decode(&mut &encoded[..]).unwrap();
 		assert_eq!(decoded, (0..max_value).collect::<Vec<_>>());
 	}
 
@@ -1161,7 +1020,7 @@ mod tests {
 			<Vec<u32> as EncodeAppend>::append(encoded, &[v, v, v, v]).unwrap()
 		});
 
-		let decoded = Vec::<u32>::decode_m(&mut &encoded[..]).unwrap();
+		let decoded = Vec::<u32>::decode(&mut &encoded[..]).unwrap();
 		let expected = (0..max_value).fold(Vec::new(), |mut vec, i| {
 			vec.append(&mut vec![i, i, i, i]);
 			vec
@@ -1169,7 +1028,7 @@ mod tests {
 		assert_eq!(decoded, expected);
 	}
 
-	fn test_encode_length<T: Encode + DecodeM + DecodeLength>(thing: &T, len: usize) {
+	fn test_encode_length<T: Encode + Decode + DecodeLength>(thing: &T, len: usize) {
 		assert_eq!(<T as DecodeLength>::len(&mut &thing.encode()[..]).unwrap(), len);
 	}
 
@@ -1213,7 +1072,7 @@ mod tests {
 			b8 20 d0 bc d0 b8 d1 80 30 e4 b8 89 e5 9b bd e6 bc 94 e4 b9 89 bc d8 a3 d9 8e d9 84 d9 92 \
 			d9 81 20 d9 84 d9 8e d9 8a d9 92 d9 84 d9 8e d8 a9 20 d9 88 d9 8e d9 84 d9 8e d9 8a d9 92 \
 			d9 84 d9 8e d8 a9 e2 80 8e");
-		assert_eq!(<Vec<String>>::decode_m(&mut &encoded[..]).unwrap(), value);
+		assert_eq!(<Vec<String>>::decode(&mut &encoded[..]).unwrap(), value);
 	}
 
 	#[derive(Debug, PartialEq)]
@@ -1236,7 +1095,7 @@ mod tests {
 		let result = vec![0b1100];
 
 		assert_eq!(MyWrapper(3u32.into()).encode(), result);
-		assert_eq!(MyWrapper::decode_m(&mut &*result).unwrap(), MyWrapper(3_u32.into()));
+		assert_eq!(MyWrapper::decode(&mut &*result).unwrap(), MyWrapper(3_u32.into()));
 	}
 
 	#[test]
@@ -1253,8 +1112,8 @@ mod tests {
 			v_u16.push_back(i as u16);
 		}
 
-		assert_eq!(DecodeM::decode_m(&mut &v_u8.encode()[..]), Ok(v_u8));
-		assert_eq!(DecodeM::decode_m(&mut &v_u16.encode()[..]), Ok(v_u16));
+		assert_eq!(Decode::decode(&mut &v_u8.encode()[..]), Ok(v_u8));
+		assert_eq!(Decode::decode(&mut &v_u16.encode()[..]), Ok(v_u16));
 	}
 
 	#[test]
@@ -1276,45 +1135,19 @@ mod tests {
 				.map(|i| (i.clone(), i.len() as u32))
 		);
 
-		assert_eq!(DecodeM::decode_m(&mut &t1.encode()[..]), Ok(t1));
-		assert_eq!(DecodeM::decode_m(&mut &t2.encode()[..]), Ok(t2));
+		assert_eq!(Decode::decode(&mut &t1.encode()[..]), Ok(t1));
+		assert_eq!(Decode::decode(&mut &t2.encode()[..]), Ok(t2));
 		assert_eq!(
-			DecodeM::decode_m(&mut &t3.encode()[..]).map(BinaryHeap::into_sorted_vec),
+			Decode::decode(&mut &t3.encode()[..]).map(BinaryHeap::into_sorted_vec),
 			Ok(t3.into_sorted_vec()),
 		);
-		assert_eq!(DecodeM::decode_m(&mut &t4.encode()[..]), Ok(t4));
-		assert_eq!(DecodeM::decode_m(&mut &t5.encode()[..]), Ok(t5));
-		assert_eq!(DecodeM::decode_m(&mut &t6.encode()[..]), Ok(t6));
+		assert_eq!(Decode::decode(&mut &t4.encode()[..]), Ok(t4));
+		assert_eq!(Decode::decode(&mut &t5.encode()[..]), Ok(t5));
+		assert_eq!(Decode::decode(&mut &t6.encode()[..]), Ok(t6));
 		assert_eq!(
-			DecodeM::decode_m(&mut &t7.encode()[..]).map(BinaryHeap::into_sorted_vec),
+			Decode::decode(&mut &t7.encode()[..]).map(BinaryHeap::into_sorted_vec),
 			Ok(t7.into_sorted_vec()),
 		);
-		assert_eq!(DecodeM::decode_m(&mut &t8.encode()[..]), Ok(t8));
-	}
-
-	#[test]
-	fn io_reader_works() {
-		let input = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9][..];
-		let mut io_reader = IoReader::from(input);
-		assert_eq!(io_reader.read_byte(), Ok(0));
-		let mut into = [0u8; 2];
-		assert_eq!(io_reader.read(&mut into), Ok(()));
-		assert_eq!(into, [1, 2]);
-		assert_eq!(io_reader.require_min_len(1), Ok(()));
-		assert_eq!(io_reader.read(&mut into), Ok(()));
-		assert_eq!(into, [3, 4]);
-		assert_eq!(io_reader.require_min_len(2), Ok(()));
-		assert_eq!(io_reader.read(&mut into), Ok(()));
-		assert_eq!(into, [5, 6]);
-		assert_eq!(io_reader.require_min_len(10).err().unwrap().what(), "io error: UnexpectedEof");
-
-		let input = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9][..];
-		let mut io_reader = IoReader::from(input);
-		assert_eq!(io_reader.require_min_len(9), Ok(()));
-		assert_eq!(io_reader.require_min_len(9), Ok(()));
-		assert_eq!(io_reader.require_min_len(4), Ok(()));
-		assert_eq!(io_reader.read(&mut into), Ok(()));
-		assert_eq!(into, [0, 1]);
-		assert_eq!(io_reader.require_min_len(9).err().unwrap().what(), "io error: UnexpectedEof");
+		assert_eq!(Decode::decode(&mut &t8.encode()[..]), Ok(t8));
 	}
 }

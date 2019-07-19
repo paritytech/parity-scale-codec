@@ -132,24 +132,14 @@ pub fn decode_derive(input: TokenStream) -> TokenStream {
 	let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
 	let input_ = quote!(input);
-	let impl_ = match decode::quote(&input.data, name, &input_) {
-		Ok(impl_) => impl_,
-		Err(e) => return e.to_compile_error().into(),
-	};
-
-	let decode = impl_.decode;
-	let min_encoded_len = impl_.min_encoded_len;
+	let decoding = decode::quote(&input.data, name, &input_);
 
 	let impl_block = quote! {
 		impl #impl_generics _parity_scale_codec::Decode for #name #ty_generics #where_clause {
-			fn min_encoded_len() -> usize {
-				#min_encoded_len
-			}
-
 			fn decode<DecIn: _parity_scale_codec::Input>(
 				#input_: &mut DecIn
 			) -> core::result::Result<Self, _parity_scale_codec::Error> {
-				#decode
+				#decoding
 			}
 		}
 	};
@@ -197,7 +187,7 @@ pub fn compact_as_derive(input: TokenStream) -> TokenStream {
 					});
 					let field = utils::filter_skip_named(fields).next().expect("Exactly one field");
 					let field_name = &field.ident;
-					let constructor = quote!( #name { #( #recurse, )* } );
+					let constructor = quote!( #name { #( #recurse, )* });
 					(&field.ty, quote!(&self.#field_name), constructor)
 				},
 				Fields::Unnamed(ref fields) if utils::filter_skip_unnamed(fields).count() == 1 => {
@@ -207,7 +197,7 @@ pub fn compact_as_derive(input: TokenStream) -> TokenStream {
 					});
 					let (id, field) = utils::filter_skip_unnamed(fields).next().expect("Exactly one field");
 					let id = syn::Index::from(id);
-					let constructor = quote!( #name(#( #recurse, )*) );
+					let constructor = quote!( #name(#( #recurse, )*));
 					(&field.ty, quote!(&self.#id), constructor)
 				},
 				_ => {
