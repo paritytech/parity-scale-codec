@@ -1010,6 +1010,37 @@ macro_rules! impl_non_endians {
 impl_endians!(u16, u32, u64, u128, i16, i32, i64, i128);
 impl_non_endians!(u8 {IS_U8}, i8, bool);
 
+#[cfg(feature = "generic-array")]
+impl<T: Encode, L: generic_array::ArrayLength<T>> Encode for generic_array::GenericArray<T, L> {
+	fn encode_to<W: Output>(&self, dest: &mut W) {
+		for item in self.iter() {
+			item.encode_to(dest);
+		}
+	}
+}
+
+#[cfg(feature = "generic-array")]
+impl<T: Decode, L: generic_array::ArrayLength<T>> Decode for generic_array::GenericArray<T, L> {
+	fn min_encoded_len() -> usize {
+		L::to_usize() * T::min_encoded_len()
+	}
+
+	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
+		input.require_min_len(Self::min_encoded_len())?;
+
+		let mut r = Vec::new();
+		for _ in 0..L::to_usize() {
+			r.push(T::decode(input)?);
+		}
+		let i = generic_array::GenericArray::from_exact_iter(r);
+
+		match i {
+			Some(a) => Ok(a),
+			None => Err("array length does not match definition".into()),
+		}
+	}
+}
+
 #[cfg(test)]
 pub trait DecodeM: Decode {
 	fn decode_m(value: &mut &[u8]) -> Result<Self, Error> {
