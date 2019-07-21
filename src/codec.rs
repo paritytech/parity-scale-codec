@@ -1041,6 +1041,33 @@ impl<T: Decode, L: generic_array::ArrayLength<T>> Decode for generic_array::Gene
 	}
 }
 
+#[cfg(feature = "vec-array")]
+impl<T: Encode, L: typenum::Unsigned> Encode for vecarray::VecArray<T, L> {
+	fn encode_to<W: Output>(&self, dest: &mut W) {
+		for item in self.iter() {
+			item.encode_to(dest);
+		}
+	}
+}
+
+#[cfg(feature = "vec-array")]
+impl<T: Decode, L: typenum::Unsigned> Decode for vecarray::VecArray<T, L> {
+	fn min_encoded_len() -> usize {
+		L::to_usize() * T::min_encoded_len()
+	}
+
+	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
+		input.require_min_len(Self::min_encoded_len())?;
+
+		let mut r = Vec::new();
+		for _ in 0..L::to_usize() {
+			r.push(T::decode(input)?);
+		}
+		vecarray::VecArray::try_from(r)
+			.map_err(|_| "array length does not match definition".into())
+	}
+}
+
 #[cfg(test)]
 pub trait DecodeM: Decode {
 	fn decode_m(value: &mut &[u8]) -> Result<Self, Error> {
