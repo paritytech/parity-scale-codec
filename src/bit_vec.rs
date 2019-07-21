@@ -47,10 +47,6 @@ impl<C: Cursor, T: BitStore + ToByteSlice> Encode for BitVec<C, T> {
 }
 
 impl<C: Cursor, T: BitStore + FromByteSlice> Decode for BitVec<C, T> {
-	fn min_encoded_len() -> usize {
-		<Compact<u32>>::min_encoded_len()
-	}
-
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		<Compact<u32>>::decode(input).and_then(move |Compact(bits)| {
 			let bits = bits as usize;
@@ -73,10 +69,6 @@ impl<C: Cursor, T: BitStore + ToByteSlice> Encode for BitBox<C, T> {
 }
 
 impl<C: Cursor, T: BitStore + FromByteSlice> Decode for BitBox<C, T> {
-	fn min_encoded_len() -> usize {
-		<BitVec<C, T>>::min_encoded_len()
-	}
-
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		Ok(Self::from_bitslice(BitVec::<C, T>::decode(input)?.as_bitslice()))
 	}
@@ -92,7 +84,6 @@ fn required_bytes<T>(bits: usize) -> usize {
 mod tests {
 	use super::*;
 	use bitvec::{bitvec, cursor::BigEndian};
-	use crate::codec::DecodeM;
 
 	macro_rules! test_data {
 		($inner_type: ty) => (
@@ -155,7 +146,7 @@ mod tests {
 	fn bitvec_u8() {
 		for v in &test_data!(u8) {
 			let encoded = v.encode();
-			assert_eq!(*v, BitVec::<BigEndian, u8>::decode_m(&mut &encoded[..]).unwrap());
+			assert_eq!(*v, BitVec::<BigEndian, u8>::decode(&mut &encoded[..]).unwrap());
 		}
 	}
 
@@ -163,7 +154,7 @@ mod tests {
 	fn bitvec_u16() {
 		for v in &test_data!(u16) {
 			let encoded = v.encode();
-			assert_eq!(*v, BitVec::<BigEndian, u16>::decode_m(&mut &encoded[..]).unwrap());
+			assert_eq!(*v, BitVec::<BigEndian, u16>::decode(&mut &encoded[..]).unwrap());
 		}
 	}
 
@@ -171,7 +162,7 @@ mod tests {
 	fn bitvec_u32() {
 		for v in &test_data!(u32) {
 			let encoded = v.encode();
-			assert_eq!(*v, BitVec::<BigEndian, u32>::decode_m(&mut &encoded[..]).unwrap());
+			assert_eq!(*v, BitVec::<BigEndian, u32>::decode(&mut &encoded[..]).unwrap());
 		}
 	}
 
@@ -179,7 +170,7 @@ mod tests {
 	fn bitvec_u64() {
 		for v in &test_data!(u64) {
 			let encoded = v.encode();
-			assert_eq!(*v, BitVec::<BigEndian, u64>::decode_m(&mut &encoded[..]).unwrap());
+			assert_eq!(*v, BitVec::<BigEndian, u64>::decode(&mut &encoded[..]).unwrap());
 		}
 	}
 
@@ -188,7 +179,7 @@ mod tests {
 		let data: &[u8] = &[0x69];
 		let slice: &BitSlice = data.into();
 		let encoded = slice.encode();
-		let decoded = BitVec::<BigEndian, u8>::decode_m(&mut &encoded[..]).unwrap();
+		let decoded = BitVec::<BigEndian, u8>::decode(&mut &encoded[..]).unwrap();
 		assert_eq!(slice, decoded.as_bitslice());
 	}
 
@@ -197,7 +188,7 @@ mod tests {
 		let data: &[u8] = &[5, 10];
 		let bb: BitBox = data.into();
 		let encoded = bb.encode();
-		let decoded = BitBox::<BigEndian, u8>::decode_m(&mut &encoded[..]).unwrap();
+		let decoded = BitBox::<BigEndian, u8>::decode(&mut &encoded[..]).unwrap();
 		assert_eq!(bb, decoded);
 	}
 }
