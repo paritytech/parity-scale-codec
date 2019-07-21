@@ -242,6 +242,10 @@ mod joiner;
 mod keyedvec;
 #[cfg(feature = "bit-vec")]
 mod bit_vec;
+#[cfg(feature = "generic-array")]
+mod generic_array;
+#[cfg(feature = "vec-array")]
+mod vec_array;
 mod decode_all;
 
 pub use self::codec::{
