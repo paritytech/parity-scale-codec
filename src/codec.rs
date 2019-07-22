@@ -44,7 +44,6 @@ use std::fmt;
 /// Such bound is necessary to avoid crafted input to allocate too much space
 pub const DEFAULT_MAX_DECODE_PREALLOCATION_SIZE: usize = 4 * 1024;
 
-
 /// Descriptive error type
 #[cfg(feature = "std")]
 #[derive(PartialEq, Debug)]

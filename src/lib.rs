@@ -246,7 +246,7 @@ mod decode_all;
 
 pub use self::codec::{
 	Input, Output, Error, Encode, Decode, Codec, EncodeAsRef, EncodeAppend, WrapperTypeEncode,
-	WrapperTypeDecode, OptionBool,
+	WrapperTypeDecode, OptionBool, DEFAULT_MAX_DECODE_PREALLOCATION_SIZE
 };
 pub use self::compact::{Compact, HasCompact, CompactAs};
 pub use self::joiner::Joiner;
