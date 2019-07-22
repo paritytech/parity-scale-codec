@@ -79,12 +79,12 @@ mod tests {
 	}
 
 	impl Decode for TestStruct {
-		fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
+		fn decode_inner<I: Input>(input: &mut I, preallocated: usize) -> Result<Self, Error> {
 			Ok(
 				Self {
-					data: Vec::<u32>::decode(input)?,
-					other: u8::decode(input)?,
-					compact: Compact::<u128>::decode(input)?,
+					data: Vec::<u32>::decode_inner(input, preallocated)?,
+					other: u8::decode_inner(input, preallocated)?,
+					compact: Compact::<u128>::decode_inner(input, preallocated)?,
 				}
 			)
 		}

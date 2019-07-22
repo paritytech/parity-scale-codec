@@ -47,8 +47,8 @@ impl<C: Cursor, T: BitStore + ToByteSlice> Encode for BitVec<C, T> {
 }
 
 impl<C: Cursor, T: BitStore + FromByteSlice> Decode for BitVec<C, T> {
-	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
-		<Compact<u32>>::decode(input).and_then(move |Compact(bits)| {
+	fn decode_inner<I: Input>(input: &mut I, preallocated: usize) -> Result<Self, Error> {
+		<Compact<u32>>::decode_inner(input, preallocated).and_then(move |Compact(bits)| {
 			let bits = bits as usize;
 
 			let mut vec = vec![0; required_bytes::<T>(bits)];
@@ -69,8 +69,8 @@ impl<C: Cursor, T: BitStore + ToByteSlice> Encode for BitBox<C, T> {
 }
 
 impl<C: Cursor, T: BitStore + FromByteSlice> Decode for BitBox<C, T> {
-	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
-		Ok(Self::from_bitslice(BitVec::<C, T>::decode(input)?.as_bitslice()))
+	fn decode_inner<I: Input>(input: &mut I, preallocated: usize) -> Result<Self, Error> {
+		Ok(Self::from_bitslice(BitVec::<C, T>::decode_inner(input, preallocated)?.as_bitslice()))
 	}
 }
 

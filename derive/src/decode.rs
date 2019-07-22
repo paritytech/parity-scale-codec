@@ -16,12 +16,18 @@ use proc_macro2::{Span, TokenStream, Ident};
 use syn::{Data, Fields, Field, spanned::Spanned, Error};
 use crate::utils;
 
-pub fn quote(data: &Data, type_name: &Ident, input: &TokenStream) -> TokenStream {
+pub fn quote(
+	data: &Data,
+	type_name: &Ident,
+	input: &TokenStream,
+	preallocated: &TokenStream
+) -> TokenStream {
 	match *data {
 		Data::Struct(ref data) => match data.fields {
 			Fields::Named(_) | Fields::Unnamed(_) => create_instance(
 				quote! { #type_name },
 				input,
+				preallocated,
 				&data.fields,
 			),
 			Fields::Unit => {
@@ -48,6 +54,7 @@ pub fn quote(data: &Data, type_name: &Ident, input: &TokenStream) -> TokenStream
 				let create = create_instance(
 					quote! { #type_name :: #name },
 					input,
+					preallocated,
 					&v.fields,
 				);
 
@@ -71,7 +78,12 @@ pub fn quote(data: &Data, type_name: &Ident, input: &TokenStream) -> TokenStream
 	}
 }
 
-fn create_decode_expr(field: &Field, name: &String, input: &TokenStream) -> TokenStream {
+fn create_decode_expr(
+	field: &Field,
+	name: &String,
+	input: &TokenStream,
+	preallocated: &TokenStream
+) -> TokenStream {
 	let encoded_as = utils::get_encoded_as_type(field);
 	let compact = utils::get_enable_compact(field);
 	let skip = utils::get_skip(&field.attrs).is_some();
@@ -91,7 +103,7 @@ fn create_decode_expr(field: &Field, name: &String, input: &TokenStream) -> Toke
 			{
 				let res = <
 					<#field_type as _parity_scale_codec::HasCompact>::Type as _parity_scale_codec::Decode
-				>::decode(#input);
+				>::decode_inner(#input, #preallocated);
 				match res {
 					Err(_) => return Err(#err_msg.into()),
 					Ok(a) => a.into(),
@@ -101,7 +113,8 @@ fn create_decode_expr(field: &Field, name: &String, input: &TokenStream) -> Toke
 	} else if let Some(encoded_as) = encoded_as {
 		quote_spanned! { field.span() =>
 			{
-				let res = <#encoded_as as _parity_scale_codec::Decode>::decode(#input);
+				let res = <#encoded_as as _parity_scale_codec::Decode>::decode_inner(#input, #preallocated);
+
 				match res {
 					Err(_) => return Err(#err_msg.into()),
 					Ok(a) => a.into(),
@@ -113,7 +126,7 @@ fn create_decode_expr(field: &Field, name: &String, input: &TokenStream) -> Toke
 	} else {
 		quote_spanned! { field.span() =>
 			{
-				let res = _parity_scale_codec::Decode::decode(#input);
+				let res = _parity_scale_codec::Decode::decode_inner(#input, #preallocated);
 				match res {
 					Err(_) => return Err(#err_msg.into()),
 					Ok(a) => a,
@@ -126,6 +139,7 @@ fn create_decode_expr(field: &Field, name: &String, input: &TokenStream) -> Toke
 fn create_instance(
 	name: TokenStream,
 	input: &TokenStream,
+	preallocated: &TokenStream,
 	fields: &Fields
 ) -> TokenStream {
 	match *fields {
@@ -136,7 +150,7 @@ fn create_instance(
 					Some(a) => format!("{}.{}", name, a),
 					None => format!("{}", name),
 				};
-				let decode = create_decode_expr(f, &field, input);
+				let decode = create_decode_expr(f, &field, input, preallocated);
 
 				quote_spanned! { f.span() =>
 					#name_ident: #decode
@@ -153,7 +167,7 @@ fn create_instance(
 			let recurse = fields.unnamed.iter().enumerate().map(|(i, f) | {
 				let name = format!("{}.{}", name, i);
 
-				create_decode_expr(f, &name, input)
+				create_decode_expr(f, &name, input, preallocated)
 			});
 
 			quote_spanned! { fields.span() =>

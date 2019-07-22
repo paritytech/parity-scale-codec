@@ -28,14 +28,22 @@ use crate::alloc::{
 };
 
 use core::{mem, slice, ops::Deref};
-use core::marker::PhantomData;
+use core::convert::TryFrom;
 use core::iter::FromIterator;
+use core::marker::PhantomData;
 use arrayvec::ArrayVec;
 
 #[cfg(feature = "std")]
 use std::fmt;
 
-use core::convert::TryFrom;
+/// Default bound for preallocation in decoding.
+///
+/// If length of input is more than the default then
+/// decode preallocation can be bound by input length.
+///
+/// Such bound is necessary to avoid crafted input to allocate too much space
+pub const DEFAULT_MAX_DECODE_PREALLOCATION_SIZE: usize = 4 * 1024;
+
 
 /// Descriptive error type
 #[cfg(feature = "std")]
@@ -107,9 +115,11 @@ pub trait Input {
 		self.read(&mut buf[..])?;
 		Ok(buf[0])
 	}
+
+	/// Minimum length of input, can be used to bound preallocation.
+	fn min_len(&mut self) -> usize;
 }
 
-#[cfg(not(feature = "std"))]
 impl<'a> Input for &'a [u8] {
 	fn read(&mut self, into: &mut [u8]) -> Result<(), Error> {
 		if into.len() > self.len() {
@@ -119,6 +129,10 @@ impl<'a> Input for &'a [u8] {
 		into.copy_from_slice(&self[..len]);
 		*self = &self[len..];
 		Ok(())
+	}
+
+	fn min_len(&mut self) -> usize {
+		self.len()
 	}
 }
 
@@ -147,14 +161,6 @@ impl From<std::io::Error> for Error {
 			UnexpectedEof => "io error: UnexpectedEof".into(),
 			_ => "io error: Unkown".into(),
 		}
-	}
-}
-
-#[cfg(feature = "std")]
-impl<R: std::io::Read> Input for R {
-	fn read(&mut self, into: &mut [u8]) -> Result<(), Error> {
-		(self as &mut dyn std::io::Read).read_exact(into)?;
-		Ok(())
 	}
 }
 
@@ -253,8 +259,16 @@ pub trait Decode: Sized {
 	#[doc(hidden)]
 	const IS_U8: IsU8 = IsU8::No;
 
+	/// Attempt to deserialise the value from input while having already preallocated space.
+	///
+	/// Use this when you want to decode while having already preallocated space for later data in
+	/// the input. This allow preallocated space to be bounded by input len or a default maximum.
+	fn decode_inner<I: Input>(input: &mut I, preallocated: usize) -> Result<Self, Error>;
+
 	/// Attempt to deserialise the value from input.
-	fn decode<I: Input>(value: &mut I) -> Result<Self, Error>;
+	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
+		Self::decode_inner(input, 0)
+	}
 }
 
 /// Trait that allows zero-copy read/write of value-references to/from slices in LE format.
@@ -326,8 +340,8 @@ impl<T, X> Decode for X where
 	T: Decode + Into<X>,
 	X: WrapperTypeDecode<Wrapped=T>,
 {
-	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
-		Ok(T::decode(input)?.into())
+	fn decode_inner<I: Input>(input: &mut I, preallocated: usize) -> Result<Self, Error> {
+		Ok(T::decode_inner(input, preallocated)?.into())
 	}
 }
 
@@ -360,10 +374,10 @@ impl<T: Encode, E: Encode> Encode for Result<T, E> {
 }
 
 impl<T: Decode, E: Decode> Decode for Result<T, E> {
-	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
+	fn decode_inner<I: Input>(input: &mut I, preallocated: usize) -> Result<Self, Error> {
 		match input.read_byte()? {
-			0 => Ok(Ok(T::decode(input)?)),
-			1 => Ok(Err(E::decode(input)?)),
+			0 => Ok(Ok(T::decode_inner(input, preallocated)?)),
+			1 => Ok(Err(E::decode_inner(input, preallocated)?)),
 			_ => Err("unexpected first byte decoding Result".into()),
 		}
 	}
@@ -394,7 +408,7 @@ impl Encode for OptionBool {
 }
 
 impl Decode for OptionBool {
-	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
+	fn decode_inner<I: Input>(input: &mut I, _preallocated: usize) -> Result<Self, Error> {
 		match input.read_byte()? {
 			0 => Ok(OptionBool(None)),
 			1 => Ok(OptionBool(Some(true))),
@@ -424,10 +438,10 @@ impl<T: Encode> Encode for Option<T> {
 }
 
 impl<T: Decode> Decode for Option<T> {
-	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
+	fn decode_inner<I: Input>(input: &mut I, preallocated: usize) -> Result<Self, Error> {
 		match input.read_byte()? {
 			0 => Ok(None),
-			1 => Ok(Some(T::decode(input)?)),
+			1 => Ok(Some(T::decode_inner(input, preallocated)?)),
 			_ => Err("unexpecded first byte decoding Option".into()),
 		}
 	}
@@ -444,10 +458,10 @@ macro_rules! impl_array {
 		}
 
 		impl<T: Decode> Decode for [T; $n] {
-			fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
+			fn decode_inner<I: Input>(input: &mut I, preallocated: usize) -> Result<Self, Error> {
 				let mut r = ArrayVec::new();
 				for _ in 0..$n {
-					r.push(T::decode(input)?);
+					r.push(T::decode_inner(input, preallocated)?);
 				}
 				let i = r.into_inner();
 
@@ -501,8 +515,8 @@ impl Encode for str {
 impl<'a, T: ToOwned + ?Sized> Decode for Cow<'a, T>
 	where <T as ToOwned>::Owned: Decode,
 {
-	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
-		Ok(Cow::Owned(Decode::decode(input)?))
+	fn decode_inner<I: Input>(input: &mut I, preallocated: usize) -> Result<Self, Error> {
+		Ok(Cow::Owned(Decode::decode_inner(input, preallocated)?))
 	}
 }
 
@@ -511,15 +525,15 @@ impl<T> Encode for PhantomData<T> {
 }
 
 impl<T> Decode for PhantomData<T> {
-	fn decode<I: Input>(_input: &mut I) -> Result<Self, Error> {
+	fn decode_inner<I: Input>(_input: &mut I, _preallocated: usize) -> Result<Self, Error> {
 		Ok(PhantomData)
 	}
 }
 
 #[cfg(any(feature = "std", feature = "full"))]
 impl Decode for String {
-	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
-		Ok(Self::from_utf8_lossy(&Vec::decode(input)?).into())
+	fn decode_inner<I: Input>(input: &mut I, preallocated: usize) -> Result<Self, Error> {
+		Ok(Self::from_utf8_lossy(&Vec::decode_inner(input, preallocated)?).into())
 	}
 }
 
@@ -538,7 +552,7 @@ impl<T: Encode> Encode for [T] {
 		Compact(len as u32).encode_to(dest);
 		if let IsU8::Yes= <T as Encode>::IS_U8 {
 			let self_transmute = unsafe {
-				core::mem::transmute::<&[T], &[u8]>(self)
+				mem::transmute::<&[T], &[u8]>(self)
 			};
 			dest.write(self_transmute)
 		} else {
@@ -550,19 +564,44 @@ impl<T: Encode> Encode for [T] {
 }
 
 impl<T: Decode> Decode for Vec<T> {
-	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
-		<Compact<u32>>::decode(input).and_then(move |Compact(len)| {
+	fn decode_inner<I: Input>(input: &mut I, preallocated: usize) -> Result<Self, Error> {
+		<Compact<u32>>::decode_inner(input, preallocated).and_then(move |Compact(len)| {
 			let len = len as usize;
-			if let IsU8::Yes = <T as Decode>::IS_U8 {
-				let mut r = vec![0; len];
+			let max_preallocation = input.min_len().max(DEFAULT_MAX_DECODE_PREALLOCATION_SIZE)
+				.saturating_sub(preallocated);
 
-				input.read(&mut r[..len])?;
-				let r = unsafe { core::mem::transmute::<Vec<u8>, Vec<T>>(r) };
+			if let IsU8::Yes = <T as Decode>::IS_U8 {
+				let r = if len <= max_preallocation {
+					let mut r = vec![0; len];
+
+					input.read(&mut r[..len])?;
+					r
+				} else {
+					// if len is considered too much for preallocation then use dynamic allocation
+					let mut r = Vec::new();
+					let mut remains = len;
+					let buffer_len = max_preallocation;
+					let mut buffer = vec![0; buffer_len];
+	
+					while remains != 0 {
+						let read_len = buffer_len.min(remains);
+						input.read(&mut buffer[..read_len])?;
+	
+						remains -= read_len;
+						r.extend_from_slice(&buffer[..read_len]);
+					}
+					r
+				};
+
+				let r = unsafe { mem::transmute::<Vec<u8>, Vec<T>>(r) };
 				Ok(r)
 			} else {
-				let mut r = Vec::with_capacity(len);
+				let capacity = max_preallocation.checked_div(mem::size_of::<T>()).unwrap_or(0);
+				let mut r = Vec::with_capacity(capacity);
 				for _ in 0..len {
-					r.push(T::decode(input)?);
+					let current_preallocated = (r.capacity() - r.len()).saturating_sub(1)
+						* mem::size_of::<T>();
+					r.push(T::decode_inner(input, current_preallocated)?);
 				}
 				Ok(r)
 			}
@@ -637,9 +676,9 @@ macro_rules! impl_codec_through_iterator {
 		}
 
 		impl<$($decode_generics)*> Decode for $type {
-			fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
-				<Compact<u32>>::decode(input).and_then(move |Compact(len)| {
-					Result::from_iter((0..len).map(|_| Decode::decode(input)))
+			fn decode_inner<I: Input>(input: &mut I, preallocated: usize) -> Result<Self, Error> {
+				<Compact<u32>>::decode_inner(input, preallocated).and_then(move |Compact(len)| {
+					Result::from_iter((0..len).map(|_| Decode::decode_inner(input, preallocated)))
 				})
 			}
 		}
@@ -662,7 +701,7 @@ impl<T: Encode + Ord> Encode for VecDeque<T> {
 		if let IsU8::Yes = <T as Encode>::IS_U8 {
 			let slices = self.as_slices();
 			let slices_transmute = unsafe {
-				core::mem::transmute::<(&[T], &[T]), (&[u8], &[u8])>(slices)
+				mem::transmute::<(&[T], &[T]), (&[u8], &[u8])>(slices)
 			};
 			dest.write(slices_transmute.0);
 			dest.write(slices_transmute.1);
@@ -675,8 +714,8 @@ impl<T: Encode + Ord> Encode for VecDeque<T> {
 }
 
 impl<T: Decode> Decode for VecDeque<T> {
-	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
-		Ok(<Vec<T>>::decode(input)?.into())
+	fn decode_inner<I: Input>(input: &mut I, preallocated: usize) -> Result<Self, Error> {
+		Ok(<Vec<T>>::decode_inner(input, preallocated)?.into())
 	}
 }
 
@@ -694,7 +733,7 @@ impl Encode for () {
 }
 
 impl Decode for () {
-	fn decode<I: Input>(_: &mut I) -> Result<(), Error> {
+	fn decode_inner<I: Input>(_: &mut I, _: usize) -> Result<(), Error> {
 		Ok(())
 	}
 }
@@ -734,8 +773,8 @@ macro_rules! tuple_impl {
 		}
 
 		impl<$one: Decode> Decode for ($one,) {
-			fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
-				match $one::decode(input) {
+			fn decode_inner<I: Input>(input: &mut I, preallocated: usize) -> Result<Self, Error> {
+				match $one::decode_inner(input, preallocated) {
 					Err(e) => Err(e),
 					Ok($one) => Ok(($one,)),
 				}
@@ -769,13 +808,13 @@ macro_rules! tuple_impl {
 		impl<$first: Decode, $($rest: Decode),+>
 		Decode for
 		($first, $($rest),+) {
-			fn decode<INPUT: Input>(input: &mut INPUT) -> Result<Self, super::Error> {
+			fn decode_inner<INPUT: Input>(input: &mut INPUT, preallocated: usize) -> Result<Self, super::Error> {
 				Ok((
-					match $first::decode(input) {
+					match $first::decode_inner(input, preallocated) {
 						Ok(x) => x,
 						Err(e) => return Err(e),
 					},
-					$(match $rest::decode(input) {
+					$(match $rest::decode_inner(input, preallocated) {
 						Ok(x) => x,
 						Err(e) => return Err(e),
 					},)+
@@ -843,7 +882,7 @@ macro_rules! impl_endians {
 		}
 
 		impl Decode for $t {
-			fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
+			fn decode_inner<I: Input>(input: &mut I, _preallocated: usize) -> Result<Self, Error> {
 				let size = mem::size_of::<$t>();
 				assert!(size > 0, "EndianSensitive can never be implemented for a zero-sized type.");
 				let mut val: $t = unsafe { mem::zeroed() };
@@ -891,7 +930,7 @@ macro_rules! impl_non_endians {
 		impl Decode for $t {
 			$( const $is_u8: IsU8 = IsU8::Yes; )?
 
-			fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
+			fn decode_inner<I: Input>(input: &mut I, _preallocated: usize) -> Result<Self, Error> {
 				let size = mem::size_of::<$t>();
 				assert!(size > 0, "EndianSensitive can never be implemented for a zero-sized type.");
 				let mut val: $t = unsafe { mem::zeroed() };

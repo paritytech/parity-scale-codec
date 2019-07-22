@@ -41,6 +41,9 @@ The `Decode` trait is used for deserialization/decoding of encoded data into the
 
 * `fn decode<I: Input>(value: &mut I) -> Result<Self, Error>`: Tries to decode the value from SCALE format to the type it is called on.
 Returns an `Err` if the decoding fails.
+* `fn decode_inner<I: Input>(value: &mut I, preallocated: usize) -> Result<Self, Error>`: Tries to decode same as decode but with information
+about how much has been pre-allocated by caller. This allows callee to cap its pre-allocation to some maximum,
+see `DEFAULT_MAX_DECODE_PREALLOCATION_SIZE` and `Input::min_len`.
 
 ### CompactAs
 
