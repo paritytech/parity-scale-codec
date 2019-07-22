@@ -11,7 +11,7 @@ impl<T: Encode, L: generic_array::ArrayLength<T>> Encode for generic_array::Gene
 
 impl<T: Decode, L: generic_array::ArrayLength<T>> Decode for generic_array::GenericArray<T, L> {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
-		let mut r = Vec::new();
+		let mut r = Vec::with_capacity(L::to_usize());
 		for _ in 0..L::to_usize() {
 			r.push(T::decode(input)?);
 		}
