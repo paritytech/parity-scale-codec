@@ -142,7 +142,7 @@ fn encode_fields<F>(
 }
 
 fn try_impl_encode_single_field_optimisation(data: &Data) -> Option<TokenStream> {
-	let optimisation = match *data {
+	match *data {
 		Data::Struct(ref data) => {
 			match data.fields {
 				Fields::Named(ref fields) if utils::filter_skip_named(fields).count() == 1 => {
@@ -166,13 +166,7 @@ fn try_impl_encode_single_field_optimisation(data: &Data) -> Option<TokenStream>
 			}
 		},
 		_ => None,
-	};
-
-	optimisation.map(|optimisation| {
-		quote! {
-			#optimisation
-		}
-	})
+	}
 }
 
 fn impl_encode(data: &Data, type_name: &Ident) -> TokenStream {
