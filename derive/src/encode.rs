@@ -28,7 +28,6 @@ type FieldsList = Punctuated<Field, Comma>;
 
 // Encode a signle field by using using_encoded, must not have skip attribute
 fn encode_single_field(
-	closure: &TokenStream,
 	field: &Field,
 	field_name: TokenStream,
 ) -> TokenStream {
@@ -49,13 +48,12 @@ fn encode_single_field(
 		).to_compile_error();
 	}
 
-	if compact {
+	let final_field_variable = if compact {
 		let field_type = &field.ty;
 		quote_spanned! {
 			field.span() => {
 				<<#field_type as _parity_scale_codec::HasCompact>::Type as
 					_parity_scale_codec::EncodeAsRef<'_, #field_type>>::RefType::from(#field_name)
-					.using_encoded(#closure)
 			}
 		}
 	} else if let Some(encoded_as) = encoded_as {
@@ -64,13 +62,26 @@ fn encode_single_field(
 			field.span() => {
 				<#encoded_as as
 					_parity_scale_codec::EncodeAsRef<'_, #field_type>>::RefType::from(#field_name)
-					.using_encoded(#closure)
 			}
 		}
 	} else {
 		quote_spanned! { field.span() =>
-			_parity_scale_codec::Encode::using_encoded(&#field_name, #closure)
+			#field_name
 		}
+	};
+
+	quote_spanned! { field.span() =>
+			fn encode_to<EncOut: _parity_scale_codec::Output>(&self, dest: &mut EncOut) {
+				_parity_scale_codec::Encode::encode_to(&#final_field_variable, dest)
+			}
+
+			fn encode(&self) -> Vec<u8> {
+				_parity_scale_codec::Encode::encode(&#final_field_variable)
+			}
+
+			fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
+				_parity_scale_codec::Encode::using_encoded(&#final_field_variable, f)
+			}
 	}
 }
 
@@ -131,8 +142,6 @@ fn encode_fields<F>(
 }
 
 fn try_impl_encode_single_field_optimisation(data: &Data) -> Option<TokenStream> {
-	let closure = &quote!(f);
-
 	let optimisation = match *data {
 		Data::Struct(ref data) => {
 			match data.fields {
@@ -140,7 +149,6 @@ fn try_impl_encode_single_field_optimisation(data: &Data) -> Option<TokenStream>
 					let field = utils::filter_skip_named(fields).next().unwrap();
 					let name = &field.ident;
 					Some(encode_single_field(
-						closure,
 						field,
 						quote!(&self.#name)
 					))
@@ -150,7 +158,6 @@ fn try_impl_encode_single_field_optimisation(data: &Data) -> Option<TokenStream>
 					let id = syn::Index::from(id);
 
 					Some(encode_single_field(
-						closure,
 						field,
 						quote!(&self.#id)
 					))
@@ -163,9 +170,7 @@ fn try_impl_encode_single_field_optimisation(data: &Data) -> Option<TokenStream>
 
 	optimisation.map(|optimisation| {
 		quote! {
-			fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, #closure: F) -> R {
-				#optimisation
-			}
+			#optimisation
 		}
 	})
 }
