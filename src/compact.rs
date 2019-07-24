@@ -46,6 +46,10 @@ struct PrefixInput<'a, T> {
 }
 
 impl<'a, T: 'a + Input> Input for PrefixInput<'a, T> {
+	fn remaining_len(&mut self) -> Result<usize, Error> {
+		Ok(self.input.remaining_len()?.saturating_add(1))
+	}
+
 	fn read(&mut self, buffer: &mut [u8]) -> Result<(), Error> {
 		match self.prefix.take() {
 			Some(v) if !buffer.is_empty() => {
