@@ -75,7 +75,7 @@ fn encode_single_field(
 				_parity_scale_codec::Encode::encode_to(&#final_field_variable, dest)
 			}
 
-			fn encode(&self) -> core::vec::Vec<u8> {
+			fn encode(&self) -> _parity_scale_codec::alloc::vec::Vec<u8> {
 				_parity_scale_codec::Encode::encode(&#final_field_variable)
 			}
 
