@@ -156,8 +156,9 @@ impl From<std::io::Error> for Error {
 	}
 }
 
+/// Wrapper that implements Input for any `Read` and `Seek` type.
 #[cfg(feature = "std")]
-struct IoReader<R: std::io::Read + std::io::Seek>(R);
+struct IoReader<R: std::io::Read + std::io::Seek>(pub R);
 
 #[cfg(feature = "std")]
 impl<R: std::io::Read + std::io::Seek> Input for IoReader<R> {
