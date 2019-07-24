@@ -209,6 +209,7 @@
 
 #[cfg(not(feature = "std"))]
 #[macro_use]
+#[doc(hidden)]
 pub extern crate alloc;
 
 #[cfg(feature = "parity-scale-codec-derive")]
