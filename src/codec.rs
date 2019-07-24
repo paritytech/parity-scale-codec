@@ -575,13 +575,13 @@ impl<T: Decode> Decode for Vec<T> {
 
 			if let IsU8::Yes = <T as Decode>::IS_U8 {
 				let r = if len <= max_preallocation {
-					// if len ok for preallocation then preallocate and read the slice
+					// If len is ok for preallocation then preallocate and read the slice.
 					let mut r = vec![0; len];
 
 					input.read(&mut r[..len])?;
 					r
 				} else {
-					// if len is considered too much for preallocation then use dynamic allocation
+					// If len is considered too much for preallocation then use dynamic allocation.
 					let mut r = Vec::new();
 					let mut remains = len;
 					let buffer_len = max_preallocation;
