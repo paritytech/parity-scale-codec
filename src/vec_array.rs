@@ -34,3 +34,28 @@ impl<T: Decode, L: typenum::Unsigned> Decode for vecarray::VecArray<T, L> {
 			.map_err(|_| "array length does not match definition".into())
 	}
 }
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use vecarray::VecArray;
+
+	#[test]
+	fn vec_array() {
+		let test = VecArray::<u8, typenum::U3>::try_from([3u8, 4, 5].to_vec()).ok().unwrap();
+		let encoded = test.encode();
+		assert_eq!(test, VecArray::<u8, typenum::U3>::decode(&mut &encoded[..]).unwrap());
+
+		let test = VecArray::<u16, typenum::U7>::try_from([3u16, 4, 5, 6, 7, 8, 0].to_vec()).ok().unwrap();
+		let encoded = test.encode();
+		assert_eq!(test, VecArray::<u16, typenum::U7>::decode(&mut &encoded[..]).unwrap());
+
+		let test = VecArray::<u32, typenum::U5>::try_from([3u32, 4, 5, 0, 1].to_vec()).ok().unwrap();
+		let encoded = test.encode();
+		assert_eq!(test, VecArray::<u32, typenum::U5>::decode(&mut &encoded[..]).unwrap());
+
+		let test = VecArray::<u64, typenum::U1>::try_from([3u64].to_vec()).ok().unwrap();
+		let encoded = test.encode();
+		assert_eq!(test, VecArray::<u64, typenum::U1>::decode(&mut &encoded[..]).unwrap());
+	}
+}
