@@ -890,7 +890,6 @@ macro_rules! impl_non_endians {
 impl_endians!(u16, u32, u64, u128, i16, i32, i64, i128);
 impl_non_endians!(u8 {IS_U8}, i8, bool);
 
-
 #[cfg(test)]
 mod tests {
 	use super::*;

@@ -23,7 +23,7 @@ cache:
 test:rust:stable:
   stage:                           test
   script:
-    - time cargo test --verbose --all --features bit-vec,derive
+    - time cargo test --verbose --all --features bit-vec,generic-array,vec-array,derive
   only:
     - triggers
     - tags
@@ -37,7 +37,7 @@ test:rust:stable:
 test:rust:stable:no_derive:
   stage:                           test
   script:
-    - time cargo test --verbose --features bit-vec
+    - time cargo test --verbose --features bit-vec,generic-array,vec-array
   only:
     - triggers
     - tags
@@ -51,7 +51,7 @@ test:rust:stable:no_derive:
 check:rust:stable:no_derive_no_std_full:
   stage:                           test
   script:
-    - time cargo check --verbose --no-default-features --features bit-vec,full
+    - time cargo check --verbose --no-default-features --features bit-vec,generic-array,vec-array,full
   only:
     - triggers
     - tags
@@ -65,7 +65,7 @@ check:rust:stable:no_derive_no_std_full:
 check:rust:stable:no_derive_no_std:
   stage:                           test
   script:
-    - time cargo check --verbose --no-default-features --features bit-vec
+    - time cargo check --verbose --no-default-features --features bit-vec,generic-array,vec-array
   only:
     - triggers
     - tags
@@ -79,7 +79,7 @@ check:rust:stable:no_derive_no_std:
 check:rust:stable:no_derive_full:
   stage:                           test
   script:
-    - time cargo check --verbose --features bit-vec,full
+    - time cargo check --verbose --features bit-vec,generic-array,vec-array,full
   only:
     - triggers
     - tags
@@ -93,7 +93,7 @@ check:rust:stable:no_derive_full:
 bench:rust:nightly:
   stage:                           test
   script:
-    - time cargo +nightly bench --features bit-vec,derive
+    - time cargo +nightly bench --features bit-vec,generic-array,vec-array,derive
   only:
     - triggers
     - tags
@@ -109,11 +109,10 @@ bench:rust:nightly:
 build:linux:ubuntu:amd64:
   stage:                           build
   script:
-    - cargo build --verbose --release --features bit-vec,derive
+    - cargo build --verbose --release --features bit-vec,generic-array,vec-array,derive
   only:
     - master
     - tags
     - web
   tags:
     - rust
-
