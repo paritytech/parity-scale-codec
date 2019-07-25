@@ -209,7 +209,8 @@
 
 #[cfg(not(feature = "std"))]
 #[macro_use]
-extern crate alloc;
+#[doc(hidden)]
+pub extern crate alloc;
 
 #[cfg(feature = "parity-scale-codec-derive")]
 #[allow(unused_imports)]
@@ -248,6 +249,8 @@ pub use self::codec::{
 	Input, Output, Error, Encode, Decode, Codec, EncodeAsRef, EncodeAppend, WrapperTypeEncode,
 	WrapperTypeDecode, OptionBool,
 };
+#[cfg(feature = "std")]
+pub use self::codec::IoReader;
 pub use self::compact::{Compact, HasCompact, CompactAs};
 pub use self::joiner::Joiner;
 pub use self::keyedvec::KeyedVec;
