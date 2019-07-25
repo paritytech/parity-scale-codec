@@ -15,6 +15,7 @@
 use crate::{Encode, Error, Decode, Compact, CompactLen};
 
 use core::{iter::ExactSizeIterator, mem};
+use crate::alloc::vec::Vec;
 
 /// Trait that allows to append items to an encoded representation without
 /// decoding all previous added items.
