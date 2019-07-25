@@ -244,14 +244,16 @@ mod keyedvec;
 #[cfg(feature = "bit-vec")]
 mod bit_vec;
 mod decode_all;
+mod encode_append;
 
 pub use self::codec::{
-	Input, Output, Error, Encode, Decode, Codec, EncodeAsRef, EncodeAppend, WrapperTypeEncode,
+	Input, Output, Error, Encode, Decode, Codec, EncodeAsRef, WrapperTypeEncode,
 	WrapperTypeDecode, OptionBool,
 };
 #[cfg(feature = "std")]
 pub use self::codec::IoReader;
-pub use self::compact::{Compact, HasCompact, CompactAs};
+pub use self::compact::{Compact, HasCompact, CompactAs, CompactLen};
 pub use self::joiner::Joiner;
 pub use self::keyedvec::KeyedVec;
 pub use self::decode_all::DecodeAll;
+pub use self::encode_append::EncodeAppend;
