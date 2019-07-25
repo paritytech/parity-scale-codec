@@ -451,30 +451,32 @@ impl<T: Decode> Decode for Option<T> {
 }
 
 macro_rules! impl_array {
-	( $( $n:expr, )* ) => { $(
-		impl<T: Encode> Encode for [T; $n] {
-			fn encode_to<W: Output>(&self, dest: &mut W) {
-				for item in self.iter() {
-					item.encode_to(dest);
+	( $( $n:expr, )* ) => {
+		$(
+			impl<T: Encode> Encode for [T; $n] {
+				fn encode_to<W: Output>(&self, dest: &mut W) {
+					for item in self.iter() {
+						item.encode_to(dest);
+					}
 				}
 			}
-		}
 
-		impl<T: Decode> Decode for [T; $n] {
-			fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
-				let mut r = ArrayVec::new();
-				for _ in 0..$n {
-					r.push(T::decode(input)?);
-				}
-				let i = r.into_inner();
+			impl<T: Decode> Decode for [T; $n] {
+				fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
+					let mut r = ArrayVec::new();
+					for _ in 0..$n {
+						r.push(T::decode(input)?);
+					}
+					let i = r.into_inner();
 
-				match i {
-					Ok(a) => Ok(a),
-					Err(_) => Err("failed to get inner array from ArrayVec".into()),
+					match i {
+						Ok(a) => Ok(a),
+						Err(_) => Err("failed to get inner array from ArrayVec".into()),
+					}
 				}
 			}
-		}
-		)* }
+		)*
+	}
 }
 
 impl_array!(
@@ -719,11 +721,11 @@ macro_rules! tuple_impl {
 				}
 			}
 		}
+
+		impl<$one: Encode> crate::EncodeLike<(&$one)> for $one {}
 	};
 	($first:ident, $($rest:ident,)+) => {
-		impl<$first: Encode, $($rest: Encode),+>
-		Encode for
-		($first, $($rest),+) {
+		impl<$first: Encode, $($rest: Encode),+> Encode for ($first, $($rest),+) {
 			fn size_hint(&self) -> usize {
 				let (
 					ref $first,
@@ -744,9 +746,7 @@ macro_rules! tuple_impl {
 			}
 		}
 
-		impl<$first: Decode, $($rest: Decode),+>
-		Decode for
-		($first, $($rest),+) {
+		impl<$first: Decode, $($rest: Decode),+> Decode for ($first, $($rest),+) {
 			fn decode<INPUT: Input>(input: &mut INPUT) -> Result<Self, super::Error> {
 				Ok((
 					match $first::decode(input) {
@@ -760,6 +760,9 @@ macro_rules! tuple_impl {
 				))
 			}
 		}
+
+		impl<$first: Encode, $($rest: Encode),+> crate::EncodeLike<(&$first, $( &$rest ),+)>
+			for ($first, $($rest),+) {}
 
 		tuple_impl!($($rest,)+);
 	}

@@ -245,6 +245,7 @@ mod keyedvec;
 mod bit_vec;
 mod decode_all;
 mod encode_append;
+mod encode_like;
 
 pub use self::codec::{
 	Input, Output, Error, Encode, Decode, Codec, EncodeAsRef, WrapperTypeEncode,
@@ -257,3 +258,4 @@ pub use self::joiner::Joiner;
 pub use self::keyedvec::KeyedVec;
 pub use self::decode_all::DecodeAll;
 pub use self::encode_append::EncodeAppend;
+pub use self::encode_like::EncodeLike;
