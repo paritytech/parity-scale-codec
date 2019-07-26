@@ -39,12 +39,12 @@ use core::convert::TryFrom;
 
 /// Descriptive error type
 #[cfg(feature = "std")]
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Eq, Clone, Debug)]
 pub struct Error(&'static str);
 
 /// Undescriptive error type when compiled for no std
 #[cfg(not(feature = "std"))]
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Eq, Clone, Debug)]
 pub struct Error;
 
 impl Error {
