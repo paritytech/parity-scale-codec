@@ -12,38 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::Encode;
-
-use crate::alloc::collections::{BTreeMap, BTreeSet, VecDeque, LinkedList, BinaryHeap};
-
 /// A marker trait that tells the compiler that two types encode to the same representation.
 ///
 /// E.g. `Vec<u8>` has the same encoded representation as `&[u8]`.
-pub trait EncodeLike<T: ?Sized + Encode> {}
-
-impl<T: Encode> EncodeLike<T> for T {}
-
-impl<T: Encode> EncodeLike<[T]> for Vec<T> {}
-
-impl<T: Encode> EncodeLike<[T]> for BTreeSet<T> {}
-
-impl<T: Encode> EncodeLike<[T]> for VecDeque<T> {}
-
-impl<T: Encode> EncodeLike<[T]> for LinkedList<T> {}
-
-impl<T: Encode> EncodeLike<[T]> for BinaryHeap<T> {}
-
-impl<K: Encode, V: Encode> EncodeLike<[(K, V)]> for BTreeMap<K, V> {}
-
-#[cfg(feature = "std")]
-impl EncodeLike<str> for String {}
-
-#[cfg(feature = "std")]
-impl EncodeLike<String> for &'static str {}
+pub trait EncodeLike<T: ?Sized = Self> {}
 
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use crate::Encode;
+	use std::collections::BTreeMap;
 
 	struct ComplexStuff<T: ?Sized>(std::marker::PhantomData<T>);
 
@@ -79,11 +57,14 @@ mod tests {
 	fn interface_testing() {
 		let value = 10u32;
 		let data = (&value, &value, &value);
-		let encoded = ComplexStuff::<(u32, u32, u32)>::complex_method(&data);
+		let encoded = ComplexStuff::<&(u32, u32, u32)>::complex_method(&data);
 		assert_eq!(data.encode(), encoded);
 
 		let vec_data: Vec<u8> = vec![1, 2, 3];
 		ComplexStuff::<Vec<u8>>::complex_method(&vec_data);
-		ComplexStuff::<&'static str>::complex_method(&String::from("test"));
+		ComplexStuff::<str>::complex_method(&String::from("test"));
+
+		let slice: &[u8] = &vec_data;
+		ComplexStuff::<(u32, Vec<u8>)>::complex_method(&(1u32, slice.to_vec()));
 	}
 }

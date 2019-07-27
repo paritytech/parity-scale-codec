@@ -41,7 +41,7 @@ impl<T: Decode> DecodeAll for T {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::{Encode, Input, Compact};
+	use crate::{Encode, Input, Compact, EncodeLike};
 
 	macro_rules! test_decode_all {
 		(
@@ -67,6 +67,8 @@ mod tests {
 		other: u8,
 		compact: Compact<u128>,
 	}
+
+	impl EncodeLike for TestStruct {}
 
 	impl Encode for TestStruct {
 		fn encode(&self) -> Vec<u8> {
