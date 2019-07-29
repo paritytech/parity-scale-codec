@@ -17,6 +17,24 @@ use crate::Encode;
 /// A marker trait that tells the compiler that two types encode to the same representation.
 ///
 /// E.g. `Vec<u8>` has the same encoded representation as `&[u8]`.
+///
+/// # Example
+///
+/// ```
+///# use parity_scale_codec::{EncodeLike, Encode};
+/// fn encode_like<T: EncodeLike<R>, R: Encode>(data: &R) {
+///     data.encode();
+/// }
+///
+/// fn main() {
+///     // Just pass the a reference to the normal tuple.
+///     encode_like::<(u32, u32), _>(&(1u32, 2u32));
+///     // Pass a tuple of references
+///     encode_like::<(u32, u32), _>(&(&1u32, &2u32));
+///     // Pass a tuple of a reference and a value.
+///     encode_like::<(u32, u32), _>(&(&1u32, 2u32));
+/// }
+/// ```
 pub trait EncodeLike<T = Self>: Sized + Encode {}
 
 impl<T: Encode> EncodeLike<&T> for T {}
