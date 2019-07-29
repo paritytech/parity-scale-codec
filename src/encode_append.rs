@@ -111,7 +111,7 @@ impl<T: Encode + 'static> EncodeAppend for Vec<T> {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::Input;
+	use crate::{Input, EncodeLike};
 
 	#[test]
 	fn vec_encode_append_works() {
@@ -145,6 +145,8 @@ mod tests {
 	fn append_non_copyable() {
 		#[derive(Eq, PartialEq, Debug)]
 		struct NoCopy { data: u32 };
+
+		impl EncodeLike for NoCopy {}
 
 		impl Encode for NoCopy {
 			fn encode(&self) -> Vec<u8> {

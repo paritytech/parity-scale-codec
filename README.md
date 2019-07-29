@@ -55,6 +55,12 @@ The type `As` is defined in the same trait and its implementation should be comp
 
 The `HasCompact` trait, if implemented, tells that the corresponding type is a compact encode-able type.
 
+### EncodeLike
+
+The `EncodeLike` trait needs to be implemented for each type manually. When using derive, it is
+done automatically for you. Basically the trait gives you the opportunity to accept multiple types
+to a function that all encode to the same representation.
+
 ## Usage Examples
 
 Following are some examples to demonstrate usage of the codec.
@@ -62,6 +68,7 @@ Following are some examples to demonstrate usage of the codec.
 ### Simple types
 
 ```rust
+
 use parity_scale_codec::{Encode, Decode};
 
 #[derive(Debug, PartialEq, Encode, Decode)]
@@ -108,6 +115,7 @@ assert_eq!(EnumType::decode(&mut dz).ok(), None);
 ### Compact type with HasCompact
 
 ```rust
+
 use parity_scale_codec::{Encode, Decode, Compact, HasCompact};
 
 #[derive(Debug, PartialEq, Encode, Decode)]

@@ -102,6 +102,8 @@ pub fn encode_derive(input: TokenStream) -> TokenStream {
 		impl #impl_generics _parity_scale_codec::Encode for #name #ty_generics #where_clause {
 			#encode_impl
 		}
+
+		impl #impl_generics _parity_scale_codec::EncodeLike for #name #ty_generics #where_clause {}
 	};
 
 	wrap_with_dummy_const(&input, "_IMPL_ENCODE_FOR_", impl_block)

@@ -15,7 +15,7 @@
 //! [Compact encoding](https://substrate.dev/docs/en/overview/low-level-data-format#compact-general-integers)
 
 use crate::alloc::vec::Vec;
-use crate::codec::{Input, Output, Error, Encode, Decode, EncodeAsRef};
+use crate::{Input, Output, Error, Encode, Decode, EncodeAsRef, EncodeLike};
 
 use arrayvec::ArrayVec;
 
@@ -91,6 +91,11 @@ pub trait CompactAs: From<Compact<Self>> {
 	fn decode_from(_: Self::As) -> Self;
 }
 
+impl<T> EncodeLike for Compact<T>
+where
+	for<'a> CompactRef<'a, T>: Encode,
+{}
+
 impl<T> Encode for Compact<T>
 where
 	for<'a> CompactRef<'a, T>: Encode,
@@ -111,6 +116,12 @@ where
 		CompactRef(&self.0).using_encoded(f)
 	}
 }
+
+impl<'a, T> EncodeLike for CompactRef<'a, T>
+where
+	T: CompactAs,
+	for<'b> CompactRef<'b, T::As>: Encode,
+{}
 
 impl<'a, T> Encode for CompactRef<'a, T>
 where

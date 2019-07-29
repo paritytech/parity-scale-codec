@@ -14,10 +14,12 @@
 
 //! Serialisation.
 
-use crate::alloc::vec::Vec;
-use crate::alloc::boxed::Box;
-use crate::alloc::collections::{BTreeMap, BTreeSet, VecDeque, LinkedList, BinaryHeap};
-use crate::compact::Compact;
+use crate::{
+	Compact, EncodeLike,
+	alloc::{
+		vec::Vec, boxed::Box, collections::{BTreeMap, BTreeSet, VecDeque, LinkedList, BinaryHeap},
+	}
+};
 
 #[cfg(any(feature = "std", feature = "full"))]
 use crate::alloc::{
@@ -27,9 +29,8 @@ use crate::alloc::{
 	rc::Rc,
 };
 
-use core::{mem, slice, ops::Deref};
-use core::marker::PhantomData;
-use core::iter::FromIterator;
+use core::{mem, slice, ops::Deref, marker::PhantomData, iter::FromIterator};
+
 use arrayvec::ArrayVec;
 
 #[cfg(feature = "std")]
@@ -285,23 +286,41 @@ impl<S: Decode + Encode> Codec for S {}
 /// is assumed to be the same as the wrapped type.
 pub trait WrapperTypeEncode: Deref {}
 
-impl<T> WrapperTypeEncode for Vec<T> {}
 impl<T: ?Sized> WrapperTypeEncode for Box<T> {}
+impl<T: ?Sized + Encode> EncodeLike for Box<T> {}
+impl<T: Encode> EncodeLike<T> for Box<T> {}
+
 impl<'a, T: ?Sized> WrapperTypeEncode for &'a T {}
+impl<'a, T: Encode> EncodeLike for &'a T {}
+
 impl<'a, T: ?Sized> WrapperTypeEncode for &'a mut T {}
+impl<'a, T: Encode> EncodeLike for &'a mut T {}
 
 #[cfg(any(feature = "std", feature = "full"))]
-impl<'a, T: ToOwned + ?Sized> WrapperTypeEncode for Cow<'a, T> {}
-#[cfg(any(feature = "std", feature = "full"))]
-impl<T: ?Sized> WrapperTypeEncode for Arc<T> {}
-#[cfg(any(feature = "std", feature = "full"))]
-impl<T: ?Sized> WrapperTypeEncode for Rc<T> {}
-#[cfg(any(feature = "std", feature = "full"))]
-impl WrapperTypeEncode for String {}
+mod feature_full_wrapper_type_encode {
+	use super::*;
+
+	impl<'a, T: ToOwned + ?Sized> WrapperTypeEncode for Cow<'a, T> {}
+	impl<'a, T: ToOwned + Encode + ?Sized> EncodeLike for Cow<'a, T> {}
+	impl<'a, T: ToOwned + Encode> EncodeLike<T> for Cow<'a, T> {}
+
+	impl<T: ?Sized> WrapperTypeEncode for Arc<T> {}
+	impl<T: Encode> EncodeLike for Arc<T> {}
+	impl<T: Encode> EncodeLike<T> for Arc<T> {}
+
+	impl<T: ?Sized> WrapperTypeEncode for Rc<T> {}
+	impl<T: Encode> EncodeLike for Rc<T> {}
+	impl<T: Encode> EncodeLike<T> for Rc<T> {}
+
+	impl WrapperTypeEncode for String {}
+	impl EncodeLike for String {}
+	impl EncodeLike<&str> for String {}
+	impl EncodeLike<String> for &str {}
+}
 
 impl<T, X> Encode for X where
 	T: Encode + ?Sized,
-	X: WrapperTypeEncode<Target=T>,
+	X: WrapperTypeEncode<Target = T>,
 {
 	fn size_hint(&self) -> usize {
 		(&**self).size_hint()
@@ -376,6 +395,8 @@ impl<T: Encode, E: Encode> Encode for Result<T, E> {
 	}
 }
 
+impl<T: Encode, E: Encode> EncodeLike for Result<T, E> {}
+
 impl<T: Decode, E: Decode> Decode for Result<T, E> {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		match input.read_byte()? {
@@ -410,6 +431,8 @@ impl Encode for OptionBool {
 	}
 }
 
+impl EncodeLike for OptionBool {}
+
 impl Decode for OptionBool {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		match input.read_byte()? {
@@ -420,6 +443,8 @@ impl Decode for OptionBool {
 		}
 	}
 }
+
+impl<T: Encode> EncodeLike for Option<T> {}
 
 impl<T: Encode> Encode for Option<T> {
 	fn size_hint(&self) -> usize {
@@ -451,30 +476,34 @@ impl<T: Decode> Decode for Option<T> {
 }
 
 macro_rules! impl_array {
-	( $( $n:expr, )* ) => { $(
-		impl<T: Encode> Encode for [T; $n] {
-			fn encode_to<W: Output>(&self, dest: &mut W) {
-				for item in self.iter() {
-					item.encode_to(dest);
+	( $( $n:expr, )* ) => {
+		$(
+			impl<T: Encode> Encode for [T; $n] {
+				fn encode_to<W: Output>(&self, dest: &mut W) {
+					for item in self.iter() {
+						item.encode_to(dest);
+					}
 				}
 			}
-		}
 
-		impl<T: Decode> Decode for [T; $n] {
-			fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
-				let mut r = ArrayVec::new();
-				for _ in 0..$n {
-					r.push(T::decode(input)?);
-				}
-				let i = r.into_inner();
+			impl<T: Decode> Decode for [T; $n] {
+				fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
+					let mut r = ArrayVec::new();
+					for _ in 0..$n {
+						r.push(T::decode(input)?);
+					}
+					let i = r.into_inner();
 
-				match i {
-					Ok(a) => Ok(a),
-					Err(_) => Err("failed to get inner array from ArrayVec".into()),
+					match i {
+						Ok(a) => Ok(a),
+						Err(_) => Err("failed to get inner array from ArrayVec".into()),
+					}
 				}
 			}
-		}
-		)* }
+
+			impl<T: Encode> EncodeLike for [T; $n] {}
+		)*
+	}
 }
 
 impl_array!(
@@ -495,6 +524,8 @@ impl_array!(
 	237, 238, 239, 240, 241, 242, 243, 244, 245, 246, 247, 248, 249, 250, 251, 252,
 	253, 254, 255, 256, 384, 512, 768, 1024, 2048, 4096, 8192, 16384, 32768,
 );
+
+impl EncodeLike for &str {}
 
 impl Encode for str {
 	fn size_hint(&self) -> usize {
@@ -523,6 +554,8 @@ impl<'a, T: ToOwned + ?Sized> Decode for Cow<'a, T>
 	}
 }
 
+impl<T> EncodeLike for PhantomData<T> {}
+
 impl<T> Encode for PhantomData<T> {
 	fn encode_to<W: Output>(&self, _dest: &mut W) {}
 }
@@ -549,6 +582,9 @@ pub(crate) fn compact_encode_len_to<W: Output>(dest: &mut W, len: usize) -> Resu
 	Ok(())
 }
 
+impl<T: Encode> EncodeLike for &[T] {}
+impl<T: Encode> EncodeLike<Vec<T>> for &[T] {}
+
 impl<T: Encode> Encode for [T] {
 	fn size_hint(&self) -> usize {
 		if let IsU8::Yes = <T as Encode>::IS_U8 {
@@ -573,6 +609,10 @@ impl<T: Encode> Encode for [T] {
 		}
 	}
 }
+
+impl<T> WrapperTypeEncode for Vec<T> {}
+impl<T: Encode> EncodeLike for Vec<T> {}
+impl<T: Encode> EncodeLike<&[T]> for Vec<T> {}
 
 impl<T: Decode> Decode for Vec<T> {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
@@ -603,8 +643,9 @@ impl<T: Decode> Decode for Vec<T> {
 macro_rules! impl_codec_through_iterator {
 	($(
 		$type:ty
-		{$( $encode_generics:tt )*}
-		{$( $decode_generics:tt )*}
+		{ $( $generics:ident ),* }
+		{ $( $encode_generics:tt )* }
+		{ $( $decode_generics:tt )* }
 	)*) => {$(
 		impl<$($encode_generics)*> Encode for $type {
 			fn encode_to<W: Output>(&self, dest: &mut W) {
@@ -623,15 +664,21 @@ macro_rules! impl_codec_through_iterator {
 				})
 			}
 		}
+
+		impl<$($encode_generics)*> EncodeLike for $type {}
+		impl<$($encode_generics)*> EncodeLike<&[( $( $generics ),* )]> for $type {}
 	)*}
 }
 
 impl_codec_through_iterator! {
-	BTreeMap<K, V> { K: Encode , V: Encode } { K: Decode + Ord, V: Decode }
-	BTreeSet<T> { T: Encode } { T: Decode + Ord }
-	LinkedList<T> { T: Encode } { T: Decode }
-	BinaryHeap<T> { T: Encode } { T: Decode + Ord }
+	BTreeMap<K, V> { K, V } { K: Encode , V: Encode } { K: Decode + Ord, V: Decode }
+	BTreeSet<T> { T } { T: Encode } { T: Decode + Ord }
+	LinkedList<T> { T } { T: Encode } { T: Decode }
+	BinaryHeap<T> { T } { T: Encode } { T: Decode + Ord }
 }
+
+impl<T: Encode + Ord> EncodeLike for VecDeque<T> {}
+impl<T: Encode + Ord> EncodeLike<&[T]> for VecDeque<T> {}
 
 impl<T: Encode + Ord> Encode for VecDeque<T> {
 	fn encode_to<W: Output>(&self, dest: &mut W) {
@@ -657,6 +704,8 @@ impl<T: Decode> Decode for VecDeque<T> {
 		Ok(<Vec<T>>::decode(input)?.into())
 	}
 }
+
+impl EncodeLike for () {}
 
 impl Encode for () {
 	fn encode_to<W: Output>(&self, _dest: &mut W) {
@@ -692,7 +741,9 @@ macro_rules! impl_len {
 impl_len!(Vec<T>, BTreeSet<T>, BTreeMap<K, V>, VecDeque<T>, BinaryHeap<T>, LinkedList<T>);
 
 macro_rules! tuple_impl {
-	($one:ident,) => {
+	(
+		($one:ident, $extra:ident),
+	) => {
 		impl<$one: Encode> Encode for ($one,) {
 			fn size_hint(&self) -> usize {
 				self.0.size_hint()
@@ -719,11 +770,11 @@ macro_rules! tuple_impl {
 				}
 			}
 		}
+
+		impl<$one: EncodeLike<$extra>, $extra: Encode> crate::EncodeLike<($extra,)> for ($one,) {}
 	};
-	($first:ident, $($rest:ident,)+) => {
-		impl<$first: Encode, $($rest: Encode),+>
-		Encode for
-		($first, $($rest),+) {
+	(($first:ident, $fextra:ident), $( ( $rest:ident, $rextra:ident ), )+) => {
+		impl<$first: Encode, $($rest: Encode),+> Encode for ($first, $($rest),+) {
 			fn size_hint(&self) -> usize {
 				let (
 					ref $first,
@@ -744,9 +795,7 @@ macro_rules! tuple_impl {
 			}
 		}
 
-		impl<$first: Decode, $($rest: Decode),+>
-		Decode for
-		($first, $($rest),+) {
+		impl<$first: Decode, $($rest: Decode),+> Decode for ($first, $($rest),+) {
 			fn decode<INPUT: Input>(input: &mut INPUT) -> Result<Self, super::Error> {
 				Ok((
 					match $first::decode(input) {
@@ -761,14 +810,22 @@ macro_rules! tuple_impl {
 			}
 		}
 
-		tuple_impl!($($rest,)+);
+		impl<$first: EncodeLike<$fextra>, $fextra: Encode,
+			$($rest: EncodeLike<$rextra>, $rextra: Encode),+> crate::EncodeLike<($fextra, $( $rextra ),+)>
+			for ($first, $($rest),+) {}
+
+		tuple_impl!( $( ($rest, $rextra), )+ );
 	}
 }
 
 #[allow(non_snake_case)]
 mod inner_tuple_impl {
-	use super::{Error, Input, Output, Decode, Encode, Vec};
-	tuple_impl!(A, B, C, D, E, F, G, H, I, J, K,);
+	use super::*;
+
+	tuple_impl!(
+		(A0, A1), (B0, B1), (C0, C1), (D0, D1), (E0, E1), (F0, F1), (G0, G1), (H0, H1), (I0, I1),
+		(J0, J1), (K0, K1), (L0, L1), (M0, M1), (N0, N1), (O0, O1), (P0, P1), (Q0, Q1), (R0, R1),
+	);
 }
 
 /// Trait to allow conversion to a know endian representation when sensitive.
@@ -797,6 +854,8 @@ macro_rules! impl_endians {
 			fn as_be_then<T, F: FnOnce(&Self) -> T>(&self, f: F) -> T { let d = self.to_be(); f(&d) }
 			fn as_le_then<T, F: FnOnce(&Self) -> T>(&self, f: F) -> T { let d = self.to_le(); f(&d) }
 		}
+
+		impl EncodeLike for $t {}
 
 		impl Encode for $t {
 			fn size_hint(&self) -> usize {
@@ -841,6 +900,8 @@ macro_rules! impl_endians {
 macro_rules! impl_non_endians {
 	( $( $t:ty $( { $is_u8:ident } )? ),* ) => { $(
 		impl EndianSensitive for $t {}
+
+		impl EncodeLike for $t {}
 
 		impl Encode for $t {
 			$( const $is_u8: IsU8 = IsU8::Yes; )?
@@ -1117,5 +1178,11 @@ mod tests {
 		assert_eq!(io_reader.read_byte().unwrap(), 3);
 		assert_eq!(io_reader.0.seek(SeekFrom::Current(0)).unwrap(), 3);
 		assert_eq!(io_reader.remaining_len().unwrap(), 0);
+	}
+
+	#[test]
+	fn shared_references_implement_encode() {
+		std::sync::Arc::new(10u32).encode();
+		std::rc::Rc::new(10u32).encode();
 	}
 }
