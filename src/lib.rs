@@ -70,6 +70,12 @@
 //!
 //! The `HasCompact` trait, if implemented, tells that the corresponding type is a compact encode-able type.
 //!
+//! ### EncodeLike
+//!
+//! The `EncodeLike` trait needs to be implemented for each type manually. When using derive, it is
+//! done automatically for you. Basically the trait gives you the opportunity to accept multiple types
+//! to a function that all encode to the same representation.
+//!
 //! ## Usage Examples
 //!
 //! Following are some examples to demonstrate usage of the codec.
