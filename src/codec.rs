@@ -667,6 +667,7 @@ macro_rules! impl_codec_through_iterator {
 
 		impl<$($encode_generics)*> EncodeLike for $type {}
 		impl<$($encode_generics)*> EncodeLike<&[( $( $generics ),* )]> for $type {}
+		impl<$($encode_generics)*> EncodeLike<$type> for &[( $( $generics ),* )] {}
 	)*}
 }
 
@@ -679,6 +680,7 @@ impl_codec_through_iterator! {
 
 impl<T: Encode + Ord> EncodeLike for VecDeque<T> {}
 impl<T: Encode + Ord> EncodeLike<&[T]> for VecDeque<T> {}
+impl<T: Encode + Ord> EncodeLike<VecDeque<T>> for &[T] {}
 
 impl<T: Encode + Ord> Encode for VecDeque<T> {
 	fn encode_to<W: Output>(&self, dest: &mut W) {
