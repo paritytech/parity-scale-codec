@@ -17,7 +17,7 @@ use crate::Encode;
 /// A marker trait that tells the compiler that two types encode to the same representation.
 ///
 /// E.g. `Vec<u8>` has the same encoded representation as `&[u8]`.
-pub trait EncodeLike<T = Self>: Sized {}
+pub trait EncodeLike<T = Self>: Sized + Encode {}
 
 impl<T: Encode> EncodeLike<&T> for T {}
 impl<T: Encode> EncodeLike<T> for &T {}

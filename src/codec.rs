@@ -287,29 +287,30 @@ impl<S: Decode + Encode> Codec for S {}
 pub trait WrapperTypeEncode: Deref {}
 
 impl<T: ?Sized> WrapperTypeEncode for Box<T> {}
-impl<T: ?Sized> EncodeLike for Box<T> {}
-impl<T> EncodeLike<T> for Box<T> {}
+impl<T: ?Sized + Encode> EncodeLike for Box<T> {}
+impl<T: Encode> EncodeLike<T> for Box<T> {}
 
 impl<'a, T: ?Sized> WrapperTypeEncode for &'a T {}
-impl<'a, T> EncodeLike for &'a T {}
+impl<'a, T: Encode> EncodeLike for &'a T {}
 
 impl<'a, T: ?Sized> WrapperTypeEncode for &'a mut T {}
-impl<'a, T> EncodeLike for &'a mut T {}
+impl<'a, T: Encode> EncodeLike for &'a mut T {}
 
 #[cfg(any(feature = "std", feature = "full"))]
 mod feature_full_wrapper_type_encode {
 	use super::*;
 
 	impl<'a, T: ToOwned + ?Sized> WrapperTypeEncode for Cow<'a, T> {}
-	impl<'a, T: ToOwned + ?Sized> EncodeLike for Cow<'a, T> {}
+	impl<'a, T: ToOwned + Encode + ?Sized> EncodeLike for Cow<'a, T> {}
+	impl<'a, T: ToOwned + Encode> EncodeLike<T> for Cow<'a, T> {}
 
 	impl<T: ?Sized> WrapperTypeEncode for Arc<T> {}
-	impl<T: ?Sized> EncodeLike for Arc<T> {}
-	impl<T> EncodeLike<T> for Arc<T> {}
+	impl<T: Encode> EncodeLike for Arc<T> {}
+	impl<T: Encode> EncodeLike<T> for Arc<T> {}
 
 	impl<T: ?Sized> WrapperTypeEncode for Rc<T> {}
-	impl<T: ?Sized> EncodeLike for Rc<T> {}
-	impl<T> EncodeLike<T> for Rc<T> {}
+	impl<T: Encode> EncodeLike for Rc<T> {}
+	impl<T: Encode> EncodeLike<T> for Rc<T> {}
 
 	impl WrapperTypeEncode for String {}
 	impl EncodeLike for String {}
@@ -319,7 +320,7 @@ mod feature_full_wrapper_type_encode {
 
 impl<T, X> Encode for X where
 	T: Encode + ?Sized,
-	X: WrapperTypeEncode<Target=T> + EncodeLike,
+	X: WrapperTypeEncode<Target = T>,
 {
 	fn size_hint(&self) -> usize {
 		(&**self).size_hint()
@@ -676,8 +677,8 @@ impl_codec_through_iterator! {
 	BinaryHeap<T> { T } { T: Encode } { T: Decode + Ord }
 }
 
-impl<T: Encode> EncodeLike for VecDeque<T> {}
-impl<T: Encode> EncodeLike<&[T]> for VecDeque<T> {}
+impl<T: Encode + Ord> EncodeLike for VecDeque<T> {}
+impl<T: Encode + Ord> EncodeLike<&[T]> for VecDeque<T> {}
 
 impl<T: Encode + Ord> Encode for VecDeque<T> {
 	fn encode_to<W: Output>(&self, dest: &mut W) {
@@ -1178,5 +1179,11 @@ mod tests {
 		assert_eq!(io_reader.read_byte().unwrap(), 3);
 		assert_eq!(io_reader.0.seek(SeekFrom::Current(0)).unwrap(), 3);
 		assert_eq!(io_reader.remaining_len().unwrap(), 0);
+	}
+
+	#[test]
+	fn shared_references_implement_encode() {
+		std::sync::Arc::new(10u32).encode();
+		std::rc::Rc::new(10u32).encode();
 	}
 }

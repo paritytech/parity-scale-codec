@@ -91,7 +91,10 @@ pub trait CompactAs: From<Compact<Self>> {
 	fn decode_from(_: Self::As) -> Self;
 }
 
-impl<T> EncodeLike for Compact<T> {}
+impl<T> EncodeLike for Compact<T>
+where
+	for<'a> CompactRef<'a, T>: Encode,
+{}
 
 impl<T> Encode for Compact<T>
 where
@@ -114,7 +117,11 @@ where
 	}
 }
 
-impl<'a, T> EncodeLike for CompactRef<'a, T> {}
+impl<'a, T> EncodeLike for CompactRef<'a, T>
+where
+	T: CompactAs,
+	for<'b> CompactRef<'b, T::As>: Encode,
+{}
 
 impl<'a, T> Encode for CompactRef<'a, T>
 where
