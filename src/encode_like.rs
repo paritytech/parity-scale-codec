@@ -35,7 +35,7 @@ use crate::Encode;
 ///     encode_like::<(u32, u32), _>(&(&1u32, 2u32));
 /// }
 /// ```
-pub trait EncodeLike<T = Self>: Sized + Encode {}
+pub trait EncodeLike<T: Encode = Self>: Sized + Encode {}
 
 impl<T: Encode> EncodeLike<&T> for T {}
 impl<T: Encode> EncodeLike<T> for &T {}
