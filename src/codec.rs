@@ -288,13 +288,13 @@ pub trait WrapperTypeEncode: Deref {}
 
 impl<T: ?Sized> WrapperTypeEncode for Box<T> {}
 impl<T: ?Sized> EncodeLike for Box<T> {}
-impl<T: ?Sized> EncodeLike<T> for Box<T> {}
+impl<T> EncodeLike<T> for Box<T> {}
 
 impl<'a, T: ?Sized> WrapperTypeEncode for &'a T {}
-impl<'a, T: ?Sized> EncodeLike for &'a T {}
+impl<'a, T> EncodeLike for &'a T {}
 
 impl<'a, T: ?Sized> WrapperTypeEncode for &'a mut T {}
-impl<'a, T: ?Sized> EncodeLike for &'a mut T {}
+impl<'a, T> EncodeLike for &'a mut T {}
 
 #[cfg(any(feature = "std", feature = "full"))]
 mod feature_full_wrapper_type_encode {
@@ -305,15 +305,16 @@ mod feature_full_wrapper_type_encode {
 
 	impl<T: ?Sized> WrapperTypeEncode for Arc<T> {}
 	impl<T: ?Sized> EncodeLike for Arc<T> {}
-	impl<T: ?Sized> EncodeLike<T> for Arc<T> {}
+	impl<T> EncodeLike<T> for Arc<T> {}
 
 	impl<T: ?Sized> WrapperTypeEncode for Rc<T> {}
 	impl<T: ?Sized> EncodeLike for Rc<T> {}
-	impl<T: ?Sized> EncodeLike<T> for Rc<T> {}
+	impl<T> EncodeLike<T> for Rc<T> {}
 
 	impl WrapperTypeEncode for String {}
 	impl EncodeLike for String {}
-	impl EncodeLike<str> for String {}
+	impl EncodeLike<&str> for String {}
+	impl EncodeLike<String> for &str {}
 }
 
 impl<T, X> Encode for X where
@@ -523,8 +524,7 @@ impl_array!(
 	253, 254, 255, 256, 384, 512, 768, 1024, 2048, 4096, 8192, 16384, 32768,
 );
 
-impl EncodeLike for str {}
-impl EncodeLike<String> for str {}
+impl EncodeLike for &str {}
 
 impl Encode for str {
 	fn size_hint(&self) -> usize {
@@ -581,7 +581,8 @@ pub(crate) fn compact_encode_len_to<W: Output>(dest: &mut W, len: usize) -> Resu
 	Ok(())
 }
 
-impl<T: Encode> EncodeLike for [T] {}
+impl<T: Encode> EncodeLike for &[T] {}
+impl<T: Encode> EncodeLike<Vec<T>> for &[T] {}
 
 impl<T: Encode> Encode for [T] {
 	fn size_hint(&self) -> usize {
@@ -610,7 +611,7 @@ impl<T: Encode> Encode for [T] {
 
 impl<T> WrapperTypeEncode for Vec<T> {}
 impl<T: Encode> EncodeLike for Vec<T> {}
-impl<T: Encode> EncodeLike<[T]> for Vec<T> {}
+impl<T: Encode> EncodeLike<&[T]> for Vec<T> {}
 
 impl<T: Decode> Decode for Vec<T> {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
@@ -664,7 +665,7 @@ macro_rules! impl_codec_through_iterator {
 		}
 
 		impl<$($encode_generics)*> EncodeLike for $type {}
-		impl<$($encode_generics)*> EncodeLike<[( $( $generics ),* )]> for $type {}
+		impl<$($encode_generics)*> EncodeLike<&[( $( $generics ),* )]> for $type {}
 	)*}
 }
 
@@ -676,7 +677,7 @@ impl_codec_through_iterator! {
 }
 
 impl<T: Encode> EncodeLike for VecDeque<T> {}
-impl<T: Encode> EncodeLike<[T]> for VecDeque<T> {}
+impl<T: Encode> EncodeLike<&[T]> for VecDeque<T> {}
 
 impl<T: Encode + Ord> Encode for VecDeque<T> {
 	fn encode_to<W: Output>(&self, dest: &mut W) {
@@ -769,7 +770,7 @@ macro_rules! tuple_impl {
 			}
 		}
 
-		impl<$one: EncodeLike<$extra>, $extra: ?Sized + Encode> crate::EncodeLike<(&$extra,)> for ($one,) {}
+		impl<$one: EncodeLike<$extra>, $extra: Encode> crate::EncodeLike<($extra,)> for ($one,) {}
 	};
 	(($first:ident, $fextra:ident), $( ( $rest:ident, $rextra:ident ), )+) => {
 		impl<$first: Encode, $($rest: Encode),+> Encode for ($first, $($rest),+) {
@@ -811,10 +812,6 @@ macro_rules! tuple_impl {
 		impl<$first: EncodeLike<$fextra>, $fextra: Encode,
 			$($rest: EncodeLike<$rextra>, $rextra: Encode),+> crate::EncodeLike<($fextra, $( $rextra ),+)>
 			for ($first, $($rest),+) {}
-
-		impl<$first: EncodeLike<$fextra>, $fextra: ?Sized + Encode,
-			$($rest: EncodeLike<$rextra>, $rextra:  ?Sized +Encode),+> crate::EncodeLike<(&$fextra, $( &$rextra ),+)>
-			for &($first, $($rest),+) {}
 
 		tuple_impl!( $( ($rest, $rextra), )+ );
 	}

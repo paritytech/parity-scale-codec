@@ -12,21 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::Encode;
+
 /// A marker trait that tells the compiler that two types encode to the same representation.
 ///
 /// E.g. `Vec<u8>` has the same encoded representation as `&[u8]`.
-pub trait EncodeLike<T: ?Sized = Self> {}
+pub trait EncodeLike<T = Self>: Sized {}
+
+impl<T: Encode> EncodeLike<&T> for T {}
+impl<T: Encode> EncodeLike<T> for &T {}
 
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::Encode;
 	use std::collections::BTreeMap;
 
-	struct ComplexStuff<T: ?Sized>(std::marker::PhantomData<T>);
+	struct ComplexStuff<T>(T);
 
-	impl<T: Encode + ?Sized> ComplexStuff<T> {
-		fn complex_method<R: Encode + ?Sized>(value: &R) -> Vec<u8> where T: EncodeLike<R> {
+	impl<T: Encode> ComplexStuff<T> {
+		fn complex_method<R: Encode>(value: &R) -> Vec<u8> where T: EncodeLike<R> {
 			value.encode()
 		}
 	}
@@ -37,7 +41,7 @@ mod tests {
 		let data: Vec<u8> = slice.iter().copied().collect();
 
 		let data_encoded = data.encode();
-		let slice_encoded = ComplexStuff::<Vec<u8>>::complex_method(slice);
+		let slice_encoded = ComplexStuff::<Vec<u8>>::complex_method(&slice);
 
 		assert_eq!(slice_encoded, data_encoded);
 	}
@@ -48,7 +52,7 @@ mod tests {
 		let data: BTreeMap<u32, u32> = slice.iter().copied().collect();
 
 		let data_encoded = data.encode();
-		let slice_encoded = ComplexStuff::<BTreeMap<u32, u32>>::complex_method(slice);
+		let slice_encoded = ComplexStuff::<BTreeMap<u32, u32>>::complex_method(&slice);
 
 		assert_eq!(slice_encoded, data_encoded);
 	}
@@ -56,15 +60,25 @@ mod tests {
 	#[test]
 	fn interface_testing() {
 		let value = 10u32;
+		let data = (value, value, value);
+		let encoded = ComplexStuff::<(u32, u32, u32)>::complex_method(&data);
+		assert_eq!(data.encode(), encoded);
 		let data = (&value, &value, &value);
-		let encoded = ComplexStuff::<&(u32, u32, u32)>::complex_method(&data);
+		let encoded = ComplexStuff::<(u32, u32, u32)>::complex_method(&data);
+		assert_eq!(data.encode(), encoded);
+		let data = (&value, value, &value);
+		let encoded = ComplexStuff::<(u32, u32, u32)>::complex_method(&data);
 		assert_eq!(data.encode(), encoded);
 
 		let vec_data: Vec<u8> = vec![1, 2, 3];
 		ComplexStuff::<Vec<u8>>::complex_method(&vec_data);
-		ComplexStuff::<str>::complex_method(&String::from("test"));
+		ComplexStuff::<&'static str>::complex_method(&String::from("test"));
+		ComplexStuff::<&'static str>::complex_method(&"test");
 
 		let slice: &[u8] = &vec_data;
-		ComplexStuff::<(u32, Vec<u8>)>::complex_method(&(1u32, slice.to_vec()));
+		assert_eq!(
+			ComplexStuff::<(u32, Vec<u8>)>::complex_method(&(1u32, slice.to_vec())),
+			ComplexStuff::<(u32, Vec<u8>)>::complex_method(&(1u32, slice))
+		);
 	}
 }
