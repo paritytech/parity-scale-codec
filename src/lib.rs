@@ -259,7 +259,7 @@ mod encode_like;
 
 pub use self::codec::{
 	Input, Output, Error, Encode, Decode, Codec, EncodeAsRef, WrapperTypeEncode,
-	WrapperTypeDecode, OptionBool,
+	WrapperTypeDecode, OptionBool, DecodeLength
 };
 #[cfg(feature = "std")]
 pub use self::codec::IoReader;
