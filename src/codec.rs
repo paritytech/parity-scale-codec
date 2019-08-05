@@ -627,7 +627,6 @@ impl<T: Decode> Decode for Vec<T> {
 		<Compact<u32>>::decode(input).and_then(move |Compact(len)| {
 			let len = len as usize;
 			if let IsU8::Yes = <T as Decode>::IS_U8 {
-
 				let input_len = input.remaining_len()?;
 
 				// If there is input len and it cannot be pre-allocated then return directly.
