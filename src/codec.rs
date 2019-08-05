@@ -14,7 +14,7 @@
 
 //! Serialisation.
 
-const MAX_PREALLOCATION: usize = 4*1024;
+const MAX_PREALLOCATION: usize = 4 * 1024;
 
 use crate::{
 	Compact, EncodeLike,
@@ -98,11 +98,13 @@ impl From<&'static str> for Error {
 
 /// Trait that allows reading of data into a slice.
 pub trait Input {
-	/// If input has a length then return the remaining length of input.
+	/// Should return the remaining length of the input data. If no information about the input length is available, `None` should be returned.
+	///
+	/// The length is used to constrain the preallocation while decoding. Returning a garbage length can open the doors for a denial of service attack to your application. 
+	/// Otherwise, returning `None` can decrease the performance of your application.
 	/// Otherwise return None.
 	///
 	/// This length is used to constrained decoding allocation, thus returning None can slow down
-	/// performances.
 	fn remaining_len(&mut self) -> Result<Option<usize>, Error>;
 
 	/// Read the exact number of bytes required to fill the given buffer.
@@ -185,7 +187,7 @@ impl<R: std::io::Read + std::io::Seek> Input for IoReader<R> {
 		len.saturating_sub(old_pos)
 			.try_into()
 			.map_err(|_| "Input cannot fit into usize length".into())
-			.map(|len| Some(len))
+			.map(Some)
 	}
 
 	fn read(&mut self, into: &mut [u8]) -> Result<(), Error> {
@@ -636,14 +638,12 @@ impl<T: Decode> Decode for Vec<T> {
 
 				// Note: we checked that if input_len is some then it can preallocated.
 				let r = if input_len.is_some() || len < MAX_PREALLOCATION {
-
 					// Here we pre-allocate the whole buffer.
 					let mut r = vec![0; len];
 					input.read(&mut r)?;
 
 					r
 				} else {
-
 					// Here we pre-allocate only the maximum pre-allocation
 					let mut r = vec![];
 

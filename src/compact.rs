@@ -47,7 +47,8 @@ struct PrefixInput<'a, T> {
 
 impl<'a, T: 'a + Input> Input for PrefixInput<'a, T> {
 	fn remaining_len(&mut self) -> Result<Option<usize>, Error> {
-		let len = if let Some(len) = self.input.remaining_len()? {
+		let len = self.input.remaining_len()?.unwrap_or(0);
+		Ok(Some(len.saturating_add(self.prefix.iter().count()))
 			Some(len.saturating_add(self.prefix.iter().count()))
 		} else {
 			None
