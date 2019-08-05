@@ -650,7 +650,7 @@ impl<T: Decode> Decode for Vec<T> {
 					while remains != 0 {
 						let len_read = MAX_PREALLOCATION.min(remains);
 						let len_filled = r.len();
-						r.resize(len_filled + len_read, 0)
+						r.resize(len_filled + len_read, 0);
 						input.read(&mut r[len_filled..])?;
 						remains -= len_read;
 					}
