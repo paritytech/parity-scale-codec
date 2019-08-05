@@ -629,12 +629,12 @@ impl<T: Decode> Decode for Vec<T> {
 
 				let input_len = input.remaining_len()?;
 
-				// If there is input len and it cannot be pre-allocate return directly.
+				// If there is input len and it cannot be pre-allocated then return directly.
 				if input_len.map(|l| l < len).unwrap_or(false) {
 					return Err("Not enough data to decode vector".into())
 				}
 
-				// Note: we checked that if input_len is some then it can preallocate.
+				// Note: we checked that if input_len is some then it can preallocated.
 				let r = if input_len.is_some() || len < MAX_PREALLOCATION {
 
 					// Here we pre-allocate the whole buffer.
