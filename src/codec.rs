@@ -14,6 +14,8 @@
 
 //! Serialisation.
 
+const MAX_PREALLOCATION: usize = 4*1024;
+
 use crate::{
 	Compact, EncodeLike,
 	alloc::{
@@ -96,8 +98,12 @@ impl From<&'static str> for Error {
 
 /// Trait that allows reading of data into a slice.
 pub trait Input {
-	/// Return remaining length of input.
-	fn remaining_len(&mut self) -> Result<usize, Error>;
+	/// If input has a length then return the remaining length of input.
+	/// Otherwise returns None.
+	///
+	/// This length is used to constrained decoding allocation, thus returning None can slow down
+	/// performances.
+	fn remaining_len(&mut self) -> Result<Option<usize>, Error>;
 
 	/// Read the exact number of bytes required to fill the given buffer.
 	///
@@ -114,8 +120,8 @@ pub trait Input {
 }
 
 impl<'a> Input for &'a [u8] {
-	fn remaining_len(&mut self) -> Result<usize, Error> {
-		Ok(self.len())
+	fn remaining_len(&mut self) -> Result<Option<usize>, Error> {
+		Ok(Some(self.len()))
 	}
 
 	fn read(&mut self, into: &mut [u8]) -> Result<(), Error> {
@@ -163,7 +169,7 @@ pub struct IoReader<R: std::io::Read + std::io::Seek>(pub R);
 
 #[cfg(feature = "std")]
 impl<R: std::io::Read + std::io::Seek> Input for IoReader<R> {
-	fn remaining_len(&mut self) -> Result<usize, Error> {
+	fn remaining_len(&mut self) -> Result<Option<usize>, Error> {
 		use std::convert::TryInto;
 		use std::io::SeekFrom;
 
@@ -179,6 +185,7 @@ impl<R: std::io::Read + std::io::Seek> Input for IoReader<R> {
 		len.saturating_sub(old_pos)
 			.try_into()
 			.map_err(|_| "Input cannot fit into usize length".into())
+			.map(|len| Some(len))
 	}
 
 	fn read(&mut self, into: &mut [u8]) -> Result<(), Error> {
@@ -619,16 +626,47 @@ impl<T: Decode> Decode for Vec<T> {
 		<Compact<u32>>::decode(input).and_then(move |Compact(len)| {
 			let len = len as usize;
 			if let IsU8::Yes = <T as Decode>::IS_U8 {
-				if len > input.remaining_len()? {
-					return Err("Not enough data to decode vector".into());
+
+				let input_len = input.remaining_len()?;
+
+				// If there is input len and it cannot be pre-allocate return directly.
+				if input_len.map(|l| l < len).unwrap_or(false) {
+					return Err("Not enough data to decode vector".into())
 				}
 
-				let mut r = vec![0; len];
-				input.read(&mut r)?;
+				// Note: we checked that if input_len is some then it can preallocate.
+				let r = if input_len.is_some() || len < MAX_PREALLOCATION {
+
+					// Here we pre-allocate the whole buffer.
+					let mut r = vec![0; len];
+					input.read(&mut r)?;
+
+					r
+				} else {
+
+					// Here we pre-allocate only the maximum pre-allocation
+					let mut r = vec![];
+
+					let mut remains = len;
+					let buffer_len = MAX_PREALLOCATION;
+					let mut buffer = vec![0; buffer_len];
+
+					while remains != 0 {
+						let len_read = buffer_len.min(remains);
+						input.read(&mut buffer[..len_read])?;
+						r.extend_from_slice(&buffer[..len_read]);
+						remains -= len_read;
+					}
+
+					r
+				};
+
 				let r = unsafe { mem::transmute::<Vec<u8>, Vec<T>>(r) };
 				Ok(r)
 			} else {
-				let capacity = input.remaining_len()?.checked_div(mem::size_of::<T>())
+				let capacity = input.remaining_len()?
+					.unwrap_or(MAX_PREALLOCATION)
+					.checked_div(mem::size_of::<T>())
 					.unwrap_or(0);
 				let mut r = Vec::with_capacity(capacity);
 				for _ in 0..len {
@@ -1170,21 +1208,49 @@ mod tests {
 		let mut io_reader = IoReader(std::io::Cursor::new(&[1u8, 2, 3][..]));
 
 		assert_eq!(io_reader.0.seek(SeekFrom::Current(0)).unwrap(), 0);
-		assert_eq!(io_reader.remaining_len().unwrap(), 3);
+		assert_eq!(io_reader.remaining_len().unwrap().unwrap(), 3);
 
 		assert_eq!(io_reader.read_byte().unwrap(), 1);
 		assert_eq!(io_reader.0.seek(SeekFrom::Current(0)).unwrap(), 1);
-		assert_eq!(io_reader.remaining_len().unwrap(), 2);
+		assert_eq!(io_reader.remaining_len().unwrap().unwrap(), 2);
 
 		assert_eq!(io_reader.read_byte().unwrap(), 2);
 		assert_eq!(io_reader.read_byte().unwrap(), 3);
 		assert_eq!(io_reader.0.seek(SeekFrom::Current(0)).unwrap(), 3);
-		assert_eq!(io_reader.remaining_len().unwrap(), 0);
+		assert_eq!(io_reader.remaining_len().unwrap().unwrap(), 0);
 	}
 
 	#[test]
 	fn shared_references_implement_encode() {
 		std::sync::Arc::new(10u32).encode();
 		std::rc::Rc::new(10u32).encode();
+	}
+
+	#[test]
+	fn not_limit_input_test() {
+		use crate::Input;
+
+		struct NoLimit<'a>(&'a [u8]);
+
+		impl<'a> Input for NoLimit<'a> {
+			fn remaining_len(&mut self) -> Result<Option<usize>, Error> {
+				Ok(None)
+			}
+
+			fn read(&mut self, into: &mut [u8]) -> Result<(), Error> {
+				self.0.read(into)
+			}
+		}
+
+		let len = MAX_PREALLOCATION * 2 + 1;
+		let mut i = Compact(len as u32).encode();
+		i.resize(i.len() + len, 0);
+		assert_eq!(<Vec<u8>>::decode(&mut NoLimit(&i[..])).unwrap(), vec![0u8; len]);
+
+		let i = Compact(len as u32).encode();
+		assert_eq!(<Vec<u8>>::decode(&mut NoLimit(&i[..])).err().unwrap().what(), "Not enough data to fill buffer");
+
+		let i = Compact(1000u32).encode();
+		assert_eq!(<Vec<u8>>::decode(&mut NoLimit(&i[..])).err().unwrap().what(), "Not enough data to fill buffer");
 	}
 }
