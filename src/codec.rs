@@ -98,13 +98,12 @@ impl From<&'static str> for Error {
 
 /// Trait that allows reading of data into a slice.
 pub trait Input {
-	/// Should return the remaining length of the input data. If no information about the input length is available, `None` should be returned.
+	/// Should return the remaining length of the input data. If no information about the input
+	/// length is available, `None` should be returned.
 	///
-	/// The length is used to constrain the preallocation while decoding. Returning a garbage length can open the doors for a denial of service attack to your application. 
+	/// The length is used to constrain the preallocation while decoding. Returning a garbage
+	/// length can open the doors for a denial of service attack to your application.
 	/// Otherwise, returning `None` can decrease the performance of your application.
-	/// Otherwise return None.
-	///
-	/// This length is used to constrained decoding allocation, thus returning None can slow down
 	fn remaining_len(&mut self) -> Result<Option<usize>, Error>;
 
 	/// Read the exact number of bytes required to fill the given buffer.
@@ -648,13 +647,11 @@ impl<T: Decode> Decode for Vec<T> {
 					let mut r = vec![];
 
 					let mut remains = len;
-					let buffer_len = MAX_PREALLOCATION;
-					let mut buffer = vec![0; buffer_len];
-
 					while remains != 0 {
-						let len_read = buffer_len.min(remains);
-						input.read(&mut buffer[..len_read])?;
-						r.extend_from_slice(&buffer[..len_read]);
+						let len_read = MAX_PREALLOCATION.min(remains);
+						let len_filled = r.len();
+						r.resize(len_filled + len_read, 0)
+						input.read(&mut r[len_filled..])?;
 						remains -= len_read;
 					}
 
