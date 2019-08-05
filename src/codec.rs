@@ -99,7 +99,7 @@ impl From<&'static str> for Error {
 /// Trait that allows reading of data into a slice.
 pub trait Input {
 	/// If input has a length then return the remaining length of input.
-	/// Otherwise returns None.
+	/// Otherwise return None.
 	///
 	/// This length is used to constrained decoding allocation, thus returning None can slow down
 	/// performances.
