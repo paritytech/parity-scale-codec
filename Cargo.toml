@@ -15,13 +15,13 @@ parity-scale-codec-derive = { path = "derive", version = "^1.0.2", default-featu
 bitvec = { version = "0.14.0", default-features = false, features = ["alloc"], optional = true }
 byte-slice-cast = { version = "0.3.2", default-features = false, optional = true }
 generic-array = { version = "0.12", optional = true }
-typenum = { version = "1.10", optional = true }
 
 [dev-dependencies]
 serde_derive = { version = "1.0" }
 parity-scale-codec-derive = { path = "derive", version = "^1.0.2", default-features = false }
 criterion = "0.2"
 bitvec = "0.14.0"
+typenum = "1.10"
 
 [[bench]]
 name = "benches"
