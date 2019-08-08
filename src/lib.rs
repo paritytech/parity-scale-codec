@@ -251,8 +251,6 @@ mod keyedvec;
 mod bit_vec;
 #[cfg(feature = "generic-array")]
 mod generic_array;
-#[cfg(feature = "vec-array")]
-mod vec_array;
 mod decode_all;
 mod encode_append;
 mod encode_like;
