@@ -82,7 +82,7 @@ version = "0.1.0"
 dependencies = [
  "bitvec 0.14.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "honggfuzz 0.5.45 (registry+https://github.com/rust-lang/crates.io-index)",
- "parity-scale-codec 1.0.4",
+ "parity-scale-codec 1.0.5",
 ]
 
 [[package]]
@@ -272,7 +272,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "parity-scale-codec"
-version = "1.0.4"
+version = "1.0.5"
 dependencies = [
  "arrayvec 0.4.10 (registry+https://github.com/rust-lang/crates.io-index)",
  "bitvec 0.14.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -283,7 +283,6 @@ dependencies = [
  "serde 1.0.92 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_derive 1.0.92 (registry+https://github.com/rust-lang/crates.io-index)",
  "typenum 1.10.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "vecarray 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -502,15 +501,6 @@ version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
-name = "vecarray"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-dependencies = [
- "serde 1.0.92 (registry+https://github.com/rust-lang/crates.io-index)",
- "typenum 1.10.0 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
 name = "walkdir"
 version = "2.2.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -608,7 +598,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum typenum 1.10.0 (registry+https://github.com/rust-lang/crates.io-index)" = "612d636f949607bdf9b123b4a6f6d966dedf3ff669f7f045890d3a4a73948169"
 "checksum unicode-width 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)" = "882386231c45df4700b275c7ff55b6f3698780a650026380e72dabe76fa46526"
 "checksum unicode-xid 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "fc72304796d0818e357ead4e000d19c9c174ab23dc11093ac919054d20a6a7fc"
-"checksum vecarray 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)" = "961d198df806bde7351c13988de47ae31a02989ee881190e73d42214caf1a091"
 "checksum walkdir 2.2.7 (registry+https://github.com/rust-lang/crates.io-index)" = "9d9d7ed3431229a144296213105a390676cc49c9b6a72bd19f3176c98e129fa1"
 "checksum winapi 0.3.7 (registry+https://github.com/rust-lang/crates.io-index)" = "f10e386af2b13e47c89e7236a7a14a086791a2b88ebad6df9bf42040195cf770"
 "checksum winapi-i686-pc-windows-gnu 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "ac3b87c63620426dd9b991e5ce0329eff545bccbbb34f3be09ff6fb6ab51b7b6"
