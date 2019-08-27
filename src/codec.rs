@@ -865,7 +865,7 @@ mod inner_tuple_impl {
 }
 
 macro_rules! impl_endians {
-	( $( $t:ty => $size:expr),* ) => { $(
+	( $( $t:ty ),* ) => { $(
 		impl EncodeLike for $t {}
 
 		impl Encode for $t {
@@ -881,7 +881,7 @@ macro_rules! impl_endians {
 
 		impl Decode for $t {
 			fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
-				let mut buf = [0u8; $size];
+				let mut buf = [0u8; mem::size_of::<$t>()];
 				input.read(&mut buf)?;
 				Ok(<$t>::from_le_bytes(buf))
 			}
@@ -914,7 +914,7 @@ macro_rules! impl_one_byte {
 	)* }
 }
 
-impl_endians!(u16 => 2, u32 => 4, u64 => 8, u128 => 16, i16 => 2, i32 => 4, i64 => 8, i128 => 16);
+impl_endians!(u16, u32, u64, u128, i16, i32, i64, i128);
 impl_one_byte!(u8 {IS_U8}, i8);
 
 impl EncodeLike for bool {}
