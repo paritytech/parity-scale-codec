@@ -888,7 +888,7 @@ macro_rules! impl_endians {
 		}
 	)* }
 }
-macro_rules! impl_non_endians {
+macro_rules! impl_one_byte {
 	( $( $t:ty $( { $is_u8:ident } )? ),* ) => { $(
 		impl EncodeLike for $t {}
 
@@ -915,7 +915,7 @@ macro_rules! impl_non_endians {
 }
 
 impl_endians!(u16 => 2, u32 => 4, u64 => 8, u128 => 16, i16 => 2, i32 => 4, i64 => 8, i128 => 16);
-impl_non_endians!(u8 {IS_U8}, i8);
+impl_one_byte!(u8 {IS_U8}, i8);
 
 impl EncodeLike for bool {}
 
