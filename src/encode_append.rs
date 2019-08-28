@@ -25,6 +25,8 @@ pub trait EncodeAppend {
 
 	/// Append all items in `iter` to the given `self_encoded` representation.
 	///
+	/// Except if `self_encoded` value is empty then it just insert the given input data.
+	///
 	/// # Example
 	///
 	/// ```
