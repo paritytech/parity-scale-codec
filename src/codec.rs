@@ -31,7 +31,7 @@ use crate::alloc::{
 	rc::Rc,
 };
 
-use core::{mem, slice, ops::Deref, marker::PhantomData, iter::FromIterator};
+use core::{mem, ops::Deref, marker::PhantomData, iter::FromIterator};
 
 use arrayvec::ArrayVec;
 
@@ -864,33 +864,8 @@ mod inner_tuple_impl {
 	);
 }
 
-/// Trait to allow conversion to a know endian representation when sensitive.
-/// Types implementing this trait must have a size > 0.
-///
-/// # Note
-///
-/// The copy bound and static lifetimes are necessary for safety of `Codec` blanket
-/// implementation.
-trait EndianSensitive: Copy + 'static {
-	fn to_le(self) -> Self { self }
-	fn to_be(self) -> Self { self }
-	fn from_le(self) -> Self { self }
-	fn from_be(self) -> Self { self }
-	fn as_be_then<T, F: FnOnce(&Self) -> T>(&self, f: F) -> T { f(&self) }
-	fn as_le_then<T, F: FnOnce(&Self) -> T>(&self, f: F) -> T { f(&self) }
-}
-
 macro_rules! impl_endians {
 	( $( $t:ty ),* ) => { $(
-		impl EndianSensitive for $t {
-			fn to_le(self) -> Self { <$t>::to_le(self) }
-			fn to_be(self) -> Self { <$t>::to_be(self) }
-			fn from_le(self) -> Self { <$t>::from_le(self) }
-			fn from_be(self) -> Self { <$t>::from_be(self) }
-			fn as_be_then<T, F: FnOnce(&Self) -> T>(&self, f: F) -> T { let d = self.to_be(); f(&d) }
-			fn as_le_then<T, F: FnOnce(&Self) -> T>(&self, f: F) -> T { let d = self.to_le(); f(&d) }
-		}
-
 		impl EncodeLike for $t {}
 
 		impl Encode for $t {
@@ -899,44 +874,22 @@ macro_rules! impl_endians {
 			}
 
 			fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
-				self.as_le_then(|le| {
-					let size = mem::size_of::<$t>();
-					let value_slice = unsafe {
-						let ptr = le as *const _ as *const u8;
-						if size != 0 {
-							slice::from_raw_parts(ptr, size)
-						} else {
-							&[]
-						}
-					};
-
-					f(value_slice)
-				})
+				let buf = self.to_le_bytes();
+				f(&buf[..])
 			}
 		}
 
 		impl Decode for $t {
 			fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
-				let size = mem::size_of::<$t>();
-				assert!(size > 0, "EndianSensitive can never be implemented for a zero-sized type.");
-				let mut val: $t = unsafe { mem::zeroed() };
-
-				unsafe {
-					let raw: &mut [u8] = slice::from_raw_parts_mut(
-						&mut val as *mut $t as *mut u8,
-						size
-					);
-					input.read(raw)?;
-				}
-				Ok(val.from_le())
+				let mut buf = [0u8; mem::size_of::<$t>()];
+				input.read(&mut buf)?;
+				Ok(<$t>::from_le_bytes(buf))
 			}
 		}
 	)* }
 }
-macro_rules! impl_non_endians {
+macro_rules! impl_one_byte {
 	( $( $t:ty $( { $is_u8:ident } )? ),* ) => { $(
-		impl EndianSensitive for $t {}
-
 		impl EncodeLike for $t {}
 
 		impl Encode for $t {
@@ -947,19 +900,7 @@ macro_rules! impl_non_endians {
 			}
 
 			fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
-				self.as_le_then(|le| {
-					let size = mem::size_of::<$t>();
-					let value_slice = unsafe {
-						let ptr = le as *const _ as *const u8;
-						if size != 0 {
-							slice::from_raw_parts(ptr, size)
-						} else {
-							&[]
-						}
-					};
-
-					f(value_slice)
-				})
+				f(&[*self as u8][..])
 			}
 		}
 
@@ -967,25 +908,37 @@ macro_rules! impl_non_endians {
 			$( const $is_u8: IsU8 = IsU8::Yes; )?
 
 			fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
-				let size = mem::size_of::<$t>();
-				assert!(size > 0, "EndianSensitive can never be implemented for a zero-sized type.");
-				let mut val: $t = unsafe { mem::zeroed() };
-
-				unsafe {
-					let raw: &mut [u8] = slice::from_raw_parts_mut(
-						&mut val as *mut $t as *mut u8,
-						size
-					);
-					input.read(raw)?;
-				}
-				Ok(val.from_le())
+				Ok(input.read_byte()? as $t)
 			}
 		}
 	)* }
 }
 
 impl_endians!(u16, u32, u64, u128, i16, i32, i64, i128);
-impl_non_endians!(u8 {IS_U8}, i8, bool);
+impl_one_byte!(u8 {IS_U8}, i8);
+
+impl EncodeLike for bool {}
+
+impl Encode for bool {
+	fn size_hint(&self) -> usize {
+		mem::size_of::<bool>()
+	}
+
+	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
+		f(&[*self as u8][..])
+	}
+}
+
+impl Decode for bool {
+	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
+		let byte = input.read_byte()?;
+		match byte {
+			0 => Ok(true),
+			1 => Ok(false),
+			_ => Err("Invalid boolean representation".into())
+		}
+	}
+}
 
 #[cfg(test)]
 mod tests {
