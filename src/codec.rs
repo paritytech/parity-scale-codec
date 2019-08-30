@@ -933,8 +933,8 @@ impl Decode for bool {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		let byte = input.read_byte()?;
 		match byte {
-			0 => Ok(true),
-			1 => Ok(false),
+			0 => Ok(false),
+			1 => Ok(true),
 			_ => Err("Invalid boolean representation".into())
 		}
 	}
@@ -1201,5 +1201,13 @@ mod tests {
 
 		let i = Compact(1000u32).encode();
 		assert_eq!(<Vec<u8>>::decode(&mut NoLimit(&i[..])).err().unwrap().what(), "Not enough data to fill buffer");
+	}
+
+	#[test]
+	fn boolean() {
+		assert_eq!(true.encode(), vec![1]);
+		assert_eq!(false.encode(), vec![0]);
+		assert_eq!(bool::decode(&mut &[1][..]).unwrap(), true);
+		assert_eq!(bool::decode(&mut &[0][..]).unwrap(), false);
 	}
 }
