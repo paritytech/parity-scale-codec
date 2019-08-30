@@ -14,7 +14,8 @@
 
 use crate::Encode;
 
-/// A marker trait that tells the compiler that two types encode to the same representation.
+/// A marker trait that tells the compiler that a type encode to the same representation as another
+/// type.
 ///
 /// E.g. `Vec<u8>` has the same encoded representation as `&[u8]`.
 ///
@@ -22,8 +23,8 @@ use crate::Encode;
 ///
 /// ```
 ///# use parity_scale_codec::{EncodeLike, Encode};
-/// fn encode_like<T: EncodeLike<R>, R: Encode>(data: &R) {
-///     data.encode();
+/// fn encode_like<T: Encode, R: EncodeLike<T>>(data: &R) {
+///     data.encode(); // Valid `T` encoded value.
 /// }
 ///
 /// fn main() {
@@ -35,6 +36,13 @@ use crate::Encode;
 ///     encode_like::<(u32, u32), _>(&(&1u32, 2u32));
 /// }
 /// ```
+///
+/// # Warning
+///
+/// The relation is not symetric, `T` implements `EncodeLike<U>` does not mean `U` has same
+/// representation as `T`.
+/// For instance we could imaging a non zero integer to be encoded to the same representation as
+/// the said integer but not the other way around.
 pub trait EncodeLike<T: Encode = Self>: Sized + Encode {}
 
 impl<T: Encode> EncodeLike<&T> for T {}
