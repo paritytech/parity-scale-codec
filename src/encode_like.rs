@@ -23,7 +23,7 @@ use crate::Encode;
 ///
 /// ```
 ///# use parity_scale_codec::{EncodeLike, Encode};
-/// fn encode_like<T, R: EncodeLike<T>>(data: &R) {
+/// fn encode_like<T: Encode, R: EncodeLike<T>>(data: &R) {
 ///     data.encode(); // Valid `T` encoded value.
 /// }
 ///
