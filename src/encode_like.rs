@@ -48,7 +48,7 @@ use crate::Encode;
 ///
 /// Not all possible implementations of EncodeLike are implemented (for instance `Box<Box<u32>>`
 /// does not implement `EncodeLike<u32>`). To bypass this issue either open a PR to add the new
-/// combination or you can define your own wrapper and implement `EncodeLike` on it as such:
+/// combination or define a wrapper and implement `EncodeLike` on it as such:
 /// ```
 ///# use parity_scale_codec::{EncodeLike, Encode, WrapperTypeEncode};
 /// fn encode_like<T: Encode, R: EncodeLike<T>>(data: &R) {
