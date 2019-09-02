@@ -31,7 +31,7 @@ use crate::Encode;
 ///     // Just pass the a reference to the normal tuple.
 ///     encode_like::<(u32, u32), _>(&(1u32, 2u32));
 ///     // Pass a tuple of references
-///     encode_like::<(u32, u32), _>(&(&1u32, &mut 2u32));
+///     encode_like::<(u32, u32), _>(&(&1u32, &2u32));
 ///     // Pass a tuple of a reference and a value.
 ///     encode_like::<(u32, u32), _>(&(&1u32, 2u32));
 /// }
@@ -46,18 +46,28 @@ use crate::Encode;
 ///
 /// # Limitation
 ///
-/// Dues to design limitation some type does not implement `EncodeLike` but obviously should (for
-/// instance `Box<&u32>` does not implement `EncodeLike<u32>`). To bypass the issue you can define
-/// your own wrapper and implement `EncodeLike` on it as such:
+/// Not all possible implementations of EncodeLike are implemented (for instance `Box<Box<u32>>`
+/// does not implement `EncodeLike<u32>`). To bypass this issue either open a PR to add the new
+/// combination or you can define your own wrapper and implement `EncodeLike` on it as such:
 /// ```
-/// struct TupleWrapper((Box<Box<u32>>, u32));
-/// impl core::ops::Deref for TupleWrapper { // Or use derive_deref crate
+///# use parity_scale_codec::{EncodeLike, Encode, WrapperTypeEncode};
+/// fn encode_like<T: Encode, R: EncodeLike<T>>(data: &R) {
+///     data.encode(); // Valid `T` encoded value.
+/// }
+///
+/// struct MyWrapper<'a>(&'a (Box<Box<u32>>, u32));
+/// impl<'a> core::ops::Deref for MyWrapper<'a> { // Or use derive_deref crate
 ///     type Target = (Box<Box<u32>>, u32);
 ///     fn deref(&self) -> &Self::Target { &self.0 }
 /// }
 ///
-/// impl parity_scale_codec::WrapperTypeEncode for TupleWrapper {}
-/// impl parity_scale_codec::EncodeLike<(u32, u32)> for TupleWrapper {}
+/// impl<'a> parity_scale_codec::WrapperTypeEncode for MyWrapper<'a> {}
+/// impl<'a> parity_scale_codec::EncodeLike<(u32, u32)> for MyWrapper<'a> {}
+///
+/// fn main() {
+///     let v = (Box::new(Box::new(0)), 0);
+///     encode_like::<(u32, u32), _>(&MyWrapper(&v));
+/// }
 /// ```
 pub trait EncodeLike<T: Encode = Self>: Sized + Encode {}
 
