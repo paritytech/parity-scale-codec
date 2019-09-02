@@ -300,6 +300,7 @@ impl<T: Encode> EncodeLike<T> for Box<T> {}
 impl<T: Encode> EncodeLike<Box<T>> for T {}
 
 impl<T: ?Sized> WrapperTypeEncode for &T {}
+impl<T: ?Sized + Encode> EncodeLike for &T {}
 impl<T: Encode> EncodeLike<T> for &T {}
 impl<T: Encode> EncodeLike<&T> for T {}
 
@@ -540,8 +541,6 @@ impl_array!(
 	253, 254, 255, 256, 384, 512, 768, 1024, 2048, 4096, 8192, 16384, 32768,
 );
 
-impl EncodeLike for &str {}
-
 impl Encode for str {
 	fn size_hint(&self) -> usize {
 		self.as_bytes().size_hint()
@@ -597,9 +596,6 @@ pub(crate) fn compact_encode_len_to<W: Output>(dest: &mut W, len: usize) -> Resu
 	Ok(())
 }
 
-impl<T: Encode> EncodeLike for &[T] {}
-impl<T: Encode> EncodeLike<Vec<T>> for &[T] {}
-
 impl<T: Encode> Encode for [T] {
 	fn size_hint(&self) -> usize {
 		if let IsU8::Yes = <T as Encode>::IS_U8 {
@@ -628,6 +624,7 @@ impl<T: Encode> Encode for [T] {
 impl<T> WrapperTypeEncode for Vec<T> {}
 impl<T: Encode> EncodeLike for Vec<T> {}
 impl<T: Encode> EncodeLike<&[T]> for Vec<T> {}
+impl<T: Encode> EncodeLike<Vec<T>> for &[T] {}
 
 impl<T: Decode> Decode for Vec<T> {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
@@ -1216,5 +1213,12 @@ mod tests {
 		assert_eq!(false.encode(), vec![0]);
 		assert_eq!(bool::decode(&mut &[1][..]).unwrap(), true);
 		assert_eq!(bool::decode(&mut &[0][..]).unwrap(), false);
+	}
+
+	#[test]
+	fn some_encode_like() {
+		fn t<B: EncodeLike>() {}
+		t::<&[u8]>();
+		t::<&str>();
 	}
 }
