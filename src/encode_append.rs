@@ -64,8 +64,8 @@ impl<T: Encode> EncodeAppend for Vec<T> {
 /// Trait that allows to append items to an encoded representation without
 /// decoding all previous added items.
 ///
-/// Same as `EncodeAppend` but allow to append with items that encode like the desired type instead
-/// of being the desired type directly.
+/// Same as `EncodeAppend` but allow to append with any items that encode like the desired item
+/// instead of being the desired item directly.
 pub trait EncodeLikeAppend {
 	/// The kind of item that will be appended. Actual appended item must encode like it.
 	type Item: Encode;
