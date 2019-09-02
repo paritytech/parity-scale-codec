@@ -297,12 +297,16 @@ pub trait WrapperTypeEncode: Deref {}
 impl<T: ?Sized> WrapperTypeEncode for Box<T> {}
 impl<T: ?Sized + Encode> EncodeLike for Box<T> {}
 impl<T: Encode> EncodeLike<T> for Box<T> {}
+impl<T: Encode> EncodeLike<Box<T>> for T {}
 
-impl<'a, T: ?Sized> WrapperTypeEncode for &'a T {}
-impl<'a, T: Encode> EncodeLike for &'a T {}
+impl<T: ?Sized> WrapperTypeEncode for &T {}
+impl<T: Encode> EncodeLike<T> for &T {}
+impl<T: Encode> EncodeLike<&T> for T {}
 
-impl<'a, T: ?Sized> WrapperTypeEncode for &'a mut T {}
-impl<'a, T: Encode> EncodeLike for &'a mut T {}
+impl<T: ?Sized> WrapperTypeEncode for &mut T {}
+impl<T: Encode> EncodeLike for &mut T {}
+impl<T: Encode> EncodeLike<T> for &mut T {}
+impl<T: Encode> EncodeLike<&mut T> for T {}
 
 #[cfg(any(feature = "std", feature = "full"))]
 mod feature_full_wrapper_type_encode {
@@ -311,14 +315,17 @@ mod feature_full_wrapper_type_encode {
 	impl<'a, T: ToOwned + ?Sized> WrapperTypeEncode for Cow<'a, T> {}
 	impl<'a, T: ToOwned + Encode + ?Sized> EncodeLike for Cow<'a, T> {}
 	impl<'a, T: ToOwned + Encode> EncodeLike<T> for Cow<'a, T> {}
+	impl<'a, T: ToOwned + Encode> EncodeLike<Cow<'a, T>> for T {}
 
 	impl<T: ?Sized> WrapperTypeEncode for Arc<T> {}
 	impl<T: Encode> EncodeLike for Arc<T> {}
 	impl<T: Encode> EncodeLike<T> for Arc<T> {}
+	impl<T: Encode> EncodeLike<Arc<T>> for T {}
 
 	impl<T: ?Sized> WrapperTypeEncode for Rc<T> {}
 	impl<T: Encode> EncodeLike for Rc<T> {}
 	impl<T: Encode> EncodeLike<T> for Rc<T> {}
+	impl<T: Encode> EncodeLike<Rc<T>> for T {}
 
 	impl WrapperTypeEncode for String {}
 	impl EncodeLike for String {}

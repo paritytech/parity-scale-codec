@@ -31,7 +31,7 @@ use crate::Encode;
 ///     // Just pass the a reference to the normal tuple.
 ///     encode_like::<(u32, u32), _>(&(1u32, 2u32));
 ///     // Pass a tuple of references
-///     encode_like::<(u32, u32), _>(&(&1u32, &2u32));
+///     encode_like::<(u32, u32), _>(&(&1u32, &mut 2u32));
 ///     // Pass a tuple of a reference and a value.
 ///     encode_like::<(u32, u32), _>(&(&1u32, 2u32));
 /// }
@@ -43,10 +43,23 @@ use crate::Encode;
 /// representation as `T`.
 /// For instance we could imaging a non zero integer to be encoded to the same representation as
 /// the said integer but not the other way around.
+///
+/// # Limitation
+///
+/// Dues to design limitation some type does not implement `EncodeLike` but obviously should (for
+/// instance `Box<&u32>` does not implement `EncodeLike<u32>`). To bypass the issue you can define
+/// your own wrapper and implement `EncodeLike` on it as such:
+/// ```
+/// struct TupleWrapper((Box<Box<u32>>, u32));
+/// impl core::ops::Deref for TupleWrapper { // Or use derive_deref crate
+///     type Target = (Box<Box<u32>>, u32);
+///     fn deref(&self) -> &Self::Target { &self.0 }
+/// }
+///
+/// impl parity_scale_codec::WrapperTypeEncode for TupleWrapper {}
+/// impl parity_scale_codec::EncodeLike<(u32, u32)> for TupleWrapper {}
+/// ```
 pub trait EncodeLike<T: Encode = Self>: Sized + Encode {}
-
-impl<T: Encode> EncodeLike<&T> for T {}
-impl<T: Encode> EncodeLike<T> for &T {}
 
 #[cfg(test)]
 mod tests {
