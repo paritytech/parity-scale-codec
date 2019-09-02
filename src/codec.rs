@@ -304,7 +304,7 @@ impl<T: Encode> EncodeLike<T> for &T {}
 impl<T: Encode> EncodeLike<&T> for T {}
 
 impl<T: ?Sized> WrapperTypeEncode for &mut T {}
-impl<T: Encode> EncodeLike for &mut T {}
+impl<T: ?Sized + Encode> EncodeLike for &mut T {}
 impl<T: Encode> EncodeLike<T> for &mut T {}
 impl<T: Encode> EncodeLike<&mut T> for T {}
 
@@ -318,12 +318,12 @@ mod feature_full_wrapper_type_encode {
 	impl<'a, T: ToOwned + Encode> EncodeLike<Cow<'a, T>> for T {}
 
 	impl<T: ?Sized> WrapperTypeEncode for Arc<T> {}
-	impl<T: Encode> EncodeLike for Arc<T> {}
+	impl<T: ?Sized + Encode> EncodeLike for Arc<T> {}
 	impl<T: Encode> EncodeLike<T> for Arc<T> {}
 	impl<T: Encode> EncodeLike<Arc<T>> for T {}
 
 	impl<T: ?Sized> WrapperTypeEncode for Rc<T> {}
-	impl<T: Encode> EncodeLike for Rc<T> {}
+	impl<T: ?Sized + Encode> EncodeLike for Rc<T> {}
 	impl<T: Encode> EncodeLike<T> for Rc<T> {}
 	impl<T: Encode> EncodeLike<Rc<T>> for T {}
 
