@@ -287,6 +287,12 @@ pub trait Decode: Sized {
 pub trait Codec: Decode + Encode {}
 impl<S: Decode + Encode> Codec for S {}
 
+pub trait FullEncode: Encode + EncodeLike {}
+impl<S: Encode + EncodeLike> FullEncode for S {}
+
+pub trait FullCodec: Decode + FullEncode {}
+impl<S: Decode + FullEncode> FullCodec for S {}
+
 /// A marker trait for types that wrap other encodable type.
 ///
 /// Such types should not carry any additional information
@@ -303,8 +309,14 @@ impl<T: ?Sized> WrapperTypeEncode for &T {}
 impl<T: ?Sized + Encode> EncodeLike for &T {}
 impl<T: Encode> EncodeLike<T> for &T {}
 impl<T: Encode> EncodeLike<&T> for T {}
+impl<T: Encode> EncodeLike<T> for &&T {}
+impl<T: Encode> EncodeLike<&&T> for T {}
+// TODO TODO: this works if we remove some direction: can we build something on that ?
+// impl<T: EncodeLike<U>, U: Encode> EncodeLike<U> for &T {}
 
 impl<T: ?Sized> WrapperTypeEncode for &mut T {}
+// TODO TODO: isn't all this himself could be replaced by EncodeLike<U>, U: Encode ? yes for at
+// least a lot of them Like Result Option etc.. do it !
 impl<T: ?Sized + Encode> EncodeLike for &mut T {}
 impl<T: Encode> EncodeLike<T> for &mut T {}
 impl<T: Encode> EncodeLike<&mut T> for T {}
@@ -622,9 +634,9 @@ impl<T: Encode> Encode for [T] {
 }
 
 impl<T> WrapperTypeEncode for Vec<T> {}
-impl<T: Encode> EncodeLike for Vec<T> {}
-impl<T: Encode> EncodeLike<&[T]> for Vec<T> {}
-impl<T: Encode> EncodeLike<Vec<T>> for &[T] {}
+impl<T: EncodeLike<U>, U: Encode> EncodeLike<Vec<U>> for Vec<T> {}
+impl<T: EncodeLike<U>, U: Encode> EncodeLike<&[U]> for Vec<T> {}
+impl<T: EncodeLike<U>, U: Encode> EncodeLike<Vec<U>> for &[T] {}
 
 impl<T: Decode> Decode for Vec<T> {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {

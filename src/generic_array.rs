@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{Encode, Decode, Error, Output, Input};
+use crate::{Encode, EncodeLike, Decode, Error, Output, Input};
 use crate::alloc::vec::Vec;
 
 impl<T: Encode, L: generic_array::ArrayLength<T>> Encode for generic_array::GenericArray<T, L> {
@@ -22,6 +22,8 @@ impl<T: Encode, L: generic_array::ArrayLength<T>> Encode for generic_array::Gene
 		}
 	}
 }
+
+impl<T: Encode, L: generic_array::ArrayLength<T>> EncodeLike for generic_array::GenericArray<T, L> {}
 
 impl<T: Decode, L: generic_array::ArrayLength<T>> Decode for generic_array::GenericArray<T, L> {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
