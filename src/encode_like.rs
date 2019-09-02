@@ -43,10 +43,33 @@ use crate::Encode;
 /// representation as `T`.
 /// For instance we could imaging a non zero integer to be encoded to the same representation as
 /// the said integer but not the other way around.
+///
+/// # Limitation
+///
+/// Not all possible implementations of EncodeLike are implemented (for instance `Box<Box<u32>>`
+/// does not implement `EncodeLike<u32>`). To bypass this issue either open a PR to add the new
+/// combination or define a wrapper and implement `EncodeLike` on it as such:
+/// ```
+///# use parity_scale_codec::{EncodeLike, Encode, WrapperTypeEncode};
+/// fn encode_like<T: Encode, R: EncodeLike<T>>(data: &R) {
+///     data.encode(); // Valid `T` encoded value.
+/// }
+///
+/// struct MyWrapper<'a>(&'a (Box<Box<u32>>, u32));
+/// impl<'a> core::ops::Deref for MyWrapper<'a> { // Or use derive_deref crate
+///     type Target = (Box<Box<u32>>, u32);
+///     fn deref(&self) -> &Self::Target { &self.0 }
+/// }
+///
+/// impl<'a> parity_scale_codec::WrapperTypeEncode for MyWrapper<'a> {}
+/// impl<'a> parity_scale_codec::EncodeLike<(u32, u32)> for MyWrapper<'a> {}
+///
+/// fn main() {
+///     let v = (Box::new(Box::new(0)), 0);
+///     encode_like::<(u32, u32), _>(&MyWrapper(&v));
+/// }
+/// ```
 pub trait EncodeLike<T: Encode = Self>: Sized + Encode {}
-
-impl<T: Encode> EncodeLike<&T> for T {}
-impl<T: Encode> EncodeLike<T> for &T {}
 
 #[cfg(test)]
 mod tests {
