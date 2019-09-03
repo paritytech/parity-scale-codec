@@ -19,16 +19,20 @@ use crate::alloc::vec::Vec;
 
 /// Trait that allows to append items to an encoded representation without
 /// decoding all previous added items.
-///
-/// Note: EncodeLikeAppend should be prefered as it allows to append with any type that encode like
-/// `Item`.
 pub trait EncodeAppend {
 	/// The item that will be appended.
 	type Item: Encode;
 
-	/// Append all items in `iter` to the given `self_encoded` representation.
-	///
-	/// Except if `self_encoded` value is empty then it just insert the given input data.
+	/// Append all items in `iter` to the given `self_encoded` representation
+	/// or if `self_encoded` value is empty then insert the given input data.
+	#[deprecated(note = "Consider using `append_or_new` instead")]
+	fn append<'a, I: IntoIterator<Item=&'a Self::Item>>(
+		self_encoded: Vec<u8>,
+		iter: I,
+	) -> Result<Vec<u8>, Error> where Self::Item: 'a, I::IntoIter: ExactSizeIterator;
+
+	/// Append all items in `iter` to the given `self_encoded` representation
+	/// or if `self_encoded` value is empty then insert the given input data.
 	///
 	/// # Example
 	///
@@ -44,51 +48,7 @@ pub trait EncodeAppend {
 	/// // Add multiple element
 	/// <Vec<u32> as EncodeAppend>::append(encoded, &[700u32, 800u32, 10u32]).expect("Adds new elements");
 	/// ```
-	fn append<'a, I: IntoIterator<Item=&'a Self::Item>>(
-		self_encoded: Vec<u8>,
-		iter: I,
-	) -> Result<Vec<u8>, Error> where Self::Item: 'a, I::IntoIter: ExactSizeIterator;
-}
-
-impl<T: Encode> EncodeAppend for Vec<T> {
-	type Item = T;
-
-	fn append<'a, I: IntoIterator<Item=&'a Self::Item>>(
-		self_encoded: Vec<u8>,
-		iter: I,
-	) -> Result<Vec<u8>, Error> where Self::Item: 'a, I::IntoIter: ExactSizeIterator {
-		append_vec_with_any_item(self_encoded, iter)
-	}
-}
-
-/// Trait that allows to append items to an encoded representation without
-/// decoding all previous added items.
-///
-/// Same as `EncodeAppend` but allow to append with any items that encode like the desired item
-/// instead of being the desired item directly.
-pub trait EncodeLikeAppend {
-	/// The kind of item that will be appended. Actual appended item must encode like it.
-	type Item: Encode;
-
-	/// Append all items in `iter` to the given `self_encoded` representation.
-	///
-	/// Except if `self_encoded` value is empty then it just insert the given input data.
-	///
-	/// # Example
-	///
-	/// ```
-	///# use parity_scale_codec::EncodeLikeAppend;
-	///
-	/// // Some encoded data
-	/// let data = Vec::new();
-	///
-	/// let item = (&8u32, 3u32);
-	/// let encoded = <Vec<(u32, u32)> as EncodeLikeAppend>::append(data, std::iter::once(&item)).expect("Adds new element");
-	///
-	/// // Add multiple element
-	/// <Vec<(u32, u32)> as EncodeLikeAppend>::append(encoded, &[item, item, item]).expect("Adds new elements");
-	/// ```
-	fn append<'a, EncodeLikeItem, I>(
+	fn append_or_new<'a, EncodeLikeItem, I>(
 		self_encoded: Vec<u8>,
 		iter: I,
 	) -> Result<Vec<u8>, Error>
@@ -98,10 +58,17 @@ pub trait EncodeLikeAppend {
 		I::IntoIter: ExactSizeIterator;
 }
 
-impl<T: Encode> EncodeLikeAppend for Vec<T> {
+impl<T: Encode> EncodeAppend for Vec<T> {
 	type Item = T;
 
-	fn append<'a, EncodeLikeItem, I>(
+	fn append<'a, I: IntoIterator<Item=&'a Self::Item>>(
+		self_encoded: Vec<u8>,
+		iter: I,
+	) -> Result<Vec<u8>, Error> where Self::Item: 'a, I::IntoIter: ExactSizeIterator {
+		append_or_new_vec_with_any_item(self_encoded, iter)
+	}
+
+	fn append_or_new<'a, EncodeLikeItem, I>(
 		self_encoded: Vec<u8>,
 		iter: I,
 	) -> Result<Vec<u8>, Error>
@@ -110,7 +77,7 @@ impl<T: Encode> EncodeLikeAppend for Vec<T> {
 		EncodeLikeItem: 'a + EncodeLike<Self::Item>,
 		I::IntoIter: ExactSizeIterator,
 	{
-		append_vec_with_any_item(self_encoded, iter)
+		append_or_new_vec_with_any_item(self_encoded, iter)
 	}
 }
 
@@ -127,7 +94,7 @@ fn extract_length_data(data: &[u8], input_len: usize) -> Result<(u32, usize, usi
 }
 
 // Item must have same encoding as encoded value in the encoded vec.
-fn append_vec_with_any_item<'a, Item, I>(
+fn append_or_new_vec_with_any_item<'a, Item, I>(
 	mut self_encoded: Vec<u8>,
 	iter: I,
 ) -> Result<Vec<u8>, Error>
@@ -182,14 +149,14 @@ where
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::{Input, Encode, EncodeLike, EncodeLikeAppend};
+	use crate::{Input, Encode, EncodeLike};
 
 	#[test]
 	fn vec_encode_append_works() {
 		let max_value = 1_000_000;
 
 		let encoded = (0..max_value).fold(Vec::new(), |encoded, v| {
-			<Vec<u32> as EncodeAppend>::append(encoded, std::iter::once(&v)).unwrap()
+			<Vec<u32> as EncodeAppend>::append_or_new(encoded, std::iter::once(&v)).unwrap()
 		});
 
 		let decoded = Vec::<u32>::decode(&mut &encoded[..]).unwrap();
@@ -201,7 +168,7 @@ mod tests {
 		let max_value = 1_000_000u32;
 
 		let encoded = (0..max_value).fold(Vec::new(), |encoded, v| {
-			<Vec<u32> as EncodeAppend>::append(encoded, &[v, v, v, v]).unwrap()
+			<Vec<u32> as EncodeAppend>::append_or_new(encoded, &[v, v, v, v]).unwrap()
 		});
 
 		let decoded = Vec::<u32>::decode(&mut &encoded[..]).unwrap();
@@ -233,7 +200,7 @@ mod tests {
 
 		let append = NoCopy { data: 100 };
 		let data = Vec::new();
-		let encoded = <Vec<NoCopy> as EncodeAppend>::append(data, std::iter::once(&append)).unwrap();
+		let encoded = <Vec<NoCopy> as EncodeAppend>::append_or_new(data, std::iter::once(&append)).unwrap();
 
 		let decoded = <Vec<NoCopy>>::decode(&mut &encoded[..]).unwrap();
 		assert_eq!(vec![append], decoded);
@@ -244,7 +211,7 @@ mod tests {
 		let max_value = 1_000_000;
 
 		let encoded = (0..max_value).fold(Vec::new(), |encoded, v| {
-			<Vec<u32> as EncodeLikeAppend>::append(encoded, std::iter::once(&Box::new(v as u32))).unwrap()
+			<Vec<u32> as EncodeAppend>::append_or_new(encoded, std::iter::once(&Box::new(v as u32))).unwrap()
 		});
 
 		let decoded = Vec::<u32>::decode(&mut &encoded[..]).unwrap();

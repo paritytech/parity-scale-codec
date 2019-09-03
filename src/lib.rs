@@ -265,5 +265,5 @@ pub use self::compact::{Compact, HasCompact, CompactAs, CompactLen};
 pub use self::joiner::Joiner;
 pub use self::keyedvec::KeyedVec;
 pub use self::decode_all::DecodeAll;
-pub use self::encode_append::{EncodeAppend, EncodeLikeAppend};
+pub use self::encode_append::EncodeAppend;
 pub use self::encode_like::EncodeLike;
