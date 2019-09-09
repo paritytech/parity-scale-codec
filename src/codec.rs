@@ -287,9 +287,13 @@ pub trait Decode: Sized {
 pub trait Codec: Decode + Encode {}
 impl<S: Decode + Encode> Codec for S {}
 
+/// Trait that bound `EncodeLike` along with `Encode`. Usefull for generic being used in function
+/// with `EncodeLike` parameters.
 pub trait FullEncode: Encode + EncodeLike {}
 impl<S: Encode + EncodeLike> FullEncode for S {}
 
+/// Trait that bound `EncodeLike` along with `Codec`. Usefull for generic being used in function
+/// with `EncodeLike` parameters.
 pub trait FullCodec: Decode + FullEncode {}
 impl<S: Decode + FullEncode> FullCodec for S {}
 
@@ -311,12 +315,8 @@ impl<T: Encode> EncodeLike<T> for &T {}
 impl<T: Encode> EncodeLike<&T> for T {}
 impl<T: Encode> EncodeLike<T> for &&T {}
 impl<T: Encode> EncodeLike<&&T> for T {}
-// TODO TODO: this works if we remove some direction: can we build something on that ?
-// impl<T: EncodeLike<U>, U: Encode> EncodeLike<U> for &T {}
 
 impl<T: ?Sized> WrapperTypeEncode for &mut T {}
-// TODO TODO: isn't all this himself could be replaced by EncodeLike<U>, U: Encode ? yes for at
-// least a lot of them Like Result Option etc.. do it !
 impl<T: ?Sized + Encode> EncodeLike for &mut T {}
 impl<T: Encode> EncodeLike<T> for &mut T {}
 impl<T: Encode> EncodeLike<&mut T> for T {}
@@ -423,7 +423,13 @@ impl<T: Encode, E: Encode> Encode for Result<T, E> {
 	}
 }
 
-impl<T: Encode, E: Encode> EncodeLike for Result<T, E> {}
+impl<T, LikeT, E, LikeE> EncodeLike<Result<LikeT, LikeE>> for Result<T, E>
+where
+	T: EncodeLike<LikeT>,
+	LikeT: Encode,
+	E: EncodeLike<LikeE>,
+	LikeE: Encode,
+{}
 
 impl<T: Decode, E: Decode> Decode for Result<T, E> {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
@@ -472,7 +478,7 @@ impl Decode for OptionBool {
 	}
 }
 
-impl<T: Encode> EncodeLike for Option<T> {}
+impl<T: EncodeLike<U>, U: Encode> EncodeLike<Option<U>> for Option<T> {}
 
 impl<T: Encode> Encode for Option<T> {
 	fn size_hint(&self) -> usize {
@@ -529,7 +535,7 @@ macro_rules! impl_array {
 				}
 			}
 
-			impl<T: Encode> EncodeLike for [T; $n] {}
+			impl<T: EncodeLike<U>, U: Encode> EncodeLike<[U; $n]> for [T; $n] {}
 		)*
 	}
 }
@@ -692,12 +698,14 @@ impl<T: Decode> Decode for Vec<T> {
 
 macro_rules! impl_codec_through_iterator {
 	($(
-		$type:ty
-		{ $( $generics:ident ),* }
-		{ $( $encode_generics:tt )* }
-		{ $( $decode_generics:tt )* }
+		$type:ident
+		{ $( $generics:ident $( : $decode_additional:ident )? ),* }
+		{ $( $type_like_generics:ident ),* }
+		{ $( $impl_like_generics:tt )* }
 	)*) => {$(
-		impl<$($encode_generics)*> Encode for $type {
+		impl<$( $generics: Encode ),*> Encode
+		for $type<$( $generics ),*>
+		{
 			fn encode_to<W: Output>(&self, dest: &mut W) {
 				compact_encode_len_to(dest, self.len()).expect("Compact encodes length");
 
@@ -707,7 +715,9 @@ macro_rules! impl_codec_through_iterator {
 			}
 		}
 
-		impl<$($decode_generics)*> Decode for $type {
+		impl<$( $generics: Decode $( + $decode_additional )? ),*> Decode
+		for $type<$( $generics ),*>
+		{
 			fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 				<Compact<u32>>::decode(input).and_then(move |Compact(len)| {
 					Result::from_iter((0..len).map(|_| Decode::decode(input)))
@@ -715,22 +725,29 @@ macro_rules! impl_codec_through_iterator {
 			}
 		}
 
-		impl<$($encode_generics)*> EncodeLike for $type {}
-		impl<$($encode_generics)*> EncodeLike<&[( $( $generics ),* )]> for $type {}
-		impl<$($encode_generics)*> EncodeLike<$type> for &[( $( $generics ),* )] {}
+		impl<$( $impl_like_generics )*> EncodeLike<$type<$( $type_like_generics ),*>>
+			for $type<$( $generics ),*> {}
+		impl<$( $impl_like_generics )*> EncodeLike<&[( $( $type_like_generics),* )]>
+			for $type<$( $generics ),*> {}
+		impl<$( $impl_like_generics )*> EncodeLike<$type<$( $type_like_generics ),*>>
+			for &[( $( $generics ),* )] {}
 	)*}
 }
 
 impl_codec_through_iterator! {
-	BTreeMap<K, V> { K, V } { K: Encode , V: Encode } { K: Decode + Ord, V: Decode }
-	BTreeSet<T> { T } { T: Encode } { T: Decode + Ord }
-	LinkedList<T> { T } { T: Encode } { T: Decode }
-	BinaryHeap<T> { T } { T: Encode } { T: Decode + Ord }
+	BTreeMap { K: Ord, V } { LikeK, LikeV}
+		{ K: EncodeLike<LikeK>, LikeK: Encode, V: EncodeLike<LikeV>, LikeV: Encode }
+	BTreeSet { T: Ord } { LikeT }
+		{ T: EncodeLike<LikeT>, LikeT: Encode }
+	LinkedList { T } { LikeT }
+		{ T: EncodeLike<LikeT>, LikeT: Encode }
+	BinaryHeap { T: Ord } { LikeT }
+		{ T: EncodeLike<LikeT>, LikeT: Encode }
 }
 
 impl<T: Encode + Ord> EncodeLike for VecDeque<T> {}
-impl<T: Encode + Ord> EncodeLike<&[T]> for VecDeque<T> {}
-impl<T: Encode + Ord> EncodeLike<VecDeque<T>> for &[T] {}
+impl<T: EncodeLike<U> + Ord, U: Encode> EncodeLike<&[U]> for VecDeque<T> {}
+impl<T: EncodeLike<U>, U: Encode + Ord> EncodeLike<VecDeque<U>> for &[T] {}
 
 impl<T: Encode + Ord> Encode for VecDeque<T> {
 	fn encode_to<W: Output>(&self, dest: &mut W) {
