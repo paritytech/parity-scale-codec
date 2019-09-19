@@ -16,7 +16,6 @@
 
 #![recursion_limit = "128"]
 extern crate proc_macro;
-use proc_macro2;
 
 #[macro_use]
 extern crate syn;
@@ -24,12 +23,10 @@ extern crate syn;
 #[macro_use]
 extern crate quote;
 
-use proc_macro::TokenStream;
-use proc_macro2::Span;
-use syn::{Data, Field, Fields, DeriveInput, Ident, parse::Error, spanned::Spanned};
+use proc_macro2::{Ident, Span};
 use proc_macro_crate::crate_name;
-
-use std::env;
+use syn::spanned::Spanned;
+use syn::{Data, Field, Fields, DeriveInput, Error};
 
 mod decode;
 mod encode;
@@ -39,7 +36,7 @@ mod trait_bounds;
 /// Include the `parity-scale-codec` crate under a known name (`_parity_scale_codec`).
 fn include_parity_scale_codec_crate() -> proc_macro2::TokenStream {
 	// This "hack" is required for the tests.
-	if env::var("CARGO_PKG_NAME").unwrap() == "parity-scale-codec" {
+	if std::env::var("CARGO_PKG_NAME").unwrap() == "parity-scale-codec" {
 		quote!( extern crate parity_scale_codec as _parity_scale_codec; )
 	} else {
 		match crate_name("parity-scale-codec") {
@@ -53,7 +50,9 @@ fn include_parity_scale_codec_crate() -> proc_macro2::TokenStream {
 }
 
 /// Wraps the impl block in a "dummy const"
-fn wrap_with_dummy_const(input: &DeriveInput, prefix: &str, impl_block: proc_macro2::TokenStream) -> TokenStream {
+fn wrap_with_dummy_const(
+	input: &DeriveInput, prefix: &str, impl_block: proc_macro2::TokenStream
+) -> proc_macro::TokenStream {
 	let parity_codec_crate = include_parity_scale_codec_crate();
 	let mut new_name = prefix.to_string();
 	new_name.push_str(input.ident.to_string().trim_start_matches("r#"));
@@ -73,7 +72,7 @@ fn wrap_with_dummy_const(input: &DeriveInput, prefix: &str, impl_block: proc_mac
 }
 
 #[proc_macro_derive(Encode, attributes(codec))]
-pub fn encode_derive(input: TokenStream) -> TokenStream {
+pub fn encode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 	let mut input: DeriveInput = match syn::parse(input) {
 		Ok(input) => input,
 		Err(e) => return e.to_compile_error().into(),
@@ -110,7 +109,7 @@ pub fn encode_derive(input: TokenStream) -> TokenStream {
 }
 
 #[proc_macro_derive(Decode, attributes(codec))]
-pub fn decode_derive(input: TokenStream) -> TokenStream {
+pub fn decode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 	let mut input: DeriveInput = match syn::parse(input) {
 		Ok(input) => input,
 		Err(e) => return e.to_compile_error().into(),
@@ -150,7 +149,7 @@ pub fn decode_derive(input: TokenStream) -> TokenStream {
 }
 
 #[proc_macro_derive(CompactAs, attributes(codec))]
-pub fn compact_as_derive(input: TokenStream) -> TokenStream {
+pub fn compact_as_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 	let mut input: DeriveInput = match syn::parse(input) {
 		Ok(input) => input,
 		Err(e) => return e.to_compile_error().into(),

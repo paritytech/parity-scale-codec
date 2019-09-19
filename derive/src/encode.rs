@@ -14,14 +14,12 @@
 
 use std::str::from_utf8;
 
-use proc_macro2::{Span, TokenStream};
-use syn::{
-	Data, Field, Fields, Ident,
-	punctuated::Punctuated,
-	spanned::Spanned,
-	token::Comma,
-	Error,
-};
+use proc_macro2::{Ident, Span, TokenStream};
+use syn::punctuated::Punctuated;
+use syn::spanned::Spanned;
+use syn::token::Comma;
+use syn::{Data, Field, Fields, Error};
+
 use crate::utils;
 
 type FieldsList = Punctuated<Field, Comma>;

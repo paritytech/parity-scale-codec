@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{Encode, Decode, Error, Output, Input};
 use crate::alloc::vec::Vec;
+use crate::codec::{Encode, Decode, Input, Output, Error};
 
 impl<T: Encode, L: generic_array::ArrayLength<T>> Encode for generic_array::GenericArray<T, L> {
 	fn encode_to<W: Output>(&self, dest: &mut W) {
@@ -41,7 +41,8 @@ impl<T: Decode, L: generic_array::ArrayLength<T>> Decode for generic_array::Gene
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use generic_array::{GenericArray, arr, arr_impl};
+	use generic_array::typenum;
+	use generic_array::{GenericArray, arr};
 
 	#[test]
 	fn generic_array() {

@@ -12,20 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use syn::{Meta, NestedMeta, Lit, Attribute, Variant, Field};
-use proc_macro2::{TokenStream, Span};
 use std::str::FromStr;
+
+use proc_macro2::{TokenStream, Span};
+use syn::{Meta, NestedMeta, Lit, Attribute, Variant, Field};
+use syn::spanned::Spanned;
 
 fn find_meta_item<'a, F, R, I>(itr: I, pred: F) -> Option<R> where
 	F: FnMut(&NestedMeta) -> Option<R> + Clone,
 	I: Iterator<Item=&'a Attribute>
 {
 	itr.filter_map(|attr| {
-		let pair = attr.path.segments.first()?;
-		let seg = pair.value();
-		if seg.ident == "codec" {
-			let meta = attr.interpret_meta();
-			if let Some(Meta::List(ref meta_list)) = meta {
+		if attr.path.segments.len() == 1 && attr.path.segments[0].ident == "codec" {
+			if let Ok(Meta::List(ref meta_list)) = attr.parse_meta() {
 				return meta_list.nested.iter().filter_map(pred.clone()).next();
 			}
 		}
@@ -38,7 +37,7 @@ pub fn index(v: &Variant, i: usize) -> TokenStream {
 	// look for an index in attributes
 	let index = find_meta_item(v.attrs.iter(), |meta| {
 		if let NestedMeta::Meta(Meta::NameValue(ref nv)) = meta {
-			if nv.ident == "index" {
+			if nv.path.segments.len() == 1 && nv.path.segments[0].ident == "index" {
 				if let Lit::Str(ref s) = nv.lit {
 					let byte: u8 = s.value().parse().expect("Numeric index expected.");
 					return Some(byte)
@@ -62,7 +61,7 @@ pub fn get_encoded_as_type(field_entry: &Field) -> Option<TokenStream> {
 	// look for an encoded_as in attributes
 	find_meta_item(field_entry.attrs.iter(), |meta| {
 		if let NestedMeta::Meta(Meta::NameValue(ref nv)) = meta {
-			if nv.ident == "encoded_as"{
+			if nv.path.segments.len() == 1 && nv.path.segments[0].ident == "encoded_as" {
 				if let Lit::Str(ref s) = nv.lit {
 					return Some(
 						TokenStream::from_str(&s.value())
@@ -79,8 +78,8 @@ pub fn get_encoded_as_type(field_entry: &Field) -> Option<TokenStream> {
 pub fn get_enable_compact(field_entry: &Field) -> bool {
 	// look for `encode(compact)` in the attributes
 	find_meta_item(field_entry.attrs.iter(), |meta| {
-		if let NestedMeta::Meta(Meta::Word(ref word)) = meta {
-			if word == "compact" {
+		if let NestedMeta::Meta(Meta::Path(ref path)) = meta {
+			if path.segments.len() == 1 && path.segments[0].ident == "compact" {
 				return Some(());
 			}
 		}
@@ -93,9 +92,9 @@ pub fn get_enable_compact(field_entry: &Field) -> bool {
 pub fn get_skip(attrs: &Vec<Attribute>) -> Option<Span> {
 	// look for `skip` in the attributes
 	find_meta_item(attrs.iter(), |meta| {
-		if let NestedMeta::Meta(Meta::Word(ref word)) = meta {
-			if word == "skip" {
-				return Some(word.span());
+		if let NestedMeta::Meta(Meta::Path(ref path)) = meta {
+			if path.segments.len() == 1 && path.segments[0].ident == "skip" {
+				return Some(path.span());
 			}
 		}
 

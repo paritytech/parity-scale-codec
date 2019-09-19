@@ -12,8 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use syn::{Generics, Ident, visit::{Visit, self}, Type, TypePath, spanned::Spanned};
 use std::iter;
+
+use proc_macro2::Ident;
+use syn::spanned::Spanned;
+use syn::visit::{self, Visit};
+use syn::{Generics, Type, TypePath};
 
 /// Visits the ast and checks if one of the given idents is found.
 struct ContainIdents<'a> {
@@ -44,7 +48,7 @@ struct TypePathStartsWithIdent<'a> {
 
 impl<'a, 'ast> Visit<'ast> for TypePathStartsWithIdent<'a> {
 	fn visit_type_path(&mut self, i: &'ast TypePath) {
-		if let Some(segment) = i.path.segments.first().map(|v| v.into_value()) {
+		if let Some(segment) = i.path.segments.first() {
 			if &segment.ident == self.ident {
 				self.result = true;
 				return;

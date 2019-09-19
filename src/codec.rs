@@ -14,14 +14,11 @@
 
 //! Serialisation.
 
-const MAX_PREALLOCATION: usize = 4 * 1024;
+#[cfg(feature = "std")]
+use std::fmt;
+use core::{mem, ops::Deref, marker::PhantomData, iter::FromIterator, convert::TryFrom};
 
-use crate::{
-	Compact, EncodeLike,
-	alloc::{
-		vec::Vec, boxed::Box, collections::{BTreeMap, BTreeSet, VecDeque, LinkedList, BinaryHeap},
-	}
-};
+use arrayvec::ArrayVec;
 
 #[cfg(any(feature = "std", feature = "full"))]
 use crate::alloc::{
@@ -30,15 +27,11 @@ use crate::alloc::{
 	sync::Arc,
 	rc::Rc,
 };
+use crate::alloc::{vec::Vec, boxed::Box, collections::{BTreeMap, BTreeSet, VecDeque, LinkedList, BinaryHeap}};
+use crate::compact::Compact;
+use crate::encode_like::EncodeLike;
 
-use core::{mem, ops::Deref, marker::PhantomData, iter::FromIterator};
-
-use arrayvec::ArrayVec;
-
-#[cfg(feature = "std")]
-use std::fmt;
-
-use core::convert::TryFrom;
+const MAX_PREALLOCATION: usize = 4 * 1024;
 
 /// Descriptive error type
 #[cfg(feature = "std")]

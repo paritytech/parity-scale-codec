@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::Encode;
+use crate::codec::Encode;
 
 /// A marker trait that tells the compiler that a type encode to the same representation as another
 /// type.

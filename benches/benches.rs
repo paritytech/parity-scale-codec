@@ -12,13 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::time::Duration;
+
+use bitvec::vec::BitVec;
+use criterion::{Criterion, black_box, Bencher, criterion_group, criterion_main};
 use parity_scale_codec::*;
 use parity_scale_codec_derive::{Encode, Decode};
-
-use criterion::{Criterion, black_box, Bencher, criterion_group, criterion_main};
-use bitvec::vec::BitVec;
-
-use std::time::Duration;
 
 fn array_vec_write_u128(b: &mut Bencher) {
 	b.iter(|| {
