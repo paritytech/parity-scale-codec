@@ -32,7 +32,7 @@ pub trait EncodeAppend {
 	) -> Result<Vec<u8>, Error> where Self::Item: 'a, I::IntoIter: ExactSizeIterator;
 
 	/// Append all items in `iter` to the given `self_encoded` representation
-	/// or if `self_encoded` value is empty then insert the given input data.
+	/// or if `self_encoded` value is empty, `iter` is encoded to the `Self` representation.
 	///
 	/// # Example
 	///
