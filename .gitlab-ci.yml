@@ -22,6 +22,7 @@ test-rust-stable:
   stage:                           test
   script:
     - time cargo test --verbose --all --features bit-vec,generic-array,derive
+    - sccache -s
   only:
     - triggers
     - tags
@@ -36,6 +37,7 @@ test-rust-stable-no_derive:
   stage:                           test
   script:
     - time cargo test --verbose --features bit-vec,generic-array
+    - sccache -s
   only:
     - triggers
     - tags
@@ -50,6 +52,7 @@ check-rust-stable-no_derive_no_std_full:
   stage:                           test
   script:
     - time cargo check --verbose --no-default-features --features bit-vec,generic-array,full
+    - sccache -s
   only:
     - triggers
     - tags
@@ -64,6 +67,7 @@ check-rust-stable-no_derive_no_std:
   stage:                           test
   script:
     - time cargo check --verbose --no-default-features --features bit-vec,generic-array
+    - sccache -s
   only:
     - triggers
     - tags
@@ -78,6 +82,7 @@ check-rust-stable-no_derive_full:
   stage:                           test
   script:
     - time cargo check --verbose --features bit-vec,generic-array,full
+    - sccache -s
   only:
     - triggers
     - tags
@@ -92,6 +97,7 @@ bench-rust-nightly:
   stage:                           test
   script:
     - time cargo +nightly bench --features bit-vec,generic-array,derive
+    - sccache -s
   only:
     - triggers
     - tags
@@ -108,6 +114,7 @@ build-linux-ubuntu-amd64:
   stage:                           build
   script:
     - cargo build --verbose --release --features bit-vec,generic-array,derive
+    - sccache -s
   only:
     - master
     - tags
