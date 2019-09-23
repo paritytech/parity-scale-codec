@@ -60,7 +60,7 @@ fn wrap_with_dummy_const(input: &DeriveInput, prefix: &str, impl_block: proc_mac
 	let dummy_const = Ident::new(&new_name, Span::call_site());
 
 	let generated = quote! {
-		#[allow(non_upper_case_globals, unused_attributes, unused_qualifications)]
+		#[allow(non_upper_case_globals, unused_attributes, unused_qualifications, unused)]
 		const #dummy_const: () = {
 			#[allow(unknown_lints)]
 			#[cfg_attr(feature = "cargo-clippy", allow(useless_attribute))]
