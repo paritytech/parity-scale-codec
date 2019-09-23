@@ -19,8 +19,9 @@ use core::mem;
 use bitvec::{vec::BitVec, store::BitStore, cursor::Cursor, slice::BitSlice, boxed::BitBox};
 use byte_slice_cast::{AsByteSlice, ToByteSlice, FromByteSlice, Error as FromByteSliceError};
 
-use crate::codec::{Encode, EncodeLike Decode, Input, Output, Error};
+use crate::codec::{Encode, Decode, Input, Output, Error};
 use crate::compact::Compact;
+use crate::EncodeLike;
 
 impl From<FromByteSliceError> for Error {
 	fn from(e: FromByteSliceError) -> Error {
@@ -39,8 +40,6 @@ impl<C: Cursor, T: BitStore + ToByteSlice> Encode for BitSlice<C, T> {
 		dest.write(self.as_slice().as_byte_slice());
 	}
 }
-
-impl<C: Cursor, T: BitStore + ToByteSlice> EncodeLike for BitSlice<C, T> {}
 
 impl<C: Cursor, T: BitStore + ToByteSlice> Encode for BitVec<C, T> {
 	fn encode_to<W: Output>(&self, dest: &mut W) {
