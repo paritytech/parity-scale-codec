@@ -79,7 +79,7 @@ pub trait EncodeLike<T: Encode = Self>: Sized + Encode {}
 /// ```rust
 /// # use parity_scale_codec::{EncodeLike, Ref};
 /// fn foo<T: EncodeLike<u8>>(t: T) -> T {
-///     store_t(Ref::from(&t)); // Store t using a reference.
+///     store_t(Ref::from(&t)); // Store t without moving it, but only using a reference.
 ///     t
 /// }
 ///
