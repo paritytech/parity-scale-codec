@@ -99,6 +99,7 @@ impl<'a, T: EncodeLike<U>, U: Encode> From<&'a T> for Ref<'a, T, U> {
 }
 impl<'a, T: EncodeLike<U>, U: Encode> crate::WrapperTypeEncode for Ref<'a, T, U> {}
 impl<'a, T: EncodeLike<U>, U: Encode> EncodeLike<U> for Ref<'a, T, U> {}
+impl<'a, T: EncodeLike<U>, U: Encode> EncodeLike<U> for &Ref<'a, T, U> {}
 
 #[cfg(test)]
 mod tests {
