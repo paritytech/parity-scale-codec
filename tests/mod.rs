@@ -507,3 +507,4 @@ fn crafted_input_for_vec_t() {
 		"Not enough data to fill buffer"
 	);
 }
+
