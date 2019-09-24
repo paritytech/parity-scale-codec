@@ -13,8 +13,10 @@
 // limitations under the License.
 
 use proc_macro2::{Span, TokenStream, Ident};
-use syn::spanned::Spanned;
-use syn::{Data, Fields, Field, Error};
+use syn::{
+	spanned::Spanned,
+	Data, Fields, Field, Error,
+};
 
 use crate::utils;
 

@@ -15,9 +15,11 @@
 use std::iter;
 
 use proc_macro2::Ident;
-use syn::spanned::Spanned;
-use syn::visit::{self, Visit};
-use syn::{Generics, Type, TypePath};
+use syn::{
+	spanned::Spanned,
+	visit::{self, Visit},
+	Generics, Type, TypePath,
+};
 
 /// Visits the ast and checks if one of the given idents is found.
 struct ContainIdents<'a> {

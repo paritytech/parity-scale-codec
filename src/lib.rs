@@ -218,6 +218,12 @@
 #[doc(hidden)]
 pub extern crate alloc;
 
+#[cfg(feature = "bit-vec")]
+pub extern crate bitvec;
+
+#[cfg(feature = "generic-array")]
+pub extern crate generic_array;
+
 #[cfg(feature = "parity-scale-codec-derive")]
 #[allow(unused_imports)]
 #[macro_use]
@@ -248,9 +254,9 @@ mod compact;
 mod joiner;
 mod keyedvec;
 #[cfg(feature = "bit-vec")]
-mod bit_vec;
+mod impl_bit_vec;
 #[cfg(feature = "generic-array")]
-mod generic_array;
+mod impl_generic_array;
 mod decode_all;
 mod encode_append;
 mod encode_like;

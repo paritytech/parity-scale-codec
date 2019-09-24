@@ -15,8 +15,10 @@
 use std::str::FromStr;
 
 use proc_macro2::{TokenStream, Span};
-use syn::{Meta, NestedMeta, Lit, Attribute, Variant, Field};
-use syn::spanned::Spanned;
+use syn::{
+	spanned::Spanned,
+	Meta, NestedMeta, Lit, Attribute, Variant, Field,
+};
 
 fn find_meta_item<'a, F, R, I>(itr: I, pred: F) -> Option<R> where
 	F: FnMut(&NestedMeta) -> Option<R> + Clone,
