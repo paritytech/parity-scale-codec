@@ -90,7 +90,7 @@ pub fn get_enable_compact(field_entry: &Field) -> bool {
 }
 
 // return span of skip if found
-pub fn get_skip(attrs: &Vec<Attribute>) -> Option<Span> {
+pub fn get_skip(attrs: &[Attribute]) -> Option<Span> {
 	// look for `skip` in the attributes
 	find_meta_item(attrs.iter(), |meta| {
 		if let NestedMeta::Meta(Meta::Word(ref word)) = meta {
@@ -101,6 +101,19 @@ pub fn get_skip(attrs: &Vec<Attribute>) -> Option<Span> {
 
 		None
 	})
+}
+
+/// Returns if the `dumb_trait_bound` attribute is given in `attrs`.
+pub fn get_dumb_trait_bound(attrs: &[Attribute]) -> bool {
+	find_meta_item(attrs.iter(), |meta| {
+		if let NestedMeta::Meta(Meta::Word(ref word)) = meta {
+			if word == "dumb_trait_bound" {
+				return Some(());
+			}
+		}
+
+		None
+	}).is_some()
 }
 
 pub fn filter_skip_named<'a>(fields: &'a syn::FieldsNamed) -> impl Iterator<Item=&Field> + 'a {

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use syn::{Generics, Ident, visit::{Visit, self}, Type, TypePath, spanned::Spanned};
+use syn::{Generics, Ident, visit::{Visit, self}, Type, TypePath, spanned::Spanned, Result};
 use std::iter;
 
 /// Visits the ast and checks if one of the given idents is found.
@@ -103,30 +103,14 @@ pub fn add(
 	data: &syn::Data,
 	codec_bound: syn::Path,
 	codec_skip_bound: Option<syn::Path>,
-) -> syn::Result<()> {
+	dumb_trait_bounds: bool,
+) -> Result<()> {
 	let ty_params = generics.type_params().map(|p| p.ident.clone()).collect::<Vec<_>>();
 	if ty_params.is_empty() {
 		return Ok(());
 	}
 
-	let codec_types = collect_types(&data, needs_codec_bound, variant_not_skipped)?
-		.into_iter()
-		// Only add a bound if the type uses a generic
-		.filter(|ty| type_contain_idents(ty, &ty_params))
-		// If a struct is cotaining itself as field type, we can not add this type into the where clause.
-		// This is required to work a round the following compiler bug: https://github.com/rust-lang/rust/issues/47032
-		.flat_map(|ty| {
-			find_type_paths_not_start_or_contain_ident(&ty, input_ident)
-				.into_iter()
-				.map(|ty| Type::Path(ty.clone()))
-				// Remove again types that do not contain any of our generic parameters
-				.filter(|ty| type_contain_idents(ty, &ty_params))
-				// Add back the original type, as we don't want to loose him.
-				.chain(iter::once(ty))
-		})
-		// Remove all remaining types that start/contain the input ident to not have them in the where clause.
-		.filter(|ty| !type_or_sub_type_path_starts_with_ident(ty, input_ident))
-		.collect::<Vec<_>>();
+	let codec_types = get_types_to_add_trait_bound(input_ident, data, &ty_params, dumb_trait_bounds)?;
 
 	let compact_types = collect_types(&data, needs_has_compact_bound, variant_not_skipped)?
 		.into_iter()
@@ -171,6 +155,39 @@ pub fn add(
 	Ok(())
 }
 
+/// Returns all types that must be added to the where clause with the respective trait bound.
+fn get_types_to_add_trait_bound(
+	input_ident: &Ident,
+	data: &syn::Data,
+	ty_params: &[Ident],
+	dumb_trait_bound: bool,
+) -> Result<Vec<Type>> {
+	if dumb_trait_bound {
+		Ok(ty_params.iter().map(|t| parse_quote!( #t )).collect())
+	} else {
+		let res = collect_types(&data, needs_codec_bound, variant_not_skipped)?
+			.into_iter()
+			// Only add a bound if the type uses a generic
+			.filter(|ty| type_contain_idents(ty, &ty_params))
+			// If a struct is cotaining itself as field type, we can not add this type into the where clause.
+			// This is required to work a round the following compiler bug: https://github.com/rust-lang/rust/issues/47032
+			.flat_map(|ty| {
+				find_type_paths_not_start_or_contain_ident(&ty, input_ident)
+					.into_iter()
+					.map(|ty| Type::Path(ty.clone()))
+					// Remove again types that do not contain any of our generic parameters
+					.filter(|ty| type_contain_idents(ty, &ty_params))
+					// Add back the original type, as we don't want to loose him.
+					.chain(iter::once(ty))
+			})
+			// Remove all remaining types that start/contain the input ident to not have them in the where clause.
+			.filter(|ty| !type_or_sub_type_path_starts_with_ident(ty, input_ident))
+			.collect();
+
+		Ok(res)
+	}
+}
+
 fn needs_codec_bound(field: &syn::Field) -> bool {
 	!crate::utils::get_enable_compact(field)
 		&& crate::utils::get_encoded_as_type(field).is_none()
@@ -193,7 +210,7 @@ fn collect_types(
 	data: &syn::Data,
 	type_filter: fn(&syn::Field) -> bool,
 	variant_filter: fn(&syn::Variant) -> bool,
-) -> syn::Result<Vec<syn::Type>> {
+) -> Result<Vec<syn::Type>> {
 	use syn::*;
 
 	let types = match *data {
