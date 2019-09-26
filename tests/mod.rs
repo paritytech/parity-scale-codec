@@ -453,6 +453,25 @@ fn recursive_variant_2_encode_works() {
 }
 
 #[test]
+fn private_type_in_where_bound() {
+	// Make the `private type `private_type_in_where_bound::Private` in public interface` warning
+	// an error.
+	#![deny(warnings)]
+
+	#[derive(Debug, PartialEq, Encode, Decode, Default)]
+	struct Private;
+
+	#[derive(Debug, PartialEq, Encode, Decode, Default)]
+	#[codec(dumb_trait_bound)]
+	pub struct Test<N> {
+		data: Vec<(N, Private)>,
+	}
+
+	let val: Test<u32> = Test::default();
+	val.encode();
+}
+
+#[test]
 fn encode_decode_empty_enum() {
 	#[derive(Encode, Decode, PartialEq, Debug)]
 	enum EmptyEnumDerive {}
@@ -506,3 +525,4 @@ fn crafted_input_for_vec_t() {
 		"Not enough data to fill buffer"
 	);
 }
+

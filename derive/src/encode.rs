@@ -188,7 +188,7 @@ fn impl_encode(data: &Data, type_name: &Ident) -> TokenStream {
 						quote!(&#self_.#i)
 					},
 				),
-				Fields::Unit => quote!(drop(#dest);),
+				Fields::Unit => quote!(),
 			}
 		},
 		Data::Enum(ref data) => {

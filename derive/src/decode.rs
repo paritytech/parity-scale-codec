@@ -30,7 +30,6 @@ pub fn quote(data: &Data, type_name: &Ident, input: &TokenStream) -> TokenStream
 			),
 			Fields::Unit => {
 				quote_spanned! { data.fields.span() =>
-					drop(#input);
 					Ok(#type_name)
 				}
 			},
