@@ -274,8 +274,8 @@ mod encode_append;
 mod encode_like;
 
 pub use self::codec::{
-	Input, Output, Error, Encode, Decode, Codec, EncodeAsRef, WrapperTypeEncode,
-	WrapperTypeDecode, OptionBool, DecodeLength
+	Input, Output, Error, Decode, Encode, Codec, EncodeAsRef, WrapperTypeEncode,
+	WrapperTypeDecode, OptionBool, DecodeLength, FullCodec, FullEncode,
 };
 #[cfg(feature = "std")]
 pub use self::codec::IoReader;
@@ -284,4 +284,4 @@ pub use self::joiner::Joiner;
 pub use self::keyedvec::KeyedVec;
 pub use self::decode_all::DecodeAll;
 pub use self::encode_append::EncodeAppend;
-pub use self::encode_like::EncodeLike;
+pub use self::encode_like::{EncodeLike, Ref};
