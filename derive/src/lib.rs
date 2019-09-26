@@ -57,7 +57,6 @@ fn wrap_with_dummy_const(impl_block: proc_macro2::TokenStream) -> TokenStream {
 	let parity_codec_crate = include_parity_scale_codec_crate();
 
 	let generated = quote! {
-		#[allow(non_upper_case_globals, unused_attributes, unused_qualifications, unused)]
 		const _: () = {
 			#[allow(unknown_lints)]
 			#[cfg_attr(feature = "cargo-clippy", allow(useless_attribute))]
