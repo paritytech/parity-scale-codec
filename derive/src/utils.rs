@@ -25,7 +25,7 @@ fn find_meta_item<'a, F, R, I>(itr: I, pred: F) -> Option<R> where
 	I: Iterator<Item=&'a Attribute>
 {
 	itr.filter_map(|attr| {
-		if attr.path.segments.len() == 1 && attr.path.segments[0].ident == "codec" {
+		if attr.path.is_ident("codec") {
 			if let Ok(Meta::List(ref meta_list)) = attr.parse_meta() {
 				return meta_list.nested.iter().filter_map(pred.clone()).next();
 			}
@@ -39,7 +39,7 @@ pub fn index(v: &Variant, i: usize) -> TokenStream {
 	// look for an index in attributes
 	let index = find_meta_item(v.attrs.iter(), |meta| {
 		if let NestedMeta::Meta(Meta::NameValue(ref nv)) = meta {
-			if nv.path.segments.len() == 1 && nv.path.segments[0].ident == "index" {
+			if nv.path.is_ident("index") {
 				if let Lit::Str(ref s) = nv.lit {
 					let byte: u8 = s.value().parse().expect("Numeric index expected.");
 					return Some(byte)
