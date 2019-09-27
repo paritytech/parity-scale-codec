@@ -74,7 +74,7 @@ pub fn quote(data: &Data, type_name: &Ident, input: &TokenStream) -> TokenStream
 	}
 }
 
-fn create_decode_expr(field: &Field, name: &String, input: &TokenStream) -> TokenStream {
+fn create_decode_expr(field: &Field, name: &str, input: &TokenStream) -> TokenStream {
 	let encoded_as = utils::get_encoded_as_type(field);
 	let compact = utils::get_enable_compact(field);
 	let skip = utils::get_skip(&field.attrs).is_some();

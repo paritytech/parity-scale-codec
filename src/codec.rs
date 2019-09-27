@@ -27,7 +27,13 @@ use crate::alloc::{
 	sync::Arc,
 	rc::Rc,
 };
-use crate::alloc::{vec::Vec, boxed::Box, collections::{BTreeMap, BTreeSet, VecDeque, LinkedList, BinaryHeap}};
+use crate::alloc::{
+	vec::Vec,
+	boxed::Box,
+	collections::{
+		BTreeMap, BTreeSet, VecDeque, LinkedList, BinaryHeap
+	}
+};
 use crate::compact::Compact;
 use crate::encode_like::EncodeLike;
 

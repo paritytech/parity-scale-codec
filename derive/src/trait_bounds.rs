@@ -29,7 +29,7 @@ struct ContainIdents<'a> {
 
 impl<'a, 'ast> Visit<'ast> for ContainIdents<'a> {
 	fn visit_ident(&mut self, i: &'ast Ident) {
-		if self.idents.iter().any(|id| &id == &i) {
+		if self.idents.iter().any(|id| id == i) {
 			self.result = true;
 		}
 	}
