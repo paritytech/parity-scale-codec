@@ -14,6 +14,7 @@
 
 use crate::alloc::vec::Vec;
 use crate::codec::{Encode, Decode, Input, Output, Error};
+use crate::encode_like::EncodeLike;
 
 impl<T: Encode, L: generic_array::ArrayLength<T>> Encode for generic_array::GenericArray<T, L> {
 	fn encode_to<W: Output>(&self, dest: &mut W) {
@@ -22,6 +23,8 @@ impl<T: Encode, L: generic_array::ArrayLength<T>> Encode for generic_array::Gene
 		}
 	}
 }
+
+impl<T: Encode, L: generic_array::ArrayLength<T>> EncodeLike for generic_array::GenericArray<T, L> {}
 
 impl<T: Decode, L: generic_array::ArrayLength<T>> Decode for generic_array::GenericArray<T, L> {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {

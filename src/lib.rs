@@ -236,12 +236,6 @@
 #[doc(hidden)]
 pub extern crate alloc;
 
-#[cfg(feature = "bit-vec")]
-pub extern crate bitvec;
-
-#[cfg(feature = "generic-array")]
-pub extern crate generic_array;
-
 #[cfg(feature = "parity-scale-codec-derive")]
 #[allow(unused_imports)]
 #[macro_use]
@@ -272,16 +266,16 @@ mod compact;
 mod joiner;
 mod keyedvec;
 #[cfg(feature = "bit-vec")]
-mod impl_bit_vec;
+mod bit_vec;
 #[cfg(feature = "generic-array")]
-mod impl_generic_array;
+mod generic_array;
 mod decode_all;
 mod encode_append;
 mod encode_like;
 
 pub use self::codec::{
-	Input, Output, Error, Encode, Decode, Codec, EncodeAsRef, WrapperTypeEncode,
-	WrapperTypeDecode, OptionBool, DecodeLength
+	Input, Output, Error, Decode, Encode, Codec, EncodeAsRef, WrapperTypeEncode,
+	WrapperTypeDecode, OptionBool, DecodeLength, FullCodec, FullEncode,
 };
 #[cfg(feature = "std")]
 pub use self::codec::IoReader;
@@ -290,4 +284,4 @@ pub use self::joiner::Joiner;
 pub use self::keyedvec::KeyedVec;
 pub use self::decode_all::DecodeAll;
 pub use self::encode_append::EncodeAppend;
-pub use self::encode_like::EncodeLike;
+pub use self::encode_like::{EncodeLike, Ref};

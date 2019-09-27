@@ -48,7 +48,8 @@ use crate::codec::Encode;
 ///
 /// Not all possible implementations of EncodeLike are implemented (for instance `Box<Box<u32>>`
 /// does not implement `EncodeLike<u32>`). To bypass this issue either open a PR to add the new
-/// combination or define a wrapper and implement `EncodeLike` on it as such:
+/// combination or use [`Ref`](./struct.Ref.html) reference wrapper or define your own wrapper
+/// and implement `EncodeLike` on it as such:
 /// ```
 ///# use parity_scale_codec::{EncodeLike, Encode, WrapperTypeEncode};
 /// fn encode_like<T: Encode, R: EncodeLike<T>>(data: &R) {
@@ -70,6 +71,35 @@ use crate::codec::Encode;
 /// }
 /// ```
 pub trait EncodeLike<T: Encode = Self>: Sized + Encode {}
+
+/// Reference wrapper that implement encode like any type that is encoded like its inner type.
+///
+/// # Example
+///
+/// ```rust
+/// # use parity_scale_codec::{EncodeLike, Ref};
+/// fn foo<T: EncodeLike<u8>>(t: T) -> T {
+///     store_t(Ref::from(&t)); // Store t without moving it, but only using a reference.
+///     t
+/// }
+///
+/// fn store_t<T: EncodeLike<u8>>(t: T) {
+/// }
+/// ```
+pub struct Ref<'a, T: EncodeLike<U>, U: Encode>(&'a T, core::marker::PhantomData<U>);
+impl<'a, T: EncodeLike<U>, U: Encode> core::ops::Deref for Ref<'a, T, U> {
+    type Target = T;
+    fn deref(&self) -> &Self::Target { &self.0 }
+}
+
+impl<'a, T: EncodeLike<U>, U: Encode> From<&'a T> for Ref<'a, T, U> {
+	fn from(x: &'a T) -> Self {
+		Ref(x, Default::default())
+	}
+}
+impl<'a, T: EncodeLike<U>, U: Encode> crate::WrapperTypeEncode for Ref<'a, T, U> {}
+impl<'a, T: EncodeLike<U>, U: Encode> EncodeLike<U> for Ref<'a, T, U> {}
+impl<'a, T: EncodeLike<U>, U: Encode> EncodeLike<U> for &Ref<'a, T, U> {}
 
 #[cfg(test)]
 mod tests {

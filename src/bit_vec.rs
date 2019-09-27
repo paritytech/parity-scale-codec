@@ -21,6 +21,7 @@ use byte_slice_cast::{AsByteSlice, ToByteSlice, FromByteSlice, Error as FromByte
 
 use crate::codec::{Encode, Decode, Input, Output, Error};
 use crate::compact::Compact;
+use crate::EncodeLike;
 
 impl From<FromByteSliceError> for Error {
 	fn from(e: FromByteSliceError) -> Error {
@@ -46,6 +47,8 @@ impl<C: Cursor, T: BitStore + ToByteSlice> Encode for BitVec<C, T> {
 	}
 }
 
+impl<C: Cursor, T: BitStore + ToByteSlice> EncodeLike for BitVec<C, T> {}
+
 impl<C: Cursor, T: BitStore + FromByteSlice> Decode for BitVec<C, T> {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		<Compact<u32>>::decode(input).and_then(move |Compact(bits)| {
@@ -67,6 +70,8 @@ impl<C: Cursor, T: BitStore + ToByteSlice> Encode for BitBox<C, T> {
 		self.as_bitslice().encode_to(dest)
 	}
 }
+
+impl<C: Cursor, T: BitStore + ToByteSlice> EncodeLike for BitBox<C, T> {}
 
 impl<C: Cursor, T: BitStore + FromByteSlice> Decode for BitBox<C, T> {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {

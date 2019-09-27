@@ -91,7 +91,7 @@ fn vec_append_with_encode_append(b: &mut Bencher) {
 		encoded_events_vec = events.encode();
 
 		for _ in 1..1000 {
-			encoded_events_vec = <Vec<Event> as EncodeAppend>::append(
+			encoded_events_vec = <Vec<Event> as EncodeAppend>::append_or_new(
 				encoded_events_vec,
 				&[Event::ComplexEvent(data.to_vec(), 4, 5, 6, 9)],
 			).unwrap();
