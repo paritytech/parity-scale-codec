@@ -63,7 +63,7 @@ pub fn get_encoded_as_type(field_entry: &Field) -> Option<TokenStream> {
 	// look for an encoded_as in attributes
 	find_meta_item(field_entry.attrs.iter(), |meta| {
 		if let NestedMeta::Meta(Meta::NameValue(ref nv)) = meta {
-			if nv.path.segments.len() == 1 && nv.path.segments[0].ident == "encoded_as" {
+			if nv.path.is_ident("encoded_as") {
 				if let Lit::Str(ref s) = nv.lit {
 					return Some(
 						TokenStream::from_str(&s.value())
@@ -81,7 +81,7 @@ pub fn get_enable_compact(field_entry: &Field) -> bool {
 	// look for `encode(compact)` in the attributes
 	find_meta_item(field_entry.attrs.iter(), |meta| {
 		if let NestedMeta::Meta(Meta::Path(ref path)) = meta {
-			if path.segments.len() == 1 && path.segments[0].ident == "compact" {
+			if path.is_ident("compact") {
 				return Some(());
 			}
 		}
@@ -95,7 +95,7 @@ pub fn get_skip(attrs: &[Attribute]) -> Option<Span> {
 	// look for `skip` in the attributes
 	find_meta_item(attrs.iter(), |meta| {
 		if let NestedMeta::Meta(Meta::Path(ref path)) = meta {
-			if path.segments.len() == 1 && path.segments[0].ident == "skip" {
+			if path.is_ident("skip") {
 				return Some(path.span());
 			}
 		}
@@ -108,7 +108,7 @@ pub fn get_skip(attrs: &[Attribute]) -> Option<Span> {
 pub fn get_dumb_trait_bound(attrs: &[Attribute]) -> bool {
 	find_meta_item(attrs.iter(), |meta| {
 		if let NestedMeta::Meta(Meta::Path(ref path)) = meta {
-			if path.segments.len() == 1 && path.segments[0].ident == "dumb_trait_bound" {
+			if path.is_ident("dumb_trait_bound") {
 				return Some(());
 			}
 		}
