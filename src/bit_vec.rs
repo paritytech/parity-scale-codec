@@ -26,8 +26,12 @@ use crate::EncodeLike;
 impl From<FromByteSliceError> for Error {
 	fn from(e: FromByteSliceError) -> Error {
 		match e {
-			FromByteSliceError::AlignmentMismatch {..} => "failed to cast from byte slice: alignment mismatch".into(),
-			FromByteSliceError::LengthMismatch {..} => "failed to cast from byte slice: length mismatch".into(),
+			FromByteSliceError::AlignmentMismatch {..} =>
+				"failed to cast from byte slice: alignment mismatch".into(),
+			FromByteSliceError::LengthMismatch {..} =>
+				"failed to cast from byte slice: length mismatch".into(),
+			FromByteSliceError::CapacityMismatch {..} =>
+				"failed to cast from byte slice: capacity mismatch".into(),
 		}
 	}
 }
@@ -35,7 +39,10 @@ impl From<FromByteSliceError> for Error {
 impl<C: Cursor, T: BitStore + ToByteSlice> Encode for BitSlice<C, T> {
 	fn encode_to<W: Output>(&self, dest: &mut W) {
 		let len = self.len();
-		assert!(len <= u32::max_value() as usize, "Attempted to serialize a collection with too many elements.");
+		assert!(
+			len <= u32::max_value() as usize,
+			"Attempted to serialize a collection with too many elements.",
+		);
 		Compact(len as u32).encode_to(dest);
 		dest.write(self.as_slice().as_byte_slice());
 	}
