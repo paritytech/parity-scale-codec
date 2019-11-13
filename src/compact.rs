@@ -14,10 +14,11 @@
 
 //! [Compact encoding](https://substrate.dev/docs/en/overview/low-level-data-format#compact-general-integers)
 
-use crate::alloc::vec::Vec;
-use crate::{Input, Output, Error, Encode, Decode, EncodeAsRef, EncodeLike};
-
 use arrayvec::ArrayVec;
+
+use crate::alloc::vec::Vec;
+use crate::codec::{Encode, Decode, Input, Output, EncodeAsRef, Error};
+use crate::encode_like::EncodeLike;
 
 struct ArrayVecWrapper<T: arrayvec::Array>(ArrayVec<T>);
 

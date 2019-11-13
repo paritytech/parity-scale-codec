@@ -1,7 +1,8 @@
-use parity_scale_codec::{Encode, Decode, Compact};
 use std::collections::{BTreeMap, BTreeSet, VecDeque, LinkedList, BinaryHeap};
-use honggfuzz::fuzz;
+
 use bitvec::{vec::BitVec, cursor::BigEndian};
+use honggfuzz::fuzz;
+use parity_scale_codec::{Encode, Decode, Compact};
 
 #[derive(Encode, Decode)]
 pub struct MockStruct{

@@ -15,7 +15,8 @@
 //! Trait
 
 use core::iter::Extend;
-use super::Codec;
+
+use crate::codec::Codec;
 
 /// Trait to allow itself to be serialised into a value which can be extended
 /// by bytes.

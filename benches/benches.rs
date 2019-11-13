@@ -12,13 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::time::Duration;
+
+use bitvec::vec::BitVec;
+use criterion::{Criterion, black_box, Bencher, criterion_group, criterion_main};
 use parity_scale_codec::*;
 use parity_scale_codec_derive::{Encode, Decode};
-
-use criterion::{Criterion, black_box, Bencher, criterion_group, criterion_main};
-use bitvec::vec::BitVec;
-
-use std::time::Duration;
 
 fn array_vec_write_u128(b: &mut Bencher) {
 	b.iter(|| {
@@ -92,7 +91,7 @@ fn vec_append_with_encode_append(b: &mut Bencher) {
 		encoded_events_vec = events.encode();
 
 		for _ in 1..1000 {
-			encoded_events_vec = <Vec<Event> as EncodeAppend>::append(
+			encoded_events_vec = <Vec<Event> as EncodeAppend>::append_or_new(
 				encoded_events_vec,
 				&[Event::ComplexEvent(data.to_vec(), 4, 5, 6, 9)],
 			).unwrap();

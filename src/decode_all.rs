@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{Error, Decode};
+use crate::codec::{Error, Decode};
 
 /// The error message returned when `decode_all` fails.
 const DECODE_ALL_ERR_MSG: &str = "Input buffer has still data left after decoding!";

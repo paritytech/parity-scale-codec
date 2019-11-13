@@ -12,10 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{Encode, Error, Decode, Compact, CompactLen, EncodeLike};
-
 use core::{iter::ExactSizeIterator, mem};
+
 use crate::alloc::vec::Vec;
+use crate::codec::{Encode, Decode, Error};
+use crate::compact::{Compact, CompactLen};
+use crate::encode_like::EncodeLike;
 
 /// Trait that allows to append items to an encoded representation without
 /// decoding all previous added items.
