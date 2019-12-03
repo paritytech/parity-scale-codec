@@ -66,6 +66,66 @@ fn wrap_with_dummy_const(impl_block: proc_macro2::TokenStream) -> proc_macro::To
 	generated.into()
 }
 
+/// Derive `parity_scale_codec::Encode` and `parity_scale_codec::EncodeLike` for struct and enum.
+///
+/// # Struct
+///
+/// A struct is encoded by encoded each of its fields successively.
+///
+/// Fields can have some attributes:
+/// * `#[codec(skip)]`: the field is not encoded. It must derive `Default` if Decode is derived.
+/// * `#[codec(compact)]`: the field is encoded in its compact implementation i.e. the field must
+///   implement `parity_scale_codec::HasCompact` and will be encoded as `HasCompact::Type`.
+/// * `#[codec(encoded_as = "$EncodeAs")]: the field is encoded as an alternative type. $EncodedAs
+///   type must implement `parity_scale_codec::EncodeAsRef<'_, $EncodedAs>`.
+///
+/// ```
+/// # use parity_scale_codec_derive::Encode;
+/// # use parity_scale_codec::{Encode, HasCompact};
+/// #[derive(Encode)]
+/// struct StructType {
+///		#[codec(skip)]
+///		a: u32,
+///		#[codec(compact)]
+/// 	b: u32,
+///		#[codec(encoded_as = "<u32 as HasCompact>::Type")]
+///		c: u32,
+/// }
+/// ```
+///
+/// # Enum
+///
+/// The variable is encoded with one byte for the variant and then the variant struct encoding.
+/// The variant number is:
+/// * if variant has attribute: `#[codec(index = "$n")]` then n
+/// * else if variant has discrimant (like 3 in `enum T { A = 3 }`) then the discrimant.
+/// * else its position in the variant set, excluding skipped variants, but including variant with
+/// discrimant or attribute. Do collision with discrimant or attribute index.
+///
+/// variant attribute:
+/// * `#[codec(skip)]`: the variant is not encoded.
+/// * `#[codec(index = "$n")]`: override variant index.
+///
+/// fields attribute: same as struct fields attributes.
+///
+/// ```
+/// # use parity_scale_codec_derive::Encode;
+/// # use parity_scale_codec::Encode;
+/// #[derive(Encode)]
+/// enum EnumType {
+/// 	#[codec(index = "15")]
+/// 	A,
+/// 	#[codec(skip)]
+/// 	B,
+/// 	C = 3,
+/// 	D,
+/// }
+///
+/// assert_eq!(EnumType::A.encode(), vec![15]);
+/// assert_eq!(EnumType::B.encode(), vec![]);
+/// assert_eq!(EnumType::C.encode(), vec![3]);
+/// assert_eq!(EnumType::D.encode(), vec![2]);
+/// ```
 #[proc_macro_derive(Encode, attributes(codec))]
 pub fn encode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 	let mut input: DeriveInput = match syn::parse(input) {
@@ -104,6 +164,9 @@ pub fn encode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 	wrap_with_dummy_const(impl_block)
 }
 
+/// Derive `parity_scale_codec::Decode` and for struct and enum.
+///
+/// see derive `Encode` documentation.
 #[proc_macro_derive(Decode, attributes(codec))]
 pub fn decode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 	let mut input: DeriveInput = match syn::parse(input) {
