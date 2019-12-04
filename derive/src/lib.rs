@@ -14,6 +14,7 @@
 
 //! Derives serialization and deserialization codec for complex structs for simple marshalling.
 
+
 #![recursion_limit = "128"]
 extern crate proc_macro;
 
