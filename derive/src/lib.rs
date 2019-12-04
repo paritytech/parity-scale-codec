@@ -70,7 +70,7 @@ fn wrap_with_dummy_const(impl_block: proc_macro2::TokenStream) -> proc_macro::To
 ///
 /// # Struct
 ///
-/// A struct is encoded by encoded each of its fields successively.
+/// A struct is encoded by encoding each of its fields successively.
 ///
 /// Fields can have some attributes:
 /// * `#[codec(skip)]`: the field is not encoded. It must derive `Default` if Decode is derived.
@@ -100,13 +100,14 @@ fn wrap_with_dummy_const(impl_block: proc_macro2::TokenStream) -> proc_macro::To
 /// * if variant has attribute: `#[codec(index = "$n")]` then n
 /// * else if variant has discrimant (like 3 in `enum T { A = 3 }`) then the discrimant.
 /// * else its position in the variant set, excluding skipped variants, but including variant with
-/// discrimant or attribute. Do collision with discrimant or attribute index.
+/// discrimant or attribute. Warning this position does collision with discrimant or attribute
+/// index.
 ///
-/// variant attribute:
+/// variant attributes:
 /// * `#[codec(skip)]`: the variant is not encoded.
 /// * `#[codec(index = "$n")]`: override variant index.
 ///
-/// fields attribute: same as struct fields attributes.
+/// field attributes: same as struct fields attributes.
 ///
 /// ```
 /// # use parity_scale_codec_derive::Encode;
@@ -208,6 +209,20 @@ pub fn decode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 	wrap_with_dummy_const(impl_block)
 }
 
+/// Derive `parity_scale_codec::Compact` and `parity_scale_codec::CompactAs` for struct with single
+/// field.
+///
+/// Attribute skip can be used to skip other fields.
+///
+/// # Example
+///
+/// ```
+/// # use parity_scale_codec_derive::CompactAs;
+/// # use parity_scale_codec::{Encode, HasCompact};
+/// # use std::marker::PhantomData;
+/// #[derive(CompactAs)]
+/// struct MyWrapper<T>(u32, #[codec(skip)] PhantomData<T>);
+/// ```
 #[proc_macro_derive(CompactAs, attributes(codec))]
 pub fn compact_as_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 	let mut input: DeriveInput = match syn::parse(input) {
