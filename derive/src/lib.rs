@@ -81,7 +81,7 @@ fn wrap_with_dummy_const(impl_block: proc_macro2::TokenStream) -> proc_macro::To
 ///
 /// ```
 /// # use parity_scale_codec_derive::Encode;
-/// # use parity_scale_codec::{Encode, HasCompact};
+/// # use parity_scale_codec::{Encode as _, HasCompact};
 /// #[derive(Encode)]
 /// struct StructType {
 ///		#[codec(skip)]
@@ -111,7 +111,7 @@ fn wrap_with_dummy_const(impl_block: proc_macro2::TokenStream) -> proc_macro::To
 ///
 /// ```
 /// # use parity_scale_codec_derive::Encode;
-/// # use parity_scale_codec::Encode;
+/// # use parity_scale_codec::Encode as _;
 /// #[derive(Encode)]
 /// enum EnumType {
 /// 	#[codec(index = "15")]
