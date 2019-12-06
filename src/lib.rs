@@ -246,7 +246,6 @@ extern crate parity_scale_codec_derive;
 extern crate serde_derive;
 
 #[cfg(feature = "parity-scale-codec-derive")]
-#[doc(hidden)]
 pub use parity_scale_codec_derive::*;
 
 #[cfg(feature = "std")]
