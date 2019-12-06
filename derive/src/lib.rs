@@ -74,7 +74,7 @@ fn wrap_with_dummy_const(impl_block: proc_macro2::TokenStream) -> proc_macro::To
 ///
 /// Fields can have some attributes:
 /// * `#[codec(skip)]`: the field is not encoded. It must derive `Default` if Decode is derived.
-/// * `#[codec(compact)]`: the field is encoded in its compact implementation i.e. the field must
+/// * `#[codec(compact)]`: the field is encoded in its compact representation i.e. the field must
 ///   implement `parity_scale_codec::HasCompact` and will be encoded as `HasCompact::Type`.
 /// * `#[codec(encoded_as = "$EncodeAs")]: the field is encoded as an alternative type. $EncodedAs
 ///   type must implement `parity_scale_codec::EncodeAsRef<'_, $EncodedAs>`.
