@@ -128,7 +128,9 @@ fn encode_fields<F>(
 				}
 			}
 		} else if skip {
-			quote! {}
+			quote! {
+				let _ = #field;
+			}
 		} else {
 			quote_spanned! { f.span() =>
 					#dest.push(#field);
