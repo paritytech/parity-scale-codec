@@ -576,7 +576,6 @@ impl Encode for str {
 	}
 }
 
-#[cfg(any(feature = "std", feature = "full"))]
 impl<'a, T: ToOwned + ?Sized> Decode for Cow<'a, T>
 	where <T as ToOwned>::Owned: Decode,
 {
