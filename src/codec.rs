@@ -320,14 +320,14 @@ impl<T: ?Sized + Encode> EncodeLike for &mut T {}
 impl<T: Encode> EncodeLike<T> for &mut T {}
 impl<T: Encode> EncodeLike<&mut T> for T {}
 
+impl<'a, T: ToOwned + ?Sized> WrapperTypeEncode for Cow<'a, T> {}
+impl<'a, T: ToOwned + Encode + ?Sized> EncodeLike for Cow<'a, T> {}
+impl<'a, T: ToOwned + Encode> EncodeLike<T> for Cow<'a, T> {}
+impl<'a, T: ToOwned + Encode> EncodeLike<Cow<'a, T>> for T {}
+
 #[cfg(any(feature = "std", feature = "full"))]
 mod feature_full_wrapper_type_encode {
 	use super::*;
-
-	impl<'a, T: ToOwned + ?Sized> WrapperTypeEncode for Cow<'a, T> {}
-	impl<'a, T: ToOwned + Encode + ?Sized> EncodeLike for Cow<'a, T> {}
-	impl<'a, T: ToOwned + Encode> EncodeLike<T> for Cow<'a, T> {}
-	impl<'a, T: ToOwned + Encode> EncodeLike<Cow<'a, T>> for T {}
 
 	impl<T: ?Sized> WrapperTypeEncode for Arc<T> {}
 	impl<T: ?Sized + Encode> EncodeLike for Arc<T> {}
