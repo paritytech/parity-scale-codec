@@ -20,6 +20,7 @@ generic-array = { version = "0.13.2", optional = true }
 criterion = "0.3.0"
 serde_derive = { version = "1.0" }
 parity-scale-codec-derive = { path = "derive", version = "^1.0.2", default-features = false }
+quickcheck = "0.9"
 
 [[bench]]
 name = "benches"
