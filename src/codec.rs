@@ -23,13 +23,13 @@ use arrayvec::ArrayVec;
 #[cfg(any(feature = "std", feature = "full"))]
 use crate::alloc::{
 	string::String,
-	borrow::{Cow, ToOwned},
 	sync::Arc,
 	rc::Rc,
 };
 use crate::alloc::{
 	vec::Vec,
 	boxed::Box,
+	borrow::{Cow, ToOwned},
 	collections::{
 		BTreeMap, BTreeSet, VecDeque, LinkedList, BinaryHeap
 	}
