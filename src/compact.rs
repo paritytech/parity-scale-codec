@@ -922,4 +922,27 @@ mod tests {
 			check_bound_high!(i, [(u128, U128_OUT_OF_RANGE)]);
 		}
 	}
+
+	macro_rules! quick_check_roundtrip {
+		( $( $ty:ty : $test:ident ),* ) => {
+			$(
+				quickcheck::quickcheck! {
+					fn $test(v: $ty) -> bool {
+						let encoded = Compact(v).encode();
+						let deencoded = <Compact<$ty>>::decode(&mut &encoded[..]).unwrap().0;
+
+						v == deencoded
+					}
+				}
+			)*
+		}
+	}
+
+	quick_check_roundtrip! {
+		u8: u8_roundtrip,
+		u16: u16_roundtrip,
+		u32 : u32_roundtrip,
+		u64 : u64_roundtrip,
+		u128 : u128_roundtrip
+	}
 }
