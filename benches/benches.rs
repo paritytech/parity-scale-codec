@@ -12,8 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::time::Duration;
+use std::{time::Duration, any::type_name, convert::{TryFrom, TryInto}};
 
+#[cfg(feature = "bit-vec")]
 use bitvec::vec::BitVec;
 use criterion::{Criterion, black_box, Bencher, criterion_group, criterion_main};
 use parity_scale_codec::*;
@@ -99,30 +100,32 @@ fn vec_append_with_encode_append(b: &mut Bencher) {
 	});
 }
 
-fn encode_decode_vec_u8(c: &mut Criterion) {
-	c.bench_function_over_inputs("vec_u8_encode - Vec<u8>", |b, &vec_size| {
-		let vec: Vec<u8> = (0..=255u8)
+fn encode_decode_vec<T: TryFrom<u8> + Codec>(c: &mut Criterion) where T::Error: std::fmt::Debug {
+	c.bench_function_over_inputs(&format!("vec_encode_{}", type_name::<T>()), |b, &vec_size| {
+		let vec: Vec<T> = (0..=127u8)
 			.cycle()
 			.take(vec_size)
+			.map(|v| v.try_into().unwrap())
 			.collect();
 
 		let vec = black_box(vec);
 		b.iter(|| vec.encode())
-	}, vec![1, 2, 5, 32, 1024]);
+	}, vec![1, 2, 5, 32, 1024, 2048, 16384]);
 
-	c.bench_function_over_inputs("vec_u8_decode - Vec<u8>", |b, &vec_size| {
-		let vec: Vec<u8> = (0..=255u8)
+	c.bench_function_over_inputs(&format!("vec_decode_{}", type_name::<T>()), |b, &vec_size| {
+		let vec: Vec<T> = (0..=255u8)
 			.cycle()
 			.take(vec_size)
+			.map(|v| v.try_into().unwrap())
 			.collect();
 
 		let vec = vec.encode();
 
 		let vec = black_box(vec);
 		b.iter(|| {
-			let _: Vec<u8> = Decode::decode(&mut &vec[..]).unwrap();
+			let _: Vec<T> = Decode::decode(&mut &vec[..]).unwrap();
 		})
-	}, vec![1, 2, 5, 32, 1024]);
+	}, vec![1, 2, 5, 32, 1024, 2048, 16384]);
 }
 
 fn bench_fn(c: &mut Criterion) {
@@ -135,6 +138,9 @@ fn bench_fn(c: &mut Criterion) {
 }
 
 fn encode_decode_bitvec_u8(c: &mut Criterion) {
+	let _ = c;
+
+	#[cfg(feature = "bit-vec")]
 	c.bench_function_over_inputs("bitvec_u8_encode - BitVec<u8>", |b, &size| {
 		let vec: BitVec = [true, false]
 			.iter()
@@ -147,6 +153,7 @@ fn encode_decode_bitvec_u8(c: &mut Criterion) {
 		b.iter(|| vec.encode())
 	}, vec![1, 2, 5, 32, 1024]);
 
+	#[cfg(feature = "bit-vec")]
 	c.bench_function_over_inputs("bitvec_u8_decode - BitVec<u8>", |b, &size| {
 		let vec: BitVec = [true, false]
 			.iter()
@@ -167,6 +174,8 @@ fn encode_decode_bitvec_u8(c: &mut Criterion) {
 criterion_group!{
 	name = benches;
 	config = Criterion::default().warm_up_time(Duration::from_millis(500)).without_plots();
-	targets = encode_decode_vec_u8, bench_fn, encode_decode_bitvec_u8
+	targets = encode_decode_vec::<u8>, encode_decode_vec::<u16>, encode_decode_vec::<u32>, encode_decode_vec::<u64>,
+			encode_decode_vec::<i8>, encode_decode_vec::<i16>, encode_decode_vec::<i32>, encode_decode_vec::<i64>,
+			bench_fn, encode_decode_bitvec_u8
 }
 criterion_main!(benches);
