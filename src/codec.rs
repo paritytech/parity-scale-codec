@@ -657,8 +657,18 @@ macro_rules! with_type_info {
 impl<T: Encode> Encode for [T] {
 	fn size_hint(&self) -> usize {
 		macro_rules! size_hint {
+			( u8, $self:ident ) => {{
+				let typed = unsafe { mem::transmute::<&[T], &[u8]>($self) };
+				// Max compact size   + size of the data as u8 slice
+				mem::size_of::<u32>() + typed.len()
+			}};
+			( i8, $self:ident ) => {{
+				let typed = unsafe { mem::transmute::<&[T], &[i8]>($self) };
+				// Max compact size   + size of the data as i8 slice
+				mem::size_of::<u32>() + typed.len()
+			}};
 			( $ty:ty, $self:ident ) => {{
-				let typed = unsafe { mem::transmute($self) };
+				let typed = unsafe { mem::transmute::<&[T], &[$ty]>($self) };
 				// Max compact size   + size of the data as u8 slice
 				mem::size_of::<u32>() + <[$ty] as AsByteSlice<$ty>>::as_byte_slice(typed).len()
 			}};
@@ -678,8 +688,18 @@ impl<T: Encode> Encode for [T] {
 		compact_encode_len_to(dest, self.len()).expect("Compact encodes length");
 
 		macro_rules! encode_to {
+			( u8, $self:ident, $dest:ident ) => {{
+				let typed = unsafe { mem::transmute::<&[T], &[u8]>($self) };
+				$dest.write(&typed)
+			}};
+			( i8, $self:ident, $dest:ident ) => {{
+				// `i8` has the same size as `u8`. We can just convert it here and write to the
+				// dest buffer directly.
+				let typed = unsafe { mem::transmute::<&[T], &[u8]>($self) };
+				$dest.write(&typed)
+			}};
 			( $ty:ty, $self:ident, $dest:ident ) => {{
-				let typed = unsafe { mem::transmute($self) };
+				let typed = unsafe { mem::transmute::<&[T], &[$ty]>($self) };
 				$dest.write(<[$ty] as AsByteSlice<$ty>>::as_byte_slice(typed))
 			}};
 		}
@@ -742,6 +762,14 @@ impl<T: Decode> Decode for Vec<T> {
 			let len = len as usize;
 
 			macro_rules! decode {
+				( u8, $input:ident, $len:ident ) => {{
+					let vec = read_vec_u8($input, $len)?;
+					Ok(unsafe { mem::transmute::<Vec<u8>, Vec<T>>(vec) })
+				}};
+				( i8, $input:ident, $len:ident ) => {{
+					let vec = read_vec_u8($input, $len)?;
+					Ok(unsafe { mem::transmute::<Vec<u8>, Vec<T>>(vec) })
+				}};
 				( $ty:ty, $input:ident, $len:ident ) => {{
 					let vec = read_vec_u8($input, $len * mem::size_of::<$ty>())?;
 					let typed = vec.into_vec_of::<$ty>()
