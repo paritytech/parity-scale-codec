@@ -113,7 +113,7 @@ fn encode_decode_vec<T: TryFrom<u8> + Codec>(c: &mut Criterion) where T::Error: 
 	}, vec![1, 2, 5, 32, 1024, 2048, 16384]);
 
 	c.bench_function_over_inputs(&format!("vec_decode_{}", type_name::<T>()), |b, &vec_size| {
-		let vec: Vec<T> = (0..=255u8)
+		let vec: Vec<T> = (0..=127u8)
 			.cycle()
 			.take(vec_size)
 			.map(|v| v.try_into().unwrap())
