@@ -881,7 +881,7 @@ mod tests {
 			(u64::max_value() << 8) - 1,
 			u64::max_value() << 16,
 			(u64::max_value() << 16) - 1,
-		].into_iter() {
+		].iter() {
 			let e = Compact::<u64>::encode(&Compact(*a));
 			let d = Compact::<u64>::decode(&mut &e[..]).unwrap().0;
 			assert_eq!(*a, d);
@@ -895,7 +895,7 @@ mod tests {
 			(u64::max_value() - 10) as u128,
 			u128::max_value(),
 			u128::max_value() - 10,
-		].into_iter() {
+		].iter() {
 			let e = Compact::<u128>::encode(&Compact(*a));
 			let d = Compact::<u128>::decode(&mut &e[..]).unwrap().0;
 			assert_eq!(*a, d);

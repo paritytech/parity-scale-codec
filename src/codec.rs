@@ -410,6 +410,31 @@ impl<T, X> Decode for X where
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		Ok(T::decode(input)?.into())
 	}
+
+}
+
+/// A macro that matches on a [`TypeInfo`] and expands a given macro per variant.
+///
+/// The first parameter to the given macro will be the type of variant (e.g. `u8`, `u32`, etc.) and other parameters
+/// given to this macro.
+///
+/// The last parameter is the code that should be executed for the `Unknown` type info.
+macro_rules! with_type_info {
+	( $type_info:expr, $macro:ident $( ( $( $params:ident ),* ) )?, { $( $unknown_variant:tt )* }, ) => {
+		match $type_info {
+			TypeInfo::U8 => { $macro!(u8 $( $( , $params )* )? ) },
+			TypeInfo::I8 => { $macro!(i8 $( $( , $params )* )? ) },
+			TypeInfo::U16 => { $macro!(u16 $( $( , $params )* )? ) },
+			TypeInfo::I16 => { $macro!(i16 $( $( , $params )* )? ) },
+			TypeInfo::U32 => { $macro!(u32 $( $( , $params )* )? ) },
+			TypeInfo::I32 => { $macro!(i32 $( $( , $params )* )? ) },
+			TypeInfo::U64 => { $macro!(u64 $( $( , $params )* )? ) },
+			TypeInfo::I64 => { $macro!(i64 $( $( , $params )* )? ) },
+			TypeInfo::U128 => { $macro!(u128 $( $( , $params )* )? ) },
+			TypeInfo::I128 => { $macro!(i128 $( $( , $params )* )? ) },
+			TypeInfo::Unknown => { $( $unknown_variant )* },
+		}
+	};
 }
 
 /// Something that can be encoded as a reference.
@@ -530,9 +555,36 @@ macro_rules! impl_array {
 	( $( $n:expr, )* ) => {
 		$(
 			impl<T: Encode> Encode for [T; $n] {
+				fn size_hint(&self) -> usize {
+					mem::size_of::<T>() * $n
+				}
+
 				fn encode_to<W: Output>(&self, dest: &mut W) {
-					for item in self.iter() {
-						item.encode_to(dest);
+					macro_rules! encode_to {
+						( u8, $self:ident, $dest:ident ) => {{
+							let typed = unsafe { mem::transmute::<&[T], &[u8]>(&$self[..]) };
+							$dest.write(&typed)
+						}};
+						( i8, $self:ident, $dest:ident ) => {{
+							// `i8` has the same size as `u8`. We can just convert it here and write to the
+							// dest buffer directly.
+							let typed = unsafe { mem::transmute::<&[T], &[u8]>(&$self[..]) };
+							$dest.write(&typed)
+						}};
+						( $ty:ty, $self:ident, $dest:ident ) => {{
+							let typed = unsafe { mem::transmute::<&[T], &[$ty]>(&$self[..]) };
+							$dest.write(<[$ty] as AsByteSlice<$ty>>::as_byte_slice(typed))
+						}};
+					}
+
+					with_type_info! {
+						<T as Encode>::TYPE_INFO,
+						encode_to(self, dest),
+						{
+							for item in self.iter() {
+								item.encode_to(dest);
+							}
+						},
 					}
 				}
 			}
@@ -565,7 +617,7 @@ impl_array!(
 	72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91,
 	92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108,
 	109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124,
-	125, 126, 127, 128,	129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140,
+	125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140,
 	141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156,
 	157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172,
 	173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188,
@@ -630,58 +682,9 @@ pub(crate) fn compact_encode_len_to<W: Output>(dest: &mut W, len: usize) -> Resu
 	Ok(())
 }
 
-/// A macro that matches on a [`TypeInfo`] and expands a given macro per variant.
-///
-/// The first parameter to the given macro will be the type of variant (e.g. `u8`, `u32`, etc.) and other parameters
-/// given to this macro.
-///
-/// The last parameter is the code that should be executed for the `Unknown` type info.
-macro_rules! with_type_info {
-	( $type_info:expr, $macro:ident $( ( $( $params:ident ),* ) )?, { $( $unknown_variant:tt )* }, ) => {
-		match $type_info {
-			TypeInfo::U8 => { $macro!(u8 $( $( , $params )* )? ) },
-			TypeInfo::I8 => { $macro!(i8 $( $( , $params )* )? ) },
-			TypeInfo::U16 => { $macro!(u16 $( $( , $params )* )? ) },
-			TypeInfo::I16 => { $macro!(i16 $( $( , $params )* )? ) },
-			TypeInfo::U32 => { $macro!(u32 $( $( , $params )* )? ) },
-			TypeInfo::I32 => { $macro!(i32 $( $( , $params )* )? ) },
-			TypeInfo::U64 => { $macro!(u64 $( $( , $params )* )? ) },
-			TypeInfo::I64 => { $macro!(i64 $( $( , $params )* )? ) },
-			TypeInfo::U128 => { $macro!(u128 $( $( , $params )* )? ) },
-			TypeInfo::I128 => { $macro!(i128 $( $( , $params )* )? ) },
-			TypeInfo::Unknown => { $( $unknown_variant )* },
-		}
-	};
-}
-
 impl<T: Encode> Encode for [T] {
 	fn size_hint(&self) -> usize {
-		macro_rules! size_hint {
-			( u8, $self:ident ) => {{
-				let typed = unsafe { mem::transmute::<&[T], &[u8]>($self) };
-				// Max compact size   + size of the data as u8 slice
-				mem::size_of::<u32>() + typed.len()
-			}};
-			( i8, $self:ident ) => {{
-				let typed = unsafe { mem::transmute::<&[T], &[i8]>($self) };
-				// Max compact size   + size of the data as i8 slice
-				mem::size_of::<u32>() + typed.len()
-			}};
-			( $ty:ty, $self:ident ) => {{
-				let typed = unsafe { mem::transmute::<&[T], &[$ty]>($self) };
-				// Max compact size   + size of the data as u8 slice
-				mem::size_of::<u32>() + <[$ty] as AsByteSlice<$ty>>::as_byte_slice(typed).len()
-			}};
-		}
-
-		with_type_info! {
-			<T as Encode>::TYPE_INFO,
-			size_hint(self),
-			{
-				// Max compact size
-				mem::size_of::<u32>()
-			},
-		}
+		mem::size_of::<u32>() + mem::size_of::<T>() * self.len()
 	}
 
 	fn encode_to<W: Output>(&self, dest: &mut W) {
@@ -805,9 +808,11 @@ macro_rules! impl_codec_through_iterator {
 		{ $( $type_like_generics:ident ),* }
 		{ $( $impl_like_generics:tt )* }
 	)*) => {$(
-		impl<$( $generics: Encode ),*> Encode
-		for $type<$( $generics ),*>
-		{
+		impl<$( $generics: Encode ),*> Encode for $type<$( $generics, )*> {
+			fn size_hint(&self) -> usize {
+				mem::size_of::<u32>() $( + mem::size_of::<$generics>() * self.len() )*
+			}
+
 			fn encode_to<W: Output>(&self, dest: &mut W) {
 				compact_encode_len_to(dest, self.len()).expect("Compact encodes length");
 
@@ -818,7 +823,7 @@ macro_rules! impl_codec_through_iterator {
 		}
 
 		impl<$( $generics: Decode $( + $decode_additional )? ),*> Decode
-		for $type<$( $generics ),*>
+			for $type<$( $generics, )*>
 		{
 			fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 				<Compact<u32>>::decode(input).and_then(move |Compact(len)| {
@@ -829,10 +834,10 @@ macro_rules! impl_codec_through_iterator {
 
 		impl<$( $impl_like_generics )*> EncodeLike<$type<$( $type_like_generics ),*>>
 			for $type<$( $generics ),*> {}
-		impl<$( $impl_like_generics )*> EncodeLike<&[( $( $type_like_generics),* )]>
+		impl<$( $impl_like_generics )*> EncodeLike<&[( $( $type_like_generics, )* )]>
 			for $type<$( $generics ),*> {}
 		impl<$( $impl_like_generics )*> EncodeLike<$type<$( $type_like_generics ),*>>
-			for &[( $( $generics ),* )] {}
+			for &[( $( $generics, )* )] {}
 	)*}
 }
 
@@ -852,6 +857,10 @@ impl<T: EncodeLike<U> + Ord, U: Encode> EncodeLike<&[U]> for VecDeque<T> {}
 impl<T: EncodeLike<U>, U: Encode + Ord> EncodeLike<VecDeque<U>> for &[T] {}
 
 impl<T: Encode + Ord> Encode for VecDeque<T> {
+	fn size_hint(&self) -> usize {
+		mem::size_of::<u32>() + mem::size_of::<T>() * self.len()
+	}
+
 	fn encode_to<W: Output>(&self, dest: &mut W) {
 		compact_encode_len_to(dest, self.len()).expect("Compact encodes length");
 
