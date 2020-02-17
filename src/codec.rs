@@ -20,6 +20,8 @@ use core::{mem, ops::Deref, marker::PhantomData, iter::FromIterator, convert::Tr
 
 use arrayvec::ArrayVec;
 
+use byte_slice_cast::{AsByteSlice, IntoVecOf};
+
 #[cfg(any(feature = "std", feature = "full"))]
 use crate::alloc::{
 	string::String,
@@ -223,12 +225,25 @@ impl<W: std::io::Write> Output for W {
 	}
 }
 
-/// This enum must not be exported and must only be instantiable by parity-scale-codec.
-/// Because implementation of Encode and Decode for u8 is done in this crate
-/// and there is not other usage.
-pub enum IsU8 {
-	Yes,
-	No,
+
+/// !INTERNAL USE ONLY!
+///
+/// This enum provides type information to optimize encoding/decoding by doing fake specialization.
+#[doc(hidden)]
+#[non_exhaustive]
+pub enum TypeInfo {
+	/// Default value of [`Encode::TYPE_INFO`] to not require implementors to set this value in the trait.
+	Unknown,
+	U8,
+	I8,
+	U16,
+	I16,
+	U32,
+	I32,
+	U64,
+	I64,
+	U128,
+	I128,
 }
 
 /// Trait that allows zero-copy write of value-references to slices in LE format.
@@ -236,9 +251,10 @@ pub enum IsU8 {
 /// Implementations should override `using_encoded` for value types and `encode_to` and `size_hint` for allocating types.
 /// Wrapper types should override all methods.
 pub trait Encode {
+	// !INTERNAL USE ONLY!
+	// This const helps SCALE to optimize the encoding/decoding by doing fake specialization.
 	#[doc(hidden)]
-	// This const is used to optimise implementation of codec for Vec<u8>.
-	const IS_U8: IsU8 = IsU8::No;
+	const TYPE_INFO: TypeInfo = TypeInfo::Unknown;
 
 	/// If possible give a hint of expected size of the encoding.
 	///
@@ -275,8 +291,10 @@ pub trait DecodeLength {
 
 /// Trait that allows zero-copy read of value-references from slices in LE format.
 pub trait Decode: Sized {
+	// !INTERNAL USE ONLY!
+	// This const helps SCALE to optimize the encoding/decoding by doing fake specialization.
 	#[doc(hidden)]
-	const IS_U8: IsU8 = IsU8::No;
+	const TYPE_INFO: TypeInfo = TypeInfo::Unknown;
 
 	/// Attempt to deserialise the value from input.
 	fn decode<I: Input>(value: &mut I) -> Result<Self, Error>;
@@ -612,29 +630,105 @@ pub(crate) fn compact_encode_len_to<W: Output>(dest: &mut W, len: usize) -> Resu
 	Ok(())
 }
 
+/// A macro that matches on a [`TypeInfo`] and expands a given macro per variant.
+///
+/// The first parameter to the given macro will be the type of variant (e.g. `u8`, `u32`, etc.) and other parameters
+/// given to this macro.
+///
+/// The last parameter is the code that should be executed for the `Unknown` type info.
+macro_rules! with_type_info {
+	( $type_info:expr, $macro:ident $( ( $( $params:ident ),* ) )?, { $( $unknown_variant:tt )* }, ) => {
+		match $type_info {
+			TypeInfo::U8 => { $macro!(u8 $( $( , $params )* )? ) },
+			TypeInfo::I8 => { $macro!(i8 $( $( , $params )* )? ) },
+			TypeInfo::U16 => { $macro!(u16 $( $( , $params )* )? ) },
+			TypeInfo::I16 => { $macro!(i16 $( $( , $params )* )? ) },
+			TypeInfo::U32 => { $macro!(u32 $( $( , $params )* )? ) },
+			TypeInfo::I32 => { $macro!(i32 $( $( , $params )* )? ) },
+			TypeInfo::U64 => { $macro!(u64 $( $( , $params )* )? ) },
+			TypeInfo::I64 => { $macro!(i64 $( $( , $params )* )? ) },
+			TypeInfo::U128 => { $macro!(u128 $( $( , $params )* )? ) },
+			TypeInfo::I128 => { $macro!(i128 $( $( , $params )* )? ) },
+			TypeInfo::Unknown => { $( $unknown_variant )* },
+		}
+	};
+}
+
 impl<T: Encode> Encode for [T] {
 	fn size_hint(&self) -> usize {
-		if let IsU8::Yes = <T as Encode>::IS_U8 {
-			self.len() + mem::size_of::<u32>()
-		} else {
-			0
+		macro_rules! size_hint {
+			( $ty:ty, $self:ident ) => {{
+				let typed = unsafe { mem::transmute($self) };
+				// Max compact size   + size of the data as u8 slice
+				mem::size_of::<u32>() + <[$ty] as AsByteSlice<$ty>>::as_byte_slice(typed).len()
+			}};
+		}
+
+		with_type_info! {
+			<T as Encode>::TYPE_INFO,
+			size_hint(self),
+			{
+				// Max compact size
+				mem::size_of::<u32>()
+			},
 		}
 	}
 
 	fn encode_to<W: Output>(&self, dest: &mut W) {
 		compact_encode_len_to(dest, self.len()).expect("Compact encodes length");
 
-		if let IsU8::Yes= <T as Encode>::IS_U8 {
-			let self_transmute = unsafe {
-				core::mem::transmute::<&[T], &[u8]>(self)
-			};
-			dest.write(self_transmute)
-		} else {
-			for item in self {
-				item.encode_to(dest);
-			}
+		macro_rules! encode_to {
+			( $ty:ty, $self:ident, $dest:ident ) => {{
+				let typed = unsafe { mem::transmute($self) };
+				$dest.write(<[$ty] as AsByteSlice<$ty>>::as_byte_slice(typed))
+			}};
+		}
+
+		with_type_info! {
+			<T as Encode>::TYPE_INFO,
+			encode_to(self, dest),
+			{
+				for item in self {
+					item.encode_to(dest);
+				}
+			},
 		}
 	}
+}
+
+/// Read an `u8` vector from the given input.
+fn read_vec_u8<I: Input>(input: &mut I, len: usize) -> Result<Vec<u8>, Error> {
+	let input_len = input.remaining_len()?;
+
+	// If there is input len and it cannot be pre-allocated then return directly.
+	if input_len.map(|l| l < len).unwrap_or(false) {
+		return Err("Not enough data to decode vector".into())
+	}
+
+	// Note: we checked that if input_len is some then it can preallocated.
+	let r = if input_len.is_some() || len < MAX_PREALLOCATION {
+		// Here we pre-allocate the whole buffer.
+		let mut r = vec![0; len];
+		input.read(&mut r)?;
+
+		r
+	} else {
+		// Here we pre-allocate only the maximum pre-allocation
+		let mut r = vec![];
+
+		let mut remains = len;
+		while remains != 0 {
+			let len_read = MAX_PREALLOCATION.min(remains);
+			let len_filled = r.len();
+			r.resize(len_filled + len_read, 0);
+			input.read(&mut r[len_filled..])?;
+			remains -= len_read;
+		}
+
+		r
+	};
+
+	Ok(r)
 }
 
 impl<T> WrapperTypeEncode for Vec<T> {}
@@ -646,49 +740,31 @@ impl<T: Decode> Decode for Vec<T> {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		<Compact<u32>>::decode(input).and_then(move |Compact(len)| {
 			let len = len as usize;
-			if let IsU8::Yes = <T as Decode>::IS_U8 {
-				let input_len = input.remaining_len()?;
 
-				// If there is input len and it cannot be pre-allocated then return directly.
-				if input_len.map(|l| l < len).unwrap_or(false) {
-					return Err("Not enough data to decode vector".into())
-				}
+			macro_rules! decode {
+				( $ty:ty, $input:ident, $len:ident ) => {{
+					let vec = read_vec_u8($input, $len * mem::size_of::<$ty>())?;
+					let typed = vec.into_vec_of::<$ty>()
+						.map_err(|_| "Failed to convert from `Vec<u8>` to typed vec")?;
 
-				// Note: we checked that if input_len is some then it can preallocated.
-				let r = if input_len.is_some() || len < MAX_PREALLOCATION {
-					// Here we pre-allocate the whole buffer.
-					let mut r = vec![0; len];
-					input.read(&mut r)?;
+					Ok(unsafe { mem::transmute::<Vec<$ty>, Vec<T>>(typed) })
+				}};
+			}
 
-					r
-				} else {
-					// Here we pre-allocate only the maximum pre-allocation
-					let mut r = vec![];
-
-					let mut remains = len;
-					while remains != 0 {
-						let len_read = MAX_PREALLOCATION.min(remains);
-						let len_filled = r.len();
-						r.resize(len_filled + len_read, 0);
-						input.read(&mut r[len_filled..])?;
-						remains -= len_read;
+			with_type_info! {
+				<T as Decode>::TYPE_INFO,
+				decode(input, len),
+				{
+					let capacity = input.remaining_len()?
+						.unwrap_or(MAX_PREALLOCATION)
+						.checked_div(mem::size_of::<T>())
+						.unwrap_or(0);
+					let mut r = Vec::with_capacity(capacity);
+					for _ in 0..len {
+						r.push(T::decode(input)?);
 					}
-
-					r
-				};
-
-				let r = unsafe { mem::transmute::<Vec<u8>, Vec<T>>(r) };
-				Ok(r)
-			} else {
-				let capacity = input.remaining_len()?
-					.unwrap_or(MAX_PREALLOCATION)
-					.checked_div(mem::size_of::<T>())
-					.unwrap_or(0);
-				let mut r = Vec::with_capacity(capacity);
-				for _ in 0..len {
-					r.push(T::decode(input)?);
-				}
-				Ok(r)
+					Ok(r)
+				},
 			}
 		})
 	}
@@ -751,17 +827,26 @@ impl<T: Encode + Ord> Encode for VecDeque<T> {
 	fn encode_to<W: Output>(&self, dest: &mut W) {
 		compact_encode_len_to(dest, self.len()).expect("Compact encodes length");
 
-		if let IsU8::Yes = <T as Encode>::IS_U8 {
-			let slices = self.as_slices();
-			let slices_transmute = unsafe {
-				core::mem::transmute::<(&[T], &[T]), (&[u8], &[u8])>(slices)
-			};
-			dest.write(slices_transmute.0);
-			dest.write(slices_transmute.1);
-		} else {
-			for item in self {
-				item.encode_to(dest);
-			}
+		macro_rules! encode_to {
+			( $ty:ty, $self:ident, $dest:ident ) => {{
+				let slices = $self.as_slices();
+				let typed = unsafe {
+					core::mem::transmute::<(&[T], &[T]), (&[$ty], &[$ty])>(slices)
+				};
+
+				$dest.write(<[$ty] as AsByteSlice<$ty>>::as_byte_slice(typed.0));
+				$dest.write(<[$ty] as AsByteSlice<$ty>>::as_byte_slice(typed.1));
+			}};
+		}
+
+		with_type_info! {
+			<T as Encode>::TYPE_INFO,
+			encode_to(self, dest),
+			{
+				for item in self {
+					item.encode_to(dest);
+				}
+			},
 		}
 	}
 }
@@ -896,10 +981,12 @@ mod inner_tuple_impl {
 }
 
 macro_rules! impl_endians {
-	( $( $t:ty ),* ) => { $(
+	( $( $t:ty; $ty_info:ident ),* ) => { $(
 		impl EncodeLike for $t {}
 
 		impl Encode for $t {
+			const TYPE_INFO: TypeInfo = TypeInfo::$ty_info;
+
 			fn size_hint(&self) -> usize {
 				mem::size_of::<$t>()
 			}
@@ -911,6 +998,8 @@ macro_rules! impl_endians {
 		}
 
 		impl Decode for $t {
+			const TYPE_INFO: TypeInfo = TypeInfo::$ty_info;
+
 			fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 				let mut buf = [0u8; mem::size_of::<$t>()];
 				input.read(&mut buf)?;
@@ -920,11 +1009,11 @@ macro_rules! impl_endians {
 	)* }
 }
 macro_rules! impl_one_byte {
-	( $( $t:ty $( { $is_u8:ident } )? ),* ) => { $(
+	( $( $t:ty; $ty_info:ident ),* ) => { $(
 		impl EncodeLike for $t {}
 
 		impl Encode for $t {
-			$( const $is_u8: IsU8 = IsU8::Yes; )?
+			const TYPE_INFO: TypeInfo = TypeInfo::$ty_info;
 
 			fn size_hint(&self) -> usize {
 				mem::size_of::<$t>()
@@ -936,7 +1025,7 @@ macro_rules! impl_one_byte {
 		}
 
 		impl Decode for $t {
-			$( const $is_u8: IsU8 = IsU8::Yes; )?
+			const TYPE_INFO: TypeInfo = TypeInfo::$ty_info;
 
 			fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 				Ok(input.read_byte()? as $t)
@@ -945,8 +1034,8 @@ macro_rules! impl_one_byte {
 	)* }
 }
 
-impl_endians!(u16, u32, u64, u128, i16, i32, i64, i128);
-impl_one_byte!(u8 {IS_U8}, i8);
+impl_endians!(u16; U16, u32; U32, u64; U64, u128; U128, i16; I16, i32; I32, i64; I64, i128; I128);
+impl_one_byte!(u8; U8, i8; I8);
 
 impl EncodeLike for bool {}
 
