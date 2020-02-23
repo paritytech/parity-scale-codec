@@ -852,11 +852,13 @@ impl_codec_through_iterator! {
 		{ T: EncodeLike<LikeT>, LikeT: Encode }
 }
 
-impl<T: Encode + Ord> EncodeLike for VecDeque<T> {}
-impl<T: EncodeLike<U> + Ord, U: Encode> EncodeLike<&[U]> for VecDeque<T> {}
-impl<T: EncodeLike<U>, U: Encode + Ord> EncodeLike<VecDeque<U>> for &[T] {}
+impl<T: Encode> EncodeLike for VecDeque<T> {}
+impl<T: EncodeLike<U>, U: Encode> EncodeLike<&[U]> for VecDeque<T> {}
+impl<T: EncodeLike<U>, U: Encode> EncodeLike<VecDeque<U>> for &[T] {}
+impl<T: EncodeLike<U>, U: Encode> EncodeLike<Vec<U>> for VecDeque<T> {}
+impl<T: EncodeLike<U>, U: Encode> EncodeLike<VecDeque<U>> for Vec<T> {}
 
-impl<T: Encode + Ord> Encode for VecDeque<T> {
+impl<T: Encode> Encode for VecDeque<T> {
 	fn size_hint(&self) -> usize {
 		mem::size_of::<u32>() + mem::size_of::<T>() * self.len()
 	}
@@ -1373,5 +1375,19 @@ mod tests {
 		fn t<B: EncodeLike>() {}
 		t::<&[u8]>();
 		t::<&str>();
+	}
+
+	#[test]
+	fn vec_deque_encode_like_vec() {
+		let data: VecDeque<u32> = vec![1, 2, 3, 4, 5, 6].into();
+		let encoded = data.encode();
+
+		let decoded = Vec::<u32>::decode(&mut &encoded[..]).unwrap();
+		assert!(decoded.iter().all(|v| data.contains(&v)));
+		assert_eq!(data.len(), decoded.len());
+
+		let encoded = decoded.encode();
+		let decoded = VecDeque::<u32>::decode(&mut &encoded[..]).unwrap();
+		assert_eq!(data, decoded);
 	}
 }
