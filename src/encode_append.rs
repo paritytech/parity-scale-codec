@@ -83,6 +83,29 @@ impl<T: Encode> EncodeAppend for Vec<T> {
 	}
 }
 
+impl<T: Encode> EncodeAppend for crate::alloc::collections::VecDeque<T> {
+	type Item = T;
+
+	fn append<'a, I: IntoIterator<Item=&'a Self::Item>>(
+		self_encoded: Vec<u8>,
+		iter: I,
+	) -> Result<Vec<u8>, Error> where Self::Item: 'a, I::IntoIter: ExactSizeIterator {
+		append_or_new_vec_with_any_item(self_encoded, iter)
+	}
+
+	fn append_or_new<EncodeLikeItem, I>(
+		self_encoded: Vec<u8>,
+		iter: I,
+	) -> Result<Vec<u8>, Error>
+	where
+		I: IntoIterator<Item = EncodeLikeItem>,
+		EncodeLikeItem: EncodeLike<Self::Item>,
+		I::IntoIter: ExactSizeIterator,
+	{
+		append_or_new_vec_with_any_item(self_encoded, iter)
+	}
+}
+
 fn extract_length_data(data: &[u8], input_len: usize) -> Result<(u32, usize, usize), Error> {
 	let len = u32::from(Compact::<u32>::decode(&mut &data[..])?);
 	let new_len = len
@@ -152,6 +175,7 @@ where
 mod tests {
 	use super::*;
 	use crate::{Input, Encode, EncodeLike};
+	use std::collections::VecDeque;
 
 	#[test]
 	fn vec_encode_append_works() {
@@ -174,6 +198,34 @@ mod tests {
 		});
 
 		let decoded = Vec::<u32>::decode(&mut &encoded[..]).unwrap();
+		let expected = (0..max_value).fold(Vec::new(), |mut vec, i| {
+			vec.append(&mut vec![i, i, i, i]);
+			vec
+		});
+		assert_eq!(decoded, expected);
+	}
+
+	#[test]
+	fn vecdeque_encode_append_works() {
+		let max_value = 1_000_000;
+
+		let encoded = (0..max_value).fold(Vec::new(), |encoded, v| {
+			<VecDeque<u32> as EncodeAppend>::append_or_new(encoded, std::iter::once(&v)).unwrap()
+		});
+
+		let decoded = VecDeque::<u32>::decode(&mut &encoded[..]).unwrap();
+		assert_eq!(decoded, (0..max_value).collect::<Vec<_>>());
+	}
+
+	#[test]
+	fn vecdeque_encode_append_multiple_items_works() {
+		let max_value = 1_000_000u32;
+
+		let encoded = (0..max_value).fold(Vec::new(), |encoded, v| {
+			<VecDeque<u32> as EncodeAppend>::append_or_new(encoded, &[v, v, v, v]).unwrap()
+		});
+
+		let decoded = VecDeque::<u32>::decode(&mut &encoded[..]).unwrap();
 		let expected = (0..max_value).fold(Vec::new(), |mut vec, i| {
 			vec.append(&mut vec![i, i, i, i]);
 			vec
