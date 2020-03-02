@@ -786,11 +786,11 @@ impl<T: Decode> Decode for Vec<T> {
 				<T as Decode>::TYPE_INFO,
 				decode(input, len),
 				{
-					let capacity = input.remaining_len()?
+					let input_capacity = input.remaining_len()?
 						.unwrap_or(MAX_PREALLOCATION)
 						.checked_div(mem::size_of::<T>())
 						.unwrap_or(0);
-					let mut r = Vec::with_capacity(capacity);
+					let mut r = Vec::with_capacity(input_capacity.min(len));
 					for _ in 0..len {
 						r.push(T::decode(input)?);
 					}
@@ -1389,5 +1389,22 @@ mod tests {
 		let encoded = decoded.encode();
 		let decoded = VecDeque::<u32>::decode(&mut &encoded[..]).unwrap();
 		assert_eq!(data, decoded);
+	}
+
+	#[test]
+	fn vec_decode_right_capacity() {
+		let data: Vec<u32> = vec![1, 2, 3];
+		let mut encoded = data.encode();
+		encoded.resize(encoded.len() * 2, 0);
+		let decoded = Vec::<u32>::decode(&mut &encoded[..]).unwrap();
+		assert_eq!(data, decoded);
+		assert_eq!(decoded.capacity(), decoded.len());
+		// Check with non-integer type
+		let data: Vec<String> = vec!["1".into(), "2".into(), "3".into()];
+		let mut encoded = data.encode();
+		encoded.resize(65536, 0);
+		let decoded = Vec::<String>::decode(&mut &encoded[..]).unwrap();
+		assert_eq!(data, decoded);
+		assert_eq!(decoded.capacity(), decoded.len());
 	}
 }
