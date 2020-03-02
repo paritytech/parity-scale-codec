@@ -1390,4 +1390,21 @@ mod tests {
 		let decoded = VecDeque::<u32>::decode(&mut &encoded[..]).unwrap();
 		assert_eq!(data, decoded);
 	}
+
+	#[test]
+	fn vec_decode_right_capacity() {
+		let data: Vec<u32> = vec![1, 2, 3];
+		let mut encoded = data.encode();
+		encoded.resize(encoded.len() * 2, 0);
+		let decoded = Vec::<u32>::decode(&mut &encoded[..]).unwrap();
+		assert_eq!(data, decoded);
+		assert_eq!(decoded.capacity(), decoded.len());
+		// Check with non-integer type
+		let data: Vec<String> = vec!["1".into(), "2".into(), "3".into()];
+		let mut encoded = data.encode();
+		encoded.resize(65536, 0);
+		let decoded = Vec::<String>::decode(&mut &encoded[..]).unwrap();
+		assert_eq!(data, decoded);
+		assert_eq!(decoded.capacity(), decoded.len());
+	}
 }
