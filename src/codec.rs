@@ -786,11 +786,11 @@ impl<T: Decode> Decode for Vec<T> {
 				<T as Decode>::TYPE_INFO,
 				decode(input, len),
 				{
-					let capacity = input.remaining_len()?
+					let input_capacity = input.remaining_len()?
 						.unwrap_or(MAX_PREALLOCATION)
 						.checked_div(mem::size_of::<T>())
 						.unwrap_or(0);
-					let mut r = Vec::with_capacity(capacity);
+					let mut r = Vec::with_capacity(input_capacity.min(len));
 					for _ in 0..len {
 						r.push(T::decode(input)?);
 					}
