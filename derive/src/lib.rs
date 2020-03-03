@@ -78,7 +78,8 @@ fn wrap_with_dummy_const(impl_block: proc_macro2::TokenStream) -> proc_macro::To
 ///   implement `parity_scale_codec::HasCompact` and will be encoded as `HasCompact::Type`.
 /// * `#[codec(encoded_as = "$EncodeAs")]`: the field is encoded as an alternative type. $EncodedAs
 ///   type must implement `parity_scale_codec::EncodeAsRef<'_, $FieldType>` with $FieldType the
-///   type of the field with the attribute.
+///   type of the field with the attribute. This is intended to be used for types implementing
+///   `HasCompact` as shown in the example.
 ///
 /// ```
 /// # use parity_scale_codec_derive::Encode;
