@@ -1,7 +1,7 @@
 [package]
 name = "parity-scale-codec"
 description = "SCALE - Simple Concatenating Aggregated Little Endians"
-version = "1.1.0"
+version = "1.1.2"
 authors = ["Parity Technologies <admin@parity.io>"]
 license = "Apache-2.0"
 repository = "https://github.com/paritytech/parity-scale-codec"
@@ -13,13 +13,14 @@ arrayvec = { version = "0.5.1", default-features = false, features = ["array-siz
 serde = { version = "1.0.102", optional = true }
 parity-scale-codec-derive = { path = "derive", version = "^1.0.2", default-features = false, optional = true }
 bitvec = { version = "0.15", default-features = false, features = ["alloc"], optional = true }
-byte-slice-cast = { version = "0.3.4", default-features = false, optional = true }
+byte-slice-cast = { version = "0.3.4", default-features = false, features = ["alloc"] }
 generic-array = { version = "0.13.2", optional = true }
 
 [dev-dependencies]
 criterion = "0.3.0"
 serde_derive = { version = "1.0" }
 parity-scale-codec-derive = { path = "derive", version = "^1.0.2", default-features = false }
+quickcheck = "0.9"
 
 [[bench]]
 name = "benches"
@@ -32,7 +33,7 @@ bench = false
 default = ["std"]
 derive = ["parity-scale-codec-derive"]
 std = ["serde", "bitvec/std", "byte-slice-cast/std"]
-bit-vec = ["bitvec", "byte-slice-cast"]
+bit-vec = ["bitvec"]
 
 # WARNING: DO _NOT_ USE THIS FEATURE IF YOU ARE WORKING ON CONSENSUS CODE!*
 #

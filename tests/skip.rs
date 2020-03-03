@@ -58,3 +58,21 @@ fn enum_struct_test() {
 	assert_eq!(StructNamed::decode(&mut sn_encoded).unwrap(), sn);
 	assert_eq!(StructUnnamed::decode(&mut su_encoded).unwrap(), su);
 }
+
+#[test]
+fn skip_enum_struct_inner_variant() {
+	// Make sure the skipping does not generates a warning.
+	#![deny(warnings)]
+
+	#[derive(Encode, Decode)]
+	enum Enum {
+		Data {
+			some_named: u32,
+			#[codec(skip)]
+			ignore: Option<u32>,
+		}
+	}
+
+	let encoded = Enum::Data { some_named: 1, ignore: Some(1) }.encode();
+	assert_eq!(vec![0, 1, 0, 0, 0], encoded);
+}

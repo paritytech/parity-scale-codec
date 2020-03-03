@@ -881,7 +881,7 @@ mod tests {
 			(u64::max_value() << 8) - 1,
 			u64::max_value() << 16,
 			(u64::max_value() << 16) - 1,
-		].into_iter() {
+		].iter() {
 			let e = Compact::<u64>::encode(&Compact(*a));
 			let d = Compact::<u64>::decode(&mut &e[..]).unwrap().0;
 			assert_eq!(*a, d);
@@ -895,7 +895,7 @@ mod tests {
 			(u64::max_value() - 10) as u128,
 			u128::max_value(),
 			u128::max_value() - 10,
-		].into_iter() {
+		].iter() {
 			let e = Compact::<u128>::encode(&Compact(*a));
 			let d = Compact::<u128>::decode(&mut &e[..]).unwrap().0;
 			assert_eq!(*a, d);
@@ -921,5 +921,28 @@ mod tests {
 		for i in 8..=16 {
 			check_bound_high!(i, [(u128, U128_OUT_OF_RANGE)]);
 		}
+	}
+
+	macro_rules! quick_check_roundtrip {
+		( $( $ty:ty : $test:ident ),* ) => {
+			$(
+				quickcheck::quickcheck! {
+					fn $test(v: $ty) -> bool {
+						let encoded = Compact(v).encode();
+						let deencoded = <Compact<$ty>>::decode(&mut &encoded[..]).unwrap().0;
+
+						v == deencoded
+					}
+				}
+			)*
+		}
+	}
+
+	quick_check_roundtrip! {
+		u8: u8_roundtrip,
+		u16: u16_roundtrip,
+		u32 : u32_roundtrip,
+		u64 : u64_roundtrip,
+		u128 : u128_roundtrip
 	}
 }

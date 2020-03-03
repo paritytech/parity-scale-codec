@@ -476,7 +476,7 @@ fn encode_decode_empty_enum() {
 	#[derive(Encode, Decode, PartialEq, Debug)]
 	enum EmptyEnumDerive {}
 
-    fn impls_encode_decode<T: Encode + Decode>() {}
+	fn impls_encode_decode<T: Encode + Decode>() {}
 	impls_encode_decode::<EmptyEnumDerive>();
 
 	assert_eq!(EmptyEnumDerive::decode(&mut &[1, 2, 3][..]), Err("No such variant in enum EmptyEnumDerive".into()));
@@ -489,7 +489,7 @@ fn codec_vec_u8() {
 		vec![0u8; 10],
 		vec![0u8; 100],
 		vec![0u8; 1000],
-	].into_iter() {
+	].iter() {
 		let e = v.encode();
 		assert_eq!(v, &Vec::<u8>::decode(&mut &e[..]).unwrap());
 	}
@@ -514,7 +514,7 @@ fn recursive_type() {
 fn crafted_input_for_vec_u8() {
 	assert_eq!(
 		Vec::<u8>::decode(&mut &Compact(u32::max_value()).encode()[..]).err().unwrap().what(),
-		"Not enough data to decode vector"
+		"Not enough data to decode vector",
 	);
 }
 
@@ -522,7 +522,7 @@ fn crafted_input_for_vec_u8() {
 fn crafted_input_for_vec_t() {
 	assert_eq!(
 		Vec::<u32>::decode(&mut &Compact(u32::max_value()).encode()[..]).err().unwrap().what(),
-		"Not enough data to fill buffer"
+		"Not enough data to decode vector",
 	);
 }
 
