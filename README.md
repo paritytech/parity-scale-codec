@@ -45,7 +45,7 @@ Returns an `Err` if the decoding fails.
 ### CompactAs
 
 The `CompactAs` trait is used for wrapping custom types/structs as compact types, which makes them even more space/memory efficient.
-The compact encoding is described [here](https://substrate.dev/docs/en/overview/low-level-data-format#compact-general-integers).
+The compact encoding is described [here](https://substrate.dev/docs/en/overview/low-level-data-format#compactgeneral-integers).
 
 * `encode_as(&self) -> &Self::As`: Encodes the type (self) as a compact type.
 The type `As` is defined in the same trait and its implementation should be compact encode-able.
