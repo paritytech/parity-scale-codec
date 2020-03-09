@@ -40,6 +40,7 @@ use crate::compact::Compact;
 use crate::encode_like::EncodeLike;
 
 const MAX_PREALLOCATION: usize = 4 * 1024;
+const A_BILLION: u32 = 1_000_000_000;
 
 /// Descriptive error type
 #[cfg(feature = "std")]
@@ -1114,7 +1115,7 @@ impl Encode for Duration {
 impl Decode for Duration {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		let (secs, nanos) = <(u64, u32)>::decode(input)?;
-		if nanos > 1_000_000_000 {
+		if nanos > A_BILLION {
 			return Err(Error("Number of nanoseconds should not be higher than 10^9."))
 		}
 		Ok(Duration::new(secs, nanos))
@@ -1449,7 +1450,7 @@ mod tests {
 	fn malformed_duration_encoding_fails() {
 		let num_secs = 1u64;
 		let num_nanos = 37u32;
-		let invalid_nanos = num_secs as u32 * 1_000_000_000 + num_nanos;
+		let invalid_nanos = num_secs as u32 * A_BILLION + num_nanos;
 		let encoded = (0u64, invalid_nanos).encode();
 		// This test should fail, as the number of nano seconds encoded is bigger than 10^9.
 		assert!(Duration::decode(&mut &encoded[..]).is_err());
