@@ -1437,10 +1437,7 @@ mod tests {
 		let num_secs = 13;
 		let num_nanos = 37;
 
-		let secs = Duration::from_secs(num_secs);
-		let nanos = Duration::from_nanos(num_nanos);
-
-		let duration = secs + nanos;
+		let duration = Duration::new(num_secs, num_nanos);
 		let expected = (num_secs, num_nanos as u32).encode();
 
 		assert_eq!(duration.encode(), expected);
@@ -1456,8 +1453,24 @@ mod tests {
 		// This test should fail, as the number of nano seconds encoded is bigger than 10^9.
 		assert!(Duration::decode(&mut &encoded[..]).is_err());
 
+		// This test should fail, as the number of nanoseconds encoded is exactly 10^9.
+		let invalid_nanos = A_BILLION;
+		let encoded = (0u64, invalid_nanos).encode();
+		assert!(Duration::decode(&mut &encoded[..]).is_err());
+
 		// Now constructing a valid duration and encoding it. Those asserts should not fail.
 		let duration = Duration::from_nanos(invalid_nanos as u64);
+		let expected = (num_secs, num_nanos).encode();
+
+		assert_eq!(duration.encode(), expected);
+		assert_eq!(Duration::decode(&mut &expected[..]).unwrap(), duration);
+	}
+
+	#[test]
+	fn u64_max() {
+		let num_secs = u64::max_value();
+		let num_nanos = 0;
+		let duration = Duration::new(num_secs, num_nanos);
 		let expected = (num_secs, num_nanos).encode();
 
 		assert_eq!(duration.encode(), expected);
