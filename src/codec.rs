@@ -15,7 +15,7 @@
 //! Serialisation.
 
 #[cfg(feature = "std")]
-use std::fmt;
+use std::{fmt, time::Duration};
 use core::{mem, ops::Deref, marker::PhantomData, iter::FromIterator, convert::TryFrom};
 
 use arrayvec::ArrayVec;
@@ -1099,6 +1099,24 @@ impl Decode for bool {
 	}
 }
 
+impl Encode for Duration {
+	fn size_hint(&self) -> usize {
+		mem::size_of::<u64>()
+	}
+
+	fn encode(&self) -> Vec<u8> {
+		let millis = self.as_millis() as u64;
+		millis.encode()
+	}
+}
+
+impl Decode for Duration {
+	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
+		let num = <u64>::decode(input)?;
+		Ok(Duration::from_millis(num))
+	}
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;
@@ -1406,5 +1424,14 @@ mod tests {
 		let decoded = Vec::<String>::decode(&mut &encoded[..]).unwrap();
 		assert_eq!(data, decoded);
 		assert_eq!(decoded.capacity(), decoded.len());
+	}
+
+	#[test]
+	fn duration() {
+		let num = 214748365012332;
+		let duration = Duration::from_millis(num);
+		let expected = num.encode();
+		assert_eq!(duration.encode(), expected);
+		assert_eq!(Duration::decode(&mut &expected[..]).unwrap(), duration);
 	}
 }
