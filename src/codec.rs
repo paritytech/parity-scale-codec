@@ -1114,7 +1114,10 @@ impl Encode for Duration {
 impl Decode for Duration {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		let (secs, nanos) = <(u64, u32)>::decode(input)?;
-		Ok(Duration::from_secs(secs) + Duration::from_nanos(nanos as u64))
+		if nanos > 1_000_000_000 {
+			return Err(Error("Number of nano seconds should not be higher than 10^9"))
+		}
+		Ok(Duration::new(secs, nanos))
 	}
 }
 
@@ -1437,6 +1440,23 @@ mod tests {
 
 		let duration = secs + nanos;
 		let expected = (num_secs, num_nanos as u32).encode();
+
+		assert_eq!(duration.encode(), expected);
+		assert_eq!(Duration::decode(&mut &expected[..]).unwrap(), duration);
+	}
+
+	#[test]
+	fn malformed_duration_encoding_fails() {
+		let num_secs = 1u64;
+		let num_nanos = 37u32;
+		let invalid_nanos = num_secs as u32 * 1_000_000_000 + num_nanos;
+		let encoded = (0u64, invalid_nanos).encode();
+		// This test should fail, as the the number of nano seconds encoded is bigger than 10^9.
+		assert!(Duration::decode(&mut &encoded[..]).is_err());
+
+		// Now constructing a valid duration and encoding. Those tests should be valid.
+		let duration = Duration::from_nanos(invalid_nanos as u64);
+		let expected = (num_secs, num_nanos).encode();
 
 		assert_eq!(duration.encode(), expected);
 		assert_eq!(Duration::decode(&mut &expected[..]).unwrap(), duration);
