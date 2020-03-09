@@ -15,8 +15,8 @@
 //! Serialisation.
 
 #[cfg(feature = "std")]
-use std::{fmt, time::Duration};
-use core::{mem, ops::Deref, marker::PhantomData, iter::FromIterator, convert::TryFrom};
+use std::fmt;
+use core::{mem, ops::Deref, marker::PhantomData, iter::FromIterator, convert::TryFrom, time::Duration};
 
 use arrayvec::ArrayVec;
 
