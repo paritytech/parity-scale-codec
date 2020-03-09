@@ -1116,9 +1116,10 @@ impl Decode for Duration {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		let (secs, nanos) = <(u64, u32)>::decode(input)?;
 		if nanos > A_BILLION {
-			return Err(Error("Number of nanoseconds should not be higher than 10^9."))
+			Err("Number of nanoseconds should not be higher than 10^9.".into())
+		} else {
+			Ok(Duration::new(secs, nanos))
 		}
-		Ok(Duration::new(secs, nanos))
 	}
 }
 
