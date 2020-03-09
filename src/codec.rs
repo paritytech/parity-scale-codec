@@ -1446,16 +1446,16 @@ mod tests {
 
 	#[test]
 	fn malformed_duration_encoding_fails() {
-		let num_secs = 1u64;
-		let num_nanos = 37u32;
-		let invalid_nanos = num_secs as u32 * A_BILLION + num_nanos;
-		let encoded = (0u64, invalid_nanos).encode();
-		// This test should fail, as the number of nano seconds encoded is bigger than 10^9.
-		assert!(Duration::decode(&mut &encoded[..]).is_err());
-
 		// This test should fail, as the number of nanoseconds encoded is exactly 10^9.
 		let invalid_nanos = A_BILLION;
 		let encoded = (0u64, invalid_nanos).encode();
+		assert!(Duration::decode(&mut &encoded[..]).is_err());
+
+		let num_secs = 1u64;
+		let num_nanos = 37u32;
+		let invalid_nanos = num_secs as u32 * A_BILLION + num_nanos;
+		let encoded = (num_secs, invalid_nanos).encode();
+		// This test should fail, as the number of nano seconds encoded is bigger than 10^9.
 		assert!(Duration::decode(&mut &encoded[..]).is_err());
 
 		// Now constructing a valid duration and encoding it. Those asserts should not fail.
@@ -1475,5 +1475,16 @@ mod tests {
 
 		assert_eq!(duration.encode(), expected);
 		assert_eq!(Duration::decode(&mut &expected[..]).unwrap(), duration);
+	}
+
+	#[test]
+	fn decoding_does_not_overflow() {
+		let num_secs = u64::max_value();
+		let num_nanos = A_BILLION;
+
+		// `num_nanos`' carry should make num_secs overflow if we were to call `Duration::new()`.
+		// This test checks that the we do not call `Duration::new()`.
+		let encoded = (num_secs, num_nanos).encode();
+		assert!(Duration::decode(&mut &encoded[..]).is_err());
 	}
 }
