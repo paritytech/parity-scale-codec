@@ -1101,19 +1101,20 @@ impl Decode for bool {
 
 impl Encode for Duration {
 	fn size_hint(&self) -> usize {
-		mem::size_of::<u64>()
+		mem::size_of::<u64>() + mem::size_of::<u32>()
 	}
 
 	fn encode(&self) -> Vec<u8> {
-		let millis = self.as_millis() as u64;
-		millis.encode()
+		let secs = self.as_secs();
+		let nanos = self.subsec_nanos();
+		(secs, nanos).encode()
 	}
 }
 
 impl Decode for Duration {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
-		let num = <u64>::decode(input)?;
-		Ok(Duration::from_millis(num))
+		let (secs, nanos) = <(u64, u32)>::decode(input)?;
+		Ok(Duration::from_secs(secs) + Duration::from_nanos(nanos as u64))
 	}
 }
 
@@ -1428,9 +1429,13 @@ mod tests {
 
 	#[test]
 	fn duration() {
-		let num = 214748365012332;
-		let duration = Duration::from_millis(num);
-		let expected = num.encode();
+		let num_secs = 13;
+		let num_nanos = 37;
+		let secs = Duration::from_secs(num_secs);
+		let nanos = Duration::from_nanos(num_nanos);
+		let duration = secs + nanos;
+		dbg!(duration);
+		let expected = (num_secs, num_nanos as u32).encode();
 		assert_eq!(duration.encode(), expected);
 		assert_eq!(Duration::decode(&mut &expected[..]).unwrap(), duration);
 	}
