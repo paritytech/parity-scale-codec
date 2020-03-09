@@ -1482,7 +1482,7 @@ mod tests {
 		let num_secs = u64::max_value();
 		let num_nanos = A_BILLION;
 
-		// `num_nanos`' carry should make num_secs overflow if we were to call `Duration::new()`.
+		// `num_nanos`' carry should make `num_secs` overflow if we were to call `Duration::new()`.
 		// This test checks that the we do not call `Duration::new()`.
 		let encoded = (num_secs, num_nanos).encode();
 		assert!(Duration::decode(&mut &encoded[..]).is_err());
