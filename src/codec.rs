@@ -1431,11 +1431,13 @@ mod tests {
 	fn duration() {
 		let num_secs = 13;
 		let num_nanos = 37;
+
 		let secs = Duration::from_secs(num_secs);
 		let nanos = Duration::from_nanos(num_nanos);
+
 		let duration = secs + nanos;
-		dbg!(duration);
 		let expected = (num_secs, num_nanos as u32).encode();
+
 		assert_eq!(duration.encode(), expected);
 		assert_eq!(Duration::decode(&mut &expected[..]).unwrap(), duration);
 	}
