@@ -1123,7 +1123,7 @@ mod tests {
 	use std::borrow::Cow;
 
 	#[test]
-	fn vec_is_slicable() {
+	fn vec_is_sliceable() {
 		let v = b"Hello world".to_vec();
 		v.using_encoded(|ref slice|
 			assert_eq!(slice, &b"\x2cHello world")
