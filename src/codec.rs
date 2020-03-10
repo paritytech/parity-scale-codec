@@ -16,7 +16,7 @@
 
 #[cfg(feature = "std")]
 use std::fmt;
-use core::{mem, ops::Deref, marker::PhantomData, iter::FromIterator, convert::TryFrom};
+use core::{mem, ops::Deref, marker::PhantomData, iter::FromIterator, convert::TryFrom, time::Duration};
 
 use arrayvec::ArrayVec;
 
@@ -40,6 +40,7 @@ use crate::compact::Compact;
 use crate::encode_like::EncodeLike;
 
 const MAX_PREALLOCATION: usize = 4 * 1024;
+const A_BILLION: u32 = 1_000_000_000;
 
 /// Descriptive error type
 #[cfg(feature = "std")]
@@ -1099,13 +1100,38 @@ impl Decode for bool {
 	}
 }
 
+impl Encode for Duration {
+	fn size_hint(&self) -> usize {
+		mem::size_of::<u64>() + mem::size_of::<u32>()
+	}
+
+	fn encode(&self) -> Vec<u8> {
+		let secs = self.as_secs();
+		let nanos = self.subsec_nanos();
+		(secs, nanos).encode()
+	}
+}
+
+impl Decode for Duration {
+	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
+		let (secs, nanos) = <(u64, u32)>::decode(input)?;
+		if nanos >= A_BILLION {
+			Err("Number of nanoseconds should not be higher than 10^9.".into())
+		} else {
+			Ok(Duration::new(secs, nanos))
+		}
+	}
+}
+
+impl EncodeLike for Duration {}
+
 #[cfg(test)]
 mod tests {
 	use super::*;
 	use std::borrow::Cow;
 
 	#[test]
-	fn vec_is_slicable() {
+	fn vec_is_sliceable() {
 		let v = b"Hello world".to_vec();
 		v.using_encoded(|ref slice|
 			assert_eq!(slice, &b"\x2cHello world")
@@ -1406,5 +1432,61 @@ mod tests {
 		let decoded = Vec::<String>::decode(&mut &encoded[..]).unwrap();
 		assert_eq!(data, decoded);
 		assert_eq!(decoded.capacity(), decoded.len());
+	}
+
+	#[test]
+	fn duration() {
+		let num_secs = 13;
+		let num_nanos = 37;
+
+		let duration = Duration::new(num_secs, num_nanos);
+		let expected = (num_secs, num_nanos as u32).encode();
+
+		assert_eq!(duration.encode(), expected);
+		assert_eq!(Duration::decode(&mut &expected[..]).unwrap(), duration);
+	}
+
+	#[test]
+	fn malformed_duration_encoding_fails() {
+		// This test should fail, as the number of nanoseconds encoded is exactly 10^9.
+		let invalid_nanos = A_BILLION;
+		let encoded = (0u64, invalid_nanos).encode();
+		assert!(Duration::decode(&mut &encoded[..]).is_err());
+
+		let num_secs = 1u64;
+		let num_nanos = 37u32;
+		let invalid_nanos = num_secs as u32 * A_BILLION + num_nanos;
+		let encoded = (num_secs, invalid_nanos).encode();
+		// This test should fail, as the number of nano seconds encoded is bigger than 10^9.
+		assert!(Duration::decode(&mut &encoded[..]).is_err());
+
+		// Now constructing a valid duration and encoding it. Those asserts should not fail.
+		let duration = Duration::from_nanos(invalid_nanos as u64);
+		let expected = (num_secs, num_nanos).encode();
+
+		assert_eq!(duration.encode(), expected);
+		assert_eq!(Duration::decode(&mut &expected[..]).unwrap(), duration);
+	}
+
+	#[test]
+	fn u64_max() {
+		let num_secs = u64::max_value();
+		let num_nanos = 0;
+		let duration = Duration::new(num_secs, num_nanos);
+		let expected = (num_secs, num_nanos).encode();
+
+		assert_eq!(duration.encode(), expected);
+		assert_eq!(Duration::decode(&mut &expected[..]).unwrap(), duration);
+	}
+
+	#[test]
+	fn decoding_does_not_overflow() {
+		let num_secs = u64::max_value();
+		let num_nanos = A_BILLION;
+
+		// `num_nanos`' carry should make `num_secs` overflow if we were to call `Duration::new()`.
+		// This test checks that the we do not call `Duration::new()`.
+		let encoded = (num_secs, num_nanos).encode();
+		assert!(Duration::decode(&mut &encoded[..]).is_err());
 	}
 }

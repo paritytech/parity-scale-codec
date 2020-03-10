@@ -1,4 +1,5 @@
 use std::collections::{BTreeMap, BTreeSet, VecDeque, LinkedList, BinaryHeap};
+use std::time::Duration;
 
 use bitvec::{vec::BitVec, cursor::BigEndian};
 use honggfuzz::fuzz;
@@ -98,6 +99,7 @@ fn fuzz_one_input(data: &[u8]){
 		MockEnum,
 		BitVec<BigEndian, u8>,
 		BitVec<BigEndian, u32>,
+		Duration,
 	}
 }
 
