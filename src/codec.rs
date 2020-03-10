@@ -1123,6 +1123,8 @@ impl Decode for Duration {
 	}
 }
 
+impl EncodeLike for Duration {}
+
 #[cfg(test)]
 mod tests {
 	use super::*;
