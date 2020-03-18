@@ -670,7 +670,7 @@ impl<T> Decode for PhantomData<T> {
 #[cfg(any(feature = "std", feature = "full"))]
 impl Decode for String {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
-		Ok(Self::from_utf8_lossy(&Vec::decode(input)?).into())
+		Self::from_utf8(Vec::decode(input)?).map_err(|_| "Invalid utf8 sequence".into())
 	}
 }
 
@@ -1488,5 +1488,14 @@ mod tests {
 		// This test checks that the we do not call `Duration::new()`.
 		let encoded = (num_secs, num_nanos).encode();
 		assert!(Duration::decode(&mut &encoded[..]).is_err());
+	}
+
+	#[test]
+	fn string_invalid_utf8() {
+		// `167, 10` is not a valid utf8 sequence, so this should be an error.
+		let mut bytes: &[u8] = &[20, 114, 167, 10, 20, 114];
+
+		let obj = <String>::decode(&mut bytes);
+		assert!(obj.is_err());
 	}
 }
