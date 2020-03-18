@@ -284,12 +284,3 @@ pub use self::keyedvec::KeyedVec;
 pub use self::decode_all::DecodeAll;
 pub use self::encode_append::EncodeAppend;
 pub use self::encode_like::{EncodeLike, Ref};
-
-#[test]
-fn string_decode_encode_test() {
-	let mut bytes: &[u8] = &[20, 248, 159, 146, 150, 114];
-	let expected = bytes.clone();
-	let obj = <String>::decode(&mut bytes).unwrap();
-	let data: &[u8] = &obj.encode();
-	assert_eq!(expected, data);
-}
