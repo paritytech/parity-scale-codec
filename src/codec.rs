@@ -670,7 +670,7 @@ impl<T> Decode for PhantomData<T> {
 #[cfg(any(feature = "std", feature = "full"))]
 impl Decode for String {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
-		Self::from_utf8(Vec::decode(input)?).map_err(|_| Error("Invalid utf8 characters"))
+		Self::from_utf8(Vec::decode(input)?).map_err(|_| "Invalid utf8 sequence".into())
 	}
 }
 
