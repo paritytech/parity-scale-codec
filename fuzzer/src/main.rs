@@ -1,16 +1,16 @@
-use std::collections::{BTreeMap, BTreeSet, VecDeque, LinkedList, BinaryHeap};
+use std::collections::{BTreeMap, BTreeSet, VecDeque, LinkedList};
 use std::time::Duration;
 
 use bitvec::{vec::BitVec, cursor::BigEndian};
 use honggfuzz::fuzz;
 use parity_scale_codec::{Encode, Decode, Compact};
 
-#[derive(Encode, Decode)]
+#[derive(Encode, Decode, PartialEq, Debug)]
 pub struct MockStruct{
 	vec_u: Vec<u8>
 }
 
-#[derive(Encode, Decode)]
+#[derive(Encode, Decode, PartialEq, Debug)]
 pub enum MockEnum {
 	Empty,
 	Unit(u32),
@@ -58,14 +58,44 @@ macro_rules! fuzz_types {
 		$counter:expr;
 		{ $( $parsed:ty; $index:expr ),* }
 	) => {
-		let num = $counter;
-		$(
-			if $data[0] % num == $index {
-				// Check that decode doesn't panic.
-				let _ = <$parsed>::decode(&mut &$data[1..]);
-				return
+	let num = $counter;
+	$(
+		if $data[0] % num == $index {
+			let mut d = &$data[1..];
+			let raw1 = d.clone();
+			let maybe_obj = <$parsed>::decode(&mut d);
+			if let Ok(obj) = maybe_obj {
+				let mut d2: &[u8] = &obj.encode();
+				let raw2 = d2.clone();
+				let exp_obj = <$parsed>::decode(&mut d2);
+				match exp_obj {
+					Ok(obj2) => {
+						if obj == obj2 {
+							let raw1_trunc_to_obj_size = &raw1[..raw1.len() - d.len()];
+							if raw1_trunc_to_obj_size != raw2 {
+								println!("Type: {}", std::any::type_name::<$parsed>());
+								println!("raw1 = {:?}", raw1);
+								println!("d (leftover/undecoded data) = {:?}", d);
+								println!("- Decoded data:");
+								println!("raw1_trunc = {:?}", raw1_trunc_to_obj_size);
+								println!("raw2 = {:?}", raw2);
+								println!("- Encoded objects:");
+								println!("obj1 = '{:?}'", obj);
+								println!("obj2 = '{:?}'", obj2);
+								panic!("raw1 != raw2");
+							}
+						return
+						}
+					panic!("obj != obj2; obj={:?}, obj2={:?}", obj, obj2);
+					},
+					Err(e) => {
+						panic!("Shouldn’t happen: can't .decode() after .decode().encode(): {}", e);
+					}
+				}
 			}
-		)*
+			return
+		}
+	)*
 
 		unreachable!()
 	};
@@ -94,7 +124,7 @@ fn fuzz_one_input(data: &[u8]){
 		BTreeMap<u8, u8>,
 		BTreeSet<u32>,
 		VecDeque<u8>,
-		BinaryHeap<u32>,
+		// BinaryHeap<u32>,
 		MockStruct,
 		MockEnum,
 		BitVec<BigEndian, u8>,
