@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, BTreeSet, VecDeque, LinkedList};
+use std::collections::{BTreeMap, BTreeSet, VecDeque, LinkedList, BinaryHeap};
 use std::time::Duration;
 
 use bitvec::{vec::BitVec, cursor::BigEndian};
@@ -8,6 +8,17 @@ use parity_scale_codec::{Encode, Decode, Compact};
 #[derive(Encode, Decode, PartialEq, Debug)]
 pub struct MockStruct{
 	vec_u: Vec<u8>
+}
+
+#[derive(Encode, Decode, Debug)]
+struct BinaryHeapWrapper(BinaryHeap<u32>);
+
+impl PartialEq for BinaryHeapWrapper {
+	fn eq(&self, other: &BinaryHeapWrapper) -> bool {
+		let a = self.0.iter().cloned().collect::<Vec<u32>>().sort();
+		let b = other.0.iter().cloned().collect::<Vec<u32>>().sort();
+		a == b
+	}
 }
 
 #[derive(Encode, Decode, PartialEq, Debug)]
@@ -124,7 +135,7 @@ fn fuzz_one_input(data: &[u8]){
 		BTreeMap<u8, u8>,
 		BTreeSet<u32>,
 		VecDeque<u8>,
-		// BinaryHeap<u32>,
+		BinaryHeapWrapper,
 		MockStruct,
 		MockEnum,
 		BitVec<BigEndian, u8>,
@@ -138,5 +149,3 @@ fn main() {
 		fuzz!(|data: &[u8]| { fuzz_one_input(data); });
 	}
 }
-
-
