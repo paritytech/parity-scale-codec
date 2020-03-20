@@ -4,13 +4,14 @@ use std::time::Duration;
 use bitvec::{vec::BitVec, cursor::BigEndian};
 use honggfuzz::fuzz;
 use parity_scale_codec::{Encode, Decode, Compact};
+use honggfuzz::arbitrary::Arbitrary;
 
-#[derive(Encode, Decode, PartialEq, Debug)]
+#[derive(Encode, Decode, PartialEq, Debug, Arbitrary)]
 pub struct MockStruct{
 	vec_u: Vec<u8>
 }
 
-#[derive(Encode, Decode, Debug)]
+#[derive(Encode, Decode, Debug, Arbitrary)]
 struct BinaryHeapWrapper(BinaryHeap<u32>);
 
 impl PartialEq for BinaryHeapWrapper {
@@ -21,7 +22,7 @@ impl PartialEq for BinaryHeapWrapper {
 	}
 }
 
-#[derive(Encode, Decode, PartialEq, Debug)]
+#[derive(Encode, Decode, PartialEq, Debug, Arbitrary)]
 pub enum MockEnum {
 	Empty,
 	Unit(u32),
