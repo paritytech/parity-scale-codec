@@ -6,12 +6,12 @@ use honggfuzz::fuzz;
 use parity_scale_codec::{Encode, Decode, Compact};
 use honggfuzz::arbitrary::Arbitrary;
 
-#[derive(Encode, Decode, PartialEq, Debug, Arbitrary)]
+#[derive(Encode, Decode, Clone, PartialEq, Debug, Arbitrary)]
 pub struct MockStruct{
 	vec_u: Vec<u8>
 }
 
-#[derive(Encode, Decode, Debug, Arbitrary)]
+#[derive(Encode, Decode, Debug, Clone, Arbitrary)]
 struct BinaryHeapWrapper(BinaryHeap<u32>);
 
 impl PartialEq for BinaryHeapWrapper {
@@ -22,7 +22,7 @@ impl PartialEq for BinaryHeapWrapper {
 	}
 }
 
-#[derive(Encode, Decode, PartialEq, Debug, Arbitrary)]
+#[derive(Encode, Decode, Clone, PartialEq, Debug, Arbitrary)]
 pub enum MockEnum {
 	Empty,
 	Unit(u32),
@@ -145,8 +145,27 @@ fn fuzz_one_input(data: &[u8]){
 	}
 }
 
+fn fuzz_encode(data: MockEnum) {
+	let original = data.clone();
+	let mut obj: &[u8] = &data.encode();
+	let decoded = MockEnum::decode(&mut obj);
+	if let Ok(object) = decoded {
+		if object != original {
+			println!("original object: {:?}", original);
+			println!("decoded object: {:?}", object);
+			panic!("Original object differs from decoded object")
+		}
+	} else {
+		// safe because we checked that object is not Ok
+		let e = decoded.unwrap_err();
+		println!("original object: {:?}", original);
+		println!("decoding error: {:?}", e);
+		panic!("Failed to decode the encoded object");
+	}
+}
+
 fn main() {
 	loop {
-		fuzz!(|data: &[u8]| { fuzz_one_input(data); });
+		fuzz!(|data: MockEnum| { fuzz_encode(data); });
 	}
 }
