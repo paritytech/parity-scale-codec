@@ -36,13 +36,13 @@ pub enum MockEnum {
 	NestedVec(Vec<Vec<Vec<Vec<Vec<Vec<Vec<Vec<Option<u8>>>>>>>>>),
 }
 
-macro_rules! fuzz_types {
+macro_rules! fuzz_decoder {
 	(
 		$data:ident;
 		$first:ty,
 		$( $rest:ty, )*
 	) => {
-		fuzz_types! {
+		fuzz_decoder! {
 			@INTERNAL
 			$data;
 			1u8;
@@ -57,7 +57,7 @@ macro_rules! fuzz_types {
 		$current:ty,
 		$( $rest:ty, )*
 	) => {
-		fuzz_types! {
+		fuzz_decoder! {
 			@INTERNAL
 			$data;
 			$counter + 1u8;
@@ -113,8 +113,8 @@ macro_rules! fuzz_types {
 	};
 }
 
-fn fuzz_one_input(data: &[u8]){
-	fuzz_types! {
+fn fuzz_decode(data: &[u8]) {
+	fuzz_decoder! {
 		data;
 		u8,
 		u16,
@@ -142,13 +142,48 @@ fn fuzz_one_input(data: &[u8]){
 		BitVec<BigEndian, u8>,
 		BitVec<BigEndian, u32>,
 		Duration,
-	}
+	};
 }
 
-fn fuzz_encode(data: MockEnum) {
+macro_rules! fuzz_encoder {
+	(
+		$first:ty,
+		$( $rest:ty, )*
+	) => {
+		fuzz_encoder! {
+			@INTERNAL
+			1u8;
+			{ $first; 0u8 }
+			$( $rest, )*
+		}
+	};
+	(@INTERNAL
+		$counter:expr;
+		{ $( $parsed:ty; $index:expr ),* }
+		$current:ty,
+		$( $rest:ty, )*
+	) => {
+		fuzz_encoder! {
+			@INTERNAL
+			$counter + 1u8;
+			{ $current; $counter $(, $parsed; $index )* }
+			$( $rest, )*
+		}
+	};
+	(@INTERNAL
+		$counter:expr;
+		{ $( $parsed:ty; $index:expr ),* }
+	) => {
+	$(
+		fuzz!(|data: $parsed| { fuzz_encode(data) });
+	)*
+	};
+}
+
+fn fuzz_encode<T: Encode + Decode + Clone + PartialEq + std::fmt::Debug> (data: T) {
 	let original = data.clone();
 	let mut obj: &[u8] = &data.encode();
-	let decoded = MockEnum::decode(&mut obj);
+	let decoded = <T>::decode(&mut obj);
 	if let Ok(object) = decoded {
 		if object != original {
 			println!("original object: {:?}", original);
@@ -164,8 +199,19 @@ fn fuzz_encode(data: MockEnum) {
 	}
 }
 
+macro_rules! tmp {
+	() => {
+		fuzz_encoder! {
+			u8,
+			u16,
+			MockEnum,
+		}
+	};
+}
+
 fn main() {
 	loop {
-		fuzz!(|data: MockEnum| { fuzz_encode(data); });
+		// fuzz!(|data: &[u8]| { fuzz_decode(data); })
+		tmp!();
 	}
 }
