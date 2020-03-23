@@ -22,6 +22,12 @@ impl PartialEq for BinaryHeapWrapper {
 	}
 }
 
+// #[derive(Encode, Decode, PartialEq, Debug, Clone, Arbitrary, Cursor, BitStore)]
+// pub struct BigEndianWrapper(BigEndian);
+
+// #[derive(Encode, Decode, PartialEq, Debug, Clone, Arbitrary)]
+// pub struct BitVecWrapper<T: BitStore>(BitVec<BigEndianWrapper, T>);
+
 #[derive(Encode, Decode, Clone, PartialEq, Debug, Arbitrary)]
 pub enum MockEnum {
 	Empty,
@@ -202,16 +208,39 @@ fn fuzz_encode<T: Encode + Decode + Clone + PartialEq + std::fmt::Debug> (data: 
 macro_rules! tmp {
 	() => {
 		fuzz_encoder! {
-			u8,
-			u16,
-			MockEnum,
+		u8,
+		u16,
+		u32,
+		u64,
+		u128,
+		Compact<u8>,
+		Compact<u16>,
+		Compact<u32>,
+		Compact<u64>,
+		Compact<u128>,
+		String,
+		Vec<u8>,
+		Vec<Vec<u8>>,
+		Option<Vec<u8>>,
+		Vec<u32>,
+		LinkedList<u8>,
+		BTreeMap<String, Vec<u8>>,
+		BTreeMap<u8, u8>,
+		BTreeSet<u32>,
+		VecDeque<u8>,
+		BinaryHeapWrapper,
+		MockStruct,
+		MockEnum,
+		// BitVec<BigEndian, u8>,
+		// BitVec<BigEndian, u32>,
+		Duration,
 		}
 	};
 }
 
 fn main() {
 	loop {
-		// fuzz!(|data: &[u8]| { fuzz_decode(data); })
+		fuzz!(|data: &[u8]| { fuzz_decode(data); });
 		tmp!();
 	}
 }
