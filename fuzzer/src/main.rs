@@ -152,38 +152,11 @@ fn fuzz_decode(data: &[u8]) {
 }
 
 macro_rules! fuzz_encoder {
-	(
-		$first:ty,
-		$( $rest:ty, )*
-	) => {
-		fuzz_encoder! {
-			@INTERNAL
-			1u8;
-			{ $first; 0u8 }
-			$( $rest, )*
-		}
-	};
-	(@INTERNAL
-		$counter:expr;
-		{ $( $parsed:ty; $index:expr ),* }
-		$current:ty,
-		$( $rest:ty, )*
-	) => {
-		fuzz_encoder! {
-			@INTERNAL
-			$counter + 1u8;
-			{ $current; $counter $(, $parsed; $index )* }
-			$( $rest, )*
-		}
-	};
-	(@INTERNAL
-		$counter:expr;
-		{ $( $parsed:ty; $index:expr ),* }
-	) => {
-	$(
-		fuzz!(|data: $parsed| { fuzz_encode(data) });
-	)*
-	};
+	() => {};
+	( $current:ty, $( $rest:ty, )*) => {
+			fuzz!(|data: $current| { fuzz_encode(data) });
+			fuzz_encoder!($( $rest, )*);
+		};
 }
 
 fn fuzz_encode<T: Encode + Decode + Clone + PartialEq + std::fmt::Debug> (data: T) {
@@ -205,35 +178,35 @@ fn fuzz_encode<T: Encode + Decode + Clone + PartialEq + std::fmt::Debug> (data: 
 	}
 }
 
-macro_rules! tmp {
+macro_rules! fuzz_encoding {
 	() => {
 		fuzz_encoder! {
-		u8,
-		u16,
-		u32,
-		u64,
-		u128,
-		Compact<u8>,
-		Compact<u16>,
-		Compact<u32>,
-		Compact<u64>,
-		Compact<u128>,
-		String,
-		Vec<u8>,
-		Vec<Vec<u8>>,
-		Option<Vec<u8>>,
-		Vec<u32>,
-		LinkedList<u8>,
-		BTreeMap<String, Vec<u8>>,
-		BTreeMap<u8, u8>,
-		BTreeSet<u32>,
-		VecDeque<u8>,
-		BinaryHeapWrapper,
-		MockStruct,
-		MockEnum,
-		// BitVec<BigEndian, u8>,
-		// BitVec<BigEndian, u32>,
-		Duration,
+			u8,
+			u16,
+			u32,
+			u64,
+			u128,
+			Compact<u8>,
+			Compact<u16>,
+			Compact<u32>,
+			Compact<u64>,
+			Compact<u128>,
+			String,
+			Vec<u8>,
+			Vec<Vec<u8>>,
+			Option<Vec<u8>>,
+			Vec<u32>,
+			LinkedList<u8>,
+			BTreeMap<String, Vec<u8>>,
+			BTreeMap<u8, u8>,
+			BTreeSet<u32>,
+			VecDeque<u8>,
+			BinaryHeapWrapper,
+			MockStruct,
+			MockEnum,
+			// BitVec<BigEndian, u8>,
+			// BitVec<BigEndian, u32>,
+			Duration,
 		}
 	};
 }
@@ -241,6 +214,6 @@ macro_rules! tmp {
 fn main() {
 	loop {
 		fuzz!(|data: &[u8]| { fuzz_decode(data); });
-		tmp!();
+		fuzz_encoding!();
 	}
 }
