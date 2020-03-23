@@ -153,10 +153,9 @@ fn fuzz_decode(data: &[u8]) {
 
 macro_rules! fuzz_encoder {
 	() => {};
-	( $current:ty, $( $rest:ty, )*) => {
-			fuzz!(|data: $current| { fuzz_encode(data) });
-			fuzz_encoder!($( $rest, )*);
-		};
+	($( $type:ty, )*) => {
+		$(fuzz!(|data: $type| { fuzz_encode(data) });)*
+	};
 }
 
 fn fuzz_encode<T: Encode + Decode + Clone + PartialEq + std::fmt::Debug> (data: T) {
