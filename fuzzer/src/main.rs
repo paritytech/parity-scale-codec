@@ -76,7 +76,7 @@ macro_rules! fuzz_decoder {
 	$(
 		if $data[0] % num == $index {
 			let mut d = &$data[1..];
-			let mut raw1 = &d.clone();
+			let raw1 = &d.clone();
 			// Sorting here is necessary since:
 			// "The order of the elements is not fixed, depends on the container, and cannot be relied on at decoding."
 			// (see https://substrate.dev/docs/en/conceptual/core/codec).
