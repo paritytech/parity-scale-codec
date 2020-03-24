@@ -12,6 +12,7 @@ pub struct MockStruct{
 }
 
 #[derive(Encode, Decode, Debug, Clone, Arbitrary)]
+/// Used for implementing the PartialEq trait for a BinaryHeap.
 struct BinaryHeapWrapper(BinaryHeap<u32>);
 
 impl PartialEq for BinaryHeapWrapper {
