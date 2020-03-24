@@ -22,12 +22,6 @@ impl PartialEq for BinaryHeapWrapper {
 	}
 }
 
-// #[derive(Encode, Decode, PartialEq, Debug, Clone, Arbitrary, Cursor, BitStore)]
-// pub struct BigEndianWrapper(BigEndian);
-
-// #[derive(Encode, Decode, PartialEq, Debug, Clone, Arbitrary)]
-// pub struct BitVecWrapper<T: BitStore>(BitVec<BigEndianWrapper, T>);
-
 #[derive(Encode, Decode, Clone, PartialEq, Debug, Arbitrary)]
 pub enum MockEnum {
 	Empty,
@@ -203,8 +197,6 @@ macro_rules! fuzz_encoding {
 			BinaryHeapWrapper,
 			MockStruct,
 			MockEnum,
-			// BitVec<BigEndian, u8>,
-			// BitVec<BigEndian, u32>,
 			Duration,
 		}
 	};
