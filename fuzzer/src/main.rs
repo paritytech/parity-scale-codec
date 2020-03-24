@@ -16,6 +16,7 @@ struct BinaryHeapWrapper(BinaryHeap<u32>);
 
 impl PartialEq for BinaryHeapWrapper {
 	fn eq(&self, other: &BinaryHeapWrapper) -> bool {
+		// Sort needed because the Iterator returns the value in arbitrary order.
 		let a = self.0.iter().cloned().collect::<Vec<u32>>().sort();
 		let b = other.0.iter().cloned().collect::<Vec<u32>>().sort();
 		a == b
@@ -74,11 +75,15 @@ macro_rules! fuzz_decoder {
 	$(
 		if $data[0] % num == $index {
 			let mut d = &$data[1..];
-			let raw1 = d.clone();
+			// Sorting here is necessary since:
+			// "The order of the elements is not fixed, depends on the container, and cannot be relied on at decoding."
+			// (see https://substrate.dev/docs/en/conceptual/core/codec).
+			let raw1 = d.clone().sort();
 			let maybe_obj = <$parsed>::decode(&mut d);
 			if let Ok(obj) = maybe_obj {
 				let mut d2: &[u8] = &obj.encode();
-				let raw2 = d2.clone();
+				// Sorting here is necessary: see above comment.
+				let raw2 = d2.clone().sort();
 				let exp_obj = <$parsed>::decode(&mut d2);
 				match exp_obj {
 					Ok(obj2) => {
