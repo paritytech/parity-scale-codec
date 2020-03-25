@@ -6,7 +6,7 @@ edition = "2018"
 publish = false
 
 [dependencies]
-parity-scale-codec = { path = "../", features = [ "derive", "bit-vec" ] }
+parity-scale-codec = { path = "../", features = [ "derive", "bit-vec", "fuzz" ] }
 honggfuzz = "0.5.47"
 bitvec = { version = "0.15.2", features = ["alloc"] }
 arbitrary = { version = "0.4.1", features = ["derive"] }
