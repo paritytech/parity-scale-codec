@@ -72,7 +72,7 @@ macro_rules! fuzz_decoder {
 		$counter:expr;
 		{ $( $parsed:ty; $index:expr ),* }
 	) => {
-	let num = $counter;
+		let num = $counter;
 	$(
 		if $data[0] % num == $index {
 			let mut d = &$data[1..];
