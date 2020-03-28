@@ -16,7 +16,7 @@
 
 use core::mem;
 
-use bitvec::{vec::BitVec, store::BitStore, cursor::Cursor, slice::BitSlice, boxed::BitBox};
+use bitvec::{vec::BitVec, store::BitStore, order::BitOrder, slice::BitSlice, boxed::BitBox};
 use byte_slice_cast::{AsByteSlice, ToByteSlice, FromByteSlice, Error as FromByteSliceError};
 
 use crate::codec::{Encode, Decode, Input, Output, Error};
@@ -36,7 +36,13 @@ impl From<FromByteSliceError> for Error {
 	}
 }
 
-impl<C: Cursor, T: BitStore + ToByteSlice> Encode for BitSlice<C, T> {
+impl<O: BitOrder, T: BitStore + ToByteSlice> Encode for BitSlice<O, T> {
+	fn encode_to<W: Output>(&self, dest: &mut W) {
+		self.to_vec().encode_to(dest)
+	}
+}
+
+impl<O: BitOrder, T: BitStore + ToByteSlice> Encode for BitVec<O, T> {
 	fn encode_to<W: Output>(&self, dest: &mut W) {
 		let len = self.len();
 		assert!(
@@ -48,15 +54,9 @@ impl<C: Cursor, T: BitStore + ToByteSlice> Encode for BitSlice<C, T> {
 	}
 }
 
-impl<C: Cursor, T: BitStore + ToByteSlice> Encode for BitVec<C, T> {
-	fn encode_to<W: Output>(&self, dest: &mut W) {
-		self.as_bitslice().encode_to(dest)
-	}
-}
+impl<O: BitOrder, T: BitStore + ToByteSlice> EncodeLike for BitVec<O, T> {}
 
-impl<C: Cursor, T: BitStore + ToByteSlice> EncodeLike for BitVec<C, T> {}
-
-impl<C: Cursor, T: BitStore + FromByteSlice> Decode for BitVec<C, T> {
+impl<O: BitOrder, T: BitStore + FromByteSlice> Decode for BitVec<O, T> {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		<Compact<u32>>::decode(input).and_then(move |Compact(bits)| {
 			let bits = bits as usize;
@@ -72,17 +72,17 @@ impl<C: Cursor, T: BitStore + FromByteSlice> Decode for BitVec<C, T> {
 	}
 }
 
-impl<C: Cursor, T: BitStore + ToByteSlice> Encode for BitBox<C, T> {
+impl<O: BitOrder, T: BitStore + ToByteSlice> Encode for BitBox<O, T> {
 	fn encode_to<W: Output>(&self, dest: &mut W) {
 		self.as_bitslice().encode_to(dest)
 	}
 }
 
-impl<C: Cursor, T: BitStore + ToByteSlice> EncodeLike for BitBox<C, T> {}
+impl<O: BitOrder, T: BitStore + ToByteSlice> EncodeLike for BitBox<O, T> {}
 
-impl<C: Cursor, T: BitStore + FromByteSlice> Decode for BitBox<C, T> {
+impl<O: BitOrder, T: BitStore + FromByteSlice> Decode for BitBox<O, T> {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
-		Ok(Self::from_bitslice(BitVec::<C, T>::decode(input)?.as_bitslice()))
+		Ok(Self::from_bitslice(BitVec::<O, T>::decode(input)?.as_bitslice()))
 	}
 }
 
@@ -95,34 +95,34 @@ fn required_bytes<T>(bits: usize) -> usize {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use bitvec::{bitvec, cursor::BigEndian};
+	use bitvec::{bitvec, order::Msb0};
 
 	macro_rules! test_data {
-		($inner_type: ty) => (
+		($inner_type:ident) => (
 			[
-				BitVec::<BigEndian, $inner_type>::new(),
-				bitvec![BigEndian, $inner_type; 0],
-				bitvec![BigEndian, $inner_type; 1],
-				bitvec![BigEndian, $inner_type; 0, 0],
-				bitvec![BigEndian, $inner_type; 1, 0],
-				bitvec![BigEndian, $inner_type; 0, 1],
-				bitvec![BigEndian, $inner_type; 1, 1],
-				bitvec![BigEndian, $inner_type; 1, 0, 1],
-				bitvec![BigEndian, $inner_type; 0, 1, 0, 1, 0, 1, 1],
-				bitvec![BigEndian, $inner_type; 0, 1, 0, 1, 0, 1, 1, 0],
-				bitvec![BigEndian, $inner_type; 1, 1, 0, 1, 0, 1, 1, 0, 1],
-				bitvec![BigEndian, $inner_type; 1, 0, 1, 0, 1, 1, 0, 0, 1, 0, 1, 0, 1, 1, 0],
-				bitvec![BigEndian, $inner_type; 0, 1, 0, 1, 0, 1, 1, 0, 0, 1, 0, 1, 0, 1, 1, 0],
-				bitvec![BigEndian, $inner_type; 0, 1, 0, 1, 0, 1, 1, 0, 0, 1, 0, 1, 0, 1, 1, 0, 0],
-				bitvec![BigEndian, $inner_type; 0; 15],
-				bitvec![BigEndian, $inner_type; 1; 16],
-				bitvec![BigEndian, $inner_type; 0; 17],
-				bitvec![BigEndian, $inner_type; 1; 31],
-				bitvec![BigEndian, $inner_type; 0; 32],
-				bitvec![BigEndian, $inner_type; 1; 33],
-				bitvec![BigEndian, $inner_type; 0; 63],
-				bitvec![BigEndian, $inner_type; 1; 64],
-				bitvec![BigEndian, $inner_type; 0; 65],
+				BitVec::<Msb0, $inner_type>::new(),
+				bitvec![Msb0, $inner_type; 0],
+				bitvec![Msb0, $inner_type; 1],
+				bitvec![Msb0, $inner_type; 0, 0],
+				bitvec![Msb0, $inner_type; 1, 0],
+				bitvec![Msb0, $inner_type; 0, 1],
+				bitvec![Msb0, $inner_type; 1, 1],
+				bitvec![Msb0, $inner_type; 1, 0, 1],
+				bitvec![Msb0, $inner_type; 0, 1, 0, 1, 0, 1, 1],
+				bitvec![Msb0, $inner_type; 0, 1, 0, 1, 0, 1, 1, 0],
+				bitvec![Msb0, $inner_type; 1, 1, 0, 1, 0, 1, 1, 0, 1],
+				bitvec![Msb0, $inner_type; 1, 0, 1, 0, 1, 1, 0, 0, 1, 0, 1, 0, 1, 1, 0],
+				bitvec![Msb0, $inner_type; 0, 1, 0, 1, 0, 1, 1, 0, 0, 1, 0, 1, 0, 1, 1, 0],
+				bitvec![Msb0, $inner_type; 0, 1, 0, 1, 0, 1, 1, 0, 0, 1, 0, 1, 0, 1, 1, 0, 0],
+				bitvec![Msb0, $inner_type; 0; 15],
+				bitvec![Msb0, $inner_type; 1; 16],
+				bitvec![Msb0, $inner_type; 0; 17],
+				bitvec![Msb0, $inner_type; 1; 31],
+				bitvec![Msb0, $inner_type; 0; 32],
+				bitvec![Msb0, $inner_type; 1; 33],
+				bitvec![Msb0, $inner_type; 0; 63],
+				bitvec![Msb0, $inner_type; 1; 64],
+				bitvec![Msb0, $inner_type; 0; 65],
 			]
 		)
 	}
@@ -158,7 +158,7 @@ mod tests {
 	fn bitvec_u8() {
 		for v in &test_data!(u8) {
 			let encoded = v.encode();
-			assert_eq!(*v, BitVec::<BigEndian, u8>::decode(&mut &encoded[..]).unwrap());
+			assert_eq!(*v, BitVec::<Msb0, u8>::decode(&mut &encoded[..]).unwrap());
 		}
 	}
 
@@ -166,7 +166,7 @@ mod tests {
 	fn bitvec_u16() {
 		for v in &test_data!(u16) {
 			let encoded = v.encode();
-			assert_eq!(*v, BitVec::<BigEndian, u16>::decode(&mut &encoded[..]).unwrap());
+			assert_eq!(*v, BitVec::<Msb0, u16>::decode(&mut &encoded[..]).unwrap());
 		}
 	}
 
@@ -174,33 +174,33 @@ mod tests {
 	fn bitvec_u32() {
 		for v in &test_data!(u32) {
 			let encoded = v.encode();
-			assert_eq!(*v, BitVec::<BigEndian, u32>::decode(&mut &encoded[..]).unwrap());
+			assert_eq!(*v, BitVec::<Msb0, u32>::decode(&mut &encoded[..]).unwrap());
 		}
 	}
 
 	#[test]
 	fn bitvec_u64() {
 		for v in &test_data!(u64) {
-			let encoded = v.encode();
-			assert_eq!(*v, BitVec::<BigEndian, u64>::decode(&mut &encoded[..]).unwrap());
+			let encoded = dbg!(v.encode());
+			assert_eq!(*v, BitVec::<Msb0, u64>::decode(&mut &encoded[..]).unwrap());
 		}
 	}
 
 	#[test]
 	fn bitslice() {
 		let data: &[u8] = &[0x69];
-		let slice: &BitSlice = data.into();
+		let slice = BitSlice::<Msb0, u8>::from_slice(data);
 		let encoded = slice.encode();
-		let decoded = BitVec::<BigEndian, u8>::decode(&mut &encoded[..]).unwrap();
+		let decoded = BitVec::<Msb0, u8>::decode(&mut &encoded[..]).unwrap();
 		assert_eq!(slice, decoded.as_bitslice());
 	}
 
 	#[test]
 	fn bitbox() {
 		let data: &[u8] = &[5, 10];
-		let bb: BitBox = data.into();
+		let bb = BitBox::<Msb0, u8>::from_slice(data);
 		let encoded = bb.encode();
-		let decoded = BitBox::<BigEndian, u8>::decode(&mut &encoded[..]).unwrap();
+		let decoded = BitBox::<Msb0, u8>::decode(&mut &encoded[..]).unwrap();
 		assert_eq!(bb, decoded);
 	}
 }
