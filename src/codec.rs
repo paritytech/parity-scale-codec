@@ -14,28 +14,24 @@
 
 //! Serialisation.
 
+use core::{
+	convert::TryFrom, iter::FromIterator, marker::PhantomData, mem, ops::Deref, time::Duration,
+};
 #[cfg(feature = "std")]
 use std::fmt;
-use core::{mem, ops::Deref, marker::PhantomData, iter::FromIterator, convert::TryFrom, time::Duration};
 
 use arrayvec::ArrayVec;
 
 use byte_slice_cast::{AsByteSlice, IntoVecOf};
 
-#[cfg(any(feature = "std", feature = "full"))]
 use crate::alloc::{
-	string::String,
-	sync::Arc,
-	rc::Rc,
-};
-use crate::alloc::{
-	vec::Vec,
-	boxed::Box,
 	borrow::{Cow, ToOwned},
-	collections::{
-		BTreeMap, BTreeSet, VecDeque, LinkedList, BinaryHeap
-	}
+	boxed::Box,
+	collections::{BTreeMap, BTreeSet, BinaryHeap, LinkedList, VecDeque},
+	vec::Vec,
 };
+#[cfg(any(feature = "std", feature = "full"))]
+use crate::alloc::{rc::Rc, string::String, sync::Arc};
 use crate::compact::Compact;
 use crate::encode_like::EncodeLike;
 
@@ -222,10 +218,11 @@ impl Output for Vec<u8> {
 #[cfg(feature = "std")]
 impl<W: std::io::Write> Output for W {
 	fn write(&mut self, bytes: &[u8]) {
-		(self as &mut dyn std::io::Write).write_all(bytes).expect("Codec outputs are infallible");
+		(self as &mut dyn std::io::Write)
+			.write_all(bytes)
+			.expect("Codec outputs are infallible");
 	}
 }
-
 
 /// !INTERNAL USE ONLY!
 ///
@@ -364,7 +361,8 @@ mod feature_full_wrapper_type_encode {
 	impl EncodeLike<String> for &str {}
 }
 
-impl<T, X> Encode for X where
+impl<T, X> Encode for X
+where
 	T: Encode + ?Sized,
 	X: WrapperTypeEncode<Target = T>,
 {
@@ -404,14 +402,14 @@ impl<T> WrapperTypeDecode for Rc<T> {
 	type Wrapped = T;
 }
 
-impl<T, X> Decode for X where
+impl<T, X> Decode for X
+where
 	T: Decode + Into<X>,
-	X: WrapperTypeDecode<Wrapped=T>,
+	X: WrapperTypeDecode<Wrapped = T>,
 {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		Ok(T::decode(input)?.into())
 	}
-
 }
 
 /// A macro that matches on a [`TypeInfo`] and expands a given macro per variant.
@@ -472,7 +470,8 @@ where
 	LikeT: Encode,
 	E: EncodeLike<LikeE>,
 	LikeE: Encode,
-{}
+{
+}
 
 impl<T: Decode, E: Decode> Decode for Result<T, E> {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
@@ -611,22 +610,19 @@ macro_rules! impl_array {
 }
 
 impl_array!(
-	1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
-	17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31,
-	32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51,
-	52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71,
-	72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91,
-	92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108,
-	109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124,
-	125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140,
-	141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156,
-	157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172,
-	173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188,
-	189, 190, 191, 192, 193, 194, 195, 196, 197, 198, 199, 200, 201, 202, 203, 204,
-	205, 206, 207, 208, 209, 210, 211, 212, 213, 214, 215, 216, 217, 218, 219, 220,
-	221, 222, 223, 224, 225, 226, 227, 228, 229, 230, 231, 232, 233, 234, 235, 236,
-	237, 238, 239, 240, 241, 242, 243, 244, 245, 246, 247, 248, 249, 250, 251, 252,
-	253, 254, 255, 256, 384, 512, 768, 1024, 2048, 4096, 8192, 16384, 32768,
+	1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26,
+	27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50,
+	51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74,
+	75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98,
+	99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117,
+	118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136,
+	137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155,
+	156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174,
+	175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193,
+	194, 195, 196, 197, 198, 199, 200, 201, 202, 203, 204, 205, 206, 207, 208, 209, 210, 211, 212,
+	213, 214, 215, 216, 217, 218, 219, 220, 221, 222, 223, 224, 225, 226, 227, 228, 229, 230, 231,
+	232, 233, 234, 235, 236, 237, 238, 239, 240, 241, 242, 243, 244, 245, 246, 247, 248, 249, 250,
+	251, 252, 253, 254, 255, 256, 384, 512, 768, 1024, 2048, 4096, 8192, 16384, 32768,
 );
 
 impl Encode for str {
@@ -648,7 +644,8 @@ impl Encode for str {
 }
 
 impl<'a, T: ToOwned + ?Sized> Decode for Cow<'a, T>
-	where <T as ToOwned>::Owned: Decode,
+where
+	<T as ToOwned>::Owned: Decode,
 {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		Ok(Cow::Owned(Decode::decode(input)?))
@@ -695,17 +692,17 @@ impl<T: Encode> Encode for [T] {
 			( u8, $self:ident, $dest:ident ) => {{
 				let typed = unsafe { mem::transmute::<&[T], &[u8]>($self) };
 				$dest.write(&typed)
-			}};
+				}};
 			( i8, $self:ident, $dest:ident ) => {{
 				// `i8` has the same size as `u8`. We can just convert it here and write to the
 				// dest buffer directly.
 				let typed = unsafe { mem::transmute::<&[T], &[u8]>($self) };
 				$dest.write(&typed)
-			}};
+				}};
 			( $ty:ty, $self:ident, $dest:ident ) => {{
 				let typed = unsafe { mem::transmute::<&[T], &[$ty]>($self) };
 				$dest.write(<[$ty] as AsByteSlice<$ty>>::as_byte_slice(typed))
-			}};
+				}};
 		}
 
 		with_type_info! {
@@ -726,7 +723,7 @@ fn read_vec_u8<I: Input>(input: &mut I, len: usize) -> Result<Vec<u8>, Error> {
 
 	// If there is input len and it cannot be pre-allocated then return directly.
 	if input_len.map(|l| l < len).unwrap_or(false) {
-		return Err("Not enough data to decode vector".into())
+		return Err("Not enough data to decode vector".into());
 	}
 
 	// Note: we checked that if input_len is some then it can preallocated.
@@ -769,18 +766,19 @@ impl<T: Decode> Decode for Vec<T> {
 				( u8, $input:ident, $len:ident ) => {{
 					let vec = read_vec_u8($input, $len)?;
 					Ok(unsafe { mem::transmute::<Vec<u8>, Vec<T>>(vec) })
-				}};
+					}};
 				( i8, $input:ident, $len:ident ) => {{
 					let vec = read_vec_u8($input, $len)?;
 					Ok(unsafe { mem::transmute::<Vec<u8>, Vec<T>>(vec) })
-				}};
+					}};
 				( $ty:ty, $input:ident, $len:ident ) => {{
 					let vec = read_vec_u8($input, $len * mem::size_of::<$ty>())?;
-					let typed = vec.into_vec_of::<$ty>()
+					let typed = vec
+						.into_vec_of::<$ty>()
 						.map_err(|_| "Failed to convert from `Vec<u8>` to typed vec")?;
 
 					Ok(unsafe { mem::transmute::<Vec<$ty>, Vec<T>>(typed) })
-				}};
+					}};
 			}
 
 			with_type_info! {
@@ -870,13 +868,12 @@ impl<T: Encode> Encode for VecDeque<T> {
 		macro_rules! encode_to {
 			( $ty:ty, $self:ident, $dest:ident ) => {{
 				let slices = $self.as_slices();
-				let typed = unsafe {
-					core::mem::transmute::<(&[T], &[T]), (&[$ty], &[$ty])>(slices)
-				};
+				let typed =
+					unsafe { core::mem::transmute::<(&[T], &[T]), (&[$ty], &[$ty])>(slices) };
 
 				$dest.write(<[$ty] as AsByteSlice<$ty>>::as_byte_slice(typed.0));
 				$dest.write(<[$ty] as AsByteSlice<$ty>>::as_byte_slice(typed.1));
-			}};
+				}};
 		}
 
 		with_type_info! {
@@ -900,8 +897,7 @@ impl<T: Decode> Decode for VecDeque<T> {
 impl EncodeLike for () {}
 
 impl Encode for () {
-	fn encode_to<W: Output>(&self, _dest: &mut W) {
-	}
+	fn encode_to<W: Output>(&self, _dest: &mut W) {}
 
 	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
 		f(&[])
@@ -1015,8 +1011,24 @@ mod inner_tuple_impl {
 	use super::*;
 
 	tuple_impl!(
-		(A0, A1), (B0, B1), (C0, C1), (D0, D1), (E0, E1), (F0, F1), (G0, G1), (H0, H1), (I0, I1),
-		(J0, J1), (K0, K1), (L0, L1), (M0, M1), (N0, N1), (O0, O1), (P0, P1), (Q0, Q1), (R0, R1),
+		(A0, A1),
+		(B0, B1),
+		(C0, C1),
+		(D0, D1),
+		(E0, E1),
+		(F0, F1),
+		(G0, G1),
+		(H0, H1),
+		(I0, I1),
+		(J0, J1),
+		(K0, K1),
+		(L0, L1),
+		(M0, M1),
+		(N0, N1),
+		(O0, O1),
+		(P0, P1),
+		(Q0, Q1),
+		(R0, R1),
 	);
 }
 
@@ -1095,7 +1107,7 @@ impl Decode for bool {
 		match byte {
 			0 => Ok(false),
 			1 => Ok(true),
-			_ => Err("Invalid boolean representation".into())
+			_ => Err("Invalid boolean representation".into()),
 		}
 	}
 }
@@ -1133,9 +1145,7 @@ mod tests {
 	#[test]
 	fn vec_is_sliceable() {
 		let v = b"Hello world".to_vec();
-		v.using_encoded(|ref slice|
-			assert_eq!(slice, &b"\x2cHello world")
-		);
+		v.using_encoded(|ref slice| assert_eq!(slice, &b"\x2cHello world"));
 	}
 
 	#[test]
@@ -1169,14 +1179,21 @@ mod tests {
 	}
 
 	fn hexify(bytes: &[u8]) -> String {
-		bytes.iter().map(|ref b| format!("{:02x}", b)).collect::<Vec<String>>().join(" ")
+		bytes
+			.iter()
+			.map(|ref b| format!("{:02x}", b))
+			.collect::<Vec<String>>()
+			.join(" ")
 	}
 
 	#[test]
 	fn string_encoded_as_expected() {
 		let value = String::from("Hello, World!");
 		let encoded = value.encode();
-		assert_eq!(hexify(&encoded), "34 48 65 6c 6c 6f 2c 20 57 6f 72 6c 64 21");
+		assert_eq!(
+			hexify(&encoded),
+			"34 48 65 6c 6c 6f 2c 20 57 6f 72 6c 64 21"
+		);
 		assert_eq!(<String>::decode(&mut &encoded[..]).unwrap(), value);
 	}
 
@@ -1192,7 +1209,10 @@ mod tests {
 	fn vec_of_i16_encoded_as_expected() {
 		let value = vec![0i16, 1, -1, 2, -2, 3, -3];
 		let encoded = value.encode();
-		assert_eq!(hexify(&encoded), "1c 00 00 01 00 ff ff 02 00 fe ff 03 00 fd ff");
+		assert_eq!(
+			hexify(&encoded),
+			"1c 00 00 01 00 ff ff 02 00 fe ff 03 00 fd ff"
+		);
 		assert_eq!(<Vec<i16>>::decode(&mut &encoded[..]).unwrap(), value);
 	}
 
@@ -1206,14 +1226,21 @@ mod tests {
 
 	#[test]
 	fn vec_of_option_bool_encoded_as_expected() {
-		let value = vec![OptionBool(Some(true)), OptionBool(Some(false)), OptionBool(None)];
+		let value = vec![
+			OptionBool(Some(true)),
+			OptionBool(Some(false)),
+			OptionBool(None),
+		];
 		let encoded = value.encode();
 		assert_eq!(hexify(&encoded), "0c 01 02 00");
 		assert_eq!(<Vec<OptionBool>>::decode(&mut &encoded[..]).unwrap(), value);
 	}
 
 	fn test_encode_length<T: Encode + Decode + DecodeLength>(thing: &T, len: usize) {
-		assert_eq!(<T as DecodeLength>::len(&mut &thing.encode()[..]).unwrap(), len);
+		assert_eq!(
+			<T as DecodeLength>::len(&mut &thing.encode()[..]).unwrap(),
+			len
+		);
 	}
 
 	#[test]
@@ -1249,13 +1276,16 @@ mod tests {
 			"Hamlet".to_owned(),
 			"Война и мир".to_owned(),
 			"三国演义".to_owned(),
-			"أَلْف لَيْلَة وَلَيْلَة‎".to_owned()
+			"أَلْف لَيْلَة وَلَيْلَة‎".to_owned(),
 		];
 		let encoded = value.encode();
-		assert_eq!(hexify(&encoded), "10 18 48 61 6d 6c 65 74 50 d0 92 d0 be d0 b9 d0 bd d0 b0 20 d0 \
+		assert_eq!(
+			hexify(&encoded),
+			"10 18 48 61 6d 6c 65 74 50 d0 92 d0 be d0 b9 d0 bd d0 b0 20 d0 \
 			b8 20 d0 bc d0 b8 d1 80 30 e4 b8 89 e5 9b bd e6 bc 94 e4 b9 89 bc d8 a3 d9 8e d9 84 d9 92 \
 			d9 81 20 d9 84 d9 8e d9 8a d9 92 d9 84 d9 8e d8 a9 20 d9 88 d9 8e d9 84 d9 8e d9 8a d9 92 \
-			d9 84 d9 8e d8 a9 e2 80 8e");
+			d9 84 d9 8e d8 a9 e2 80 8e"
+		);
 		assert_eq!(<Vec<String>>::decode(&mut &encoded[..]).unwrap(), value);
 	}
 
@@ -1263,12 +1293,16 @@ mod tests {
 	struct MyWrapper(Compact<u32>);
 	impl Deref for MyWrapper {
 		type Target = Compact<u32>;
-		fn deref(&self) -> &Self::Target { &self.0 }
+		fn deref(&self) -> &Self::Target {
+			&self.0
+		}
 	}
 	impl WrapperTypeEncode for MyWrapper {}
 
 	impl From<Compact<u32>> for MyWrapper {
-		fn from(c: Compact<u32>) -> Self { MyWrapper(c) }
+		fn from(c: Compact<u32>) -> Self {
+			MyWrapper(c)
+		}
 	}
 	impl WrapperTypeDecode for MyWrapper {
 		type Wrapped = Compact<u32>;
@@ -1279,7 +1313,10 @@ mod tests {
 		let result = vec![0b1100];
 
 		assert_eq!(MyWrapper(3u32.into()).encode(), result);
-		assert_eq!(MyWrapper::decode(&mut &*result).unwrap(), MyWrapper(3_u32.into()));
+		assert_eq!(
+			MyWrapper::decode(&mut &*result).unwrap(),
+			MyWrapper(3_u32.into())
+		);
 	}
 
 	#[test]
@@ -1305,18 +1342,17 @@ mod tests {
 		let t1: BTreeSet<u32> = FromIterator::from_iter((0..10).flat_map(|i| 0..i));
 		let t2: LinkedList<u32> = FromIterator::from_iter((0..10).flat_map(|i| 0..i));
 		let t3: BinaryHeap<u32> = FromIterator::from_iter((0..10).flat_map(|i| 0..i));
-		let t4: BTreeMap<u16, u32> = FromIterator::from_iter(
-			(0..10)
-				.flat_map(|i| 0..i)
-				.map(|i| (i as u16, i + 10))
-		);
+		let t4: BTreeMap<u16, u32> =
+			FromIterator::from_iter((0..10).flat_map(|i| 0..i).map(|i| (i as u16, i + 10)));
 		let t5: BTreeSet<Vec<u8>> = FromIterator::from_iter((0..10).map(|i| Vec::from_iter(0..i)));
-		let t6: LinkedList<Vec<u8>> = FromIterator::from_iter((0..10).map(|i| Vec::from_iter(0..i)));
-		let t7: BinaryHeap<Vec<u8>> = FromIterator::from_iter((0..10).map(|i| Vec::from_iter(0..i)));
+		let t6: LinkedList<Vec<u8>> =
+			FromIterator::from_iter((0..10).map(|i| Vec::from_iter(0..i)));
+		let t7: BinaryHeap<Vec<u8>> =
+			FromIterator::from_iter((0..10).map(|i| Vec::from_iter(0..i)));
 		let t8: BTreeMap<Vec<u8>, u32> = FromIterator::from_iter(
 			(0..10)
 				.map(|i| Vec::from_iter(0..i))
-				.map(|i| (i.clone(), i.len() as u32))
+				.map(|i| (i.clone(), i.len() as u32)),
 		);
 
 		assert_eq!(Decode::decode(&mut &t1.encode()[..]), Ok(t1));
@@ -1379,13 +1415,28 @@ mod tests {
 		let len = MAX_PREALLOCATION * 2 + 1;
 		let mut i = Compact(len as u32).encode();
 		i.resize(i.len() + len, 0);
-		assert_eq!(<Vec<u8>>::decode(&mut NoLimit(&i[..])).unwrap(), vec![0u8; len]);
+		assert_eq!(
+			<Vec<u8>>::decode(&mut NoLimit(&i[..])).unwrap(),
+			vec![0u8; len]
+		);
 
 		let i = Compact(len as u32).encode();
-		assert_eq!(<Vec<u8>>::decode(&mut NoLimit(&i[..])).err().unwrap().what(), "Not enough data to fill buffer");
+		assert_eq!(
+			<Vec<u8>>::decode(&mut NoLimit(&i[..]))
+				.err()
+				.unwrap()
+				.what(),
+			"Not enough data to fill buffer"
+		);
 
 		let i = Compact(1000u32).encode();
-		assert_eq!(<Vec<u8>>::decode(&mut NoLimit(&i[..])).err().unwrap().what(), "Not enough data to fill buffer");
+		assert_eq!(
+			<Vec<u8>>::decode(&mut NoLimit(&i[..]))
+				.err()
+				.unwrap()
+				.what(),
+			"Not enough data to fill buffer"
+		);
 	}
 
 	#[test]

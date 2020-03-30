@@ -15,7 +15,7 @@
 use core::{iter::ExactSizeIterator, mem};
 
 use crate::alloc::vec::Vec;
-use crate::codec::{Encode, Decode, Error};
+use crate::codec::{Decode, Encode, Error};
 use crate::compact::{Compact, CompactLen};
 use crate::encode_like::EncodeLike;
 
@@ -28,10 +28,13 @@ pub trait EncodeAppend {
 	/// Append all items in `iter` to the given `self_encoded` representation
 	/// or if `self_encoded` value is empty then insert the given input data.
 	#[deprecated(note = "Consider using `append_or_new` instead")]
-	fn append<'a, I: IntoIterator<Item=&'a Self::Item>>(
+	fn append<'a, I: IntoIterator<Item = &'a Self::Item>>(
 		self_encoded: Vec<u8>,
 		iter: I,
-	) -> Result<Vec<u8>, Error> where Self::Item: 'a, I::IntoIter: ExactSizeIterator;
+	) -> Result<Vec<u8>, Error>
+	where
+		Self::Item: 'a,
+		I::IntoIter: ExactSizeIterator;
 
 	/// Append all items in `iter` to the given `self_encoded` representation
 	/// or if `self_encoded` value is empty, `iter` is encoded to the `Self` representation.
@@ -50,10 +53,7 @@ pub trait EncodeAppend {
 	/// // Add multiple element
 	/// <Vec<u32> as EncodeAppend>::append(encoded, &[700u32, 800u32, 10u32]).expect("Adds new elements");
 	/// ```
-	fn append_or_new<EncodeLikeItem, I>(
-		self_encoded: Vec<u8>,
-		iter: I,
-	) -> Result<Vec<u8>, Error>
+	fn append_or_new<EncodeLikeItem, I>(self_encoded: Vec<u8>, iter: I) -> Result<Vec<u8>, Error>
 	where
 		I: IntoIterator<Item = EncodeLikeItem>,
 		EncodeLikeItem: EncodeLike<Self::Item>,
@@ -63,17 +63,18 @@ pub trait EncodeAppend {
 impl<T: Encode> EncodeAppend for Vec<T> {
 	type Item = T;
 
-	fn append<'a, I: IntoIterator<Item=&'a Self::Item>>(
-		self_encoded: Vec<u8>,
-		iter: I,
-	) -> Result<Vec<u8>, Error> where Self::Item: 'a, I::IntoIter: ExactSizeIterator {
-		append_or_new_vec_with_any_item(self_encoded, iter)
-	}
-
-	fn append_or_new<EncodeLikeItem, I>(
+	fn append<'a, I: IntoIterator<Item = &'a Self::Item>>(
 		self_encoded: Vec<u8>,
 		iter: I,
 	) -> Result<Vec<u8>, Error>
+	where
+		Self::Item: 'a,
+		I::IntoIter: ExactSizeIterator,
+	{
+		append_or_new_vec_with_any_item(self_encoded, iter)
+	}
+
+	fn append_or_new<EncodeLikeItem, I>(self_encoded: Vec<u8>, iter: I) -> Result<Vec<u8>, Error>
 	where
 		I: IntoIterator<Item = EncodeLikeItem>,
 		EncodeLikeItem: EncodeLike<Self::Item>,
@@ -86,17 +87,18 @@ impl<T: Encode> EncodeAppend for Vec<T> {
 impl<T: Encode> EncodeAppend for crate::alloc::collections::VecDeque<T> {
 	type Item = T;
 
-	fn append<'a, I: IntoIterator<Item=&'a Self::Item>>(
-		self_encoded: Vec<u8>,
-		iter: I,
-	) -> Result<Vec<u8>, Error> where Self::Item: 'a, I::IntoIter: ExactSizeIterator {
-		append_or_new_vec_with_any_item(self_encoded, iter)
-	}
-
-	fn append_or_new<EncodeLikeItem, I>(
+	fn append<'a, I: IntoIterator<Item = &'a Self::Item>>(
 		self_encoded: Vec<u8>,
 		iter: I,
 	) -> Result<Vec<u8>, Error>
+	where
+		Self::Item: 'a,
+		I::IntoIter: ExactSizeIterator,
+	{
+		append_or_new_vec_with_any_item(self_encoded, iter)
+	}
+
+	fn append_or_new<EncodeLikeItem, I>(self_encoded: Vec<u8>, iter: I) -> Result<Vec<u8>, Error>
 	where
 		I: IntoIterator<Item = EncodeLikeItem>,
 		EncodeLikeItem: EncodeLike<Self::Item>,
@@ -159,7 +161,9 @@ where
 		let size = encoded_new_len + self_encoded.len() - encoded_len;
 
 		let mut res = Vec::with_capacity(size + input_len * mem::size_of::<Item>());
-		unsafe { res.set_len(size); }
+		unsafe {
+			res.set_len(size);
+		}
 
 		// Insert the new encoded len, copy the already encoded data and
 		// add the new element.
@@ -174,7 +178,7 @@ where
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::{Input, Encode, EncodeLike};
+	use crate::{Encode, EncodeLike, Input};
 	use std::collections::VecDeque;
 
 	#[test]
@@ -236,7 +240,9 @@ mod tests {
 	#[test]
 	fn append_non_copyable() {
 		#[derive(Eq, PartialEq, Debug)]
-		struct NoCopy { data: u32 };
+		struct NoCopy {
+			data: u32,
+		};
 
 		impl EncodeLike for NoCopy {}
 
@@ -254,7 +260,8 @@ mod tests {
 
 		let append = NoCopy { data: 100 };
 		let data = Vec::new();
-		let encoded = <Vec<NoCopy> as EncodeAppend>::append_or_new(data, std::iter::once(&append)).unwrap();
+		let encoded =
+			<Vec<NoCopy> as EncodeAppend>::append_or_new(data, std::iter::once(&append)).unwrap();
 
 		let decoded = <Vec<NoCopy>>::decode(&mut &encoded[..]).unwrap();
 		assert_eq!(vec![append], decoded);
@@ -265,7 +272,8 @@ mod tests {
 		let max_value = 1_000_000;
 
 		let encoded = (0..max_value).fold(Vec::new(), |encoded, v| {
-			<Vec<u32> as EncodeAppend>::append_or_new(encoded, std::iter::once(Box::new(v as u32))).unwrap()
+			<Vec<u32> as EncodeAppend>::append_or_new(encoded, std::iter::once(Box::new(v as u32)))
+				.unwrap()
 		});
 
 		let decoded = Vec::<u32>::decode(&mut &encoded[..]).unwrap();

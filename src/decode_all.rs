@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::codec::{Error, Decode};
+use crate::codec::{Decode, Error};
 
 /// The error message returned when `decode_all` fails.
 const DECODE_ALL_ERR_MSG: &str = "Input buffer has still data left after decoding!";
@@ -41,7 +41,7 @@ impl<T: Decode> DecodeAll for T {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::{Encode, Input, Compact, EncodeLike};
+	use crate::{Compact, Encode, EncodeLike, Input};
 
 	macro_rules! test_decode_all {
 		(
@@ -82,13 +82,11 @@ mod tests {
 
 	impl Decode for TestStruct {
 		fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
-			Ok(
-				Self {
-					data: Vec::<u32>::decode(input)?,
-					other: u8::decode(input)?,
-					compact: Compact::<u128>::decode(input)?,
-				}
-			)
+			Ok(Self {
+				data: Vec::<u32>::decode(input)?,
+				other: u8::decode(input)?,
+				compact: Compact::<u128>::decode(input)?,
+			})
 		}
 	}
 

@@ -16,22 +16,25 @@
 
 use core::mem;
 
-use bitvec::{vec::BitVec, store::BitStore, order::BitOrder, slice::BitSlice, boxed::BitBox};
-use byte_slice_cast::{AsByteSlice, ToByteSlice, FromByteSlice, Error as FromByteSliceError};
+use bitvec::{boxed::BitBox, order::BitOrder, slice::BitSlice, store::BitStore, vec::BitVec};
+use byte_slice_cast::{AsByteSlice, Error as FromByteSliceError, FromByteSlice, ToByteSlice};
 
-use crate::codec::{Encode, Decode, Input, Output, Error};
+use crate::codec::{Decode, Encode, Error, Input, Output};
 use crate::compact::Compact;
 use crate::EncodeLike;
 
 impl From<FromByteSliceError> for Error {
 	fn from(e: FromByteSliceError) -> Error {
 		match e {
-			FromByteSliceError::AlignmentMismatch {..} =>
-				"failed to cast from byte slice: alignment mismatch".into(),
-			FromByteSliceError::LengthMismatch {..} =>
-				"failed to cast from byte slice: length mismatch".into(),
-			FromByteSliceError::CapacityMismatch {..} =>
-				"failed to cast from byte slice: capacity mismatch".into(),
+			FromByteSliceError::AlignmentMismatch { .. } => {
+				"failed to cast from byte slice: alignment mismatch".into()
+			}
+			FromByteSliceError::LengthMismatch { .. } => {
+				"failed to cast from byte slice: length mismatch".into()
+			}
+			FromByteSliceError::CapacityMismatch { .. } => {
+				"failed to cast from byte slice: capacity mismatch".into()
+			}
 		}
 	}
 }
@@ -66,7 +69,9 @@ impl<O: BitOrder, T: BitStore + FromByteSlice> Decode for BitVec<O, T> {
 
 			let mut result = Self::from_slice(T::from_byte_slice(&vec)?);
 			assert!(bits <= result.len());
-			unsafe { result.set_len(bits); }
+			unsafe {
+				result.set_len(bits);
+			}
 			Ok(result)
 		})
 	}
@@ -82,7 +87,9 @@ impl<O: BitOrder, T: BitStore + ToByteSlice> EncodeLike for BitBox<O, T> {}
 
 impl<O: BitOrder, T: BitStore + FromByteSlice> Decode for BitBox<O, T> {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
-		Ok(Self::from_bitslice(BitVec::<O, T>::decode(input)?.as_bitslice()))
+		Ok(Self::from_bitslice(
+			BitVec::<O, T>::decode(input)?.as_bitslice(),
+		))
 	}
 }
 

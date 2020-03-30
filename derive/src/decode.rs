@@ -12,47 +12,43 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use proc_macro2::{Span, TokenStream, Ident};
-use syn::{
-	spanned::Spanned,
-	Data, Fields, Field, Error,
-};
+use proc_macro2::{Ident, Span, TokenStream};
+use syn::{spanned::Spanned, Data, Error, Field, Fields};
 
 use crate::utils;
 
 pub fn quote(data: &Data, type_name: &Ident, input: &TokenStream) -> TokenStream {
 	match *data {
 		Data::Struct(ref data) => match data.fields {
-			Fields::Named(_) | Fields::Unnamed(_) => create_instance(
-				quote! { #type_name },
-				input,
-				&data.fields,
-			),
+			Fields::Named(_) | Fields::Unnamed(_) => {
+				create_instance(quote! { #type_name }, input, &data.fields)
+			}
 			Fields::Unit => {
 				quote_spanned! { data.fields.span() =>
 					Ok(#type_name)
 				}
-			},
+			}
 		},
 		Data::Enum(ref data) => {
-			let data_variants = || data.variants.iter().filter(|variant| crate::utils::get_skip(&variant.attrs).is_none());
+			let data_variants = || {
+				data.variants
+					.iter()
+					.filter(|variant| crate::utils::get_skip(&variant.attrs).is_none())
+			};
 
 			if data_variants().count() > 256 {
 				return Error::new(
 					data.variants.span(),
-					"Currently only enums with at most 256 variants are encodable."
-				).to_compile_error();
+					"Currently only enums with at most 256 variants are encodable.",
+				)
+				.to_compile_error();
 			}
 
 			let recurse = data_variants().enumerate().map(|(i, v)| {
 				let name = &v.ident;
 				let index = utils::index(v, i);
 
-				let create = create_instance(
-					quote! { #type_name :: #name },
-					input,
-					&v.fields,
-				);
+				let create = create_instance(quote! { #type_name :: #name }, input, &v.fields);
 
 				quote_spanned! { v.span() =>
 					x if x == #index as u8 => {
@@ -68,9 +64,10 @@ pub fn quote(data: &Data, type_name: &Ident, input: &TokenStream) -> TokenStream
 					x => Err(#err_msg.into()),
 				}
 			}
-
-		},
-		Data::Union(_) => Error::new(Span::call_site(), "Union types are not supported.").to_compile_error(),
+		}
+		Data::Union(_) => {
+			Error::new(Span::call_site(), "Union types are not supported.").to_compile_error()
+		}
 	}
 }
 
@@ -82,8 +79,9 @@ fn create_decode_expr(field: &Field, name: &str, input: &TokenStream) -> TokenSt
 	if encoded_as.is_some() as u8 + compact as u8 + skip as u8 > 1 {
 		return Error::new(
 			field.span(),
-			"`encoded_as`, `compact` and `skip` can only be used one at a time!"
-		).to_compile_error();
+			"`encoded_as`, `compact` and `skip` can only be used one at a time!",
+		)
+		.to_compile_error();
 	}
 
 	let err_msg = format!("Error decoding field {}", name);
@@ -126,11 +124,7 @@ fn create_decode_expr(field: &Field, name: &str, input: &TokenStream) -> TokenSt
 	}
 }
 
-fn create_instance(
-	name: TokenStream,
-	input: &TokenStream,
-	fields: &Fields
-) -> TokenStream {
+fn create_instance(name: TokenStream, input: &TokenStream, fields: &Fields) -> TokenStream {
 	match *fields {
 		Fields::Named(ref fields) => {
 			let recurse = fields.named.iter().map(|f| {
@@ -151,9 +145,9 @@ fn create_instance(
 					#( #recurse, )*
 				})
 			}
-		},
+		}
 		Fields::Unnamed(ref fields) => {
-			let recurse = fields.unnamed.iter().enumerate().map(|(i, f) | {
+			let recurse = fields.unnamed.iter().enumerate().map(|(i, f)| {
 				let name = format!("{}.{}", name, i);
 
 				create_decode_expr(f, &name, input)
@@ -164,11 +158,11 @@ fn create_instance(
 					#( #recurse, )*
 				))
 			}
-		},
+		}
 		Fields::Unit => {
 			quote_spanned! { fields.span() =>
 				Ok(#name)
 			}
-		},
+		}
 	}
 }

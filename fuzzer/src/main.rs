@@ -1,13 +1,13 @@
-use std::collections::{BTreeMap, BTreeSet, VecDeque, LinkedList, BinaryHeap};
+use std::collections::{BTreeMap, BTreeSet, BinaryHeap, LinkedList, VecDeque};
 use std::time::Duration;
 
-use bitvec::{vec::BitVec, order::Msb0};
+use bitvec::{order::Msb0, vec::BitVec};
 use honggfuzz::fuzz;
-use parity_scale_codec::{Encode, Decode, Compact};
+use parity_scale_codec::{Compact, Decode, Encode};
 
 #[derive(Encode, Decode)]
-pub struct MockStruct{
-	vec_u: Vec<u8>
+pub struct MockStruct {
+	vec_u: Vec<u8>,
 }
 
 #[derive(Encode, Decode)]
@@ -71,7 +71,7 @@ macro_rules! fuzz_types {
 	};
 }
 
-fn fuzz_one_input(data: &[u8]){
+fn fuzz_one_input(data: &[u8]) {
 	fuzz_types! {
 		data;
 		u8,
@@ -105,8 +105,8 @@ fn fuzz_one_input(data: &[u8]){
 
 fn main() {
 	loop {
-		fuzz!(|data: &[u8]| { fuzz_one_input(data); });
+		fuzz!(|data: &[u8]| {
+			fuzz_one_input(data);
+		});
 	}
 }
-
-

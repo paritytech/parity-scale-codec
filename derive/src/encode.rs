@@ -15,37 +15,31 @@
 use std::str::from_utf8;
 
 use proc_macro2::{Ident, Span, TokenStream};
-use syn::{
-	punctuated::Punctuated,
-	spanned::Spanned,
-	token::Comma,
-	Data, Field, Fields, Error,
-};
+use syn::{punctuated::Punctuated, spanned::Spanned, token::Comma, Data, Error, Field, Fields};
 
 use crate::utils;
 
 type FieldsList = Punctuated<Field, Comma>;
 
 // Encode a signle field by using using_encoded, must not have skip attribute
-fn encode_single_field(
-	field: &Field,
-	field_name: TokenStream,
-) -> TokenStream {
+fn encode_single_field(field: &Field, field_name: TokenStream) -> TokenStream {
 	let encoded_as = utils::get_encoded_as_type(field);
 	let compact = utils::get_enable_compact(field);
 
 	if utils::get_skip(&field.attrs).is_some() {
 		return Error::new(
 			Span::call_site(),
-			"Internal error: cannot encode single field optimisation if skipped"
-		).to_compile_error();
+			"Internal error: cannot encode single field optimisation if skipped",
+		)
+		.to_compile_error();
 	}
 
 	if encoded_as.is_some() && compact {
 		return Error::new(
 			Span::call_site(),
-			"`encoded_as` and `compact` can not be used at the same time!"
-		).to_compile_error();
+			"`encoded_as` and `compact` can not be used at the same time!",
+		)
+		.to_compile_error();
 	}
 
 	let final_field_variable = if compact {
@@ -85,11 +79,8 @@ fn encode_single_field(
 	}
 }
 
-fn encode_fields<F>(
-	dest: &TokenStream,
-	fields: &FieldsList,
-	field_name: F,
-) -> TokenStream where
+fn encode_fields<F>(dest: &TokenStream, fields: &FieldsList, field_name: F) -> TokenStream
+where
 	F: Fn(usize, &Option<Ident>) -> TokenStream,
 {
 	let recurse = fields.iter().enumerate().map(|(i, f)| {
@@ -101,8 +92,9 @@ fn encode_fields<F>(
 		if encoded_as.is_some() as u8 + compact as u8 + skip as u8 > 1 {
 			return Error::new(
 				f.span(),
-				"`encoded_as`, `compact` and `skip` can only be used one at a time!"
-			).to_compile_error();
+				"`encoded_as`, `compact` and `skip` can only be used one at a time!",
+			)
+			.to_compile_error();
 		}
 
 		// Based on the seen attribute, we generate the code that encodes the field.
@@ -145,27 +137,19 @@ fn encode_fields<F>(
 
 fn try_impl_encode_single_field_optimisation(data: &Data) -> Option<TokenStream> {
 	match *data {
-		Data::Struct(ref data) => {
-			match data.fields {
-				Fields::Named(ref fields) if utils::filter_skip_named(fields).count() == 1 => {
-					let field = utils::filter_skip_named(fields).next().unwrap();
-					let name = &field.ident;
-					Some(encode_single_field(
-						field,
-						quote!(&self.#name)
-					))
-				},
-				Fields::Unnamed(ref fields) if utils::filter_skip_unnamed(fields).count() == 1 => {
-					let (id, field) = utils::filter_skip_unnamed(fields).next().unwrap();
-					let id = syn::Index::from(id);
-
-					Some(encode_single_field(
-						field,
-						quote!(&self.#id)
-					))
-				},
-				_ => None,
+		Data::Struct(ref data) => match data.fields {
+			Fields::Named(ref fields) if utils::filter_skip_named(fields).count() == 1 => {
+				let field = utils::filter_skip_named(fields).next().unwrap();
+				let name = &field.ident;
+				Some(encode_single_field(field, quote!(&self.#name)))
 			}
+			Fields::Unnamed(ref fields) if utils::filter_skip_unnamed(fields).count() == 1 => {
+				let (id, field) = utils::filter_skip_unnamed(fields).next().unwrap();
+				let id = syn::Index::from(id);
+
+				Some(encode_single_field(field, quote!(&self.#id)))
+			}
+			_ => None,
 		},
 		_ => None,
 	}
@@ -175,32 +159,29 @@ fn impl_encode(data: &Data, type_name: &Ident) -> TokenStream {
 	let self_ = quote!(self);
 	let dest = &quote!(dest);
 	let encoding = match *data {
-		Data::Struct(ref data) => {
-			match data.fields {
-				Fields::Named(ref fields) => encode_fields(
-					dest,
-					&fields.named,
-					|_, name| quote!(&#self_.#name),
-				),
-				Fields::Unnamed(ref fields) => encode_fields(
-					dest,
-					&fields.unnamed,
-					|i, _| {
-						let i = syn::Index::from(i);
-						quote!(&#self_.#i)
-					},
-				),
-				Fields::Unit => quote!(),
+		Data::Struct(ref data) => match data.fields {
+			Fields::Named(ref fields) => {
+				encode_fields(dest, &fields.named, |_, name| quote!(&#self_.#name))
 			}
+			Fields::Unnamed(ref fields) => encode_fields(dest, &fields.unnamed, |i, _| {
+				let i = syn::Index::from(i);
+				quote!(&#self_.#i)
+			}),
+			Fields::Unit => quote!(),
 		},
 		Data::Enum(ref data) => {
-			let data_variants = || data.variants.iter().filter(|variant| crate::utils::get_skip(&variant.attrs).is_none());
+			let data_variants = || {
+				data.variants
+					.iter()
+					.filter(|variant| crate::utils::get_skip(&variant.attrs).is_none())
+			};
 
 			if data_variants().count() > 256 {
 				return Error::new(
 					data.variants.span(),
-					"Currently only enums with at most 256 variants are encodable."
-				).to_compile_error();
+					"Currently only enums with at most 256 variants are encodable.",
+				)
+				.to_compile_error();
 			}
 
 			// If the enum has no variants, we don't need to encode anything.
@@ -215,16 +196,14 @@ fn impl_encode(data: &Data, type_name: &Ident) -> TokenStream {
 				match f.fields {
 					Fields::Named(ref fields) => {
 						let field_name = |_, ident: &Option<Ident>| quote!(#ident);
-						let names = fields.named
+						let names = fields
+							.named
 							.iter()
 							.enumerate()
 							.map(|(i, f)| field_name(i, &f.ident));
 
-						let encode_fields = encode_fields(
-							dest,
-							&fields.named,
-							|a, b| field_name(a, b),
-						);
+						let encode_fields =
+							encode_fields(dest, &fields.named, |a, b| field_name(a, b));
 
 						quote_spanned! { f.span() =>
 							#type_name :: #name { #( ref #names, )* } => {
@@ -232,7 +211,7 @@ fn impl_encode(data: &Data, type_name: &Ident) -> TokenStream {
 								#encode_fields
 							}
 						}
-					},
+					}
 					Fields::Unnamed(ref fields) => {
 						let field_name = |i, _: &Option<Ident>| {
 							let data = stringify(i as u8);
@@ -240,16 +219,14 @@ fn impl_encode(data: &Data, type_name: &Ident) -> TokenStream {
 							let ident = Ident::new(ident, Span::call_site());
 							quote!(#ident)
 						};
-						let names = fields.unnamed
+						let names = fields
+							.unnamed
 							.iter()
 							.enumerate()
 							.map(|(i, f)| field_name(i, &f.ident));
 
-						let encode_fields = encode_fields(
-							dest,
-							&fields.unnamed,
-							|a, b| field_name(a, b),
-						);
+						let encode_fields =
+							encode_fields(dest, &fields.unnamed, |a, b| field_name(a, b));
 
 						quote_spanned! { f.span() =>
 							#type_name :: #name ( #( ref #names, )* ) => {
@@ -257,14 +234,14 @@ fn impl_encode(data: &Data, type_name: &Ident) -> TokenStream {
 								#encode_fields
 							}
 						}
-					},
+					}
 					Fields::Unit => {
 						quote_spanned! { f.span() =>
 							#type_name :: #name => {
 								#dest.push_byte(#index as u8);
 							}
 						}
-					},
+					}
 				}
 			});
 
@@ -274,11 +251,10 @@ fn impl_encode(data: &Data, type_name: &Ident) -> TokenStream {
 					_ => (),
 				}
 			}
-		},
-		Data::Union(ref data) => Error::new(
-			data.union_token.span(),
-			"Union types are not supported."
-		).to_compile_error(),
+		}
+		Data::Union(ref data) => {
+			Error::new(data.union_token.span(), "Union types are not supported.").to_compile_error()
+		}
 	};
 
 	quote! {

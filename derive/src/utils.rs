@@ -14,15 +14,13 @@
 
 use std::str::FromStr;
 
-use proc_macro2::{TokenStream, Span};
-use syn::{
-	spanned::Spanned,
-	Meta, NestedMeta, Lit, Attribute, Variant, Field,
-};
+use proc_macro2::{Span, TokenStream};
+use syn::{spanned::Spanned, Attribute, Field, Lit, Meta, NestedMeta, Variant};
 
-fn find_meta_item<'a, F, R, I>(itr: I, pred: F) -> Option<R> where
+fn find_meta_item<'a, F, R, I>(itr: I, pred: F) -> Option<R>
+where
 	F: FnMut(&NestedMeta) -> Option<R> + Clone,
-	I: Iterator<Item=&'a Attribute>
+	I: Iterator<Item = &'a Attribute>,
 {
 	itr.filter_map(|attr| {
 		if attr.path.is_ident("codec") {
@@ -32,7 +30,8 @@ fn find_meta_item<'a, F, R, I>(itr: I, pred: F) -> Option<R> where
 		}
 
 		None
-	}).next()
+	})
+	.next()
 }
 
 pub fn index(v: &Variant, i: usize) -> TokenStream {
@@ -42,7 +41,7 @@ pub fn index(v: &Variant, i: usize) -> TokenStream {
 			if nv.path.is_ident("index") {
 				if let Lit::Str(ref s) = nv.lit {
 					let byte: u8 = s.value().parse().expect("Numeric index expected.");
-					return Some(byte)
+					return Some(byte);
 				}
 			}
 		}
@@ -51,12 +50,12 @@ pub fn index(v: &Variant, i: usize) -> TokenStream {
 	});
 
 	// then fallback to discriminant or just index
-	index.map(|i| quote! { #i })
-		.unwrap_or_else(|| v.discriminant
+	index.map(|i| quote! { #i }).unwrap_or_else(|| {
+		v.discriminant
 			.as_ref()
 			.map(|&(_, ref expr)| quote! { #expr })
 			.unwrap_or_else(|| quote! { #i })
-		)
+	})
 }
 
 pub fn get_encoded_as_type(field_entry: &Field) -> Option<TokenStream> {
@@ -67,7 +66,7 @@ pub fn get_encoded_as_type(field_entry: &Field) -> Option<TokenStream> {
 				if let Lit::Str(ref s) = nv.lit {
 					return Some(
 						TokenStream::from_str(&s.value())
-							.expect("`encoded_as` should be a valid rust type!")
+							.expect("`encoded_as` should be a valid rust type!"),
 					);
 				}
 			}
@@ -87,7 +86,8 @@ pub fn get_enable_compact(field_entry: &Field) -> bool {
 		}
 
 		None
-	}).is_some()
+	})
+	.is_some()
 }
 
 // return span of skip if found
@@ -114,16 +114,20 @@ pub fn get_dumb_trait_bound(attrs: &[Attribute]) -> bool {
 		}
 
 		None
-	}).is_some()
+	})
+	.is_some()
 }
 
-pub fn filter_skip_named<'a>(fields: &'a syn::FieldsNamed) -> impl Iterator<Item=&Field> + 'a {
-	fields.named.iter()
-		.filter(|f| get_skip(&f.attrs).is_none())
+pub fn filter_skip_named<'a>(fields: &'a syn::FieldsNamed) -> impl Iterator<Item = &Field> + 'a {
+	fields.named.iter().filter(|f| get_skip(&f.attrs).is_none())
 }
 
-pub fn filter_skip_unnamed<'a>(fields: &'a syn::FieldsUnnamed) -> impl Iterator<Item=(usize, &Field)> + 'a {
-	fields.unnamed.iter()
+pub fn filter_skip_unnamed<'a>(
+	fields: &'a syn::FieldsUnnamed,
+) -> impl Iterator<Item = (usize, &Field)> + 'a {
+	fields
+		.unnamed
+		.iter()
 		.enumerate()
 		.filter(|(_, f)| get_skip(&f.attrs).is_none())
 }

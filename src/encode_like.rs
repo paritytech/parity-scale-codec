@@ -88,8 +88,10 @@ pub trait EncodeLike<T: Encode = Self>: Sized + Encode {}
 /// ```
 pub struct Ref<'a, T: EncodeLike<U>, U: Encode>(&'a T, core::marker::PhantomData<U>);
 impl<'a, T: EncodeLike<U>, U: Encode> core::ops::Deref for Ref<'a, T, U> {
-    type Target = T;
-    fn deref(&self) -> &Self::Target { &self.0 }
+	type Target = T;
+	fn deref(&self) -> &Self::Target {
+		&self.0
+	}
 }
 
 impl<'a, T: EncodeLike<U>, U: Encode> From<&'a T> for Ref<'a, T, U> {
@@ -109,7 +111,10 @@ mod tests {
 	struct ComplexStuff<T>(T);
 
 	impl<T: Encode> ComplexStuff<T> {
-		fn complex_method<R: Encode>(value: &R) -> Vec<u8> where T: EncodeLike<R> {
+		fn complex_method<R: Encode>(value: &R) -> Vec<u8>
+		where
+			T: EncodeLike<R>,
+		{
 			value.encode()
 		}
 	}

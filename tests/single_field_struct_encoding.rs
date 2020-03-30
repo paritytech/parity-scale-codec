@@ -1,9 +1,9 @@
-#[cfg(not(feature="derive"))]
-use parity_scale_codec_derive::{Encode, Decode, CompactAs};
-#[cfg(feature="derive")]
+#[cfg(feature = "derive")]
 use parity_scale_codec::CompactAs;
 use parity_scale_codec::{Compact, Decode, Encode, HasCompact};
-use serde_derive::{Serialize, Deserialize};
+#[cfg(not(feature = "derive"))]
+use parity_scale_codec_derive::{CompactAs, Decode, Encode};
+use serde_derive::{Deserialize, Serialize};
 
 #[derive(Debug, PartialEq, Encode, Decode)]
 struct S {
@@ -38,7 +38,9 @@ struct U(u32);
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Encode, Decode, CompactAs)]
-struct U2 { a: u64 }
+struct U2 {
+	a: u64,
+}
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Encode, Decode, CompactAs)]
@@ -63,7 +65,11 @@ struct Uh<T: HasCompact>(#[codec(encoded_as = "<T as HasCompact>::Type")] T);
 fn test_encoding() {
 	let x = 3u32;
 	let s = S { x };
-	let s_skip = SSkip { x, s1: Default::default(), s2: Default::default() };
+	let s_skip = SSkip {
+		x,
+		s1: Default::default(),
+		s2: Default::default(),
+	};
 	let sc = Sc { x };
 	let sh = Sh { x };
 	let u = U(x);
@@ -110,7 +116,13 @@ fn test_encoding() {
 	assert_eq!(uc, Uc::decode(&mut uc_encoded).unwrap());
 	assert_eq!(ucom, <Compact::<U>>::decode(&mut ucom_encoded).unwrap());
 	assert_eq!(ucas, Ucas::decode(&mut ucas_encoded).unwrap());
-	assert_eq!(u_skip_cas, USkipcas::decode(&mut u_skip_cas_encoded).unwrap());
-	assert_eq!(s_skip_cas, SSkipcas::decode(&mut s_skip_cas_encoded).unwrap());
+	assert_eq!(
+		u_skip_cas,
+		USkipcas::decode(&mut u_skip_cas_encoded).unwrap()
+	);
+	assert_eq!(
+		s_skip_cas,
+		SSkipcas::decode(&mut s_skip_cas_encoded).unwrap()
+	);
 	assert_eq!(uh, Uh::decode(&mut uh_encoded).unwrap());
 }

@@ -228,7 +228,6 @@
 //!
 
 #![warn(missing_docs)]
-
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[cfg(not(feature = "std"))]
@@ -251,36 +250,36 @@ pub use parity_scale_codec_derive::*;
 #[cfg(feature = "std")]
 #[doc(hidden)]
 pub mod alloc {
-	pub use std::boxed;
-	pub use std::vec;
-	pub use std::string;
 	pub use std::borrow;
+	pub use std::boxed;
 	pub use std::collections;
-	pub use std::sync;
 	pub use std::rc;
+	pub use std::string;
+	pub use std::sync;
+	pub use std::vec;
 }
 
-mod codec;
-mod compact;
-mod joiner;
-mod keyedvec;
 #[cfg(feature = "bit-vec")]
 mod bit_vec;
-#[cfg(feature = "generic-array")]
-mod generic_array;
+mod codec;
+mod compact;
 mod decode_all;
 mod encode_append;
 mod encode_like;
+#[cfg(feature = "generic-array")]
+mod generic_array;
+mod joiner;
+mod keyedvec;
 
-pub use self::codec::{
-	Input, Output, Error, Decode, Encode, Codec, EncodeAsRef, WrapperTypeEncode,
-	WrapperTypeDecode, OptionBool, DecodeLength, FullCodec, FullEncode,
-};
 #[cfg(feature = "std")]
 pub use self::codec::IoReader;
-pub use self::compact::{Compact, HasCompact, CompactAs, CompactLen};
-pub use self::joiner::Joiner;
-pub use self::keyedvec::KeyedVec;
+pub use self::codec::{
+	Codec, Decode, DecodeLength, Encode, EncodeAsRef, Error, FullCodec, FullEncode, Input,
+	OptionBool, Output, WrapperTypeDecode, WrapperTypeEncode,
+};
+pub use self::compact::{Compact, CompactAs, CompactLen, HasCompact};
 pub use self::decode_all::DecodeAll;
 pub use self::encode_append::EncodeAppend;
 pub use self::encode_like::{EncodeLike, Ref};
+pub use self::joiner::Joiner;
+pub use self::keyedvec::KeyedVec;

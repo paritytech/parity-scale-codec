@@ -24,7 +24,7 @@ use syn::{
 /// Visits the ast and checks if one of the given idents is found.
 struct ContainIdents<'a> {
 	result: bool,
-	idents: &'a[Ident]
+	idents: &'a [Ident],
 }
 
 impl<'a, 'ast> Visit<'ast> for ContainIdents<'a> {
@@ -37,7 +37,10 @@ impl<'a, 'ast> Visit<'ast> for ContainIdents<'a> {
 
 /// Checks if the given type contains one of the given idents.
 fn type_contain_idents(ty: &Type, idents: &[Ident]) -> bool {
-	let mut visitor = ContainIdents { result: false, idents };
+	let mut visitor = ContainIdents {
+		result: false,
+		idents,
+	};
 	visitor.visit_type(ty);
 	visitor.result
 }
@@ -45,7 +48,7 @@ fn type_contain_idents(ty: &Type, idents: &[Ident]) -> bool {
 /// Visits the ast and checks if the a type path starts with the given ident.
 struct TypePathStartsWithIdent<'a> {
 	result: bool,
-	ident: &'a Ident
+	ident: &'a Ident,
 }
 
 impl<'a, 'ast> Visit<'ast> for TypePathStartsWithIdent<'a> {
@@ -63,14 +66,20 @@ impl<'a, 'ast> Visit<'ast> for TypePathStartsWithIdent<'a> {
 
 /// Checks if the given type path or any containing type path starts with the given ident.
 fn type_path_or_sub_starts_with_ident(ty: &TypePath, ident: &Ident) -> bool {
-	let mut visitor = TypePathStartsWithIdent { result: false, ident };
+	let mut visitor = TypePathStartsWithIdent {
+		result: false,
+		ident,
+	};
 	visitor.visit_type_path(ty);
 	visitor.result
 }
 
 /// Checks if the given type or any containing type path starts with the given ident.
 fn type_or_sub_type_path_starts_with_ident(ty: &Type, ident: &Ident) -> bool {
-	let mut visitor = TypePathStartsWithIdent { result: false, ident };
+	let mut visitor = TypePathStartsWithIdent {
+		result: false,
+		ident,
+	};
 	visitor.visit_type(ty);
 	visitor.result
 }
@@ -80,7 +89,7 @@ fn type_or_sub_type_path_starts_with_ident(ty: &Type, ident: &Ident) -> bool {
 /// Returns `T`, `N`, `A` for `Vec<(Recursive<T, N>, A)>` with `Recursive` as ident.
 struct FindTypePathsNotStartOrContainIdent<'a> {
 	result: Vec<TypePath>,
-	ident: &'a Ident
+	ident: &'a Ident,
 }
 
 impl<'a, 'ast> Visit<'ast> for FindTypePathsNotStartOrContainIdent<'a> {
@@ -97,7 +106,10 @@ impl<'a, 'ast> Visit<'ast> for FindTypePathsNotStartOrContainIdent<'a> {
 ///
 /// Returns `T`, `N`, `A` for `Vec<(Recursive<T, N>, A)>` with `Recursive` as ident.
 fn find_type_paths_not_start_or_contain_ident(ty: &Type, ident: &Ident) -> Vec<TypePath> {
-	let mut visitor = FindTypePathsNotStartOrContainIdent { result: Vec::new(), ident };
+	let mut visitor = FindTypePathsNotStartOrContainIdent {
+		result: Vec::new(),
+		ident,
+	};
 	visitor.visit_type(ty);
 	visitor.result
 }
@@ -111,12 +123,16 @@ pub fn add(
 	codec_skip_bound: Option<syn::Path>,
 	dumb_trait_bounds: bool,
 ) -> Result<()> {
-	let ty_params = generics.type_params().map(|p| p.ident.clone()).collect::<Vec<_>>();
+	let ty_params = generics
+		.type_params()
+		.map(|p| p.ident.clone())
+		.collect::<Vec<_>>();
 	if ty_params.is_empty() {
 		return Ok(());
 	}
 
-	let codec_types = get_types_to_add_trait_bound(input_ident, data, &ty_params, dumb_trait_bounds)?;
+	let codec_types =
+		get_types_to_add_trait_bound(input_ident, data, &ty_params, dumb_trait_bounds)?;
 
 	let compact_types = collect_types(&data, needs_has_compact_bound, variant_not_skipped)?
 		.into_iter()
@@ -137,25 +153,25 @@ pub fn add(
 	if !codec_types.is_empty() || !compact_types.is_empty() || !skip_types.is_empty() {
 		let where_clause = generics.make_where_clause();
 
-		codec_types
-			.into_iter()
-			.for_each(|ty| {
-				where_clause.predicates.push(parse_quote!(#ty : #codec_bound))
-			});
+		codec_types.into_iter().for_each(|ty| {
+			where_clause
+				.predicates
+				.push(parse_quote!(#ty : #codec_bound))
+		});
 
 		let has_compact_bound: syn::Path = parse_quote!(_parity_scale_codec::HasCompact);
-		compact_types
-			.into_iter()
-			.for_each(|ty| {
-				where_clause.predicates.push(parse_quote!(#ty : #has_compact_bound))
-			});
+		compact_types.into_iter().for_each(|ty| {
+			where_clause
+				.predicates
+				.push(parse_quote!(#ty : #has_compact_bound))
+		});
 
-		skip_types
-			.into_iter()
-			.for_each(|ty| {
-				let codec_skip_bound = codec_skip_bound.as_ref().unwrap();
-				where_clause.predicates.push(parse_quote!(#ty : #codec_skip_bound))
-			});
+		skip_types.into_iter().for_each(|ty| {
+			let codec_skip_bound = codec_skip_bound.as_ref().unwrap();
+			where_clause
+				.predicates
+				.push(parse_quote!(#ty : #codec_skip_bound))
+		});
 	}
 
 	Ok(())
@@ -221,37 +237,42 @@ fn collect_types(
 
 	let types = match *data {
 		Data::Struct(ref data) => match &data.fields {
-			| Fields::Named(FieldsNamed { named: fields , .. })
-			| Fields::Unnamed(FieldsUnnamed { unnamed: fields, .. }) => {
-				fields.iter()
-					.filter(|f| type_filter(f))
-					.map(|f| f.ty.clone())
-					.collect()
-			},
+			Fields::Named(FieldsNamed { named: fields, .. })
+			| Fields::Unnamed(FieldsUnnamed {
+				unnamed: fields, ..
+			}) => fields
+				.iter()
+				.filter(|f| type_filter(f))
+				.map(|f| f.ty.clone())
+				.collect(),
 
-			Fields::Unit => { Vec::new() },
+			Fields::Unit => Vec::new(),
 		},
 
-		Data::Enum(ref data) => data.variants.iter()
+		Data::Enum(ref data) => data
+			.variants
+			.iter()
 			.filter(|variant| variant_filter(variant))
-			.flat_map(|variant| {
-				match &variant.fields {
-					| Fields::Named(FieldsNamed { named: fields , .. })
-					| Fields::Unnamed(FieldsUnnamed { unnamed: fields, .. }) => {
-						fields.iter()
-							.filter(|f| type_filter(f))
-							.map(|f| f.ty.clone())
-							.collect()
-					},
+			.flat_map(|variant| match &variant.fields {
+				Fields::Named(FieldsNamed { named: fields, .. })
+				| Fields::Unnamed(FieldsUnnamed {
+					unnamed: fields, ..
+				}) => fields
+					.iter()
+					.filter(|f| type_filter(f))
+					.map(|f| f.ty.clone())
+					.collect(),
 
-					Fields::Unit => { Vec::new() },
-				}
-			}).collect(),
+				Fields::Unit => Vec::new(),
+			})
+			.collect(),
 
-		Data::Union(ref data) => return Err(Error::new(
-			data.union_token.span(),
-			"Union types are not supported."
-		)),
+		Data::Union(ref data) => {
+			return Err(Error::new(
+				data.union_token.span(),
+				"Union types are not supported.",
+			))
+		}
 	};
 
 	Ok(types)
