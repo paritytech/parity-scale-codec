@@ -142,7 +142,7 @@ assert_eq!(<Test1CompactHasCompact<u64>>::decode(&mut &encoded[..]).unwrap().bar
 ```rust
 
 use serde_derive::{Serialize, Deserialize};
-use parity_scale_codec::{Encode, Decode, Compact, HasCompact, CompactAs};
+use parity_scale_codec::{Encode, Decode, Compact, HasCompact, CompactAs, Error};
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
 #[derive(PartialEq, Eq, Clone)]
@@ -155,8 +155,8 @@ impl CompactAs for StructHasCompact {
         &12
     }
 
-    fn decode_from(_: Self::As) -> Self {
-        StructHasCompact(12)
+    fn decode_from(_: Self::As) -> Result<Self, Error> {
+        Ok(StructHasCompact(12))
     }
 }
 
