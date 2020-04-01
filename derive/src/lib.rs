@@ -299,12 +299,16 @@ pub fn compact_as_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStr
 			fn encode_as(&self) -> &#inner_ty {
 				#inner_field
 			}
-			fn decode_from(x: #inner_ty) -> #name #ty_generics {
-				#constructor
+			fn decode_from(x: #inner_ty)
+				-> core::result::Result<#name #ty_generics, _parity_scale_codec::Error>
+			{
+				Ok(#constructor)
 			}
 		}
 
-		impl #impl_generics From<_parity_scale_codec::Compact<#name #ty_generics>> for #name #ty_generics #where_clause {
+		impl #impl_generics From<_parity_scale_codec::Compact<#name #ty_generics>>
+			for #name #ty_generics #where_clause
+		{
 			fn from(x: _parity_scale_codec::Compact<#name #ty_generics>) -> #name #ty_generics {
 				x.0
 			}
