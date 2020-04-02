@@ -1,7 +1,7 @@
 [package]
 name = "parity-scale-codec-derive"
 description = "Serialization and deserialization derive macro for Parity SCALE Codec"
-version = "1.2.0"
+version = "1.3.0"
 authors = ["Parity Technologies <admin@parity.io>"]
 license = "Apache-2.0"
 edition = "2018"
