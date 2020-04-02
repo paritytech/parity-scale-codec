@@ -14,7 +14,7 @@
 
 #[cfg(not(feature="derive"))]
 use parity_scale_codec_derive::{Encode, Decode};
-use parity_scale_codec::{Encode, Decode, HasCompact, Compact, EncodeAsRef, CompactAs};
+use parity_scale_codec::{Encode, Decode, HasCompact, Compact, EncodeAsRef, CompactAs, Error};
 use serde_derive::{Serialize, Deserialize};
 
 #[derive(Debug, PartialEq, Encode, Decode)]
@@ -376,8 +376,8 @@ fn generic_bound_hascompact() {
 		fn encode_as(&self) -> &Self::As {
 			&0
 		}
-		fn decode_from(_: Self::As) -> Self {
-			StructHasCompact(0)
+		fn decode_from(_: Self::As) -> Result<Self, Error> {
+			Ok(StructHasCompact(0))
 		}
 	}
 

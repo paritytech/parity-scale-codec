@@ -90,11 +90,11 @@ pub trait CompactAs: From<Compact<Self>> {
 	/// A compact-encodable type that should be used as the encoding.
 	type As;
 
-	/// Returns the encodable type.
+	/// Returns the compact-encodable type.
 	fn encode_as(&self) -> &Self::As;
 
-	/// Create `Self` from the decodable type.
-	fn decode_from(_: Self::As) -> Self;
+	/// Decode `Self` from the compact-decoded type.
+	fn decode_from(_: Self::As) -> Result<Self, Error>;
 }
 
 impl<T> EncodeLike for Compact<T>
@@ -157,8 +157,8 @@ where
 	Compact<T::As>: Decode,
 {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
-		Compact::<T::As>::decode(input)
-			.map(|x| Compact(<T as CompactAs>::decode_from(x.0)))
+		let as_ = Compact::<T::As>::decode(input)?;
+		Ok(Compact(<T as CompactAs>::decode_from(as_.0)?))
 	}
 }
 
@@ -769,8 +769,8 @@ mod tests {
 		fn encode_as(&self) -> &u8 {
 			&self.0
 		}
-		fn decode_from(x: u8) -> Wrapper {
-			Wrapper(x)
+		fn decode_from(x: u8) -> Result<Wrapper, Error> {
+			Ok(Wrapper(x))
 		}
 	}
 

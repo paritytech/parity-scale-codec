@@ -64,7 +64,7 @@
 //!
 //! * `encode_as(&self) -> &Self::As`: Encodes the type (self) as a compact type.
 //! The type `As` is defined in the same trait and its implementation should be compact encode-able.
-//! * `decode_from(_: Self::As) -> Self`: Decodes the type (self) from a compact encode-able type.
+//! * `decode_from(_: Self::As) -> Result<Self, Error>`: Decodes the type (self) from a compact encode-able type.
 //!
 //! ### HasCompact
 //!
@@ -168,7 +168,7 @@
 //! # use parity_scale_codec_derive::{Encode, Decode};
 //!
 //! use serde_derive::{Serialize, Deserialize};
-//! use parity_scale_codec::{Encode, Decode, Compact, HasCompact, CompactAs};
+//! use parity_scale_codec::{Encode, Decode, Compact, HasCompact, CompactAs, Error};
 //!
 //! #[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
 //! #[derive(PartialEq, Eq, Clone)]
@@ -181,8 +181,8 @@
 //!         &12
 //!     }
 //!
-//!     fn decode_from(_: Self::As) -> Self {
-//!         StructHasCompact(12)
+//!     fn decode_from(_: Self::As) -> Result<Self, Error> {
+//!         Ok(StructHasCompact(12))
 //!     }
 //! }
 //!
