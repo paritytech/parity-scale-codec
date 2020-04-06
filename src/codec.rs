@@ -552,6 +552,55 @@ impl<T: Decode> Decode for Option<T> {
 	}
 }
 
+const _: () = {
+	use core::num::{
+		NonZeroI8,
+		NonZeroI16,
+		NonZeroI32,
+		NonZeroI64,
+		NonZeroI128,
+		NonZeroU8,
+		NonZeroU16,
+		NonZeroU32,
+		NonZeroU64,
+		NonZeroU128,
+	};
+	macro_rules! impl_for_non_zero {
+		( $( ($name:ty, $wrapped:ty) ),* $(,)? ) => {
+			$(
+				impl Encode for $name {
+					fn size_hint(&self) -> usize {
+						<$wrapped as Encode>::size_hint(&self.get())
+					}
+
+					fn encode_to<W: Output>(&self, dest: &mut W) {
+						<$wrapped as Encode>::encode_to(&self.get(), dest)
+					}
+				}
+
+				impl Decode for $name {
+					fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
+						let value = <$wrapped as Decode>::decode(input)?;
+						Self::new(value).ok_or_else(|| Error("cannot create non-zero number from 0"))
+					}
+				}
+			)*
+		}
+	}
+	impl_for_non_zero! {
+		(NonZeroI8, i8),
+		(NonZeroI16, i16),
+		(NonZeroI32, i32),
+		(NonZeroI64, i64),
+		(NonZeroI128, i128),
+		(NonZeroU8, u8),
+		(NonZeroU16, u16),
+		(NonZeroU32, u32),
+		(NonZeroU64, u64),
+		(NonZeroU128, u128),
+	}
+};
+
 macro_rules! impl_array {
 	( $( $n:expr, )* ) => {
 		$(
