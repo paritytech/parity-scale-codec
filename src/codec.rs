@@ -17,7 +17,18 @@
 #[cfg(feature = "std")]
 use std::fmt;
 use core::{mem, ops::Deref, marker::PhantomData, iter::FromIterator, convert::TryFrom, time::Duration};
-
+use core::num::{
+	NonZeroI8,
+	NonZeroI16,
+	NonZeroI32,
+	NonZeroI64,
+	NonZeroI128,
+	NonZeroU8,
+	NonZeroU16,
+	NonZeroU32,
+	NonZeroU64,
+	NonZeroU128,
+};
 use arrayvec::ArrayVec;
 
 use byte_slice_cast::{AsByteSlice, IntoVecOf};
@@ -550,6 +561,49 @@ impl<T: Decode> Decode for Option<T> {
 			_ => Err("unexpecded first byte decoding Option".into()),
 		}
 	}
+}
+
+macro_rules! impl_for_non_zero {
+	( $( $name:ty ),* $(,)? ) => {
+		$(
+			impl Encode for $name {
+				fn size_hint(&self) -> usize {
+					self.get().size_hint()
+				}
+
+				fn encode_to<W: Output>(&self, dest: &mut W) {
+					self.get().encode_to(dest)
+				}
+
+				fn encode(&self) -> Vec<u8> {
+					self.get().encode()
+				}
+
+				fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
+					self.get().using_encoded(f)
+				}
+			}
+
+			impl Decode for $name {
+				fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
+					Self::new(Decode::decode(input)?)
+						.ok_or_else(|| Error::from("cannot create non-zero number from 0"))
+				}
+			}
+		)*
+	}
+}
+impl_for_non_zero! {
+	NonZeroI8,
+	NonZeroI16,
+	NonZeroI32,
+	NonZeroI64,
+	NonZeroI128,
+	NonZeroU8,
+	NonZeroU16,
+	NonZeroU32,
+	NonZeroU64,
+	NonZeroU128,
 }
 
 macro_rules! impl_array {
