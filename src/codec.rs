@@ -581,7 +581,7 @@ const _: () = {
 				impl Decode for $name {
 					fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 						let value = <$wrapped as Decode>::decode(input)?;
-						Self::new(value).ok_or_else(|| Error("cannot create non-zero number from 0"))
+						Self::new(value).ok_or_else(|| Error::from("cannot create non-zero number from 0"))
 					}
 				}
 			)*
