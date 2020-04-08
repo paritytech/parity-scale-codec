@@ -12,31 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Provide the function to implement Decode::decode
+//! Provide the function to implement Decode::skip
 
 use proc_macro2::{Span, TokenStream, Ident};
 use syn::{
 	spanned::Spanned,
-	Data, Fields, Field, Error,
+	Data, Fields, Field, Error, FieldsNamed, FieldsUnnamed
 };
 
 use crate::utils;
 
-/// Implement Decode::decode
+/// Implement Decode::skip
+/// * type_name is name of the type to skip, used for error message
+/// * input is as in `fn skip<..>(input: Input)`
 pub fn quote(data: &Data, type_name: &Ident, input: &TokenStream) -> TokenStream {
 	match *data {
-		Data::Struct(ref data) => match data.fields {
-			Fields::Named(_) | Fields::Unnamed(_) => create_instance(
-				quote! { #type_name },
-				input,
-				&data.fields,
-			),
-			Fields::Unit => {
-				quote_spanned! { data.fields.span() =>
-					Ok(#type_name)
-				}
-			},
-		},
+		Data::Struct(ref data) => skip_fields(
+			&data.fields,
+			input,
+		),
 		Data::Enum(ref data) => {
 			let data_variants = || data.variants.iter().filter(|variant| crate::utils::get_skip(&variant.attrs).is_none());
 
@@ -48,19 +42,15 @@ pub fn quote(data: &Data, type_name: &Ident, input: &TokenStream) -> TokenStream
 			}
 
 			let recurse = data_variants().enumerate().map(|(i, v)| {
-				let name = &v.ident;
 				let index = utils::index(v, i);
 
-				let create = create_instance(
-					quote! { #type_name :: #name },
-					input,
+				let skip = skip_fields(
 					&v.fields,
+					input,
 				);
 
 				quote_spanned! { v.span() =>
-					x if x == #index as u8 => {
-						#create
-					},
+					x if x == #index as u8 => #skip,
 				}
 			});
 
@@ -68,16 +58,18 @@ pub fn quote(data: &Data, type_name: &Ident, input: &TokenStream) -> TokenStream
 			quote! {
 				match #input.read_byte()? {
 					#( #recurse )*
+					// Actually we don't need to check that value is correct.
 					x => Err(#err_msg.into()),
 				}
 			}
-
 		},
 		Data::Union(_) => Error::new(Span::call_site(), "Union types are not supported.").to_compile_error(),
 	}
 }
 
-fn create_decode_expr(field: &Field, name: &str, input: &TokenStream) -> TokenStream {
+// return expression that skip field.
+// * input: as in `fn skip<..>(input: Input)`
+fn skip_field(field: &Field, input: &TokenStream) -> TokenStream {
 	let encoded_as = utils::get_encoded_as_type(field);
 	let compact = utils::get_enable_compact(field);
 	let skip = utils::get_skip(&field.attrs).is_some();
@@ -89,89 +81,46 @@ fn create_decode_expr(field: &Field, name: &str, input: &TokenStream) -> TokenSt
 		).to_compile_error();
 	}
 
-	let err_msg = format!("Error decoding field {}", name);
-
 	if compact {
 		let field_type = &field.ty;
 		quote_spanned! { field.span() =>
-			{
-				let res = <
-					<#field_type as _parity_scale_codec::HasCompact>::Type as _parity_scale_codec::Decode
-				>::decode(#input);
-				match res {
-					Err(_) => return Err(#err_msg.into()),
-					Ok(a) => a.into(),
-				}
-			}
+			<
+				<#field_type as _parity_scale_codec::HasCompact>::Type as _parity_scale_codec::Decode
+			>::skip(#input)
 		}
 	} else if let Some(encoded_as) = encoded_as {
 		quote_spanned! { field.span() =>
-			{
-				let res = <#encoded_as as _parity_scale_codec::Decode>::decode(#input);
-				match res {
-					Err(_) => return Err(#err_msg.into()),
-					Ok(a) => a.into(),
-				}
-			}
+			<#encoded_as as _parity_scale_codec::Decode>::skip(#input)
 		}
 	} else if skip {
-		quote_spanned! { field.span() => Default::default() }
+		quote_spanned! { field.span() => Ok::<(), _parity_scale_codec::Error>(()) }
 	} else {
+		let field_ty = &field.ty;
 		quote_spanned! { field.span() =>
-			{
-				let res = _parity_scale_codec::Decode::decode(#input);
-				match res {
-					Err(_) => return Err(#err_msg.into()),
-					Ok(a) => a,
-				}
-			}
+			<#field_ty as _parity_scale_codec::Decode>::skip(#input)
 		}
 	}
 }
 
-fn create_instance(
-	name: TokenStream,
+// return expression that skip fields.
+// * input: as in `fn skip<..>(input: Input)`
+fn skip_fields(
+	fields: &Fields,
 	input: &TokenStream,
-	fields: &Fields
 ) -> TokenStream {
-	match *fields {
-		Fields::Named(ref fields) => {
-			let recurse = fields.named.iter().map(|f| {
-				let name_ident = &f.ident;
-				let field = match name_ident {
-					Some(a) => format!("{}.{}", name, a),
-					None => format!("{}", name),
-				};
-				let decode = create_decode_expr(f, &field, input);
+	let span = fields.span();
+	match fields {
+		Fields::Named(FieldsNamed { named: fields , .. })
+			| Fields::Unnamed(FieldsUnnamed { unnamed: fields, .. })
+		=> {
+			let recurse = fields.iter().map(|f| {
+				let skip_expr = skip_field(f, input);
 
-				quote_spanned! { f.span() =>
-					#name_ident: #decode
-				}
+				quote_spanned! { f.span() => #skip_expr }
 			});
 
-			quote_spanned! { fields.span() =>
-				Ok(#name {
-					#( #recurse, )*
-				})
-			}
+			quote_spanned! { span => { #( #recurse?; )* Ok(()) } }
 		},
-		Fields::Unnamed(ref fields) => {
-			let recurse = fields.unnamed.iter().enumerate().map(|(i, f) | {
-				let name = format!("{}.{}", name, i);
-
-				create_decode_expr(f, &name, input)
-			});
-
-			quote_spanned! { fields.span() =>
-				Ok(#name (
-					#( #recurse, )*
-				))
-			}
-		},
-		Fields::Unit => {
-			quote_spanned! { fields.span() =>
-				Ok(#name)
-			}
-		},
+		Fields::Unit => quote_spanned! { span => Ok(()) },
 	}
 }

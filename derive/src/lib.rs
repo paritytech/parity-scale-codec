@@ -29,6 +29,7 @@ use syn::spanned::Spanned;
 use syn::{Data, Field, Fields, DeriveInput, Error};
 
 mod decode;
+mod skip;
 mod encode;
 mod utils;
 mod trait_bounds;
@@ -197,6 +198,7 @@ pub fn decode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 
 	let input_ = quote!(input);
 	let decoding = decode::quote(&input.data, name, &input_);
+	let skipping = skip::quote(&input.data, name, &input_);
 
 	let impl_block = quote! {
 		impl #impl_generics _parity_scale_codec::Decode for #name #ty_generics #where_clause {
@@ -204,6 +206,12 @@ pub fn decode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 				#input_: &mut DecIn
 			) -> core::result::Result<Self, _parity_scale_codec::Error> {
 				#decoding
+			}
+
+			fn skip<DecIn: _parity_scale_codec::Input>(
+				#input_: &mut DecIn
+			) -> core::result::Result<(), _parity_scale_codec::Error> {
+				#skipping
 			}
 		}
 	};

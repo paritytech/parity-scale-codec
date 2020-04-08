@@ -131,6 +131,9 @@ pub trait Input {
 		self.read(&mut buf[..])?;
 		Ok(buf[0])
 	}
+
+	/// Skip the exact number of bytes from the input.
+	fn skip(&mut self, len: usize) -> Result<(), Error>;
 }
 
 impl<'a> Input for &'a [u8] {
@@ -144,6 +147,14 @@ impl<'a> Input for &'a [u8] {
 		}
 		let len = into.len();
 		into.copy_from_slice(&self[..len]);
+		*self = &self[len..];
+		Ok(())
+	}
+
+	fn skip(&mut self, len: usize) -> Result<(), Error> {
+		if len > self.len() {
+			return Err("Not enough data in input to skip".into());
+		}
 		*self = &self[len..];
 		Ok(())
 	}
@@ -204,6 +215,13 @@ impl<R: std::io::Read + std::io::Seek> Input for IoReader<R> {
 
 	fn read(&mut self, into: &mut [u8]) -> Result<(), Error> {
 		self.0.read_exact(into).map_err(Into::into)
+	}
+
+	fn skip(&mut self, len: usize) -> Result<(), Error> {
+		use std::io::SeekFrom;
+		self.0.seek(SeekFrom::Current(len as i64))
+			.map(|_| ())
+			.map_err(|_| "Input cannot skip bytes".into())
 	}
 }
 
@@ -310,6 +328,11 @@ pub trait Decode: Sized {
 
 	/// Attempt to deserialise the value from input.
 	fn decode<I: Input>(value: &mut I) -> Result<Self, Error>;
+
+	/// Attempt to skip the value from input.
+	///
+	/// NOTE: This doesn't check that the value is valid.
+	fn skip<I: Input>(value: &mut I) -> Result<(), Error>;
 }
 
 /// Trait that allows zero-copy read/write of value-references to/from slices in LE format.
@@ -423,6 +446,9 @@ impl<T, X> Decode for X where
 		Ok(T::decode(input)?.into())
 	}
 
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		T::skip(input)
+	}
 }
 
 /// A macro that matches on a [`TypeInfo`] and expands a given macro per variant.
@@ -493,6 +519,13 @@ impl<T: Decode, E: Decode> Decode for Result<T, E> {
 			_ => Err("unexpected first byte decoding Result".into()),
 		}
 	}
+
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		match input.read_byte()? {
+			0 => T::skip(input),
+			_ => E::skip(input),
+		}
+	}
 }
 
 /// Shim type because we can't do a specialised implementation for `Option<bool>` directly.
@@ -530,6 +563,10 @@ impl Decode for OptionBool {
 			_ => Err("unexpected first byte decoding OptionBool".into()),
 		}
 	}
+
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		input.skip(1)
+	}
 }
 
 impl<T: EncodeLike<U>, U: Encode> EncodeLike<Option<U>> for Option<T> {}
@@ -561,10 +598,17 @@ impl<T: Decode> Decode for Option<T> {
 			_ => Err("unexpecded first byte decoding Option".into()),
 		}
 	}
+
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		match input.read_byte()? {
+			0 => Ok(()),
+			_ => T::skip(input),
+		}
+	}
 }
 
 macro_rules! impl_for_non_zero {
-	( $( $name:ty ),* $(,)? ) => {
+	( $( $name:ty, $from:ty),* $(,)? ) => {
 		$(
 			impl Encode for $name {
 				fn size_hint(&self) -> usize {
@@ -586,24 +630,28 @@ macro_rules! impl_for_non_zero {
 
 			impl Decode for $name {
 				fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
-					Self::new(Decode::decode(input)?)
+					Self::new(<$from as Decode>::decode(input)?)
 						.ok_or_else(|| Error::from("cannot create non-zero number from 0"))
+				}
+
+				fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+					<$from as Decode>::skip(input)
 				}
 			}
 		)*
 	}
 }
 impl_for_non_zero! {
-	NonZeroI8,
-	NonZeroI16,
-	NonZeroI32,
-	NonZeroI64,
-	NonZeroI128,
-	NonZeroU8,
-	NonZeroU16,
-	NonZeroU32,
-	NonZeroU64,
-	NonZeroU128,
+	NonZeroI8, i8,
+	NonZeroI16, i16,
+	NonZeroI32, i32,
+	NonZeroI64, i64,
+	NonZeroI128, i128,
+	NonZeroU8, u8,
+	NonZeroU16, u16,
+	NonZeroU32, u32,
+	NonZeroU64, u64,
+	NonZeroU128, u128,
 }
 
 macro_rules! impl_array {
@@ -657,6 +705,13 @@ macro_rules! impl_array {
 						Err(_) => Err("failed to get inner array from ArrayVec".into()),
 					}
 				}
+
+				fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+					for _ in 0..$n {
+						T::skip(input)?;
+					}
+					Ok(())
+				}
 			}
 
 			impl<T: EncodeLike<U>, U: Encode> EncodeLike<[U; $n]> for [T; $n] {}
@@ -707,6 +762,10 @@ impl<'a, T: ToOwned + ?Sized> Decode for Cow<'a, T>
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		Ok(Cow::Owned(Decode::decode(input)?))
 	}
+
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		T::Owned::skip(input)
+	}
 }
 
 impl<T> EncodeLike for PhantomData<T> {}
@@ -719,12 +778,20 @@ impl<T> Decode for PhantomData<T> {
 	fn decode<I: Input>(_input: &mut I) -> Result<Self, Error> {
 		Ok(PhantomData)
 	}
+
+	fn skip<I: Input>(_input: &mut I) -> Result<(), Error> {
+		Ok(())
+	}
 }
 
 #[cfg(any(feature = "std", feature = "full"))]
 impl Decode for String {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		Self::from_utf8(Vec::decode(input)?).map_err(|_| "Invalid utf8 sequence".into())
+	}
+
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		<Vec<u8>>::skip(input)
 	}
 }
 
@@ -854,12 +921,36 @@ impl<T: Decode> Decode for Vec<T> {
 			}
 		})
 	}
+
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		<Compact<u32>>::decode(input).and_then(move |Compact(len)| {
+			let len = len as usize;
+
+			macro_rules! skip {
+				( $ty:ty, $input:ident, $len:ident ) => {{
+					input.skip($len * mem::size_of::<$ty>())
+				}};
+			}
+
+			with_type_info! {
+				<T as Decode>::TYPE_INFO,
+				skip(input, len),
+				{
+					for _ in 0..len {
+						T::skip(input)?;
+					}
+					Ok(())
+				},
+			}
+		})
+	}
 }
 
 macro_rules! impl_codec_through_iterator {
 	($(
 		$type:ident
 		{ $( $generics:ident $( : $decode_additional:ident )? ),* }
+		{ $encoded_type:ty }
 		{ $( $type_like_generics:ident ),* }
 		{ $( $impl_like_generics:tt )* }
 	)*) => {$(
@@ -885,6 +976,10 @@ macro_rules! impl_codec_through_iterator {
 					Result::from_iter((0..len).map(|_| Decode::decode(input)))
 				})
 			}
+
+			fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+				<Vec<$encoded_type>>::skip(input)
+			}
 		}
 
 		impl<$( $impl_like_generics )*> EncodeLike<$type<$( $type_like_generics ),*>>
@@ -897,14 +992,11 @@ macro_rules! impl_codec_through_iterator {
 }
 
 impl_codec_through_iterator! {
-	BTreeMap { K: Ord, V } { LikeK, LikeV}
+	BTreeMap { K: Ord, V } { (K, V) } { LikeK, LikeV }
 		{ K: EncodeLike<LikeK>, LikeK: Encode, V: EncodeLike<LikeV>, LikeV: Encode }
-	BTreeSet { T: Ord } { LikeT }
-		{ T: EncodeLike<LikeT>, LikeT: Encode }
-	LinkedList { T } { LikeT }
-		{ T: EncodeLike<LikeT>, LikeT: Encode }
-	BinaryHeap { T: Ord } { LikeT }
-		{ T: EncodeLike<LikeT>, LikeT: Encode }
+	BTreeSet { T: Ord } { T } { LikeT } { T: EncodeLike<LikeT>, LikeT: Encode }
+	LinkedList { T } { T } { LikeT } { T: EncodeLike<LikeT>, LikeT: Encode }
+	BinaryHeap { T: Ord } { T } { LikeT } { T: EncodeLike<LikeT>, LikeT: Encode }
 }
 
 impl<T: Encode> EncodeLike for VecDeque<T> {}
@@ -949,6 +1041,10 @@ impl<T: Decode> Decode for VecDeque<T> {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		Ok(<Vec<T>>::decode(input)?.into())
 	}
+
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		<Vec<T>>::skip(input)
+	}
 }
 
 impl EncodeLike for () {}
@@ -968,6 +1064,10 @@ impl Encode for () {
 
 impl Decode for () {
 	fn decode<I: Input>(_: &mut I) -> Result<(), Error> {
+		Ok(())
+	}
+
+	fn skip<I: Input>(_input: &mut I) -> Result<(), Error> {
 		Ok(())
 	}
 }
@@ -1015,6 +1115,10 @@ macro_rules! tuple_impl {
 					Ok($one) => Ok(($one,)),
 				}
 			}
+
+			fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+				$one::skip(input)
+			}
 		}
 
 		impl<$one: EncodeLike<$extra>, $extra: Encode> crate::EncodeLike<($extra,)> for ($one,) {}
@@ -1053,6 +1157,12 @@ macro_rules! tuple_impl {
 						Err(e) => return Err(e),
 					},)+
 				))
+			}
+
+			fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+				$first::skip(input)?;
+				$( $rest::skip(input)?; )+
+				Ok(())
 			}
 		}
 
@@ -1099,6 +1209,10 @@ macro_rules! impl_endians {
 				input.read(&mut buf)?;
 				Ok(<$t>::from_le_bytes(buf))
 			}
+
+			fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+				input.skip(mem::size_of::<$t>())
+			}
 		}
 	)* }
 }
@@ -1123,6 +1237,10 @@ macro_rules! impl_one_byte {
 
 			fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 				Ok(input.read_byte()? as $t)
+			}
+
+			fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+				input.skip(1)
 			}
 		}
 	)* }
@@ -1152,6 +1270,10 @@ impl Decode for bool {
 			_ => Err("Invalid boolean representation".into())
 		}
 	}
+
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		input.skip(1)
+	}
 }
 
 impl Encode for Duration {
@@ -1174,6 +1296,10 @@ impl Decode for Duration {
 		} else {
 			Ok(Duration::new(secs, nanos))
 		}
+	}
+
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		input.skip(mem::size_of::<u64>() + mem::size_of::<u32>())
 	}
 }
 
@@ -1427,6 +1553,10 @@ mod tests {
 
 			fn read(&mut self, into: &mut [u8]) -> Result<(), Error> {
 				self.0.read(into)
+			}
+
+			fn skip(&mut self, len: usize) -> Result<(), Error> {
+				self.0.skip(len)
 			}
 		}
 

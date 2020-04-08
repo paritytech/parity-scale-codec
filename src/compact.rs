@@ -65,6 +65,15 @@ impl<'a, T: 'a + Input> Input for PrefixInput<'a, T> {
 			_ => self.input.read(buffer)
 		}
 	}
+
+	fn skip(&mut self, len: usize) -> Result<(), Error> {
+		if len == 0 {
+			Ok(())
+		} else {
+			let new_len = len - self.prefix.take().is_some() as usize;
+			self.input.skip(new_len)
+		}
+	}
 }
 
 /// Something that can return the compact encoded length for a given value.
@@ -159,6 +168,10 @@ where
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		let as_ = Compact::<T::As>::decode(input)?;
 		Ok(Compact(<T as CompactAs>::decode_from(as_.0)?))
+	}
+
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		Compact::<T::As>::skip(input)
 	}
 }
 
@@ -428,6 +441,10 @@ impl Decode for Compact<()> {
 	fn decode<I: Input>(_input: &mut I) -> Result<Self, Error> {
 		Ok(Compact(()))
 	}
+
+	fn skip<I: Input>(_input: &mut I) -> Result<(), Error> {
+		Ok(())
+	}
 }
 
 const U8_OUT_OF_RANGE: &str = "out of range decoding Compact<u8>";
@@ -451,6 +468,14 @@ impl Decode for Compact<u8> {
 			},
 			_ => return Err("unexpected prefix decoding Compact<u8>".into()),
 		}))
+	}
+
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		let prefix = input.read_byte()?;
+		match prefix % 4 {
+			0 => Ok(()),
+			_ => input.skip(1),
+		}
 	}
 }
 
@@ -477,6 +502,15 @@ impl Decode for Compact<u16> {
 			},
 			_ => return Err("unexpected prefix decoding Compact<u16>".into()),
 		}))
+	}
+
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		let prefix = input.read_byte()?;
+		match prefix % 4 {
+			0 => Ok(()),
+			1 => input.skip(1),
+			_ => input.skip(3),
+		}
 	}
 }
 
@@ -516,6 +550,16 @@ impl Decode for Compact<u32> {
 				}
 			}
 		}))
+	}
+
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		let prefix = input.read_byte()?;
+		match prefix % 4 {
+			0 => Ok(()),
+			1 => input.skip(1),
+			2 => input.skip(3),
+			3|_ => input.skip(4),
+		}
 	}
 }
 
@@ -571,6 +615,16 @@ impl Decode for Compact<u64> {
 				},
 			},
 		}))
+	}
+
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		let prefix = input.read_byte()?;
+		match prefix % 4 {
+			0 => Ok(()),
+			1 => input.skip(1),
+			2 => input.skip(3),
+			3|_ => input.skip(((prefix >> 2) + 4) as usize),
+		}
 	}
 }
 
@@ -634,6 +688,16 @@ impl Decode for Compact<u128> {
 				},
 			},
 		}))
+	}
+
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		let prefix = input.read_byte()?;
+		match prefix % 4 {
+			0 => Ok(()),
+			1 => input.skip(1),
+			2 => input.skip(3),
+			3|_ => input.skip(((prefix >> 2) + 4) as usize),
+		}
 	}
 }
 

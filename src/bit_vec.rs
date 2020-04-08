@@ -70,6 +70,13 @@ impl<O: BitOrder, T: BitStore + FromByteSlice> Decode for BitVec<O, T> {
 			Ok(result)
 		})
 	}
+
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		<Compact<u32>>::decode(input).and_then(move |Compact(bits)| {
+			let bits = bits as usize;
+			input.skip(required_bytes::<T>(bits))
+		})
+	}
 }
 
 impl<O: BitOrder, T: BitStore + ToByteSlice> Encode for BitBox<O, T> {
@@ -83,6 +90,10 @@ impl<O: BitOrder, T: BitStore + ToByteSlice> EncodeLike for BitBox<O, T> {}
 impl<O: BitOrder, T: BitStore + FromByteSlice> Decode for BitBox<O, T> {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		Ok(Self::from_bitslice(BitVec::<O, T>::decode(input)?.as_bitslice()))
+	}
+
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		BitVec::<O, T>::skip(input)
 	}
 }
 
