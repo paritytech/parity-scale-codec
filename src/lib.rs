@@ -217,12 +217,13 @@
 //!   fall back to just use the type parameters of the type. This can be useful for situation where
 //!   the algorithm includes private types in the public interface. By using this attribute, you should
 //!   not get this error/warning again.
-//! - `codec(skip)`: Needs to be placed above a field and makes the field to be skipped while encoding/decoding.
+//! - `codec(skip)`: Needs to be placed above a field  or variant and makes it to be skipped while
+//!   encoding/decoding.
 //! - `codec(compact)`: Needs to be placed above a field and makes the field use compact encoding.
 //!   (The type needs to support compact encoding.)
-//! - `codec(encoded_as(OtherType))`: Needs to be placed above a field and makes the field being encoded
+//! - `codec(encoded_as = "OtherType")`: Needs to be placed above a field and makes the field being encoded
 //!   by using `OtherType`.
-//! - `codec(index("0"))`: Needs to be placed above an enum variant to make the variant use the given
+//! - `codec(index = 0)`: Needs to be placed above an enum variant to make the variant use the given
 //!   index when encoded. By default the index is determined by counting from `0` beginning wth the
 //!   first variant.
 //!
