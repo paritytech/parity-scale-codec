@@ -116,7 +116,7 @@ fn wrap_with_dummy_const(impl_block: proc_macro2::TokenStream) -> proc_macro::To
 /// # use parity_scale_codec::Encode as _;
 /// #[derive(Encode)]
 /// enum EnumType {
-/// 	#[codec(index = "15")]
+/// 	#[codec(index = 15)]
 /// 	A,
 /// 	#[codec(skip)]
 /// 	B,
