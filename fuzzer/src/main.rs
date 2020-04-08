@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet, VecDeque, LinkedList, BinaryHeap};
 use std::time::Duration;
 
-use bitvec::{vec::BitVec, cursor::BigEndian};
+use bitvec::{vec::BitVec, order::Msb0};
 use honggfuzz::fuzz;
 use parity_scale_codec::{Encode, Decode, Compact};
 use honggfuzz::arbitrary::Arbitrary;
@@ -147,8 +147,8 @@ fn fuzz_decode(data: &[u8]) {
 		BinaryHeapWrapper,
 		MockStruct,
 		MockEnum,
-		BitVec<BigEndian, u8>,
-		BitVec<BigEndian, u32>,
+		BitVec<Msb0, u8>,
+		BitVec<Msb0, u32>,
 		Duration,
 	};
 }

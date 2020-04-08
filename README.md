@@ -49,7 +49,7 @@ The compact encoding is described [here](https://substrate.dev/docs/en/overview/
 
 * `encode_as(&self) -> &Self::As`: Encodes the type (self) as a compact type.
 The type `As` is defined in the same trait and its implementation should be compact encode-able.
-* `decode_from(_: Self::As) -> Self`: Decodes the type (self) from a compact encode-able type.
+* `decode_from(_: Self::As) -> Result<Self, Error>`: Decodes the type (self) from a compact encode-able type.
 
 ### HasCompact
 
@@ -73,7 +73,7 @@ use parity_scale_codec::{Encode, Decode};
 
 #[derive(Debug, PartialEq, Encode, Decode)]
 enum EnumType {
-	#[codec(index = "15")]
+	#[codec(index = 15)]
 	A,
 	B(u32, u64),
 	C {
@@ -142,7 +142,7 @@ assert_eq!(<Test1CompactHasCompact<u64>>::decode(&mut &encoded[..]).unwrap().bar
 ```rust
 
 use serde_derive::{Serialize, Deserialize};
-use parity_scale_codec::{Encode, Decode, Compact, HasCompact, CompactAs};
+use parity_scale_codec::{Encode, Decode, Compact, HasCompact, CompactAs, Error};
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
 #[derive(PartialEq, Eq, Clone)]
@@ -155,8 +155,8 @@ impl CompactAs for StructHasCompact {
         &12
     }
 
-    fn decode_from(_: Self::As) -> Self {
-        StructHasCompact(12)
+    fn decode_from(_: Self::As) -> Result<Self, Error> {
+        Ok(StructHasCompact(12))
     }
 }
 
@@ -190,12 +190,13 @@ The derive implementation supports the following attributes:
   fall back to just use the type parameters of the type. This can be useful for situation where
   the algorithm includes private types in the public interface. By using this attribute, you should
   not get this error/warning again.
-- `codec(skip)`: Needs to be placed above a field and makes the field to be skipped while encoding/decoding.
+- `codec(skip)`: Needs to be placed above a field  or variant and makes it to be skipped while
+  encoding/decoding.
 - `codec(compact)`: Needs to be placed above a field and makes the field use compact encoding.
   (The type needs to support compact encoding.)
-- `codec(encoded_as(OtherType))`: Needs to be placed above a field and makes the field being encoded
+- `codec(encoded_as = "OtherType")`: Needs to be placed above a field and makes the field being encoded
   by using `OtherType`.
-- `codec(index("0"))`: Needs to be placed above an enum variant to make the variant use the given
+- `codec(index = 0)`: Needs to be placed above an enum variant to make the variant use the given
   index when encoded. By default the index is determined by counting from `0` beginning wth the
   first variant.
 

@@ -26,14 +26,6 @@ pub trait EncodeAppend {
 	type Item: Encode;
 
 	/// Append all items in `iter` to the given `self_encoded` representation
-	/// or if `self_encoded` value is empty then insert the given input data.
-	#[deprecated(note = "Consider using `append_or_new` instead")]
-	fn append<'a, I: IntoIterator<Item=&'a Self::Item>>(
-		self_encoded: Vec<u8>,
-		iter: I,
-	) -> Result<Vec<u8>, Error> where Self::Item: 'a, I::IntoIter: ExactSizeIterator;
-
-	/// Append all items in `iter` to the given `self_encoded` representation
 	/// or if `self_encoded` value is empty, `iter` is encoded to the `Self` representation.
 	///
 	/// # Example
@@ -45,10 +37,10 @@ pub trait EncodeAppend {
 	/// let data = Vec::new();
 	///
 	/// let item = 8u32;
-	/// let encoded = <Vec<u32> as EncodeAppend>::append(data, std::iter::once(&item)).expect("Adds new element");
+	/// let encoded = <Vec<u32> as EncodeAppend>::append_or_new(data, std::iter::once(&item)).expect("Adds new element");
 	///
 	/// // Add multiple element
-	/// <Vec<u32> as EncodeAppend>::append(encoded, &[700u32, 800u32, 10u32]).expect("Adds new elements");
+	/// <Vec<u32> as EncodeAppend>::append_or_new(encoded, &[700u32, 800u32, 10u32]).expect("Adds new elements");
 	/// ```
 	fn append_or_new<EncodeLikeItem, I>(
 		self_encoded: Vec<u8>,
@@ -62,13 +54,6 @@ pub trait EncodeAppend {
 
 impl<T: Encode> EncodeAppend for Vec<T> {
 	type Item = T;
-
-	fn append<'a, I: IntoIterator<Item=&'a Self::Item>>(
-		self_encoded: Vec<u8>,
-		iter: I,
-	) -> Result<Vec<u8>, Error> where Self::Item: 'a, I::IntoIter: ExactSizeIterator {
-		append_or_new_vec_with_any_item(self_encoded, iter)
-	}
 
 	fn append_or_new<EncodeLikeItem, I>(
 		self_encoded: Vec<u8>,
@@ -85,13 +70,6 @@ impl<T: Encode> EncodeAppend for Vec<T> {
 
 impl<T: Encode> EncodeAppend for crate::alloc::collections::VecDeque<T> {
 	type Item = T;
-
-	fn append<'a, I: IntoIterator<Item=&'a Self::Item>>(
-		self_encoded: Vec<u8>,
-		iter: I,
-	) -> Result<Vec<u8>, Error> where Self::Item: 'a, I::IntoIter: ExactSizeIterator {
-		append_or_new_vec_with_any_item(self_encoded, iter)
-	}
 
 	fn append_or_new<EncodeLikeItem, I>(
 		self_encoded: Vec<u8>,
