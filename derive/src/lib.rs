@@ -135,9 +135,9 @@ pub fn encode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 		Ok(input) => input,
 		Err(e) => return e.to_compile_error().into(),
 	};
-	if let Some(span) = utils::get_skip(&input.attrs) {
-		return Error::new(span, "invalid attribute `skip` on root input")
-			.to_compile_error().into();
+
+	if let Err(e) = utils::check_attributes(&input) {
+		return e.to_compile_error().into();
 	}
 
 	if let Err(e) = trait_bounds::add(
@@ -176,9 +176,9 @@ pub fn decode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 		Ok(input) => input,
 		Err(e) => return e.to_compile_error().into(),
 	};
-	if let Some(span) = utils::get_skip(&input.attrs) {
-		return Error::new(span, "invalid attribute `skip` on root input")
-			.to_compile_error().into();
+
+	if let Err(e) = utils::check_attributes(&input) {
+		return e.to_compile_error().into();
 	}
 
 	if let Err(e) = trait_bounds::add(
@@ -231,6 +231,10 @@ pub fn compact_as_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStr
 		Ok(input) => input,
 		Err(e) => return e.to_compile_error().into(),
 	};
+
+	if let Err(e) = utils::check_attributes(&input) {
+		return e.to_compile_error().into();
+	}
 
 	if let Err(e) = trait_bounds::add(
 		&input.ident,

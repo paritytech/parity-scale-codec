@@ -31,7 +31,7 @@ fn skipped_variant_not_counted_in_default_index() {
 fn index_attr_variant_counted_and_reused_in_default_index() {
 	#[derive(Encode)]
 	enum T {
-		#[codec(index = "1")]
+		#[codec(index = 1)]
 		A,
 		B,
 	}

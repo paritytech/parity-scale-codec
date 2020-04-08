@@ -73,7 +73,7 @@ use parity_scale_codec::{Encode, Decode};
 
 #[derive(Debug, PartialEq, Encode, Decode)]
 enum EnumType {
-	#[codec(index = "15")]
+	#[codec(index = 15)]
 	A,
 	B(u32, u64),
 	C {
