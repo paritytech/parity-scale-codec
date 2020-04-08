@@ -137,7 +137,6 @@ pub fn filter_skip_unnamed<'a>(fields: &'a syn::FieldsUnnamed) -> impl Iterator<
 }
 
 pub fn check_attributes(input: &DeriveInput) -> syn::Result<()> {
-	// Check top attribute
 	for attr in &input.attrs {
 		check_top_attribute(attr)?;
 	}
