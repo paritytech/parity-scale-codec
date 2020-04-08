@@ -219,7 +219,8 @@ fn check_variant_attribute(attr: &Attribute) -> syn::Result<()> {
 
 					NestedMeta::Meta(Meta::NameValue(MetaNameValue { path, lit: Lit::Int(lit_int), .. }))
 						if path.get_ident().map_or(false, |i| i == "index")
-					=> lit_int.base10_parse::<u8>().map(|_| ()),
+					=> lit_int.base10_parse::<u8>().map(|_| ())
+						.map_err(|_| syn::Error::new(lit_int.span(), "Index must be in 0..255")),
 
 					elt @ _ => Err(syn::Error::new(elt.span(), variant_error)),
 				}
