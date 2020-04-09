@@ -331,7 +331,8 @@ pub trait Decode: Sized {
 
 	/// Attempt to skip the value from input.
 	///
-	/// NOTE: This doesn't check that the value is valid.
+	/// WARNING: This doesn't check that the value is valid. If `(A, B)` is encoded, skipping A and
+	/// decoding B can succeed while decoding A would fail.
 	fn skip<I: Input>(value: &mut I) -> Result<(), Error>;
 }
 
