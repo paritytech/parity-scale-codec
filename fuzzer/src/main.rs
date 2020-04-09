@@ -1,15 +1,30 @@
 use std::collections::{BTreeMap, BTreeSet, VecDeque, LinkedList, BinaryHeap};
 use std::time::Duration;
 
-use bitvec::{vec::BitVec, order::Msb0};
+use bitvec::{vec::BitVec, order::Msb0, bitvec, order::BitOrder, store::BitStore};
 use honggfuzz::fuzz;
 use parity_scale_codec::{Encode, Decode, Compact};
-use honggfuzz::arbitrary::Arbitrary;
+use honggfuzz::arbitrary::{Arbitrary, Unstructured, Result as ArbResult};
 
 #[derive(Encode, Decode, Clone, PartialEq, Debug, Arbitrary)]
 pub struct MockStruct{
 	vec_u: Vec<u8>
 }
+
+#[derive(Encode, Decode, Clone, PartialEq, Debug)]
+/// Used for implementing the Arbitrary trait for a BitVec.
+pub struct BitVecWrapper<O: BitOrder, T: BitStore>(BitVec<O, T>);
+
+impl<O: 'static + BitOrder, T: 'static + BitStore + Arbitrary> Arbitrary for BitVecWrapper<O, T> {
+	fn arbitrary(u: &mut Unstructured<'_>) -> ArbResult<Self> {
+		let v = Vec::<T>::arbitrary(u)?;
+		Ok(BitVecWrapper(BitVec::<O, T>::from_vec(v)))
+	}
+}
+
+
+// #[derive(Encode, Decode, Debug, Clone, Arbitrary)]
+// pub struct BitcVecWrapper<BitVec>(BitVec);
 
 #[derive(Encode, Decode, Debug, Clone, Arbitrary)]
 /// Used for implementing the PartialEq trait for a BinaryHeap.
@@ -205,6 +220,8 @@ macro_rules! fuzz_encoding {
 			BinaryHeapWrapper,
 			MockStruct,
 			MockEnum,
+			BitVecWrapper<Msb0, u8>,
+			BitVecWrapper<Msb0, u32>,
 			Duration,
 		}
 	};
