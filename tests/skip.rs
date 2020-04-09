@@ -1,6 +1,10 @@
 #[cfg(not(feature="derive"))]
 use parity_scale_codec_derive::{Encode, Decode};
-use parity_scale_codec::{Encode, Decode};
+use parity_scale_codec::Encode;
+use core::fmt::Debug;
+use common::assert_decode;
+
+mod common;
 
 #[test]
 fn enum_struct_test() {
@@ -48,15 +52,15 @@ fn enum_struct_test() {
 
 	assert_eq!(ea.encode(), Vec::new());
 
-	let mut eb_encoded: &[u8] = &eb.encode();
-	let mut ec_encoded: &[u8] = &ec.encode();
-	let mut sn_encoded: &[u8] = &sn.encode();
-	let mut su_encoded: &[u8] = &su.encode();
+	let eb_encoded: &[u8] = &eb.encode();
+	let ec_encoded: &[u8] = &ec.encode();
+	let sn_encoded: &[u8] = &sn.encode();
+	let su_encoded: &[u8] = &su.encode();
 
-	assert_eq!(Enum::decode(&mut eb_encoded).unwrap(), eb);
-	assert_eq!(Enum::decode(&mut ec_encoded).unwrap(), ec);
-	assert_eq!(StructNamed::decode(&mut sn_encoded).unwrap(), sn);
-	assert_eq!(StructUnnamed::decode(&mut su_encoded).unwrap(), su);
+	assert_decode::<Enum>(eb_encoded, Ok(eb));
+	assert_decode::<Enum>(ec_encoded, Ok(ec));
+	assert_decode::<StructNamed>(sn_encoded, Ok(sn));
+	assert_decode::<StructUnnamed>(su_encoded, Ok(su));
 }
 
 #[test]
