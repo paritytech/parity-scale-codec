@@ -23,14 +23,14 @@ impl<O: 'static + BitOrder, T: 'static + BitStore + Arbitrary> Arbitrary for Bit
 }
 
 
-// #[derive(Encode, Decode, Debug, Clone, Arbitrary)]
-// pub struct BitcVecWrapper<BitVec>(BitVec);
-
 #[derive(Encode, Decode, Debug, Clone, Arbitrary)]
 /// Used for implementing the PartialEq trait for a BinaryHeap.
 struct BinaryHeapWrapper(BinaryHeap<u32>);
 
 impl PartialEq for BinaryHeapWrapper {
+	// Eq here is implemented by creating a vector of all values and then sorting it.
+	// TODO: A better approach would be to use `into_iter_sorted` and compare both iterator, once
+	// https://doc.rust-lang.org/std/collections/struct.BinaryHeap.html#method.into_iter_sorted is stable.
 	fn eq(&self, other: &BinaryHeapWrapper) -> bool {
 		// Sort needed because the Iterator returns the value in arbitrary order.
 		let a = self.0.iter().cloned().collect::<Vec<u32>>().sort();
@@ -90,8 +90,7 @@ macro_rules! fuzz_decoder {
 			$( $rest, )*
 		}
 	};
-	// Regular round_trip flow arm. Try deocding the data, then encoding the decoded object and 
-	// compare obtained bytes with the original ones.
+	// round_trip flow arm.
 	(@INTERNAL
 		round_trip;
 		$data:ident;
@@ -138,7 +137,7 @@ macro_rules! fuzz_decoder {
 		}
 	)*
 	};
-	// Minimal arm, just try decoding the data.
+	// only_decode flow arm.
 	(@INTERNAL
 		minimal;
 		$data:ident;
@@ -154,10 +153,9 @@ macro_rules! fuzz_decoder {
 			}
 		)*
 	};
-	// Sort flow: try decoding the bytes, then encoding the decoded object. Sort the original bytes, and then
-	// compare them with the original (sorted) bytes.
+	// round_trip_sorted flow arm.
 	(@INTERNAL
-		sort;
+		round_trip_sorted;
 		$data:ident;
 		$counter:expr;
 		{ $( $parsed:ty; $index:expr ),* }
@@ -172,7 +170,7 @@ macro_rules! fuzz_decoder {
 			if let Ok(obj) = maybe_obj {
 				let mut d2: &[u8] = &obj.encode();
 				let mut raw2 = Vec::from(d2);
-				// We are sorting here because we're in the "sort" flow. Useful for container types
+				// We are sorting here because we're in the "sorted" flow. Useful for container types
 				// which can have multiple valid encoded versions.
 				raw2.sort();
 				let exp_obj = <$parsed>::decode(&mut d2);
@@ -237,15 +235,15 @@ fn fuzz_decode(data: &[u8]) {
 		BitVec<Msb0, u32>,
 		Duration,
 	};
-	// Types for which we wish to apply the "sort" method.
+	// Types for which we wish to apply the "sorted" method.
 	fuzz_decoder! {
-		sort;
+		round_trip_sorted;
 		data;
 		BinaryHeapWrapper,
 	};
 	// Types which we only wish to decode.
 	fuzz_decoder! {
-		minimal;
+		only_decode;
 		data;
 		BTreeMap<String, Vec<u8>>,
 		BTreeMap<u8, u8>,
@@ -271,7 +269,7 @@ fn fuzz_encode<T: Encode + Decode + Clone + PartialEq + std::fmt::Debug> (data: 
 			panic!("Original object differs from decoded object")
 		}
 	} else {
-		// safe because we checked that object is not Ok
+		// safe because we checked that object is not `Ok`
 		let e = decoded.unwrap_err();
 		println!("original object: {:?}", original);
 		println!("decoding error: {:?}", e);
