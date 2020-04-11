@@ -139,7 +139,7 @@ macro_rules! fuzz_decoder {
 	};
 	// only_decode flow arm.
 	(@INTERNAL
-		minimal;
+		only_decode;
 		$data:ident;
 		$counter:expr;
 		{ $( $parsed:ty; $index:expr ),* }
