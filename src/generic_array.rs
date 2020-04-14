@@ -39,6 +39,13 @@ impl<T: Decode, L: generic_array::ArrayLength<T>> Decode for generic_array::Gene
 			None => Err("array length does not match definition".into()),
 		}
 	}
+
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		for _ in 0..L::to_usize() {
+			T::skip(input)?;
+		}
+		Ok(())
+	}
 }
 
 #[cfg(test)]
