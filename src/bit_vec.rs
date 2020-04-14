@@ -106,11 +106,12 @@ fn required_bytes<T>(bits: usize) -> usize {
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use crate::assert_decode;
 	use bitvec::{bitvec, order::Msb0};
 
 	macro_rules! test_data {
 		($inner_type:ident) => (
-			[
+			vec![
 				BitVec::<Msb0, $inner_type>::new(),
 				bitvec![Msb0, $inner_type; 0],
 				bitvec![Msb0, $inner_type; 1],
@@ -134,7 +135,7 @@ mod tests {
 				bitvec![Msb0, $inner_type; 0; 63],
 				bitvec![Msb0, $inner_type; 1; 64],
 				bitvec![Msb0, $inner_type; 0; 65],
-			]
+			].into_iter()
 		)
 	}
 
@@ -167,33 +168,33 @@ mod tests {
 
 	#[test]
 	fn bitvec_u8() {
-		for v in &test_data!(u8) {
+		for v in test_data!(u8) {
 			let encoded = v.encode();
-			assert_eq!(*v, BitVec::<Msb0, u8>::decode(&mut &encoded[..]).unwrap());
+			assert_decode::<BitVec<Msb0, u8>>(&encoded, Ok(v));
 		}
 	}
 
 	#[test]
 	fn bitvec_u16() {
-		for v in &test_data!(u16) {
+		for v in test_data!(u16) {
 			let encoded = v.encode();
-			assert_eq!(*v, BitVec::<Msb0, u16>::decode(&mut &encoded[..]).unwrap());
+			assert_decode::<BitVec<Msb0, u16>>(&encoded, Ok(v));
 		}
 	}
 
 	#[test]
 	fn bitvec_u32() {
-		for v in &test_data!(u32) {
+		for v in test_data!(u32) {
 			let encoded = v.encode();
-			assert_eq!(*v, BitVec::<Msb0, u32>::decode(&mut &encoded[..]).unwrap());
+			assert_decode::<BitVec<Msb0, u32>>(&encoded, Ok(v));
 		}
 	}
 
 	#[test]
 	fn bitvec_u64() {
-		for v in &test_data!(u64) {
+		for v in test_data!(u64) {
 			let encoded = dbg!(v.encode());
-			assert_eq!(*v, BitVec::<Msb0, u64>::decode(&mut &encoded[..]).unwrap());
+			assert_decode::<BitVec<Msb0, u64>>(&encoded, Ok(v));
 		}
 	}
 
@@ -202,6 +203,7 @@ mod tests {
 		let data: &[u8] = &[0x69];
 		let slice = BitSlice::<Msb0, u8>::from_slice(data);
 		let encoded = slice.encode();
+		assert_decode::<BitVec<Msb0, u8>>(&encoded, Ok(slice.to_vec()));
 		let decoded = BitVec::<Msb0, u8>::decode(&mut &encoded[..]).unwrap();
 		assert_eq!(slice, decoded.as_bitslice());
 	}
@@ -211,7 +213,6 @@ mod tests {
 		let data: &[u8] = &[5, 10];
 		let bb = BitBox::<Msb0, u8>::from_slice(data);
 		let encoded = bb.encode();
-		let decoded = BitBox::<Msb0, u8>::decode(&mut &encoded[..]).unwrap();
-		assert_eq!(bb, decoded);
+		assert_decode::<BitBox<Msb0, u8>>(&encoded, Ok(bb));
 	}
 }

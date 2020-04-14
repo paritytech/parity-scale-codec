@@ -219,9 +219,17 @@ impl<R: std::io::Read + std::io::Seek> Input for IoReader<R> {
 
 	fn skip(&mut self, len: usize) -> Result<(), Error> {
 		use std::io::SeekFrom;
-		self.0.seek(SeekFrom::Current(len as i64))
-			.map(|_| ())
-			.map_err(|_| "Input cannot skip bytes".into())
+		// Seek doc: A seek beyond the end of a stream is allowed,
+		// but behavior is defined by the implementation.
+		// So we must check that we are not beyond the ned
+		let new_pos = self.0.seek(SeekFrom::Current(len as i64))?;
+		let len = self.0.seek(SeekFrom::End(0))?;
+		if new_pos > len {
+			Err("end of input reached, cannot skip bytes".into())
+		} else {
+			self.0.seek(SeekFrom::Start(new_pos))?;
+			Ok(())
+		}
 	}
 }
 
@@ -1309,6 +1317,7 @@ impl EncodeLike for Duration {}
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use crate::assert_decode;
 	use std::borrow::Cow;
 
 	#[test]
@@ -1326,7 +1335,7 @@ mod tests {
 
 		let encoded = (&x, &y).encode();
 
-		assert_eq!((x, y), Decode::decode(&mut &encoded[..]).unwrap());
+		assert_decode(&encoded, Ok((x, y)));
 	}
 
 	#[test]
@@ -1337,6 +1346,11 @@ mod tests {
 
 		let z: Cow<'_, [u32]> = Cow::decode(&mut &x.encode()[..]).unwrap();
 		assert_eq!(*z, *x);
+
+		let mut skip_input = &x.encode()[..];
+		assert_eq!(<Cow<'_, [u32]>>::skip(&mut skip_input), Ok(()));
+		assert_eq!(skip_input.len(), 0);
+
 	}
 
 	#[test]
@@ -1344,6 +1358,10 @@ mod tests {
 		let x = "Hello world!";
 		let y = Cow::Borrowed(&x);
 		assert_eq!(x.encode(), y.encode());
+
+		let mut skip_input = &x.encode()[..];
+		assert_eq!(<Cow<'_, str>>::skip(&mut skip_input), Ok(()));
+		assert_eq!(skip_input.len(), 0);
 
 		let z: Cow<'_, str> = Cow::decode(&mut &x.encode()[..]).unwrap();
 		assert_eq!(*z, *x);
@@ -1358,7 +1376,7 @@ mod tests {
 		let value = String::from("Hello, World!");
 		let encoded = value.encode();
 		assert_eq!(hexify(&encoded), "34 48 65 6c 6c 6f 2c 20 57 6f 72 6c 64 21");
-		assert_eq!(<String>::decode(&mut &encoded[..]).unwrap(), value);
+		assert_decode::<String>(&encoded[..], Ok(value));
 	}
 
 	#[test]
@@ -1366,7 +1384,7 @@ mod tests {
 		let value = vec![0u8, 1, 1, 2, 3, 5, 8, 13, 21, 34];
 		let encoded = value.encode();
 		assert_eq!(hexify(&encoded), "28 00 01 01 02 03 05 08 0d 15 22");
-		assert_eq!(<Vec<u8>>::decode(&mut &encoded[..]).unwrap(), value);
+		assert_decode::<Vec<u8>>(&encoded[..], Ok(value));
 	}
 
 	#[test]
@@ -1374,7 +1392,7 @@ mod tests {
 		let value = vec![0i16, 1, -1, 2, -2, 3, -3];
 		let encoded = value.encode();
 		assert_eq!(hexify(&encoded), "1c 00 00 01 00 ff ff 02 00 fe ff 03 00 fd ff");
-		assert_eq!(<Vec<i16>>::decode(&mut &encoded[..]).unwrap(), value);
+		assert_decode::<Vec<i16>>(&encoded[..], Ok(value));
 	}
 
 	#[test]
@@ -1382,7 +1400,7 @@ mod tests {
 		let value = vec![Some(1i8), Some(-1), None];
 		let encoded = value.encode();
 		assert_eq!(hexify(&encoded), "0c 01 01 01 ff 00");
-		assert_eq!(<Vec<Option<i8>>>::decode(&mut &encoded[..]).unwrap(), value);
+		assert_decode::<Vec<Option<i8>>>(&encoded[..], Ok(value));
 	}
 
 	#[test]
@@ -1390,7 +1408,7 @@ mod tests {
 		let value = vec![OptionBool(Some(true)), OptionBool(Some(false)), OptionBool(None)];
 		let encoded = value.encode();
 		assert_eq!(hexify(&encoded), "0c 01 02 00");
-		assert_eq!(<Vec<OptionBool>>::decode(&mut &encoded[..]).unwrap(), value);
+		assert_decode::<Vec<OptionBool>>(&encoded[..], Ok(value));
 	}
 
 	fn test_encode_length<T: Encode + Decode + DecodeLength>(thing: &T, len: usize) {
@@ -1437,7 +1455,7 @@ mod tests {
 			b8 20 d0 bc d0 b8 d1 80 30 e4 b8 89 e5 9b bd e6 bc 94 e4 b9 89 bc d8 a3 d9 8e d9 84 d9 92 \
 			d9 81 20 d9 84 d9 8e d9 8a d9 92 d9 84 d9 8e d8 a9 20 d9 88 d9 8e d9 84 d9 8e d9 8a d9 92 \
 			d9 84 d9 8e d8 a9 e2 80 8e");
-		assert_eq!(<Vec<String>>::decode(&mut &encoded[..]).unwrap(), value);
+		assert_decode::<Vec<String>>(&encoded[..], Ok(value));
 	}
 
 	#[derive(Debug, PartialEq)]
@@ -1460,7 +1478,7 @@ mod tests {
 		let result = vec![0b1100];
 
 		assert_eq!(MyWrapper(3u32.into()).encode(), result);
-		assert_eq!(MyWrapper::decode(&mut &*result).unwrap(), MyWrapper(3_u32.into()));
+		assert_decode::<MyWrapper>(&result[..], Ok(MyWrapper(3_u32.into())));
 	}
 
 	#[test]
@@ -1477,8 +1495,8 @@ mod tests {
 			v_u16.push_back(i as u16);
 		}
 
-		assert_eq!(Decode::decode(&mut &v_u8.encode()[..]), Ok(v_u8));
-		assert_eq!(Decode::decode(&mut &v_u16.encode()[..]), Ok(v_u16));
+		assert_decode(&v_u8.encode()[..], Ok(v_u8));
+		assert_decode(&v_u16.encode()[..], Ok(v_u16));
 	}
 
 	#[test]
@@ -1500,20 +1518,30 @@ mod tests {
 				.map(|i| (i.clone(), i.len() as u32))
 		);
 
-		assert_eq!(Decode::decode(&mut &t1.encode()[..]), Ok(t1));
-		assert_eq!(Decode::decode(&mut &t2.encode()[..]), Ok(t2));
+		assert_decode(&t1.encode()[..], Ok(t1));
+		assert_decode(&t2.encode()[..], Ok(t2));
+
+		let mut skip_input = &t3.encode()[..];
+		assert_eq!(<BinaryHeap<u32>>::skip(&mut skip_input), Ok(()));
+		assert_eq!(skip_input.len(), 0);
 		assert_eq!(
 			Decode::decode(&mut &t3.encode()[..]).map(BinaryHeap::into_sorted_vec),
 			Ok(t3.into_sorted_vec()),
 		);
-		assert_eq!(Decode::decode(&mut &t4.encode()[..]), Ok(t4));
-		assert_eq!(Decode::decode(&mut &t5.encode()[..]), Ok(t5));
-		assert_eq!(Decode::decode(&mut &t6.encode()[..]), Ok(t6));
+
+		assert_decode(&t4.encode()[..], Ok(t4));
+		assert_decode(&t5.encode()[..], Ok(t5));
+		assert_decode(&t6.encode()[..], Ok(t6));
+
+		let mut skip_input = &t7.encode()[..];
+		assert_eq!(<BinaryHeap<Vec<u8>>>::skip(&mut skip_input), Ok(()));
+		assert_eq!(skip_input.len(), 0);
 		assert_eq!(
 			Decode::decode(&mut &t7.encode()[..]).map(BinaryHeap::into_sorted_vec),
 			Ok(t7.into_sorted_vec()),
 		);
-		assert_eq!(Decode::decode(&mut &t8.encode()[..]), Ok(t8));
+
+		assert_decode(&t8.encode()[..], Ok(t8));
 	}
 
 	#[test]
@@ -1574,11 +1602,28 @@ mod tests {
 	}
 
 	#[test]
+	fn io_reader_input_skip_works() {
+		let mut input = IoReader(std::io::Cursor::new(vec![1u8, 2, 3, 4]));
+		assert_eq!(input.skip(2), Ok(()));
+		assert_eq!(input.read_byte(), Ok(3));
+		assert_eq!(input.skip(2), Err("end of input reached, cannot skip bytes".into()));
+
+		let mut input = IoReader(std::io::Cursor::new(vec![1u8, 2, 3, 4]));
+		assert_eq!(input.skip(2), Ok(()));
+		assert_eq!(input.skip(2), Ok(()));
+		assert_eq!(input.skip(1), Err("end of input reached, cannot skip bytes".into()));
+	}
+
+	#[test]
 	fn boolean() {
 		assert_eq!(true.encode(), vec![1]);
 		assert_eq!(false.encode(), vec![0]);
 		assert_eq!(bool::decode(&mut &[1][..]).unwrap(), true);
 		assert_eq!(bool::decode(&mut &[0][..]).unwrap(), false);
+
+		let mut input = &[255][..];
+		assert_eq!(bool::skip(&mut input), Ok(()));
+		assert_eq!(input.len(), 0);
 	}
 
 	#[test]
@@ -1598,8 +1643,7 @@ mod tests {
 		assert_eq!(data.len(), decoded.len());
 
 		let encoded = decoded.encode();
-		let decoded = VecDeque::<u32>::decode(&mut &encoded[..]).unwrap();
-		assert_eq!(data, decoded);
+		assert_decode::<VecDeque<u32>>(&encoded, Ok(data));
 	}
 
 	#[test]
@@ -1628,7 +1672,7 @@ mod tests {
 		let expected = (num_secs, num_nanos as u32).encode();
 
 		assert_eq!(duration.encode(), expected);
-		assert_eq!(Duration::decode(&mut &expected[..]).unwrap(), duration);
+		assert_decode::<Duration>(&expected, Ok(duration));
 	}
 
 	#[test]
@@ -1636,21 +1680,21 @@ mod tests {
 		// This test should fail, as the number of nanoseconds encoded is exactly 10^9.
 		let invalid_nanos = A_BILLION;
 		let encoded = (0u64, invalid_nanos).encode();
-		assert!(Duration::decode(&mut &encoded[..]).is_err());
+		assert_decode::<Duration>(&encoded, Err("Number of nanoseconds should not be higher than 10^9.".into()));
 
 		let num_secs = 1u64;
 		let num_nanos = 37u32;
 		let invalid_nanos = num_secs as u32 * A_BILLION + num_nanos;
 		let encoded = (num_secs, invalid_nanos).encode();
 		// This test should fail, as the number of nano seconds encoded is bigger than 10^9.
-		assert!(Duration::decode(&mut &encoded[..]).is_err());
+		assert_decode::<Duration>(&encoded, Err("Number of nanoseconds should not be higher than 10^9.".into()));
 
 		// Now constructing a valid duration and encoding it. Those asserts should not fail.
 		let duration = Duration::from_nanos(invalid_nanos as u64);
 		let expected = (num_secs, num_nanos).encode();
 
 		assert_eq!(duration.encode(), expected);
-		assert_eq!(Duration::decode(&mut &expected[..]).unwrap(), duration);
+		assert_decode::<Duration>(&expected, Ok(duration));
 	}
 
 	#[test]
@@ -1661,7 +1705,7 @@ mod tests {
 		let expected = (num_secs, num_nanos).encode();
 
 		assert_eq!(duration.encode(), expected);
-		assert_eq!(Duration::decode(&mut &expected[..]).unwrap(), duration);
+		assert_decode::<Duration>(&expected, Ok(duration));
 	}
 
 	#[test]
@@ -1672,15 +1716,13 @@ mod tests {
 		// `num_nanos`' carry should make `num_secs` overflow if we were to call `Duration::new()`.
 		// This test checks that the we do not call `Duration::new()`.
 		let encoded = (num_secs, num_nanos).encode();
-		assert!(Duration::decode(&mut &encoded[..]).is_err());
+		assert_decode::<Duration>(&encoded, Err("Number of nanoseconds should not be higher than 10^9.".into()));
 	}
 
 	#[test]
 	fn string_invalid_utf8() {
 		// `167, 10` is not a valid utf8 sequence, so this should be an error.
-		let mut bytes: &[u8] = &[20, 114, 167, 10, 20, 114];
-
-		let obj = <String>::decode(&mut bytes);
-		assert!(obj.is_err());
+		let bytes: &[u8] = &[20, 114, 167, 10, 20, 114];
+		assert_decode::<String>(bytes, Err("Invalid utf8 sequence".into()));
 	}
 }
