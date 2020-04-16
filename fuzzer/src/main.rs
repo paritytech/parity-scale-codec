@@ -11,8 +11,8 @@ pub struct MockStruct{
 	vec_u: Vec<u8>
 }
 
-#[derive(Encode, Decode, Clone, PartialEq, Debug)]
 /// Used for implementing the Arbitrary trait for a BitVec.
+#[derive(Encode, Decode, Clone, PartialEq, Debug)]
 pub struct BitVecWrapper<O: BitOrder, T: BitStore>(BitVec<O, T>);
 
 impl<O: 'static + BitOrder, T: 'static + BitStore + Arbitrary> Arbitrary for BitVecWrapper<O, T> {
