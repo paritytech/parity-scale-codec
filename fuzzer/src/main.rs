@@ -23,8 +23,8 @@ impl<O: 'static + BitOrder, T: 'static + BitStore + Arbitrary> Arbitrary for Bit
 }
 
 
-#[derive(Encode, Decode, Debug, Clone, Arbitrary)]
 /// Used for implementing the PartialEq trait for a BinaryHeap.
+#[derive(Encode, Decode, Debug, Clone, Arbitrary)]
 struct BinaryHeapWrapper(BinaryHeap<u32>);
 
 impl PartialEq for BinaryHeapWrapper {
