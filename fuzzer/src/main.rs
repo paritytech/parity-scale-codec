@@ -32,10 +32,7 @@ impl PartialEq for BinaryHeapWrapper {
 	// TODO: A better approach would be to use `into_iter_sorted` and compare both iterator, once
 	// https://doc.rust-lang.org/std/collections/struct.BinaryHeap.html#method.into_iter_sorted is stable.
 	fn eq(&self, other: &BinaryHeapWrapper) -> bool {
-		// Sort needed because the Iterator returns the value in arbitrary order.
-		let a = self.0.iter().cloned().collect::<Vec<u32>>().sort();
-		let b = other.0.iter().cloned().collect::<Vec<u32>>().sort();
-		a == b
+		self.clone().into_sorted_vec() == other.clone().into_sorted_vec()
 	}
 }
 
