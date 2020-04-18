@@ -236,7 +236,7 @@ fn fuzz_decode(data: &[u8]) {
 		data;
 		BinaryHeapWrapper,
 	};
-	// Types which we only wish to decode.
+	// Types for which we only wish to decode.
 	fuzz_decoder! {
 		only_decode;
 		data;
