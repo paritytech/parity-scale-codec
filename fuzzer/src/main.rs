@@ -28,11 +28,8 @@ impl<O: 'static + BitOrder, T: 'static + BitStore + Arbitrary> Arbitrary for Bit
 struct BinaryHeapWrapper(BinaryHeap<u32>);
 
 impl PartialEq for BinaryHeapWrapper {
-	// Eq here is implemented by creating a vector of all values and then sorting it.
-	// TODO: A better approach would be to use `into_iter_sorted` and compare both iterator, once
-	// https://doc.rust-lang.org/std/collections/struct.BinaryHeap.html#method.into_iter_sorted is stable.
 	fn eq(&self, other: &BinaryHeapWrapper) -> bool {
-		self.clone().into_sorted_vec() == other.clone().into_sorted_vec()
+		self.0.clone().into_sorted_vec() == other.0.clone().into_sorted_vec()
 	}
 }
 
@@ -101,36 +98,37 @@ macro_rules! fuzz_decoder {
 			let raw1 = d.clone();
 			let maybe_obj = <$parsed>::decode(&mut d);
 
-			if let Ok(obj) = maybe_obj {
-				let mut d2: &[u8] = &obj.encode();
-				let raw2 = d2.clone();
-				let exp_obj = <$parsed>::decode(&mut d2);
-				match exp_obj {
-					Ok(obj2) => {
-						if obj == obj2 {
-							let raw1_trunc_to_obj_size = &raw1[..raw1.len()-d.len()];
-							if raw1_trunc_to_obj_size != raw2 {
-								println!("raw1 = {:?}", raw1);
-								println!("d (leftover/undecoded data) = {:?}", d);
-								println!("- Decoded data:");
-								println!("raw1_trunc = {:?}", raw1_trunc_to_obj_size);
-								println!("raw2 = {:?}", raw2);
-								println!("- Encoded objects:");
-								println!("obj1 = '{:?}'", obj);
-								println!("obj2 = '{:?}'", obj2);
-								println!("Type: {}", std::any::type_name::<$parsed>());
-								panic!("raw1 != raw2");
+			match maybe_obj {
+				Ok(obj) => {
+					let mut d2: &[u8] = &obj.encode();
+					let raw2 = d2.clone();
+					let exp_obj = <$parsed>::decode(&mut d2);
+					match exp_obj {
+						Ok(obj2) => {
+							if obj == obj2 {
+								let raw1_trunc_to_obj_size = &raw1[..raw1.len()-d.len()];
+								if raw1_trunc_to_obj_size != raw2 {
+									println!("raw1 = {:?}", raw1);
+									println!("d (leftover/undecoded data) = {:?}", d);
+									println!("- Decoded data:");
+									println!("raw1_trunc = {:?}", raw1_trunc_to_obj_size);
+									println!("raw2 = {:?}", raw2);
+									println!("- Encoded objects:");
+									println!("obj1 = '{:?}'", obj);
+									println!("obj2 = '{:?}'", obj2);
+									println!("Type: {}", std::any::type_name::<$parsed>());
+									panic!("raw1 != raw2");
+								}
+								return
+							} else {
+								panic!("obj != obj2; obj={:?}, obj2={:?}", obj, obj2);
 							}
-						return
 						}
-					panic!("obj != obj2; obj={:?}, obj2={:?}", obj, obj2);
-					},
-					Err(e) => {
-						panic!("Shouldn’t happen: can't .decode() after .decode().encode(): {}", e);
+						Err(e) => panic!("Shouldn’t happen: can't .decode() after .decode().encode(): {}", e),
 					}
 				}
+				Err(_) => return
 			}
-			return
 		}
 	)*
 	};
@@ -164,41 +162,41 @@ macro_rules! fuzz_decoder {
 			let raw1 = &d.clone();
 
 			let maybe_obj = <$parsed>::decode(&mut d);
-			if let Ok(obj) = maybe_obj {
-				let mut d2: &[u8] = &obj.encode();
-				let mut raw2 = Vec::from(d2);
-				// We are sorting here because we're in the "sorted" flow. Useful for container types
-				// which can have multiple valid encoded versions.
-				raw2.sort();
-				let exp_obj = <$parsed>::decode(&mut d2);
-				match exp_obj {
-					Ok(obj2) => {
-						if obj == obj2 {
-							let mut raw1_trunc_to_obj_size = Vec::from(&raw1[..raw1.len() - d.len()]);
-							// Sorting here is necessary: see above comment.
-							raw1_trunc_to_obj_size.sort();
-							if raw1_trunc_to_obj_size != raw2 {
-								println!("raw1 = {:?}", raw1);
-								println!("d (leftover/undecoded data) = {:?}", d);
-								println!("- Decoded data:");
-								println!("raw1_trunc = {:?}", raw1_trunc_to_obj_size);
-								println!("raw2 = {:?}", raw2);
-								println!("- Encoded objects:");
-								println!("obj1 = '{:?}'", obj);
-								println!("obj2 = '{:?}'", obj2);
-								println!("Type: {}", std::any::type_name::<$parsed>());
-								panic!("raw1 != raw2");
+			match maybe_obj {
+				Ok(obj) => {
+					let mut d2: &[u8] = &obj.encode();
+					let mut raw2 = Vec::from(d2);
+					// We are sorting here because we're in the "sorted" flow. Useful for container types
+					// which can have multiple valid encoded versions.
+					raw2.sort();
+					let exp_obj = <$parsed>::decode(&mut d2);
+					match exp_obj {
+						Ok(obj2) => {
+							if obj == obj2 {
+								let mut raw1_trunc_to_obj_size = Vec::from(&raw1[..raw1.len() - d.len()]);
+								// Sorting here is necessary: see above comment.
+								raw1_trunc_to_obj_size.sort();
+								if raw1_trunc_to_obj_size != raw2 {
+									println!("raw1 = {:?}", raw1);
+									println!("d (leftover/undecoded data) = {:?}", d);
+									println!("- Decoded data:");
+									println!("raw1_trunc = {:?}", raw1_trunc_to_obj_size);
+									println!("raw2 = {:?}", raw2);
+									println!("- Encoded objects:");
+									println!("obj1 = '{:?}'", obj);
+									println!("obj2 = '{:?}'", obj2);
+									println!("Type: {}", std::any::type_name::<$parsed>());
+									panic!("raw1 != raw2");
+								}
+								return
 							}
-						return
-						}
-					panic!("obj != obj2; obj={:?}, obj2={:?}", obj, obj2);
-					},
-					Err(e) => {
-						panic!("Shouldn’t happen: can't .decode() after .decode().encode(): {}", e);
+							panic!("obj != obj2; obj={:?}, obj2={:?}", obj, obj2);
+						},
+						Err(e) => panic!("Shouldn’t happen: can't .decode() after .decode().encode(): {}", e),
 					}
 				}
+				Err(_) => return,
 			}
-			return
 		}
 	)*
 	};
