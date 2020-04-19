@@ -19,6 +19,8 @@ use arrayvec::ArrayVec;
 use crate::alloc::vec::Vec;
 use crate::codec::{Encode, Decode, Input, Output, EncodeAsRef, Error};
 use crate::encode_like::EncodeLike;
+#[cfg(feature = "fuzz")]
+use arbitrary::Arbitrary;
 
 struct ArrayVecWrapper<T: arrayvec::Array>(ArrayVec<T>);
 
@@ -75,6 +77,7 @@ pub trait CompactLen<T> {
 
 /// Compact-encoded variant of T. This is more space-efficient but less compute-efficient.
 #[derive(Eq, PartialEq, Clone, Copy, Ord, PartialOrd)]
+#[cfg_attr(feature = "fuzz", derive(Arbitrary))]
 pub struct Compact<T>(pub T);
 
 impl<T> From<T> for Compact<T> {
