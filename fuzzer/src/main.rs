@@ -164,7 +164,7 @@ macro_rules! fuzz_decoder {
 			let maybe_obj = <$parsed>::decode(&mut d);
 			match maybe_obj {
 				Ok(obj) => {
-					let mut d2 = obj.encode();
+					let d2 = obj.encode();
 					let mut raw2 = d2.clone();
 					// We are sorting here because we're in the "sorted" flow. Useful for container types
 					// which can have multiple valid encoded versions.
