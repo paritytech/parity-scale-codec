@@ -1060,7 +1060,14 @@ macro_rules! tuple_impl {
 			$($rest: EncodeLike<$rextra>, $rextra: Encode),+> crate::EncodeLike<($fextra, $( $rextra ),+)>
 			for ($first, $($rest),+) {}
 
+		impl<$first: DecodeLength, $($rest),+> DecodeLength for ($first, $($rest),+) {
+			fn len(self_encoded: &[u8]) -> Result<usize, Error> {
+				$first::len(self_encoded)
+			}
+		}
+
 		tuple_impl!( $( ($rest, $rextra), )+ );
+
 	}
 }
 
