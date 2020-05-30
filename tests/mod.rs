@@ -526,3 +526,18 @@ fn crafted_input_for_vec_t() {
 	);
 }
 
+#[test]
+fn weird_derive() {
+    // Tests that compilation succeeds when the macro invocation
+    // hygiene context is different from the field hygiene context.
+    macro_rules! make_struct {
+        (#[$attr:meta]) => (
+            #[$attr]
+            pub struct MyStruct {
+                field: u8
+            }
+        )
+    }
+
+    make_struct!(#[derive(Encode, Decode)]);
+}
