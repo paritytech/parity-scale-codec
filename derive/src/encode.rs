@@ -70,16 +70,19 @@ fn encode_single_field(
 		}
 	};
 
+	// This may have different hygiene than the field span
+	let i_self = quote! { self };
+
 	quote_spanned! { field.span() =>
-			fn encode_to<EncOut: _parity_scale_codec::Output>(&self, dest: &mut EncOut) {
+			fn encode_to<EncOut: _parity_scale_codec::Output>(&#i_self, dest: &mut EncOut) {
 				_parity_scale_codec::Encode::encode_to(&#final_field_variable, dest)
 			}
 
-			fn encode(&self) -> _parity_scale_codec::alloc::vec::Vec<u8> {
+			fn encode(&#i_self) -> _parity_scale_codec::alloc::vec::Vec<u8> {
 				_parity_scale_codec::Encode::encode(&#final_field_variable)
 			}
 
-			fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
+			fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&#i_self, f: F) -> R {
 				_parity_scale_codec::Encode::using_encoded(&#final_field_variable, f)
 			}
 	}
