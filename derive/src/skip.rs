@@ -113,11 +113,7 @@ fn skip_fields(
 		Fields::Named(FieldsNamed { named: fields , .. })
 			| Fields::Unnamed(FieldsUnnamed { unnamed: fields, .. })
 		=> {
-			let recurse = fields.iter().map(|f| {
-				let skip_expr = skip_field(f, input);
-
-				quote_spanned! { f.span() => #skip_expr }
-			});
+			let recurse = fields.iter().map(|f| skip_field(f, input));
 
 			quote_spanned! { span => { #( #recurse?; )* Ok(()) } }
 		},
