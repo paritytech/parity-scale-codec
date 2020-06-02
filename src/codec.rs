@@ -133,7 +133,7 @@ pub trait Input {
 	}
 
 	/// Skip the exact number of bytes from the input.
-	fn skip(&mut self, len: u32) -> Result<(), Error>;
+	fn skip(&mut self, len: usize) -> Result<(), Error>;
 }
 
 impl<'a> Input for &'a [u8] {
@@ -151,7 +151,7 @@ impl<'a> Input for &'a [u8] {
 		Ok(())
 	}
 
-	fn skip(&mut self, len: u32) -> Result<(), Error> {
+	fn skip(&mut self, len: usize) -> Result<(), Error> {
 		if len as usize > self.len() {
 			return Err("Not enough data in input to skip".into());
 		}
@@ -217,14 +217,26 @@ impl<R: std::io::Read + std::io::Seek> Input for IoReader<R> {
 		self.0.read_exact(into).map_err(Into::into)
 	}
 
-	fn skip(&mut self, len: u32) -> Result<(), Error> {
+	fn skip(&mut self, mut len: usize) -> Result<(), Error> {
 		use std::io::SeekFrom;
+
+		// if usize overflow i64 then we must seek with steps.
+		if i64::try_from(usize::max_value()).is_err() {
+			while len > i64::max_value() as usize {
+				self.0.seek(SeekFrom::Current(i64::max_value()))?;
+				len -= i64::max_value() as usize;
+			}
+		}
+
+		// len has been reduced to fit into i64 now.
+		let new_pos = self.0.seek(SeekFrom::Current(len as i64))?;
+
+		let io_len = self.0.seek(SeekFrom::End(0))?;
+
 		// Seek doc: A seek beyond the end of a stream is allowed,
 		// but behavior is defined by the implementation.
-		// So we must check that we are not beyond the ned
-		let new_pos = self.0.seek(SeekFrom::Current(len as i64))?;
-		let len = self.0.seek(SeekFrom::End(0))?;
-		if new_pos > len {
+		// So we must check that we are not beyond the end
+		if new_pos > io_len {
 			Err("end of input reached, cannot skip bytes".into())
 		} else {
 			self.0.seek(SeekFrom::Start(new_pos))?;
@@ -721,14 +733,7 @@ macro_rules! impl_array {
 				fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
 					macro_rules! skip_array {
 						( $ty:ty, $self:ident, $dest:ident ) => {{
-							let mut len = mem::size_of::<Self>();
-
-							while len > u32::max_value() as usize {
-								input.skip(u32::max_value())?;
-								len -= u32::max_value() as usize;
-							}
-
-							input.skip(len as u32)
+							input.skip(mem::size_of::<Self>())
 						}};
 					}
 
@@ -959,7 +964,7 @@ impl<T: Decode> Decode for Vec<T> {
 
 			macro_rules! skip {
 				( $ty:ty, $input:ident, $len:ident ) => {{
-					match ($len as u32).checked_mul(mem::size_of::<$ty>() as u32) {
+					match $len.checked_mul(mem::size_of::<$ty>()) {
 						Some(size) => input.skip(size)?,
 						// NOTE: this can be optimized by skipping chunks.
 						None => for _ in 0..len {
@@ -1249,7 +1254,7 @@ macro_rules! impl_endians {
 			}
 
 			fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
-				input.skip(mem::size_of::<$t>() as u32)
+				input.skip(mem::size_of::<$t>())
 			}
 		}
 	)* }
@@ -1337,7 +1342,7 @@ impl Decode for Duration {
 	}
 
 	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
-		input.skip((mem::size_of::<u64>() + mem::size_of::<u32>()) as u32)
+		input.skip(mem::size_of::<u64>() + mem::size_of::<u32>())
 	}
 }
 
@@ -1613,7 +1618,7 @@ mod tests {
 				self.0.read(into)
 			}
 
-			fn skip(&mut self, len: u32) -> Result<(), Error> {
+			fn skip(&mut self, len: usize) -> Result<(), Error> {
 				self.0.skip(len)
 			}
 		}
