@@ -217,31 +217,33 @@ impl<R: std::io::Read + std::io::Seek> Input for IoReader<R> {
 		self.0.read_exact(into).map_err(Into::into)
 	}
 
-	fn skip(&mut self, mut len: usize) -> Result<(), Error> {
+	fn skip(&mut self, len: usize) -> Result<(), Error> {
+		use std::convert::TryInto;
 		use std::io::SeekFrom;
 
-		// if usize overflow i64 then we must seek with steps.
-		if i64::try_from(usize::max_value()).is_err() {
-			while len > i64::max_value() as usize {
-				self.0.seek(SeekFrom::Current(i64::max_value()))?;
-				len -= i64::max_value() as usize;
-			}
-		}
-
-		// len has been reduced to fit into i64 now.
-		let new_pos = self.0.seek(SeekFrom::Current(len as i64))?;
-
+		let old_pos = self.0.seek(SeekFrom::Current(0))?;
 		let io_len = self.0.seek(SeekFrom::End(0))?;
+		let new_pos = old_pos.checked_add(len as u64)
+			.ok_or(Error::from("len can't be skipped, seek from start don't fit into u64"))?;
 
-		// Seek doc: A seek beyond the end of a stream is allowed,
-		// but behavior is defined by the implementation.
-		// So we must check that we are not beyond the end
-		if new_pos > io_len {
-			Err("end of input reached, cannot skip bytes".into())
-		} else {
+		if new_pos <= io_len {
 			self.0.seek(SeekFrom::Start(new_pos))?;
-			Ok(())
+		} else {
+			self.0.seek(SeekFrom::Start(io_len))?;
+			let mut remains: usize = (new_pos - io_len).try_into()
+				.expect("remains is less than len; qed");
+
+			let mut buffer = vec![0; MAX_PREALLOCATION.min(remains)];
+
+			while remains > MAX_PREALLOCATION {
+				self.read(&mut buffer[0..MAX_PREALLOCATION][..])?;
+				remains -= MAX_PREALLOCATION;
+			}
+
+			self.read(&mut buffer[0..remains][..])?;
 		}
+
+		Ok(())
 	}
 }
 
@@ -1636,12 +1638,12 @@ mod tests {
 		let mut input = IoReader(std::io::Cursor::new(vec![1u8, 2, 3, 4]));
 		assert_eq!(input.skip(2), Ok(()));
 		assert_eq!(input.read_byte(), Ok(3));
-		assert_eq!(input.skip(2), Err("end of input reached, cannot skip bytes".into()));
+		assert_eq!(input.skip(2), Err("io error: UnexpectedEof".into()));
 
 		let mut input = IoReader(std::io::Cursor::new(vec![1u8, 2, 3, 4]));
 		assert_eq!(input.skip(2), Ok(()));
 		assert_eq!(input.skip(2), Ok(()));
-		assert_eq!(input.skip(1), Err("end of input reached, cannot skip bytes".into()));
+		assert_eq!(input.skip(1), Err("io error: UnexpectedEof".into()));
 	}
 
 	#[test]
