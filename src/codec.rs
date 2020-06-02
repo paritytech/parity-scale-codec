@@ -533,7 +533,8 @@ impl<T: Decode, E: Decode> Decode for Result<T, E> {
 	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
 		match input.read_byte()? {
 			0 => T::skip(input),
-			_ => E::skip(input),
+			1 => E::skip(input),
+			_ => Err("unexpected first byte skipping Result".into()),
 		}
 	}
 }
@@ -612,7 +613,8 @@ impl<T: Decode> Decode for Option<T> {
 	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
 		match input.read_byte()? {
 			0 => Ok(()),
-			_ => T::skip(input),
+			1 => T::skip(input),
+			_ => Err("unexpecded first byte skipping Option".into()),
 		}
 	}
 }
@@ -717,10 +719,29 @@ macro_rules! impl_array {
 				}
 
 				fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
-					for _ in 0..$n {
-						T::skip(input)?;
+					macro_rules! skip_array {
+						( $ty:ty, $self:ident, $dest:ident ) => {{
+							let mut len = $n * mem::size_of::<T>();
+
+							while len > u32::max_value() as usize {
+								input.skip(u32::max_value())?;
+								len -= u32::max_value() as usize;
+							}
+
+							input.skip(len as u32)
+						}};
 					}
-					Ok(())
+
+					with_type_info! {
+						<T as Decode>::TYPE_INFO,
+						skip_array(self, dest),
+						{
+							for _ in 0..$n {
+								T::skip(input)?;
+							}
+							Ok(())
+						},
+					}
 				}
 			}
 
