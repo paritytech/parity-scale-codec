@@ -721,7 +721,7 @@ macro_rules! impl_array {
 				fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
 					macro_rules! skip_array {
 						( $ty:ty, $self:ident, $dest:ident ) => {{
-							let mut len = $n * mem::size_of::<T>();
+							let mut len = mem::size_of::<Self>();
 
 							while len > u32::max_value() as usize {
 								input.skip(u32::max_value())?;
