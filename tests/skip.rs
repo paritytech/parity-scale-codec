@@ -1,6 +1,6 @@
 #[cfg(not(feature="derive"))]
 use parity_scale_codec_derive::{Encode, Decode};
-use parity_scale_codec::Encode;
+use parity_scale_codec::{Encode, Decode};
 use core::fmt::Debug;
 use common::assert_decode;
 

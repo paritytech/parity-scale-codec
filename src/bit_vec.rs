@@ -73,8 +73,14 @@ impl<O: BitOrder, T: BitStore + FromByteSlice> Decode for BitVec<O, T> {
 
 	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
 		<Compact<u32>>::decode(input).and_then(move |Compact(bits)| {
-			let bits = bits as usize;
-			input.skip(required_bytes::<T>(bits))
+			let mut size = required_bytes::<T>(bits as usize);
+
+			while size > u32::max_value() as usize {
+				input.skip(u32::max_value())?;
+				size -= u32::max_value() as usize;
+			}
+
+			input.skip(size as u32)
 		})
 	}
 }

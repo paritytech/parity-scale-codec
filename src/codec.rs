@@ -133,7 +133,7 @@ pub trait Input {
 	}
 
 	/// Skip the exact number of bytes from the input.
-	fn skip(&mut self, len: usize) -> Result<(), Error>;
+	fn skip(&mut self, len: u32) -> Result<(), Error>;
 }
 
 impl<'a> Input for &'a [u8] {
@@ -151,11 +151,11 @@ impl<'a> Input for &'a [u8] {
 		Ok(())
 	}
 
-	fn skip(&mut self, len: usize) -> Result<(), Error> {
-		if len > self.len() {
+	fn skip(&mut self, len: u32) -> Result<(), Error> {
+		if len as usize > self.len() {
 			return Err("Not enough data in input to skip".into());
 		}
-		*self = &self[len..];
+		*self = &self[len as usize..];
 		Ok(())
 	}
 }
@@ -217,7 +217,7 @@ impl<R: std::io::Read + std::io::Seek> Input for IoReader<R> {
 		self.0.read_exact(into).map_err(Into::into)
 	}
 
-	fn skip(&mut self, len: usize) -> Result<(), Error> {
+	fn skip(&mut self, len: u32) -> Result<(), Error> {
 		use std::io::SeekFrom;
 		// Seek doc: A seek beyond the end of a stream is allowed,
 		// but behavior is defined by the implementation.
@@ -938,7 +938,14 @@ impl<T: Decode> Decode for Vec<T> {
 
 			macro_rules! skip {
 				( $ty:ty, $input:ident, $len:ident ) => {{
-					input.skip($len * mem::size_of::<$ty>())
+					match ($len as u32).checked_mul(mem::size_of::<$ty>() as u32) {
+						Some(size) => input.skip(size)?,
+						// NOTE: this can be optimized by skipping chunks.
+						None => for _ in 0..len {
+							T::skip(input)?;
+						},
+					}
+					Ok(())
 				}};
 			}
 
@@ -1221,7 +1228,7 @@ macro_rules! impl_endians {
 			}
 
 			fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
-				input.skip(mem::size_of::<$t>())
+				input.skip(mem::size_of::<$t>() as u32)
 			}
 		}
 	)* }
@@ -1309,7 +1316,7 @@ impl Decode for Duration {
 	}
 
 	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
-		input.skip(mem::size_of::<u64>() + mem::size_of::<u32>())
+		input.skip((mem::size_of::<u64>() + mem::size_of::<u32>()) as u32)
 	}
 }
 
@@ -1585,7 +1592,7 @@ mod tests {
 				self.0.read(into)
 			}
 
-			fn skip(&mut self, len: usize) -> Result<(), Error> {
+			fn skip(&mut self, len: u32) -> Result<(), Error> {
 				self.0.skip(len)
 			}
 		}

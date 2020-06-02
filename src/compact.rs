@@ -66,11 +66,11 @@ impl<'a, T: 'a + Input> Input for PrefixInput<'a, T> {
 		}
 	}
 
-	fn skip(&mut self, len: usize) -> Result<(), Error> {
+	fn skip(&mut self, len: u32) -> Result<(), Error> {
 		if len == 0 {
 			Ok(())
 		} else {
-			let new_len = len - self.prefix.take().is_some() as usize;
+			let new_len = len - self.prefix.take().is_some() as u32;
 			self.input.skip(new_len)
 		}
 	}
