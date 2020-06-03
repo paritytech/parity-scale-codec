@@ -50,7 +50,7 @@ use crate::alloc::{
 use crate::compact::Compact;
 use crate::encode_like::EncodeLike;
 
-const MAX_PREALLOCATION: usize = 4 * 1024;
+pub const MAX_PREALLOCATION: usize = 4 * 1024;
 const A_BILLION: u32 = 1_000_000_000;
 
 /// Descriptive error type
