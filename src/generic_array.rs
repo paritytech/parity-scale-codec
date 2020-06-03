@@ -41,10 +41,7 @@ impl<T: Decode, L: generic_array::ArrayLength<T>> Decode for generic_array::Gene
 	}
 
 	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
-		for _ in 0..L::to_usize() {
-			T::skip(input)?;
-		}
-		Ok(())
+		(0..L::to_usize()).try_for_each(|_| T::skip(input))
 	}
 }
 

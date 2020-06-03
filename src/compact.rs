@@ -70,7 +70,7 @@ impl<'a, T: 'a + Input> Input for PrefixInput<'a, T> {
 		if len == 0 {
 			Ok(())
 		} else {
-			let new_len = len - self.prefix.take().is_some() as usize;
+			let new_len = len - self.prefix.take().map_or(0, |_| 1);
 			self.input.skip(new_len)
 		}
 	}
@@ -981,7 +981,7 @@ mod tests {
 
 						let deencoded = <Compact<$ty>>::decode(&mut &encoded[..]).unwrap().0;
 
-						v == deencoded && skipped == Ok(()) && skipped_input.len() == 0
+						v == deencoded && skipped == Ok(()) && skipped_input.is_empty()
 					}
 				}
 			)*

@@ -152,10 +152,10 @@ impl<'a> Input for &'a [u8] {
 	}
 
 	fn skip(&mut self, len: usize) -> Result<(), Error> {
-		if len as usize > self.len() {
+		if len > self.len() {
 			return Err("Not enough data in input to skip".into());
 		}
-		*self = &self[len as usize..];
+		*self = &self[len..];
 		Ok(())
 	}
 }
