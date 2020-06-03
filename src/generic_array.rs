@@ -55,18 +55,18 @@ mod tests {
 	fn generic_array() {
 		let test = arr![u8; 3, 4, 5];
 		let encoded = test.encode();
-		assert_decode::<GenericArray::<u8, typenum::U3>>(&encoded[..], Ok(test));
+		assert_decode::<GenericArray::<u8, typenum::U3>>(&encoded[..], test);
 
 		let test = arr![u16; 3, 4, 5, 6, 7, 8, 0];
 		let encoded = test.encode();
-		assert_decode::<GenericArray::<u16, typenum::U7>>(&encoded[..], Ok(test));
+		assert_decode::<GenericArray::<u16, typenum::U7>>(&encoded[..], test);
 
 		let test = arr![u32; 3, 4, 5, 0, 1];
 		let encoded = test.encode();
-		assert_decode::<GenericArray::<u32, typenum::U5>>(&encoded[..], Ok(test));
+		assert_decode::<GenericArray::<u32, typenum::U5>>(&encoded[..], test);
 
 		let test = arr![u64; 3];
 		let encoded = test.encode();
-		assert_decode::<GenericArray::<u64, typenum::U1>>(&encoded[..], Ok(test));
+		assert_decode::<GenericArray::<u64, typenum::U1>>(&encoded[..], test);
 	}
 }
