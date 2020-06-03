@@ -50,7 +50,7 @@ use crate::alloc::{
 use crate::compact::Compact;
 use crate::encode_like::EncodeLike;
 
-const MAX_PREALLOCATION: usize = 4 * 1024;
+pub(crate) const MAX_PREALLOCATION: usize = 4 * 1024;
 const A_BILLION: u32 = 1_000_000_000;
 
 /// Descriptive error type
@@ -790,7 +790,7 @@ impl<T: Encode> Encode for [T] {
 }
 
 /// Read an `u8` vector from the given input.
-fn read_vec_u8<I: Input>(input: &mut I, len: usize) -> Result<Vec<u8>, Error> {
+pub(crate) fn read_vec_u8<I: Input>(input: &mut I, len: usize) -> Result<Vec<u8>, Error> {
 	let input_len = input.remaining_len()?;
 
 	// If there is input len and it cannot be pre-allocated then return directly.
