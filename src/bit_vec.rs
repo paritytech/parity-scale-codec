@@ -19,7 +19,7 @@ use core::mem;
 use bitvec::{vec::BitVec, store::BitStore, order::BitOrder, slice::BitSlice, boxed::BitBox};
 use byte_slice_cast::{AsByteSlice, ToByteSlice, FromByteSlice, Error as FromByteSliceError};
 
-use crate::codec::{Encode, Decode, Input, Output, Error};
+use crate::codec::{Encode, Decode, Input, Output, Error, read_vec_u8};
 use crate::compact::Compact;
 use crate::EncodeLike;
 
@@ -60,9 +60,9 @@ impl<O: BitOrder, T: BitStore + FromByteSlice> Decode for BitVec<O, T> {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		<Compact<u32>>::decode(input).and_then(move |Compact(bits)| {
 			let bits = bits as usize;
+			let required_bytes = required_bytes::<T>(bits);
 
-			let mut vec = vec![0; required_bytes::<T>(bits)];
-			input.read(&mut vec)?;
+			let vec = read_vec_u8(input, required_bytes)?;
 
 			let mut result = Self::from_slice(T::from_byte_slice(&vec)?);
 			assert!(bits <= result.len());
@@ -107,6 +107,7 @@ mod tests {
 	use super::*;
 	use crate::assert_decode;
 	use bitvec::{bitvec, order::Msb0};
+	use crate::codec::MAX_PREALLOCATION;
 
 	macro_rules! test_data {
 		($inner_type:ident) => (
@@ -134,6 +135,10 @@ mod tests {
 				bitvec![Msb0, $inner_type; 0; 63],
 				bitvec![Msb0, $inner_type; 1; 64],
 				bitvec![Msb0, $inner_type; 0; 65],
+				bitvec![Msb0, $inner_type; 1; MAX_PREALLOCATION * 8 + 1],
+				bitvec![Msb0, $inner_type; 0; MAX_PREALLOCATION * 9],
+				bitvec![Msb0, $inner_type; 1; MAX_PREALLOCATION * 32 + 1],
+				bitvec![Msb0, $inner_type; 0; MAX_PREALLOCATION * 33],
 			].into_iter()
 		)
 	}

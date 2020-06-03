@@ -50,7 +50,7 @@ use crate::alloc::{
 use crate::compact::Compact;
 use crate::encode_like::EncodeLike;
 
-const MAX_PREALLOCATION: usize = 4 * 1024;
+pub(crate) const MAX_PREALLOCATION: usize = 4 * 1024;
 const A_BILLION: u32 = 1_000_000_000;
 
 /// Descriptive error type
@@ -876,7 +876,7 @@ impl<T: Encode> Encode for [T] {
 }
 
 /// Read an `u8` vector from the given input.
-fn read_vec_u8<I: Input>(input: &mut I, len: usize) -> Result<Vec<u8>, Error> {
+pub(crate) fn read_vec_u8<I: Input>(input: &mut I, len: usize) -> Result<Vec<u8>, Error> {
 	let input_len = input.remaining_len()?;
 
 	// If there is input len and it cannot be pre-allocated then return directly.
@@ -1162,6 +1162,12 @@ macro_rules! tuple_impl {
 			}
 		}
 
+		impl<$one: DecodeLength> DecodeLength for ($one,) {
+			fn len(self_encoded: &[u8]) -> Result<usize, Error> {
+				$one::len(self_encoded)
+			}
+		}
+
 		impl<$one: EncodeLike<$extra>, $extra: Encode> crate::EncodeLike<($extra,)> for ($one,) {}
 	};
 	(($first:ident, $fextra:ident), $( ( $rest:ident, $rextra:ident ), )+) => {
@@ -1210,6 +1216,12 @@ macro_rules! tuple_impl {
 		impl<$first: EncodeLike<$fextra>, $fextra: Encode,
 			$($rest: EncodeLike<$rextra>, $rextra: Encode),+> crate::EncodeLike<($fextra, $( $rextra ),+)>
 			for ($first, $($rest),+) {}
+
+		impl<$first: DecodeLength, $($rest),+> DecodeLength for ($first, $($rest),+) {
+			fn len(self_encoded: &[u8]) -> Result<usize, Error> {
+				$first::len(self_encoded)
+			}
+		}
 
 		tuple_impl!( $( ($rest, $rextra), )+ );
 	}
@@ -1465,6 +1477,8 @@ mod tests {
 		let mut ll = LinkedList::new();
 		ll.push_back(1);
 		ll.push_back(2);
+		let t1: (Vec<_>,) = (vector.clone(),);
+		let t2: (Vec<_>, u32) = (vector.clone(), 3u32);
 
 		test_encode_length(&vector, 10);
 		test_encode_length(&btree_map, 2);
@@ -1472,6 +1486,8 @@ mod tests {
 		test_encode_length(&vd, 2);
 		test_encode_length(&bh, 2);
 		test_encode_length(&ll, 2);
+		test_encode_length(&t1, 10);
+		test_encode_length(&t2, 10);
 	}
 
 	#[test]
