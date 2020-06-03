@@ -184,22 +184,7 @@ pub struct IoReader<R: std::io::Read + std::io::Seek>(pub R);
 #[cfg(feature = "std")]
 impl<R: std::io::Read + std::io::Seek> Input for IoReader<R> {
 	fn remaining_len(&mut self) -> Result<Option<usize>, Error> {
-		use std::convert::TryInto;
-		use std::io::SeekFrom;
-
-		let old_pos = self.0.seek(SeekFrom::Current(0))?;
-		let len = self.0.seek(SeekFrom::End(0))?;
-
-		// Avoid seeking a third time when we were already at the end of the
-		// stream. The branch is usually way cheaper than a seek operation.
-		if old_pos != len {
-			self.0.seek(SeekFrom::Start(old_pos))?;
-		}
-
-		len.saturating_sub(old_pos)
-			.try_into()
-			.map_err(|_| "Input cannot fit into usize length".into())
-			.map(Some)
+		Ok(None)
 	}
 
 	fn read(&mut self, into: &mut [u8]) -> Result<(), Error> {
