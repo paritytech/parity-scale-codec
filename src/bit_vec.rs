@@ -19,7 +19,7 @@ use core::mem;
 use bitvec::{vec::BitVec, store::BitStore, order::BitOrder, slice::BitSlice, boxed::BitBox};
 use byte_slice_cast::{AsByteSlice, ToByteSlice, FromByteSlice, Error as FromByteSliceError};
 
-use crate::codec::{Encode, Decode, Input, Output, Error, MAX_PREALLOCATION};
+use crate::codec::{Encode, Decode, Input, Output, Error, read_vec_u8};
 use crate::compact::Compact;
 use crate::EncodeLike;
 
@@ -60,23 +60,9 @@ impl<O: BitOrder, T: BitStore + FromByteSlice> Decode for BitVec<O, T> {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		<Compact<u32>>::decode(input).and_then(move |Compact(bits)| {
 			let bits = bits as usize;
-
 			let required_bytes = required_bytes::<T>(bits);
-			let vec = if required_bytes <= MAX_PREALLOCATION {
-				let mut vec = vec![0; required_bytes];
-				input.read(&mut vec)?;
-				vec
-			} else {
-				let mut vec = vec![];
-				while vec.len() < required_bytes {
-					let old_len = vec.len();
-					let add_len = MAX_PREALLOCATION.min(required_bytes - old_len);
-					vec.resize(old_len + add_len, 0);
-					input.read(&mut vec[old_len..])?;
-				}
-				debug_assert!(vec.len() == required_bytes);
-				vec
-			};
+
+			let vec = read_vec_u8(input, required_bytes)?;
 
 			let mut result = Self::from_slice(T::from_byte_slice(&vec)?);
 			assert!(bits <= result.len());
@@ -110,6 +96,7 @@ fn required_bytes<T>(bits: usize) -> usize {
 mod tests {
 	use super::*;
 	use bitvec::{bitvec, order::Msb0};
+	use crate::codec::MAX_PREALLOCATION;
 
 	macro_rules! test_data {
 		($inner_type:ident) => (
