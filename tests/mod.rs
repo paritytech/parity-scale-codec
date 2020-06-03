@@ -124,10 +124,10 @@ fn should_work_for_simple_enum() {
 		assert_eq!(slice, &b"\x02\x01\0\0\0\x02\0\0\0\0\0\0\0");
 	});
 
-	assert_decode(b"\x0f", Ok(a));
-	assert_decode(b"\x01\x01\0\0\0\x02\0\0\0\0\0\0\0", Ok(b));
-	assert_decode(b"\x02\x01\0\0\0\x02\0\0\0\0\0\0\0", Ok(c));
-	assert_decode::<EnumType>(&[0], Err("No such variant in enum EnumType".into()));
+	assert_decode(b"\x0f", a);
+	assert_decode(b"\x01\x01\0\0\0\x02\0\0\0\0\0\0\0", b);
+	assert_decode(b"\x02\x01\0\0\0\x02\0\0\0\0\0\0\0", c);
+	assert_eq!(EnumType::decode(&mut &[0][..]), Err("No such variant in enum EnumType".into()));
 }
 
 #[test]
@@ -142,10 +142,13 @@ fn should_work_for_enum_with_discriminant() {
 		assert_eq!(slice, &[255]);
 	});
 
-	assert_decode(&[1], Ok(EnumWithDiscriminant::A));
-	assert_decode(&[15], Ok(EnumWithDiscriminant::B));
-	assert_decode(&[255], Ok(EnumWithDiscriminant::C));
-	assert_decode::<EnumWithDiscriminant>(&[2], Err("No such variant in enum EnumWithDiscriminant".into()));
+	assert_decode(&[1], EnumWithDiscriminant::A);
+	assert_decode(&[15], EnumWithDiscriminant::B);
+	assert_decode(&[255], EnumWithDiscriminant::C);
+	assert_eq!(
+		EnumWithDiscriminant::decode(&mut &[2][..]),
+		Err("No such variant in enum EnumWithDiscriminant".into())
+	);
 }
 
 #[test]
@@ -161,7 +164,7 @@ fn should_derive_encode() {
 fn should_derive_decode() {
 	assert_decode(
 		b"\x0f\0\0\0\x09\0\0\0\0\0\0\0\x2cHello world",
-		Ok(TestType::new(15, 9, b"Hello world".to_vec())),
+		TestType::new(15, 9, b"Hello world".to_vec()),
 	);
 }
 
@@ -173,7 +176,7 @@ fn should_work_for_unit() {
 		assert_eq!(slice, &[]);
 	});
 
-	assert_decode(&[], Ok(Unit));
+	assert_decode(&[], Unit);
 }
 
 #[test]
@@ -184,7 +187,7 @@ fn should_work_for_indexed() {
 		assert_eq!(slice, &b"\x01\0\0\0\x02\0\0\0\0\0\0\0")
 	});
 
-	assert_decode(b"\x01\0\0\0\x02\0\0\0\0\0\0\0", Ok(Indexed(1, 2)));
+	assert_decode(b"\x01\0\0\0\x02\0\0\0\0\0\0\0", Indexed(1, 2));
 }
 
 #[test]
@@ -241,7 +244,7 @@ fn encoded_as_with_has_compact_works() {
 	for &(n, l) in U64_TEST_COMPACT_VALUES {
 		let encoded = TestHasCompact { bar: n }.encode();
 		assert_eq!(encoded.len(), l);
-		assert_decode(&encoded, Ok(TestHasCompact { bar: n}));
+		assert_decode(&encoded, TestHasCompact { bar: n});
 	}
 }
 
@@ -250,7 +253,7 @@ fn compact_with_has_compact_works() {
 	for &(n, l) in U64_TEST_COMPACT_VALUES {
 		let encoded = TestHasCompact { bar: n }.encode();
 		assert_eq!(encoded.len(), l);
-		assert_decode(&encoded, Ok(TestCompactHasCompact { bar: n}));
+		assert_decode(&encoded, TestCompactHasCompact { bar: n});
 	}
 }
 
@@ -265,7 +268,7 @@ fn enum_compact_and_encoded_as_with_has_compact_works() {
 		].into_iter() {
 			let encoded = value.encode();
 			assert_eq!(encoded.len(), l);
-			assert_decode::<TestHasCompactEnum<u64>>(&encoded, Ok(value));
+			assert_decode::<TestHasCompactEnum<u64>>(&encoded, value);
 		}
 	}
 }
@@ -275,7 +278,7 @@ fn compact_meta_attribute_works() {
 	for &(n, l) in U64_TEST_COMPACT_VALUES {
 		let encoded = TestCompactAttribute { bar: n }.encode();
 		assert_eq!(encoded.len(), l);
-		assert_decode(&encoded, Ok(TestCompactAttribute { bar: n}));
+		assert_decode(&encoded, TestCompactAttribute { bar: n});
 	}
 }
 
@@ -285,7 +288,7 @@ fn enum_compact_meta_attribute_works() {
 		for value in vec![ TestCompactAttributeEnum::Unnamed(n), TestCompactAttributeEnum::Named { bar: n } ].into_iter() {
 			let encoded = value.encode();
 			assert_eq!(encoded.len(), l);
-			assert_decode::<TestCompactAttributeEnum>(&encoded, Ok(value));
+			assert_decode::<TestCompactAttributeEnum>(&encoded, value);
 		}
 	}
 }
@@ -314,7 +317,7 @@ fn associated_type_bounds() {
 
 	let value: Struct<TraitImplementor, u64> = Struct { field: (vec![1, 2, 3], 42) };
 	let encoded = value.encode();
-	assert_decode::<Struct<TraitImplementor, u64>>(&encoded, Ok(value));
+	assert_decode::<Struct<TraitImplementor, u64>>(&encoded, value);
 }
 
 #[test]
@@ -468,7 +471,10 @@ fn encode_decode_empty_enum() {
 	fn impls_encode_decode<T: Encode + Decode>() {}
 	impls_encode_decode::<EmptyEnumDerive>();
 
-	assert_decode::<EmptyEnumDerive>(&[1, 2, 3], Err("No such variant in enum EmptyEnumDerive".into()));
+	assert_eq!(
+		EmptyEnumDerive::decode(&mut &[1, 2, 3][..]),
+		Err("No such variant in enum EmptyEnumDerive".into())
+	);
 }
 
 #[test]
@@ -480,7 +486,7 @@ fn codec_vec_u8() {
 		vec![0u8; 1000],
 	].into_iter() {
 		let e = v.encode();
-		assert_decode::<Vec<u8>>(&e, Ok(v));
+		assert_decode::<Vec<u8>>(&e, v);
 	}
 }
 
@@ -501,16 +507,16 @@ fn recursive_type() {
 
 #[test]
 fn crafted_input_for_vec_u8() {
-	assert_decode::<Vec<u8>>(
-		&Compact(u32::max_value()).encode(),
+	assert_eq!(
+		<Vec<u8>>::decode(&mut &Compact(u32::max_value()).encode()[..]),
 		Err("Not enough data to decode vector".into()),
 	);
 }
 
 #[test]
 fn crafted_input_for_vec_t() {
-	assert_decode::<Vec<u32>>(
-		&Compact(u32::max_value()).encode(),
+	assert_eq!(
+		<Vec<u32>>::decode(&mut &Compact(u32::max_value()).encode()[..]),
 		Err("Not enough data to decode vector".into()),
 	);
 }

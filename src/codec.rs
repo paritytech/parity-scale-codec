@@ -1379,7 +1379,7 @@ mod tests {
 
 		let encoded = (&x, &y).encode();
 
-		assert_decode(&encoded, Ok((x, y)));
+		assert_decode(&encoded, (x, y));
 	}
 
 	#[test]
@@ -1420,7 +1420,7 @@ mod tests {
 		let value = String::from("Hello, World!");
 		let encoded = value.encode();
 		assert_eq!(hexify(&encoded), "34 48 65 6c 6c 6f 2c 20 57 6f 72 6c 64 21");
-		assert_decode::<String>(&encoded[..], Ok(value));
+		assert_decode::<String>(&encoded[..], value);
 	}
 
 	#[test]
@@ -1428,7 +1428,7 @@ mod tests {
 		let value = vec![0u8, 1, 1, 2, 3, 5, 8, 13, 21, 34];
 		let encoded = value.encode();
 		assert_eq!(hexify(&encoded), "28 00 01 01 02 03 05 08 0d 15 22");
-		assert_decode::<Vec<u8>>(&encoded[..], Ok(value));
+		assert_decode::<Vec<u8>>(&encoded[..], value);
 	}
 
 	#[test]
@@ -1436,7 +1436,7 @@ mod tests {
 		let value = vec![0i16, 1, -1, 2, -2, 3, -3];
 		let encoded = value.encode();
 		assert_eq!(hexify(&encoded), "1c 00 00 01 00 ff ff 02 00 fe ff 03 00 fd ff");
-		assert_decode::<Vec<i16>>(&encoded[..], Ok(value));
+		assert_decode::<Vec<i16>>(&encoded[..], value);
 	}
 
 	#[test]
@@ -1444,7 +1444,7 @@ mod tests {
 		let value = vec![Some(1i8), Some(-1), None];
 		let encoded = value.encode();
 		assert_eq!(hexify(&encoded), "0c 01 01 01 ff 00");
-		assert_decode::<Vec<Option<i8>>>(&encoded[..], Ok(value));
+		assert_decode::<Vec<Option<i8>>>(&encoded[..], value);
 	}
 
 	#[test]
@@ -1452,7 +1452,7 @@ mod tests {
 		let value = vec![OptionBool(Some(true)), OptionBool(Some(false)), OptionBool(None)];
 		let encoded = value.encode();
 		assert_eq!(hexify(&encoded), "0c 01 02 00");
-		assert_decode::<Vec<OptionBool>>(&encoded[..], Ok(value));
+		assert_decode::<Vec<OptionBool>>(&encoded[..], value);
 	}
 
 	fn test_encode_length<T: Encode + Decode + DecodeLength>(thing: &T, len: usize) {
@@ -1503,7 +1503,7 @@ mod tests {
 			b8 20 d0 bc d0 b8 d1 80 30 e4 b8 89 e5 9b bd e6 bc 94 e4 b9 89 bc d8 a3 d9 8e d9 84 d9 92 \
 			d9 81 20 d9 84 d9 8e d9 8a d9 92 d9 84 d9 8e d8 a9 20 d9 88 d9 8e d9 84 d9 8e d9 8a d9 92 \
 			d9 84 d9 8e d8 a9 e2 80 8e");
-		assert_decode::<Vec<String>>(&encoded[..], Ok(value));
+		assert_decode::<Vec<String>>(&encoded[..], value);
 	}
 
 	#[derive(Debug, PartialEq)]
@@ -1526,7 +1526,7 @@ mod tests {
 		let result = vec![0b1100];
 
 		assert_eq!(MyWrapper(3u32.into()).encode(), result);
-		assert_decode::<MyWrapper>(&result[..], Ok(MyWrapper(3_u32.into())));
+		assert_decode::<MyWrapper>(&result[..], MyWrapper(3_u32.into()));
 	}
 
 	#[test]
@@ -1543,8 +1543,8 @@ mod tests {
 			v_u16.push_back(i as u16);
 		}
 
-		assert_decode(&v_u8.encode()[..], Ok(v_u8));
-		assert_decode(&v_u16.encode()[..], Ok(v_u16));
+		assert_decode(&v_u8.encode()[..], v_u8);
+		assert_decode(&v_u16.encode()[..], v_u16);
 	}
 
 	#[test]
@@ -1566,8 +1566,8 @@ mod tests {
 				.map(|i| (i.clone(), i.len() as u32))
 		);
 
-		assert_decode(&t1.encode()[..], Ok(t1));
-		assert_decode(&t2.encode()[..], Ok(t2));
+		assert_decode(&t1.encode()[..], t1);
+		assert_decode(&t2.encode()[..], t2);
 
 		let mut skip_input = &t3.encode()[..];
 		assert_eq!(<BinaryHeap<u32>>::skip(&mut skip_input), Ok(()));
@@ -1577,9 +1577,9 @@ mod tests {
 			Ok(t3.into_sorted_vec()),
 		);
 
-		assert_decode(&t4.encode()[..], Ok(t4));
-		assert_decode(&t5.encode()[..], Ok(t5));
-		assert_decode(&t6.encode()[..], Ok(t6));
+		assert_decode(&t4.encode()[..], t4);
+		assert_decode(&t5.encode()[..], t5);
+		assert_decode(&t6.encode()[..], t6);
 
 		let mut skip_input = &t7.encode()[..];
 		assert_eq!(<BinaryHeap<Vec<u8>>>::skip(&mut skip_input), Ok(()));
@@ -1589,7 +1589,7 @@ mod tests {
 			Ok(t7.into_sorted_vec()),
 		);
 
-		assert_decode(&t8.encode()[..], Ok(t8));
+		assert_decode(&t8.encode()[..], t8);
 	}
 
 	#[test]
@@ -1691,7 +1691,7 @@ mod tests {
 		assert_eq!(data.len(), decoded.len());
 
 		let encoded = decoded.encode();
-		assert_decode::<VecDeque<u32>>(&encoded, Ok(data));
+		assert_decode::<VecDeque<u32>>(&encoded, data);
 	}
 
 	#[test]
@@ -1720,7 +1720,7 @@ mod tests {
 		let expected = (num_secs, num_nanos as u32).encode();
 
 		assert_eq!(duration.encode(), expected);
-		assert_decode::<Duration>(&expected, Ok(duration));
+		assert_decode::<Duration>(&expected, duration);
 	}
 
 	#[test]
@@ -1728,21 +1728,27 @@ mod tests {
 		// This test should fail, as the number of nanoseconds encoded is exactly 10^9.
 		let invalid_nanos = A_BILLION;
 		let encoded = (0u64, invalid_nanos).encode();
-		assert_decode::<Duration>(&encoded, Err("Number of nanoseconds should not be higher than 10^9.".into()));
+		assert_eq!(
+			Duration::decode(&mut &encoded[..]),
+			Err("Number of nanoseconds should not be higher than 10^9.".into())
+		);
 
 		let num_secs = 1u64;
 		let num_nanos = 37u32;
 		let invalid_nanos = num_secs as u32 * A_BILLION + num_nanos;
 		let encoded = (num_secs, invalid_nanos).encode();
 		// This test should fail, as the number of nano seconds encoded is bigger than 10^9.
-		assert_decode::<Duration>(&encoded, Err("Number of nanoseconds should not be higher than 10^9.".into()));
+		assert_eq!(
+			Duration::decode(&mut &encoded[..]),
+			Err("Number of nanoseconds should not be higher than 10^9.".into())
+		);
 
 		// Now constructing a valid duration and encoding it. Those asserts should not fail.
 		let duration = Duration::from_nanos(invalid_nanos as u64);
 		let expected = (num_secs, num_nanos).encode();
 
 		assert_eq!(duration.encode(), expected);
-		assert_decode::<Duration>(&expected, Ok(duration));
+		assert_decode::<Duration>(&expected, duration);
 	}
 
 	#[test]
@@ -1753,7 +1759,7 @@ mod tests {
 		let expected = (num_secs, num_nanos).encode();
 
 		assert_eq!(duration.encode(), expected);
-		assert_decode::<Duration>(&expected, Ok(duration));
+		assert_decode::<Duration>(&expected, duration);
 	}
 
 	#[test]
@@ -1764,13 +1770,16 @@ mod tests {
 		// `num_nanos`' carry should make `num_secs` overflow if we were to call `Duration::new()`.
 		// This test checks that the we do not call `Duration::new()`.
 		let encoded = (num_secs, num_nanos).encode();
-		assert_decode::<Duration>(&encoded, Err("Number of nanoseconds should not be higher than 10^9.".into()));
+		assert_eq!(
+			Duration::decode(&mut &encoded[..]),
+			Err("Number of nanoseconds should not be higher than 10^9.".into())
+		);
 	}
 
 	#[test]
 	fn string_invalid_utf8() {
 		// `167, 10` is not a valid utf8 sequence, so this should be an error.
 		let bytes: &[u8] = &[20, 114, 167, 10, 20, 114];
-		assert_decode::<String>(bytes, Err("Invalid utf8 sequence".into()));
+		assert_eq!(String::decode(&mut &bytes[..]), Err("Invalid utf8 sequence".into()));
 	}
 }

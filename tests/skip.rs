@@ -57,10 +57,10 @@ fn enum_struct_test() {
 	let sn_encoded: &[u8] = &sn.encode();
 	let su_encoded: &[u8] = &su.encode();
 
-	assert_decode::<Enum>(eb_encoded, Ok(eb));
-	assert_decode::<Enum>(ec_encoded, Ok(ec));
-	assert_decode::<StructNamed>(sn_encoded, Ok(sn));
-	assert_decode::<StructUnnamed>(su_encoded, Ok(su));
+	assert_decode::<Enum>(eb_encoded, eb);
+	assert_decode::<Enum>(ec_encoded, ec);
+	assert_decode::<StructNamed>(sn_encoded, sn);
+	assert_decode::<StructUnnamed>(su_encoded, su);
 }
 
 #[test]

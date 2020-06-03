@@ -174,7 +174,7 @@ mod tests {
 	fn bitvec_u8() {
 		for v in test_data!(u8) {
 			let encoded = v.encode();
-			assert_decode::<BitVec<Msb0, u8>>(&encoded, Ok(v));
+			assert_decode::<BitVec<Msb0, u8>>(&encoded, v);
 		}
 	}
 
@@ -182,7 +182,7 @@ mod tests {
 	fn bitvec_u16() {
 		for v in test_data!(u16) {
 			let encoded = v.encode();
-			assert_decode::<BitVec<Msb0, u16>>(&encoded, Ok(v));
+			assert_decode::<BitVec<Msb0, u16>>(&encoded, v);
 		}
 	}
 
@@ -190,7 +190,7 @@ mod tests {
 	fn bitvec_u32() {
 		for v in test_data!(u32) {
 			let encoded = v.encode();
-			assert_decode::<BitVec<Msb0, u32>>(&encoded, Ok(v));
+			assert_decode::<BitVec<Msb0, u32>>(&encoded, v);
 		}
 	}
 
@@ -198,7 +198,7 @@ mod tests {
 	fn bitvec_u64() {
 		for v in test_data!(u64) {
 			let encoded = dbg!(v.encode());
-			assert_decode::<BitVec<Msb0, u64>>(&encoded, Ok(v));
+			assert_decode::<BitVec<Msb0, u64>>(&encoded, v);
 		}
 	}
 
@@ -207,7 +207,7 @@ mod tests {
 		let data: &[u8] = &[0x69];
 		let slice = BitSlice::<Msb0, u8>::from_slice(data);
 		let encoded = slice.encode();
-		assert_decode::<BitVec<Msb0, u8>>(&encoded, Ok(slice.to_vec()));
+		assert_decode::<BitVec<Msb0, u8>>(&encoded, slice.to_vec());
 		let decoded = BitVec::<Msb0, u8>::decode(&mut &encoded[..]).unwrap();
 		assert_eq!(slice, decoded.as_bitslice());
 	}
@@ -217,6 +217,6 @@ mod tests {
 		let data: &[u8] = &[5, 10];
 		let bb = BitBox::<Msb0, u8>::from_slice(data);
 		let encoded = bb.encode();
-		assert_decode::<BitBox<Msb0, u8>>(&encoded, Ok(bb));
+		assert_decode::<BitBox<Msb0, u8>>(&encoded, bb);
 	}
 }

@@ -104,16 +104,16 @@ fn test_encoding() {
 	assert_eq!(s_skip_cas.encode(), s_skip_cas_encoded);
 	assert_eq!(uh.encode(), uh_encoded);
 
-	assert_decode::<S>(s_encoded, Ok(s));
-	assert_decode::<SSkip>(s_skip_encoded, Ok(s_skip));
-	assert_decode::<Sc>(sc_encoded, Ok(sc));
-	assert_decode::<Sh<_>>(sh_encoded, Ok(sh));
-	assert_decode::<U>(u_encoded, Ok(u));
-	assert_decode::<USkip>(u_skip_encoded, Ok(u_skip));
-	assert_decode::<Uc>(uc_encoded, Ok(uc));
-	assert_decode::<Compact::<U>>(ucom_encoded, Ok(ucom));
-	assert_decode::<Ucas>(ucas_encoded, Ok(ucas));
-	assert_decode::<USkipcas>(u_skip_cas_encoded, Ok(u_skip_cas));
-	assert_decode::<SSkipcas>(s_skip_cas_encoded, Ok(s_skip_cas));
-	assert_decode::<Uh<_>>(uh_encoded, Ok(uh));
+	assert_decode::<S>(s_encoded, s);
+	assert_decode::<SSkip>(s_skip_encoded, s_skip);
+	assert_decode::<Sc>(sc_encoded, sc);
+	assert_decode::<Sh<_>>(sh_encoded, sh);
+	assert_decode::<U>(u_encoded, u);
+	assert_decode::<USkip>(u_skip_encoded, u_skip);
+	assert_decode::<Uc>(uc_encoded, uc);
+	assert_decode::<Compact::<U>>(ucom_encoded, ucom);
+	assert_decode::<Ucas>(ucas_encoded, ucas);
+	assert_decode::<USkipcas>(u_skip_cas_encoded, u_skip_cas);
+	assert_decode::<SSkipcas>(s_skip_cas_encoded, s_skip_cas);
+	assert_decode::<Uh<_>>(uh_encoded, uh);
 }

@@ -288,12 +288,10 @@ pub use self::encode_like::{EncodeLike, Ref};
 
 /// Assert Decode::decode and Decode::skip works
 #[cfg(test)]
-pub fn assert_decode<T>(mut encoded: &[u8], res: Result<T, Error>) where
+pub fn assert_decode<T>(mut encoded: &[u8], res: T) where
 	T: core::fmt::Debug + Decode + PartialEq,
 {
-	assert_eq!(Decode::decode(&mut encoded.clone()), res);
-	if res.is_ok() {
-		assert_eq!(T::skip(&mut encoded), Ok(()));
-		assert!(encoded.is_empty());
-	}
+	assert_eq!(Decode::decode(&mut encoded.clone()), Ok(res));
+	assert_eq!(T::skip(&mut encoded), Ok(()));
+	assert!(encoded.is_empty());
 }

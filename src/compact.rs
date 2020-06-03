@@ -701,7 +701,7 @@ mod tests {
 			let encoded = Compact(n as u128).encode();
 			assert_eq!(encoded.len(), l);
 			assert_eq!(Compact::compact_len(&n), l);
-			assert_decode::<Compact<u128>>(&encoded[..], Ok(Compact(n)));
+			assert_decode::<Compact<u128>>(&encoded[..], Compact(n));
 		}
 	}
 
@@ -717,7 +717,7 @@ mod tests {
 			let encoded = Compact(n as u64).encode();
 			assert_eq!(encoded.len(), l);
 			assert_eq!(Compact::compact_len(&n), l);
-			assert_decode::<Compact<u64>>(&encoded[..], Ok(Compact(n)));
+			assert_decode::<Compact<u64>>(&encoded[..], Compact(n));
 		}
 	}
 
@@ -728,7 +728,7 @@ mod tests {
 			let encoded = Compact(n as u32).encode();
 			assert_eq!(encoded.len(), l);
 			assert_eq!(Compact::compact_len(&n), l);
-			assert_decode::<Compact<u32>>(&encoded[..], Ok(Compact(n)));
+			assert_decode::<Compact<u32>>(&encoded[..], Compact(n));
 		}
 	}
 
@@ -739,7 +739,7 @@ mod tests {
 			let encoded = Compact(n as u16).encode();
 			assert_eq!(encoded.len(), l);
 			assert_eq!(Compact::compact_len(&n), l);
-			assert_decode::<Compact<u16>>(&encoded[..], Ok(Compact(n)));
+			assert_decode::<Compact<u16>>(&encoded[..], Compact(n));
 		}
 		assert!(<Compact<u16>>::decode(&mut &Compact(65536u32).encode()[..]).is_err());
 	}
@@ -751,7 +751,7 @@ mod tests {
 			let encoded = Compact(n as u8).encode();
 			assert_eq!(encoded.len(), l);
 			assert_eq!(Compact::compact_len(&n), l);
-			assert_decode::<Compact<u8>>(&encoded[..], Ok(Compact(n)));
+			assert_decode::<Compact<u8>>(&encoded[..], Compact(n));
 		}
 		assert!(<Compact<u8>>::decode(&mut &Compact(256u32).encode()[..]).is_err());
 	}
@@ -782,26 +782,26 @@ mod tests {
 			// Verify u64 encoding
 			let encoded = Compact(n as u64).encode();
 			assert_eq!(hexify(&encoded), s);
-			assert_decode::<Compact<u64>>(&encoded[..], Ok(Compact(n)));
+			assert_decode::<Compact<u64>>(&encoded[..], Compact(n));
 
 			// Verify encodings for lower-size uints are compatible with u64 encoding
 			if n <= u32::max_value() as u64 {
-				assert_decode::<Compact<u32>>(&encoded[..], Ok(Compact(n as u32)));
+				assert_decode::<Compact<u32>>(&encoded[..], Compact(n as u32));
 				let encoded = Compact(n as u32).encode();
 				assert_eq!(hexify(&encoded), s);
-				assert_decode::<Compact<u64>>(&encoded[..], Ok(Compact(n as u64)));
+				assert_decode::<Compact<u64>>(&encoded[..], Compact(n as u64));
 			}
 			if n <= u16::max_value() as u64 {
-				assert_decode::<Compact<u16>>(&encoded[..], Ok(Compact(n as u16)));
+				assert_decode::<Compact<u16>>(&encoded[..], Compact(n as u16));
 				let encoded = Compact(n as u16).encode();
 				assert_eq!(hexify(&encoded), s);
-				assert_decode::<Compact<u64>>(&encoded[..], Ok(Compact(n as u64)));
+				assert_decode::<Compact<u64>>(&encoded[..], Compact(n as u64));
 			}
 			if n <= u8::max_value() as u64 {
-				assert_decode::<Compact<u8>>(&encoded[..], Ok(Compact(n as u8)));
+				assert_decode::<Compact<u8>>(&encoded[..], Compact(n as u8));
 				let encoded = Compact(n as u8).encode();
 				assert_eq!(hexify(&encoded), s);
-				assert_decode::<Compact<u64>>(&encoded[..], Ok(Compact(n as u64)));
+				assert_decode::<Compact<u64>>(&encoded[..], Compact(n as u64));
 			}
 		}
 	}
@@ -934,7 +934,7 @@ mod tests {
 			(u64::max_value() << 16) - 1,
 		].into_iter() {
 			let e = Compact::<u64>::encode(&Compact(a));
-			assert_decode::<Compact::<u64>>(&e, Ok(Compact(a)));
+			assert_decode::<Compact::<u64>>(&e, Compact(a));
 		}
 	}
 
@@ -947,7 +947,7 @@ mod tests {
 			u128::max_value() - 10,
 		].into_iter() {
 			let e = Compact::<u128>::encode(&Compact(a));
-			assert_decode::<Compact::<u128>>(&e, Ok(Compact(a)));
+			assert_decode::<Compact::<u128>>(&e, Compact(a));
 		}
 	}
 
