@@ -15,7 +15,7 @@
 use crate::codec::{Error, Decode};
 
 /// The error message returned when `decode_all` fails.
-const DECODE_ALL_ERR_MSG: &str = "Input buffer has still data left after decoding!";
+pub(crate) const DECODE_ALL_ERR_MSG: &str = "Input buffer has still data left after decoding!";
 
 /// Extension trait to [`Decode`] that ensures that the given input data is consumed completly while
 /// decoding.

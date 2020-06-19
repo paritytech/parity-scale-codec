@@ -131,6 +131,18 @@ pub trait Input {
 		self.read(&mut buf[..])?;
 		Ok(buf[0])
 	}
+
+	/// Descend into nested reference when decoding.
+	/// This is called when decoding a new refence-based instance,
+	/// such as `Vec` or `Box`. Currently all such types are
+	/// allocated on the heap.
+	fn descend_ref(&mut self) -> Result<(), Error> {
+		Ok(())
+	}
+
+	/// Ascend to previous structure level when decoding.
+	/// This is called when decoding reference-based type is finished.
+	fn ascend_ref(&mut self) {}
 }
 
 impl<'a> Input for &'a [u8] {
@@ -405,7 +417,10 @@ impl<T, X> Decode for X where
 	X: WrapperTypeDecode<Wrapped=T>,
 {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
-		Ok(T::decode(input)?.into())
+		input.descend_ref()?;
+		let result = Ok(T::decode(input)?.into());
+		input.ascend_ref();
+		result
 	}
 
 }
@@ -831,9 +846,11 @@ impl<T: Decode> Decode for Vec<T> {
 						.checked_div(mem::size_of::<T>())
 						.unwrap_or(0);
 					let mut r = Vec::with_capacity(input_capacity.min(len));
+					input.descend_ref()?;
 					for _ in 0..len {
 						r.push(T::decode(input)?);
 					}
+					input.ascend_ref();
 					Ok(r)
 				},
 			}
@@ -867,7 +884,10 @@ macro_rules! impl_codec_through_iterator {
 		{
 			fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 				<Compact<u32>>::decode(input).and_then(move |Compact(len)| {
-					Result::from_iter((0..len).map(|_| Decode::decode(input)))
+					input.descend_ref()?;
+					let result = Result::from_iter((0..len).map(|_| Decode::decode(input)));
+					input.ascend_ref();
+					result
 				})
 			}
 		}
