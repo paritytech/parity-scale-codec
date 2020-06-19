@@ -188,29 +188,14 @@ impl From<std::io::Error> for Error {
 	}
 }
 
-/// Wrapper that implements Input for any `Read` and `Seek` type.
+/// Wrapper that implements Input for any `Read` type.
 #[cfg(feature = "std")]
-pub struct IoReader<R: std::io::Read + std::io::Seek>(pub R);
+pub struct IoReader<R: std::io::Read>(pub R);
 
 #[cfg(feature = "std")]
-impl<R: std::io::Read + std::io::Seek> Input for IoReader<R> {
+impl<R: std::io::Read> Input for IoReader<R> {
 	fn remaining_len(&mut self) -> Result<Option<usize>, Error> {
-		use std::convert::TryInto;
-		use std::io::SeekFrom;
-
-		let old_pos = self.0.seek(SeekFrom::Current(0))?;
-		let len = self.0.seek(SeekFrom::End(0))?;
-
-		// Avoid seeking a third time when we were already at the end of the
-		// stream. The branch is usually way cheaper than a seek operation.
-		if old_pos != len {
-			self.0.seek(SeekFrom::Start(old_pos))?;
-		}
-
-		len.saturating_sub(old_pos)
-			.try_into()
-			.map_err(|_| "Input cannot fit into usize length".into())
-			.map(Some)
+		Ok(None)
 	}
 
 	fn read(&mut self, into: &mut [u8]) -> Result<(), Error> {
@@ -1594,21 +1579,15 @@ mod tests {
 
 	#[test]
 	fn io_reader() {
-		use std::io::{Seek, SeekFrom};
-
 		let mut io_reader = IoReader(std::io::Cursor::new(&[1u8, 2, 3][..]));
 
-		assert_eq!(io_reader.0.seek(SeekFrom::Current(0)).unwrap(), 0);
-		assert_eq!(io_reader.remaining_len().unwrap().unwrap(), 3);
+		let mut v = [0; 2];
+		io_reader.read(&mut v[..]).unwrap();
+		assert_eq!(v, [1, 2]);
 
-		assert_eq!(io_reader.read_byte().unwrap(), 1);
-		assert_eq!(io_reader.0.seek(SeekFrom::Current(0)).unwrap(), 1);
-		assert_eq!(io_reader.remaining_len().unwrap().unwrap(), 2);
-
-		assert_eq!(io_reader.read_byte().unwrap(), 2);
 		assert_eq!(io_reader.read_byte().unwrap(), 3);
-		assert_eq!(io_reader.0.seek(SeekFrom::Current(0)).unwrap(), 3);
-		assert_eq!(io_reader.remaining_len().unwrap().unwrap(), 0);
+
+		assert_eq!(io_reader.read_byte(), Err("io error: UnexpectedEof".into()));
 	}
 
 	#[test]
