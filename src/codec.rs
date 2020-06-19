@@ -189,6 +189,8 @@ impl From<std::io::Error> for Error {
 }
 
 /// Wrapper that implements Input for any `Read` type.
+///
+/// This is not optimized for skipping byte.
 #[cfg(feature = "std")]
 pub struct IoReader<R: std::io::Read>(pub R);
 
@@ -202,31 +204,17 @@ impl<R: std::io::Read> Input for IoReader<R> {
 		self.0.read_exact(into).map_err(Into::into)
 	}
 
+	/// Implementation is not optimized.
 	fn skip(&mut self, len: usize) -> Result<(), Error> {
-		use std::convert::TryInto;
-		use std::io::SeekFrom;
+		let mut buffer = vec![0; MAX_PREALLOCATION.min(len)];
 
-		let old_pos = self.0.seek(SeekFrom::Current(0))?;
-		let io_len = self.0.seek(SeekFrom::End(0))?;
-		let new_pos = old_pos.checked_add(len as u64)
-			.ok_or(Error::from("len can't be skipped, seek from start don't fit into u64"))?;
-
-		if new_pos <= io_len {
-			self.0.seek(SeekFrom::Start(new_pos))?;
-		} else {
-			self.0.seek(SeekFrom::Start(io_len))?;
-			let mut remains: usize = (new_pos - io_len).try_into()
-				.expect("remains is less than len; qed");
-
-			let mut buffer = vec![0; MAX_PREALLOCATION.min(remains)];
-
-			while remains > MAX_PREALLOCATION {
-				self.read(&mut buffer[0..MAX_PREALLOCATION][..])?;
-				remains -= MAX_PREALLOCATION;
-			}
-
-			self.read(&mut buffer[0..remains][..])?;
+		let mut remains = len;
+		while remains > MAX_PREALLOCATION {
+			self.0.read_exact(&mut buffer[..]).map_err::<Error, _>(Into::into)?;
+			remains -= MAX_PREALLOCATION;
 		}
+
+		self.0.read_exact(&mut buffer[0..remains]).map_err::<Error, _>(Into::into)?;
 
 		Ok(())
 	}
@@ -1638,6 +1626,16 @@ mod tests {
 		let mut input = IoReader(std::io::Cursor::new(vec![1u8, 2, 3, 4]));
 		assert_eq!(input.skip(2), Ok(()));
 		assert_eq!(input.skip(2), Ok(()));
+		assert_eq!(input.skip(1), Err("io error: UnexpectedEof".into()));
+
+		let mut input = IoReader(std::io::Cursor::new(vec![0; 2 * MAX_PREALLOCATION]));
+		assert_eq!(input.skip(MAX_PREALLOCATION), Ok(()));
+		assert_eq!(input.0.position(), MAX_PREALLOCATION as u64);
+		assert_eq!(input.skip(MAX_PREALLOCATION + 1), Err("io error: UnexpectedEof".into()));
+
+		let mut input = IoReader(std::io::Cursor::new(vec![0; 2 * MAX_PREALLOCATION + 1]));
+		assert_eq!(input.skip(2 * MAX_PREALLOCATION + 1), Ok(()));
+		assert_eq!(input.skip(0), Ok(()));
 		assert_eq!(input.skip(1), Err("io error: UnexpectedEof".into()));
 	}
 
