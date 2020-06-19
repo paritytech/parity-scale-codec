@@ -14,12 +14,11 @@
 
 #[cfg(not(feature="derive"))]
 use parity_scale_codec_derive::{Encode, Decode};
-use parity_scale_codec::{Encode, Decode, HasCompact, Compact, EncodeAsRef, CompactAs, Error};
+use parity_scale_codec::{
+	Encode, Decode, HasCompact, Compact, EncodeAsRef, CompactAs, Error, assert_decode
+};
 use serde_derive::{Serialize, Deserialize};
 use core::fmt::Debug;
-use common::assert_decode;
-
-mod common;
 
 #[derive(Debug, PartialEq, Encode, Decode)]
 struct Unit;

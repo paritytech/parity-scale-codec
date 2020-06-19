@@ -287,7 +287,9 @@ pub use self::encode_append::EncodeAppend;
 pub use self::encode_like::{EncodeLike, Ref};
 
 /// Assert Decode::decode and Decode::skip works
-#[cfg(test)]
+///
+/// NOTE: this is not part of public API. Only used for internal tests
+#[doc(hidden)]
 pub fn assert_decode<T>(mut encoded: &[u8], res: T) where
 	T: core::fmt::Debug + Decode + PartialEq,
 {
