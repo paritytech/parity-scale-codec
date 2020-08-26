@@ -189,12 +189,14 @@ impl From<std::io::Error> for Error {
 	}
 }
 
-/// Wrapper that implements Input for any `Read` type.
+/// Wrapper that implements Input for any `Read` and `Seek` type.
+///
+/// NOTE: The remaining_len implementation returns `None` as Seek can return variable length.
 #[cfg(feature = "std")]
-pub struct IoReader<R: std::io::Read>(pub R);
+pub struct IoReader<R: std::io::Read + std::io::Seek>(pub R);
 
 #[cfg(feature = "std")]
-impl<R: std::io::Read> Input for IoReader<R> {
+impl<R: std::io::Read + std::io::Seek> Input for IoReader<R> {
 	fn remaining_len(&mut self) -> Result<Option<usize>, Error> {
 		Ok(None)
 	}
