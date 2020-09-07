@@ -17,7 +17,18 @@
 #[cfg(feature = "std")]
 use std::fmt;
 use core::{mem, ops::Deref, marker::PhantomData, iter::FromIterator, convert::TryFrom, time::Duration};
-
+use core::num::{
+	NonZeroI8,
+	NonZeroI16,
+	NonZeroI32,
+	NonZeroI64,
+	NonZeroI128,
+	NonZeroU8,
+	NonZeroU16,
+	NonZeroU32,
+	NonZeroU64,
+	NonZeroU128,
+};
 use arrayvec::ArrayVec;
 
 use byte_slice_cast::{AsByteSlice, IntoVecOf};
@@ -39,7 +50,7 @@ use crate::alloc::{
 use crate::compact::Compact;
 use crate::encode_like::EncodeLike;
 
-const MAX_PREALLOCATION: usize = 4 * 1024;
+pub(crate) const MAX_PREALLOCATION: usize = 4 * 1024;
 const A_BILLION: u32 = 1_000_000_000;
 
 /// Descriptive error type
@@ -179,28 +190,15 @@ impl From<std::io::Error> for Error {
 }
 
 /// Wrapper that implements Input for any `Read` and `Seek` type.
+///
+/// NOTE: The remaining_len implementation returns `None` as Seek can return variable length.
 #[cfg(feature = "std")]
 pub struct IoReader<R: std::io::Read + std::io::Seek>(pub R);
 
 #[cfg(feature = "std")]
 impl<R: std::io::Read + std::io::Seek> Input for IoReader<R> {
 	fn remaining_len(&mut self) -> Result<Option<usize>, Error> {
-		use std::convert::TryInto;
-		use std::io::SeekFrom;
-
-		let old_pos = self.0.seek(SeekFrom::Current(0))?;
-		let len = self.0.seek(SeekFrom::End(0))?;
-
-		// Avoid seeking a third time when we were already at the end of the
-		// stream. The branch is usually way cheaper than a seek operation.
-		if old_pos != len {
-			self.0.seek(SeekFrom::Start(old_pos))?;
-		}
-
-		len.saturating_sub(old_pos)
-			.try_into()
-			.map_err(|_| "Input cannot fit into usize length".into())
-			.map(Some)
+		Ok(None)
 	}
 
 	fn read(&mut self, into: &mut [u8]) -> Result<(), Error> {
@@ -567,6 +565,49 @@ impl<T: Decode> Decode for Option<T> {
 	}
 }
 
+macro_rules! impl_for_non_zero {
+	( $( $name:ty ),* $(,)? ) => {
+		$(
+			impl Encode for $name {
+				fn size_hint(&self) -> usize {
+					self.get().size_hint()
+				}
+
+				fn encode_to<W: Output>(&self, dest: &mut W) {
+					self.get().encode_to(dest)
+				}
+
+				fn encode(&self) -> Vec<u8> {
+					self.get().encode()
+				}
+
+				fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
+					self.get().using_encoded(f)
+				}
+			}
+
+			impl Decode for $name {
+				fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
+					Self::new(Decode::decode(input)?)
+						.ok_or_else(|| Error::from("cannot create non-zero number from 0"))
+				}
+			}
+		)*
+	}
+}
+impl_for_non_zero! {
+	NonZeroI8,
+	NonZeroI16,
+	NonZeroI32,
+	NonZeroI64,
+	NonZeroI128,
+	NonZeroU8,
+	NonZeroU16,
+	NonZeroU32,
+	NonZeroU64,
+	NonZeroU128,
+}
+
 macro_rules! impl_array {
 	( $( $n:expr, )* ) => {
 		$(
@@ -736,7 +777,7 @@ impl<T: Encode> Encode for [T] {
 }
 
 /// Read an `u8` vector from the given input.
-fn read_vec_u8<I: Input>(input: &mut I, len: usize) -> Result<Vec<u8>, Error> {
+pub(crate) fn read_vec_u8<I: Input>(input: &mut I, len: usize) -> Result<Vec<u8>, Error> {
 	let input_len = input.remaining_len()?;
 
 	// If there is input len and it cannot be pre-allocated then return directly.
@@ -983,6 +1024,12 @@ macro_rules! tuple_impl {
 			}
 		}
 
+		impl<$one: DecodeLength> DecodeLength for ($one,) {
+			fn len(self_encoded: &[u8]) -> Result<usize, Error> {
+				$one::len(self_encoded)
+			}
+		}
+
 		impl<$one: EncodeLike<$extra>, $extra: Encode> crate::EncodeLike<($extra,)> for ($one,) {}
 	};
 	(($first:ident, $fextra:ident), $( ( $rest:ident, $rextra:ident ), )+) => {
@@ -1025,6 +1072,12 @@ macro_rules! tuple_impl {
 		impl<$first: EncodeLike<$fextra>, $fextra: Encode,
 			$($rest: EncodeLike<$rextra>, $rextra: Encode),+> crate::EncodeLike<($fextra, $( $rextra ),+)>
 			for ($first, $($rest),+) {}
+
+		impl<$first: DecodeLength, $($rest),+> DecodeLength for ($first, $($rest),+) {
+			fn len(self_encoded: &[u8]) -> Result<usize, Error> {
+				$first::len(self_encoded)
+			}
+		}
 
 		tuple_impl!( $( ($rest, $rextra), )+ );
 	}
@@ -1254,6 +1307,8 @@ mod tests {
 		let mut ll = LinkedList::new();
 		ll.push_back(1);
 		ll.push_back(2);
+		let t1: (Vec<_>,) = (vector.clone(),);
+		let t2: (Vec<_>, u32) = (vector.clone(), 3u32);
 
 		test_encode_length(&vector, 10);
 		test_encode_length(&btree_map, 2);
@@ -1261,6 +1316,8 @@ mod tests {
 		test_encode_length(&vd, 2);
 		test_encode_length(&bh, 2);
 		test_encode_length(&ll, 2);
+		test_encode_length(&t1, 10);
+		test_encode_length(&t2, 10);
 	}
 
 	#[test]
@@ -1357,21 +1414,15 @@ mod tests {
 
 	#[test]
 	fn io_reader() {
-		use std::io::{Seek, SeekFrom};
-
 		let mut io_reader = IoReader(std::io::Cursor::new(&[1u8, 2, 3][..]));
 
-		assert_eq!(io_reader.0.seek(SeekFrom::Current(0)).unwrap(), 0);
-		assert_eq!(io_reader.remaining_len().unwrap().unwrap(), 3);
+		let mut v = [0; 2];
+		io_reader.read(&mut v[..]).unwrap();
+		assert_eq!(v, [1, 2]);
 
-		assert_eq!(io_reader.read_byte().unwrap(), 1);
-		assert_eq!(io_reader.0.seek(SeekFrom::Current(0)).unwrap(), 1);
-		assert_eq!(io_reader.remaining_len().unwrap().unwrap(), 2);
-
-		assert_eq!(io_reader.read_byte().unwrap(), 2);
 		assert_eq!(io_reader.read_byte().unwrap(), 3);
-		assert_eq!(io_reader.0.seek(SeekFrom::Current(0)).unwrap(), 3);
-		assert_eq!(io_reader.remaining_len().unwrap().unwrap(), 0);
+
+		assert_eq!(io_reader.read_byte(), Err("io error: UnexpectedEof".into()));
 	}
 
 	#[test]
