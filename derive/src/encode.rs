@@ -74,8 +74,11 @@ fn encode_single_field(
 	let i_self = quote! { self };
 
 	quote_spanned! { field.span() =>
-			fn encode_to<EncOut: _parity_scale_codec::Output>(&#i_self, dest: &mut EncOut) {
-				_parity_scale_codec::Encode::encode_to(&#final_field_variable, dest)
+			fn encode_to<__CodecOutputEdqy: _parity_scale_codec::Output>(
+				&#i_self,
+				__codec_dest_edqy: &mut __CodecOutputEdqy
+			) {
+				_parity_scale_codec::Encode::encode_to(&#final_field_variable, __codec_dest_edqy)
 			}
 
 			fn encode(&#i_self) -> _parity_scale_codec::alloc::vec::Vec<u8> {
@@ -176,7 +179,7 @@ fn try_impl_encode_single_field_optimisation(data: &Data) -> Option<TokenStream>
 
 fn impl_encode(data: &Data, type_name: &Ident) -> TokenStream {
 	let self_ = quote!(self);
-	let dest = &quote!(dest);
+	let dest = &quote!(__codec_dest_edqy);
 	let encoding = match *data {
 		Data::Struct(ref data) => {
 			match data.fields {
@@ -285,7 +288,7 @@ fn impl_encode(data: &Data, type_name: &Ident) -> TokenStream {
 	};
 
 	quote! {
-		fn encode_to<EncOut: _parity_scale_codec::Output>(&#self_, #dest: &mut EncOut) {
+		fn encode_to<__CodecOutputEdqy: _parity_scale_codec::Output>(&#self_, #dest: &mut __CodecOutputEdqy) {
 			#encoding
 		}
 	}

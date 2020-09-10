@@ -55,7 +55,7 @@ pub fn quote(data: &Data, type_name: &Ident, input: &TokenStream) -> TokenStream
 				);
 
 				quote_spanned! { v.span() =>
-					x if x == #index as u8 => {
+					__codec_x_edqy if __codec_x_edqy == #index as u8 => {
 						#create
 					},
 				}
@@ -65,7 +65,7 @@ pub fn quote(data: &Data, type_name: &Ident, input: &TokenStream) -> TokenStream
 			quote! {
 				match #input.read_byte()? {
 					#( #recurse )*
-					x => Err(#err_msg.into()),
+					_ => Err(#err_msg.into()),
 				}
 			}
 
@@ -78,6 +78,8 @@ fn create_decode_expr(field: &Field, name: &str, input: &TokenStream) -> TokenSt
 	let encoded_as = utils::get_encoded_as_type(field);
 	let compact = utils::get_enable_compact(field);
 	let skip = utils::get_skip(&field.attrs).is_some();
+
+	let res = quote!(__codec_res_edqy);
 
 	if encoded_as.is_some() as u8 + compact as u8 + skip as u8 > 1 {
 		return Error::new(
@@ -92,22 +94,22 @@ fn create_decode_expr(field: &Field, name: &str, input: &TokenStream) -> TokenSt
 		let field_type = &field.ty;
 		quote_spanned! { field.span() =>
 			{
-				let res = <
+				let #res = <
 					<#field_type as _parity_scale_codec::HasCompact>::Type as _parity_scale_codec::Decode
 				>::decode(#input);
-				match res {
+				match #res {
 					Err(_) => return Err(#err_msg.into()),
-					Ok(a) => a.into(),
+					Ok(#res) => #res.into(),
 				}
 			}
 		}
 	} else if let Some(encoded_as) = encoded_as {
 		quote_spanned! { field.span() =>
 			{
-				let res = <#encoded_as as _parity_scale_codec::Decode>::decode(#input);
-				match res {
+				let #res = <#encoded_as as _parity_scale_codec::Decode>::decode(#input);
+				match #res {
 					Err(_) => return Err(#err_msg.into()),
-					Ok(a) => a.into(),
+					Ok(#res) => #res.into(),
 				}
 			}
 		}
@@ -116,10 +118,10 @@ fn create_decode_expr(field: &Field, name: &str, input: &TokenStream) -> TokenSt
 	} else {
 		quote_spanned! { field.span() =>
 			{
-				let res = _parity_scale_codec::Decode::decode(#input);
-				match res {
+				let #res = _parity_scale_codec::Decode::decode(#input);
+				match #res {
 					Err(_) => return Err(#err_msg.into()),
-					Ok(a) => a,
+					Ok(#res) => #res,
 				}
 			}
 		}
