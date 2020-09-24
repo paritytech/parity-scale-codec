@@ -275,7 +275,7 @@ mod encode_append;
 mod encode_like;
 
 pub use self::codec::{
-	Input, Output, Error, Decode, Encode, Codec, EncodeAsRef, WrapperTypeEncode,
+	Input, Output, Error, Decode, Encode, Codec, EncodeAsRef, WrapperTypeEncode, WrapperTypeDecode,
 	OptionBool, DecodeLength, FullCodec, FullEncode,
 };
 #[cfg(feature = "std")]
