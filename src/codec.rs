@@ -558,7 +558,7 @@ impl<T: Decode> Decode for Option<T> {
 		match input.read_byte()? {
 			0 => Ok(None),
 			1 => Ok(Some(T::decode(input)?)),
-			_ => Err("unexpecded first byte decoding Option".into()),
+			_ => Err("unexpected first byte decoding Option".into()),
 		}
 	}
 }
