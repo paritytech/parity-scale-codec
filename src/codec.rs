@@ -328,6 +328,8 @@ impl<S: Decode + FullEncode> FullCodec for S {}
 /// Such types should not carry any additional information
 /// that would require to be encoded, because the encoding
 /// is assumed to be the same as the wrapped type.
+///
+/// The wrapped type that is referred to is the [`Deref::Target`].
 pub trait WrapperTypeEncode: Deref {}
 
 impl<T: ?Sized> WrapperTypeEncode for Box<T> {}
@@ -665,7 +667,7 @@ macro_rules! impl_array {
 }
 
 impl_array!(
-	1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
+	0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
 	17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31,
 	32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51,
 	52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71,
@@ -1566,5 +1568,13 @@ mod tests {
 
 		let obj = <String>::decode(&mut bytes);
 		assert!(obj.is_err());
+	}
+
+	#[test]
+	fn empty_array_encode_and_decode() {
+		let data: [u32; 0] = [];
+		let encoded = data.encode();
+		assert!(encoded.is_empty());
+		<[u32; 0]>::decode(&mut &encoded[..]).unwrap();
 	}
 }
