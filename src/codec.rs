@@ -14,8 +14,7 @@
 
 //! Serialisation.
 
-#[cfg(feature = "std")]
-use std::fmt;
+use core::fmt;
 use core::{mem, ops::Deref, marker::PhantomData, iter::FromIterator, convert::TryFrom, time::Duration};
 use core::num::{
 	NonZeroI8,
@@ -84,9 +83,16 @@ impl Error {
 }
 
 #[cfg(feature = "std")]
-impl std::fmt::Display for Error {
+impl fmt::Display for Error {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		write!(f, "{}", self.0)
+	}
+}
+
+#[cfg(not(feature = "std"))]
+impl fmt::Display for Error {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		f.write_str("Error")
 	}
 }
 
@@ -501,8 +507,8 @@ impl<T: Decode, E: Decode> Decode for Result<T, E> {
 #[derive(Eq, PartialEq, Clone, Copy)]
 pub struct OptionBool(pub Option<bool>);
 
-impl core::fmt::Debug for OptionBool {
-	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+impl fmt::Debug for OptionBool {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		self.0.fmt(f)
 	}
 }
