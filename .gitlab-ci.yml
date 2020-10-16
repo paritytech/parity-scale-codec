@@ -5,119 +5,100 @@ stages:
   - test
   - build
 
-
-image:                             parity/rust-builder:latest
-
 variables:
   GIT_STRATEGY:                    fetch
-  CARGO_HOME:                      "/ci-cache/${CI_PROJECT_NAME}/cargo/${CI_JOB_NAME}"
-  SCCACHE_DIR:                     "/ci-cache/${CI_PROJECT_NAME}/sccache"
   CARGO_INCREMENTAL:               0
+  GIT_DEPTH:                       3
+  CARGO_TARGET_DIR:                "/ci-cache/${CI_PROJECT_NAME}/targets/${CI_COMMIT_REF_NAME}/${CI_JOB_NAME}"
   CI_SERVER_NAME:                  "GitLab CI"
 
+.only:                             &only
+  only:
+    - triggers
+    - tags
+    - master
+    - schedules
+    - web
+    - /^[0-9]+$/
+
+.docker-env:                       &docker-env
+  image:                           paritytech/ci-linux:production
+  before_script:
+    - cargo -vV
+    - rustc -vV
+    - rustup show
+    - cargo --version
+    - sccache -s
+  dependencies:                    []
+  interruptible:                   true
+  retry:
+    max: 2
+    when:
+      - runner_system_failure
+      - unknown_failure
+      - api_failure
+  tags:
+    - linux-docker
 
 #### stage:                        test
 
 test-rust-stable:
   stage:                           test
+  <<:                              *only
+  <<:                              *docker-env
   script:
     - time cargo test --verbose --all --features bit-vec,generic-array,derive
     - sccache -s
-  only:
-    - triggers
-    - tags
-    - master
-    - schedules
-    - web
-    - /^[0-9]+$/
-  tags:
-    - linux-docker
 
 test-rust-stable-no_derive:
   stage:                           test
+  <<:                              *only
+  <<:                              *docker-env
   script:
     - time cargo test --verbose --features bit-vec,generic-array
     - sccache -s
-  only:
-    - triggers
-    - tags
-    - master
-    - schedules
-    - web
-    - /^[0-9]+$/
-  tags:
-    - linux-docker
 
 check-rust-stable-no_derive_no_std_full:
   stage:                           test
+  <<:                              *only
+  <<:                              *docker-env
   script:
     - time cargo check --verbose --no-default-features --features bit-vec,generic-array,full
     - sccache -s
-  only:
-    - triggers
-    - tags
-    - master
-    - schedules
-    - web
-    - /^[0-9]+$/
-  tags:
-    - linux-docker
 
 check-rust-stable-no_derive_no_std:
   stage:                           test
+  <<:                              *only
+  <<:                              *docker-env
   script:
     - time cargo check --verbose --no-default-features --features bit-vec,generic-array
     - sccache -s
-  only:
-    - triggers
-    - tags
-    - master
-    - schedules
-    - web
-    - /^[0-9]+$/
-  tags:
-    - linux-docker
 
 check-rust-stable-no_derive_full:
   stage:                           test
+  <<:                              *only
+  <<:                              *docker-env
   script:
     - time cargo check --verbose --features bit-vec,generic-array,full
     - sccache -s
-  only:
-    - triggers
-    - tags
-    - master
-    - schedules
-    - web
-    - /^[0-9]+$/
-  tags:
-    - linux-docker
 
 bench-rust-nightly:
   stage:                           test
+  <<:                              *only
+  <<:                              *docker-env
   script:
     - time cargo +nightly bench --features bit-vec,generic-array,derive
     - sccache -s
-  only:
-    - triggers
-    - tags
-    - master
-    - schedules
-    - web
-    - /^[0-9]+$/
-  tags:
-    - linux-docker
 
 #### stage:                        build
 
 build-linux-ubuntu-amd64:
   stage:                           build
-  script:
-    - cargo build --verbose --release --features bit-vec,generic-array,derive
-    - sccache -s
+  <<:                              *docker-env
   only:
     - master
     - tags
     - web
-  tags:
-    - linux-docker
+  script:
+    - cargo build --verbose --release --features bit-vec,generic-array,derive
+    - sccache -s
