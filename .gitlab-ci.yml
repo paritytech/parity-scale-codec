@@ -19,7 +19,7 @@ workflow:
     - if: $CI_COMMIT_BRANCH
 
 .docker-env:                       &docker-env
-  image:                           paritytech/ink-ci-linux:latest
+  image:                           paritytech/ci-linux:production
   before_script:
     - cargo -vV
     - rustc -vV
