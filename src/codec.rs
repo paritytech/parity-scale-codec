@@ -190,7 +190,7 @@ impl From<std::io::Error> for Error {
 			Interrupted => "io error: Interrupted".into(),
 			Other => "io error: Other".into(),
 			UnexpectedEof => "io error: UnexpectedEof".into(),
-			_ => "io error: Unkown".into(),
+			_ => "io error: Unknown".into(),
 		}
 	}
 }
