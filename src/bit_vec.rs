@@ -19,7 +19,7 @@ use core::mem;
 use bitvec::{vec::BitVec, store::BitStore, order::BitOrder, slice::BitSlice, boxed::BitBox};
 use byte_slice_cast::{AsByteSlice, ToByteSlice, FromByteSlice, Error as FromByteSliceError};
 
-use crate::codec::{Encode, Decode, Input, Output, Error, read_vec_u8};
+use crate::codec::{Encode, Decode, Input, Output, Error, read_vec_from_u8s};
 use crate::compact::Compact;
 use crate::EncodeLike;
 
@@ -62,7 +62,7 @@ impl<O: BitOrder, T: BitStore + FromByteSlice> Decode for BitVec<O, T> {
 			let bits = bits as usize;
 			let required_bytes = required_bytes::<T>(bits);
 
-			let vec = read_vec_u8(input, required_bytes)?;
+			let vec = read_vec_from_u8s(input, required_bytes)?;
 
 			let mut result = Self::from_slice(T::from_byte_slice(&vec)?);
 			assert!(bits <= result.len());

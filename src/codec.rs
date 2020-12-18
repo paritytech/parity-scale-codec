@@ -30,7 +30,7 @@ use core::num::{
 };
 use arrayvec::ArrayVec;
 
-use byte_slice_cast::{AsByteSlice, IntoVecOf};
+use byte_slice_cast::{AsByteSlice, AsMutByteSlice, ToMutByteSlice};
 
 #[cfg(any(feature = "std", feature = "full"))]
 use crate::alloc::{
@@ -782,36 +782,60 @@ impl<T: Encode> Encode for [T] {
 	}
 }
 
-/// Read an `u8` vector from the given input.
-pub(crate) fn read_vec_u8<I: Input>(input: &mut I, len: usize) -> Result<Vec<u8>, Error> {
+/// Create a `Vec<T>` by casting directly from a buffer of read `u8`s
+pub(crate) fn read_vec_from_u8s<I, T>(input: &mut I, items_len: usize) -> Result<Vec<T>, Error>
+where I: Input,
+	  T: ToMutByteSlice + Default + Clone,
+{
+	let byte_len = items_len.checked_mul(mem::size_of::<T>()).expect("overflow");
+
 	let input_len = input.remaining_len()?;
 
 	// If there is input len and it cannot be pre-allocated then return directly.
-	if input_len.map(|l| l < len).unwrap_or(false) {
+	if input_len.map(|l| l < byte_len).unwrap_or(false) {
 		return Err("Not enough data to decode vector".into())
 	}
 
-	// Note: we checked that if input_len is some then it can preallocated.
-	let r = if input_len.is_some() || len < MAX_PREALLOCATION {
-		// Here we pre-allocate the whole buffer.
-		let mut r = vec![0; len];
-		input.read(&mut r)?;
+	// In both these branches we're going to be creating and resizing a Vec<T>,
+	// but casting it to a &mut [u8] for reading.
 
-		r
+	// Note: we checked that if input_len is some then it can preallocated.
+	let r = if input_len.is_some() || byte_len < MAX_PREALLOCATION {
+		// Here we pre-allocate the whole buffer.
+		let mut items: Vec<T> = vec![Default::default(); items_len];
+		let mut bytes_slice = items.as_mut_byte_slice();
+		input.read(&mut bytes_slice)?;
+
+		items
 	} else {
 		// Here we pre-allocate only the maximum pre-allocation
-		let mut r = vec![];
+		let mut items: Vec<T> = vec![];
 
-		let mut remains = len;
-		while remains != 0 {
-			let len_read = MAX_PREALLOCATION.min(remains);
-			let len_filled = r.len();
-			r.resize(len_filled + len_read, 0);
-			input.read(&mut r[len_filled..])?;
-			remains -= len_read;
+		let mut bytes_remains = byte_len;
+		while bytes_remains != 0 {
+			let bytes_len_read = MAX_PREALLOCATION.min(bytes_remains);
+			let items_len_read = bytes_len_read / mem::size_of::<T>();
+			// Need bytes_len_read to divide evenly by size of T
+			assert_eq!(bytes_len_read, items_len_read * mem::size_of::<T>());
+			let items_len_filled = items.len();
+			let items_new_size = items_len_filled + items_len_read;
+
+			// This call is here to satisfy the existing
+			// vec_decode_right_capacity test.
+			// It's not obviously functionally necessary,
+			// nor is it obviously a problem.
+			items.reserve_exact(items_len_read);
+
+			items.resize_with(items_new_size, Default::default);
+
+			let bytes_slice = items.as_mut_byte_slice();
+			let bytes_len_filled = items_len_filled * mem::size_of::<T>();
+			input.read(&mut bytes_slice[bytes_len_filled..])?;
+
+			bytes_remains = bytes_remains.checked_sub(bytes_len_read).expect("underflow");
 		}
 
-		r
+		items
 	};
 
 	Ok(r)
@@ -828,20 +852,9 @@ impl<T: Decode> Decode for Vec<T> {
 			let len = len as usize;
 
 			macro_rules! decode {
-				( u8, $input:ident, $len:ident ) => {{
-					let vec = read_vec_u8($input, $len)?;
-					Ok(unsafe { mem::transmute::<Vec<u8>, Vec<T>>(vec) })
-				}};
-				( i8, $input:ident, $len:ident ) => {{
-					let vec = read_vec_u8($input, $len)?;
-					Ok(unsafe { mem::transmute::<Vec<u8>, Vec<T>>(vec) })
-				}};
 				( $ty:ty, $input:ident, $len:ident ) => {{
-					let vec = read_vec_u8($input, $len * mem::size_of::<$ty>())?;
-					let typed = vec.into_vec_of::<$ty>()
-						.map_err(|_| "Failed to convert from `Vec<u8>` to typed vec")?;
-
-					Ok(unsafe { mem::transmute::<Vec<$ty>, Vec<T>>(typed) })
+					let vec = read_vec_from_u8s::<_, $ty>($input, $len)?;
+					Ok(unsafe { mem::transmute::<Vec<$ty>, Vec<T>>(vec) })
 				}};
 			}
 
