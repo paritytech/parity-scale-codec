@@ -30,8 +30,6 @@ impl From<FromByteSliceError> for Error {
 				"failed to cast from byte slice: alignment mismatch".into(),
 			FromByteSliceError::LengthMismatch {..} =>
 				"failed to cast from byte slice: length mismatch".into(),
-			FromByteSliceError::CapacityMismatch {..} =>
-				"failed to cast from byte slice: capacity mismatch".into(),
 		}
 	}
 }

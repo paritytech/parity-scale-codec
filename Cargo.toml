@@ -13,7 +13,7 @@ arrayvec = { version = "0.5.1", default-features = false, features = ["array-siz
 serde = { version = "1.0.102", optional = true }
 parity-scale-codec-derive = { path = "derive", version = "1.2.0", default-features = false, optional = true }
 bitvec = { version = "0.17.4", default-features = false, features = ["alloc"], optional = true }
-byte-slice-cast = { version = "0.3.4", default-features = false, features = ["alloc"] }
+byte-slice-cast = { version = "1.0.0", default-features = false }
 generic-array = { version = "0.13.2", optional = true }
 arbitrary = { version = "0.4.1", features = ["derive"], optional = true }
 
