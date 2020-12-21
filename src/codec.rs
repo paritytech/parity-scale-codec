@@ -783,11 +783,18 @@ impl<T: Encode> Encode for [T] {
 }
 
 /// Create a `Vec<T>` by casting directly from a buffer of read `u8`s
+///
+/// `T` encoding must be constant and same size as size of `T`, size of `T` must be less or equal
+/// to [`MAX_PREALLOCATION`].
 pub(crate) fn read_vec_from_u8s<I, T>(input: &mut I, items_len: usize) -> Result<Vec<T>, Error>
-where I: Input,
-	  T: ToMutByteSlice + Default + Clone,
+where
+	I: Input,
+	T: ToMutByteSlice + Default + Clone,
 {
-	let byte_len = items_len.checked_mul(mem::size_of::<T>()).expect("overflow");
+	debug_assert!(MAX_PREALLOCATION >= mem::size_of::<T>(), "Invalid precondition");
+
+	let byte_len = items_len.checked_mul(mem::size_of::<T>())
+		.ok_or_else(|| "Item is too big and cannot be allocated")?;
 
 	let input_len = input.remaining_len()?;
 
@@ -808,15 +815,18 @@ where I: Input,
 
 		items
 	} else {
+		// An allowed number of preallocated item.
+		// Note: `MAX_PREALLOCATION` is expected to be more or equal to size of `T`, precondition.
+		let max_preallocated_items = MAX_PREALLOCATION / mem::size_of::<T>();
+
 		// Here we pre-allocate only the maximum pre-allocation
 		let mut items: Vec<T> = vec![];
 
-		let mut bytes_remains = byte_len;
-		while bytes_remains != 0 {
-			let bytes_len_read = MAX_PREALLOCATION.min(bytes_remains);
-			let items_len_read = bytes_len_read / mem::size_of::<T>();
-			// Need bytes_len_read to divide evenly by size of T
-			assert_eq!(bytes_len_read, items_len_read * mem::size_of::<T>());
+		let mut items_remains = items_len;
+
+		while items_remains != 0 {
+			let items_len_read = max_preallocated_items.min(items_remains);
+
 			let items_len_filled = items.len();
 			let items_new_size = items_len_filled + items_len_read;
 
@@ -832,7 +842,8 @@ where I: Input,
 			let bytes_len_filled = items_len_filled * mem::size_of::<T>();
 			input.read(&mut bytes_slice[bytes_len_filled..])?;
 
-			bytes_remains = bytes_remains.checked_sub(bytes_len_read).expect("underflow");
+			items_remains = items_remains.checked_sub(items_len_read)
+				.expect("`items_len_read` is less than `items_remains`; qed");
 		}
 
 		items
