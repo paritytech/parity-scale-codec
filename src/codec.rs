@@ -824,7 +824,7 @@ where
 
 		let mut items_remains = items_len;
 
-		while items_remains != 0 {
+		while items_remains > 0 {
 			let items_len_read = max_preallocated_items.min(items_remains);
 
 			let items_len_filled = items.len();
@@ -842,8 +842,7 @@ where
 			let bytes_len_filled = items_len_filled * mem::size_of::<T>();
 			input.read(&mut bytes_slice[bytes_len_filled..])?;
 
-			items_remains = items_remains.checked_sub(items_len_read)
-				.expect("`items_len_read` is less than `items_remains`; qed");
+			items_remains = items_remains.saturating_sub(items_len_read);
 		}
 
 		items
