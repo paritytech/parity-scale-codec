@@ -784,8 +784,8 @@ impl<T: Encode> Encode for [T] {
 
 /// Create a `Vec<T>` by casting directly from a buffer of read `u8`s
 ///
-/// `T` must encodes to its byte representation, size of `T` must be less or equal to
-/// [`MAX_PREALLOCATION`].
+/// The encoding of `T` must be equal to its binary representation, and size of `T` must be less or
+/// equal to [`MAX_PREALLOCATION`].
 pub(crate) fn read_vec_from_u8s<I, T>(input: &mut I, items_len: usize) -> Result<Vec<T>, Error>
 where
 	I: Input,
