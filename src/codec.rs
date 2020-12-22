@@ -635,8 +635,14 @@ macro_rules! impl_array {
 							$dest.write(&typed)
 						}};
 						( $ty:ty, $self:ident, $dest:ident ) => {{
-							let typed = unsafe { mem::transmute::<&[T], &[$ty]>(&$self[..]) };
-							$dest.write(<[$ty] as AsByteSlice<$ty>>::as_byte_slice(typed))
+							if cfg!(target_endian = "little") {
+								let typed = unsafe { mem::transmute::<&[T], &[$ty]>(&$self[..]) };
+								$dest.write(<[$ty] as AsByteSlice<$ty>>::as_byte_slice(typed))
+							} else {
+								for item in self.iter() {
+									item.encode_to(dest);
+								}
+							}
 						}};
 					}
 
@@ -765,8 +771,14 @@ impl<T: Encode> Encode for [T] {
 				$dest.write(&typed)
 			}};
 			( $ty:ty, $self:ident, $dest:ident ) => {{
-				let typed = unsafe { mem::transmute::<&[T], &[$ty]>($self) };
-				$dest.write(<[$ty] as AsByteSlice<$ty>>::as_byte_slice(typed))
+				if cfg!(target_endian = "little") {
+					let typed = unsafe { mem::transmute::<&[T], &[$ty]>($self) };
+					$dest.write(<[$ty] as AsByteSlice<$ty>>::as_byte_slice(typed))
+				} else {
+					for item in self {
+						item.encode_to(dest);
+					}
+				}
 			}};
 		}
 
@@ -861,10 +873,31 @@ impl<T: Decode> Decode for Vec<T> {
 		<Compact<u32>>::decode(input).and_then(move |Compact(len)| {
 			let len = len as usize;
 
+			fn decode_unoptimized<I: Input, T: Decode>(
+				input: &mut I,
+				items_len: usize,
+			) -> Result<Vec<T>, Error> {
+				let input_capacity = input.remaining_len()?
+					.unwrap_or(MAX_PREALLOCATION)
+					.checked_div(mem::size_of::<T>())
+					.unwrap_or(0);
+				let mut r = Vec::with_capacity(input_capacity.min(items_len));
+				input.descend_ref()?;
+				for _ in 0..items_len {
+					r.push(T::decode(input)?);
+				}
+				input.ascend_ref();
+				Ok(r)
+			}
+
 			macro_rules! decode {
 				( $ty:ty, $input:ident, $len:ident ) => {{
-					let vec = read_vec_from_u8s::<_, $ty>($input, $len)?;
-					Ok(unsafe { mem::transmute::<Vec<$ty>, Vec<T>>(vec) })
+					if cfg!(target_endian = "little") || mem::size_of::<T>() == 1 {
+						let vec = read_vec_from_u8s::<_, $ty>($input, $len)?;
+						Ok(unsafe { mem::transmute::<Vec<$ty>, Vec<T>>(vec) })
+					} else {
+						decode_unoptimized(input, len)
+					}
 				}};
 			}
 
@@ -872,17 +905,7 @@ impl<T: Decode> Decode for Vec<T> {
 				<T as Decode>::TYPE_INFO,
 				decode(input, len),
 				{
-					let input_capacity = input.remaining_len()?
-						.unwrap_or(MAX_PREALLOCATION)
-						.checked_div(mem::size_of::<T>())
-						.unwrap_or(0);
-					let mut r = Vec::with_capacity(input_capacity.min(len));
-					input.descend_ref()?;
-					for _ in 0..len {
-						r.push(T::decode(input)?);
-					}
-					input.ascend_ref();
-					Ok(r)
+					decode_unoptimized(input, len)
 				},
 			}
 		})
@@ -959,13 +982,19 @@ impl<T: Encode> Encode for VecDeque<T> {
 
 		macro_rules! encode_to {
 			( $ty:ty, $self:ident, $dest:ident ) => {{
-				let slices = $self.as_slices();
-				let typed = unsafe {
-					core::mem::transmute::<(&[T], &[T]), (&[$ty], &[$ty])>(slices)
-				};
+				if cfg!(target_endian = "little") || mem::size_of::<T>() == 1 {
+					let slices = $self.as_slices();
+					let typed = unsafe {
+						core::mem::transmute::<(&[T], &[T]), (&[$ty], &[$ty])>(slices)
+					};
 
-				$dest.write(<[$ty] as AsByteSlice<$ty>>::as_byte_slice(typed.0));
-				$dest.write(<[$ty] as AsByteSlice<$ty>>::as_byte_slice(typed.1));
+					$dest.write(<[$ty] as AsByteSlice<$ty>>::as_byte_slice(typed.0));
+					$dest.write(<[$ty] as AsByteSlice<$ty>>::as_byte_slice(typed.1));
+				} else {
+					for item in self {
+						item.encode_to(dest);
+					}
+				}
 			}};
 		}
 

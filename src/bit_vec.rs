@@ -42,6 +42,15 @@ impl<O: BitOrder, T: BitStore + ToByteSlice> Encode for BitSlice<O, T> {
 	}
 }
 
+fn reverse_endian(vec_u8: &mut Vec<u8>, size_of_t: usize) {
+	for i in 0..vec_u8.len() / size_of_t {
+		for j in 0..size_of_t / 2 {
+			vec_u8.swap(i * size_of_t + j, i * size_of_t + (size_of_t - 1) - j);
+		}
+	}
+}
+
+/// NOTE: encoding when T is usize is not consistent between plateform and must not be used.
 impl<O: BitOrder, T: BitStore + ToByteSlice> Encode for BitVec<O, T> {
 	fn encode_to<W: Output>(&self, dest: &mut W) {
 		let len = self.len();
@@ -50,21 +59,35 @@ impl<O: BitOrder, T: BitStore + ToByteSlice> Encode for BitVec<O, T> {
 			"Attempted to serialize a collection with too many elements.",
 		);
 		Compact(len as u32).encode_to(dest);
-		dest.write(self.as_slice().as_byte_slice());
+
+		let mut vec_u8: Vec<u8> = self.as_slice().as_byte_slice().into();
+
+		let size_of_t = mem::size_of::<T>();
+		if cfg!(target_endian = "big") && size_of_t != 1 {
+			reverse_endian(&mut vec_u8, size_of_t);
+		}
+
+		dest.write(&vec_u8);
 	}
 }
 
 impl<O: BitOrder, T: BitStore + ToByteSlice> EncodeLike for BitVec<O, T> {}
 
+/// NOTE: decoding when T is usize is not consistent between plateform and must not be used.
 impl<O: BitOrder, T: BitStore + FromByteSlice> Decode for BitVec<O, T> {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		<Compact<u32>>::decode(input).and_then(move |Compact(bits)| {
 			let bits = bits as usize;
 			let required_bytes = required_bytes::<T>(bits);
 
-			let vec = read_vec_from_u8s(input, required_bytes)?;
+			let mut vec_u8 = read_vec_from_u8s::<I, u8>(input, required_bytes)?;
 
-			let mut result = Self::from_slice(T::from_byte_slice(&vec)?);
+			let size_of_t = mem::size_of::<T>();
+			if cfg!(target_endian = "big") && size_of_t != 1 {
+				reverse_endian(&mut vec_u8, size_of_t);
+			}
+
+			let mut result = Self::from_slice(T::from_byte_slice(&vec_u8)?);
 			assert!(bits <= result.len());
 			unsafe { result.set_len(bits); }
 			Ok(result)
@@ -207,5 +230,26 @@ mod tests {
 		let encoded = bb.encode();
 		let decoded = BitBox::<Msb0, u8>::decode(&mut &encoded[..]).unwrap();
 		assert_eq!(bb, decoded);
+	}
+
+	#[test]
+	fn reverse_endian_works() {
+		let data = vec![1, 2, 3, 4, 5, 6, 7, 8];
+
+		let mut data_to_u8 = data.clone();
+		reverse_endian(&mut data_to_u8, mem::size_of::<u8>());
+		assert_eq!(data_to_u8, data);
+
+		let mut data_to_u16 = data.clone();
+		reverse_endian(&mut data_to_u16, mem::size_of::<u16>());
+		assert_eq!(data_to_u16, vec![2, 1, 4, 3, 6, 5, 8, 7]);
+
+		let mut data_to_u32 = data.clone();
+		reverse_endian(&mut data_to_u32, mem::size_of::<u32>());
+		assert_eq!(data_to_u32, vec![4, 3, 2, 1, 8, 7, 6, 5]);
+
+		let mut data_to_u64 = data.clone();
+		reverse_endian(&mut data_to_u64, mem::size_of::<u64>());
+		assert_eq!(data_to_u64, vec![8, 7, 6, 5, 4, 3, 2, 1]);
 	}
 }
