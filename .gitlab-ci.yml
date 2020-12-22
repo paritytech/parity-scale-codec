@@ -54,6 +54,13 @@ test-rust-stable:
     - time cargo test --verbose --all --features bit-vec,generic-array,derive
     - sccache -s
 
+test-rust-miri:
+  stage:                           test
+  <<:                              *docker-env
+  script:
+    - time cargo +nightly miri test --features bit-vec,generic-array,arbitrary --release
+    - sccache -s
+
 test-rust-stable-no_derive:
   stage:                           test
   <<:                              *docker-env

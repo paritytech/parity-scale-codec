@@ -183,6 +183,7 @@ mod tests {
 	}
 
 	#[test]
+	#[cfg_attr(miri, ignore)] // BitVec error due to outdated version of bitvec
 	fn bitvec_u8() {
 		for v in &test_data!(u8) {
 			let encoded = v.encode();
@@ -191,6 +192,7 @@ mod tests {
 	}
 
 	#[test]
+	#[cfg_attr(miri, ignore)] // BitVec error due to outdated version of bitvec
 	fn bitvec_u16() {
 		for v in &test_data!(u16) {
 			let encoded = v.encode();
@@ -199,6 +201,7 @@ mod tests {
 	}
 
 	#[test]
+	#[cfg_attr(miri, ignore)] // BitVec error due to outdated version of bitvec
 	fn bitvec_u32() {
 		for v in &test_data!(u32) {
 			let encoded = v.encode();
@@ -207,6 +210,7 @@ mod tests {
 	}
 
 	#[test]
+	#[cfg_attr(miri, ignore)] // BitVec error due to outdated version of bitvec
 	fn bitvec_u64() {
 		for v in &test_data!(u64) {
 			let encoded = dbg!(v.encode());
@@ -215,6 +219,7 @@ mod tests {
 	}
 
 	#[test]
+	#[cfg_attr(miri, ignore)] // BitVec error due to outdated version of bitvec
 	fn bitslice() {
 		let data: &[u8] = &[0x69];
 		let slice = BitSlice::<Msb0, u8>::from_slice(data);
