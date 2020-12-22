@@ -50,7 +50,11 @@ fn reverse_endian(vec_u8: &mut Vec<u8>, size_of_t: usize) {
 	}
 }
 
-/// NOTE: encoding when T is usize is not consistent between plateform and must not be used.
+/// # WARNING
+///
+/// In bitvec v0.17.4 the only implementation of BitStore are u8, u16, u32, u64, usize.
+/// This implementation actually only support u8, u16, u32 and u64, encoding of with BitStore being
+/// usize is inconsistent between plateform.
 impl<O: BitOrder, T: BitStore + ToByteSlice> Encode for BitVec<O, T> {
 	fn encode_to<W: Output>(&self, dest: &mut W) {
 		let len = self.len();
@@ -74,7 +78,11 @@ impl<O: BitOrder, T: BitStore + ToByteSlice> Encode for BitVec<O, T> {
 
 impl<O: BitOrder, T: BitStore + ToByteSlice> EncodeLike for BitVec<O, T> {}
 
-/// NOTE: decoding when T is usize is not consistent between plateform and must not be used.
+/// # WARNING
+///
+/// In bitvec v0.17.4 the only implementation of BitStore are u8, u16, u32, u64, usize.
+/// This implementation actually only support u8, u16, u32 and u64, encoding of with BitStore being
+/// usize is inconsistent between plateform.
 impl<O: BitOrder, T: BitStore + FromByteSlice> Decode for BitVec<O, T> {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		<Compact<u32>>::decode(input).and_then(move |Compact(bits)| {
@@ -87,7 +95,16 @@ impl<O: BitOrder, T: BitStore + FromByteSlice> Decode for BitVec<O, T> {
 				reverse_endian(&mut vec_u8, mem::size_of::<T>());
 			}
 
-			let mut result = Self::from_slice(T::from_byte_slice(&vec_u8)?);
+			let mut aligned_vec: Vec<T> = vec![0u8.into(); required_bytes / mem::size_of::<T>()];
+
+			unsafe {
+				let aligned_u8_ptr = aligned_vec.as_mut_ptr() as *mut u8;
+				for (i, v) in vec_u8.iter().enumerate() {
+					*aligned_u8_ptr.offset(i as isize) = *v;
+				}
+			}
+
+			let mut result = Self::from_vec(aligned_vec);
 			assert!(bits <= result.len());
 			unsafe { result.set_len(bits); }
 			Ok(result)
