@@ -3,27 +3,8 @@ use std::time::Duration;
 
 use bitvec::{vec::BitVec, order::Msb0, order::BitOrder, store::BitStore};
 use honggfuzz::fuzz;
-use parity_scale_codec::{Encode, Decode, Compact, Input, Error};
+use parity_scale_codec::{Encode, Decode, Compact};
 use honggfuzz::arbitrary::{Arbitrary, Unstructured, Result as ArbResult};
-
-struct LimitedInput<'a> {
-	input: &'a [u8],
-	limited: bool
-}
-
-impl<'a> Input for LimitedInput<'a> {
-	fn remaining_len(&mut self) -> Result<Option<usize>, Error> {
-		if !self.limited {
-			Ok(None)
-		} else {
-			self.input.remaining_len()
-		}
-	}
-
-	fn read(&mut self, into: &mut [u8]) -> Result<(), Error> {
-		self.input.read(into)
-	}
-}
 
 #[derive(Encode, Decode, Clone, PartialEq, Debug, Arbitrary)]
 pub struct MockStruct{
@@ -40,6 +21,7 @@ impl<O: 'static + BitOrder, T: 'static + BitStore + Arbitrary> Arbitrary for Bit
 		Ok(BitVecWrapper(BitVec::<O, T>::from_vec(v)))
 	}
 }
+
 
 /// Used for implementing the PartialEq trait for a BinaryHeap.
 #[derive(Encode, Decode, Debug, Clone, Arbitrary)]
@@ -112,16 +94,15 @@ macro_rules! fuzz_decoder {
 		let num = $counter;
 	$(
 		if $data[0] % num == $index {
-			let d = &$data[2..];
-			let limited = $data[1] % 2 == 0;
+			let mut d = &$data[1..];
 			let raw1 = d.clone();
-			let maybe_obj = <$parsed>::decode(&mut LimitedInput { input: d, limited });
+			let maybe_obj = <$parsed>::decode(&mut d);
 
 			match maybe_obj {
 				Ok(obj) => {
-					let d2: &[u8] = &obj.encode();
+					let mut d2: &[u8] = &obj.encode();
 					let raw2 = d2.clone();
-					let exp_obj = <$parsed>::decode(&mut LimitedInput { input: d2, limited });
+					let exp_obj = <$parsed>::decode(&mut d2);
 					match exp_obj {
 						Ok(obj2) => {
 							if obj == obj2 {
@@ -177,11 +158,10 @@ macro_rules! fuzz_decoder {
 		let num = $counter;
 	$(
 		if $data[0] % num == $index {
-			let d = &$data[2..];
-			let limited = $data[1] % 2 == 0;
+			let mut d = &$data[1..];
 			let raw1 = &d.clone();
 
-			let maybe_obj = <$parsed>::decode(&mut LimitedInput { input: d, limited });
+			let maybe_obj = <$parsed>::decode(&mut d);
 			match maybe_obj {
 				Ok(obj) => {
 					let d2 = obj.encode();
@@ -189,7 +169,7 @@ macro_rules! fuzz_decoder {
 					// We are sorting here because we're in the "sorted" flow. Useful for container types
 					// which can have multiple valid encoded versions.
 					raw2.sort();
-					let exp_obj = <$parsed>::decode(&mut LimitedInput { input: &d2[..], limited });
+					let exp_obj = <$parsed>::decode(&mut &d2[..]);
 					match exp_obj {
 						Ok(obj2) => {
 							if obj == obj2 {
