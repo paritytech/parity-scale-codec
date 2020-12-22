@@ -60,14 +60,15 @@ impl<O: BitOrder, T: BitStore + ToByteSlice> Encode for BitVec<O, T> {
 		);
 		Compact(len as u32).encode_to(dest);
 
-		let mut vec_u8: Vec<u8> = self.as_slice().as_byte_slice().into();
+		let byte_slice: &[u8] = self.as_slice().as_byte_slice();
 
-		let size_of_t = mem::size_of::<T>();
-		if cfg!(target_endian = "big") && size_of_t != 1 {
-			reverse_endian(&mut vec_u8, size_of_t);
+		if cfg!(target_endian = "big") && mem::size_of::<T>() != 1 {
+			let mut vec_u8: Vec<u8> = byte_slice.into();
+			reverse_endian(&mut vec_u8, mem::size_of::<T>());
+			dest.write(&vec_u8);
+		} else {
+			dest.write(byte_slice);
 		}
-
-		dest.write(&vec_u8);
 	}
 }
 
@@ -82,9 +83,8 @@ impl<O: BitOrder, T: BitStore + FromByteSlice> Decode for BitVec<O, T> {
 
 			let mut vec_u8 = read_vec_from_u8s::<I, u8>(input, required_bytes)?;
 
-			let size_of_t = mem::size_of::<T>();
-			if cfg!(target_endian = "big") && size_of_t != 1 {
-				reverse_endian(&mut vec_u8, size_of_t);
+			if cfg!(target_endian = "big") && mem::size_of::<T>() != 1 {
+				reverse_endian(&mut vec_u8, mem::size_of::<T>());
 			}
 
 			let mut result = Self::from_slice(T::from_byte_slice(&vec_u8)?);
