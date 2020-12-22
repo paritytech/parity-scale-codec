@@ -842,13 +842,10 @@ where
 			let items_len_filled = items.len();
 			let items_new_size = items_len_filled + items_len_read;
 
-			// This call is here to satisfy the existing
-			// vec_decode_right_capacity test.
-			// It's not obviously functionally necessary,
-			// nor is it obviously a problem.
 			items.reserve_exact(items_len_read);
-
-			items.resize_with(items_new_size, Default::default);
+			unsafe {
+				items.set_len(items_new_size);
+			}
 
 			let bytes_slice = items.as_mut_byte_slice();
 			let bytes_len_filled = items_len_filled * mem::size_of::<T>();
