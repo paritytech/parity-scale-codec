@@ -15,6 +15,7 @@
 //! `BitVec` specific serialization.
 
 use core::mem;
+use crate::alloc::vec::Vec;
 
 use bitvec::{vec::BitVec, store::BitStore, order::BitOrder, slice::BitSlice, boxed::BitBox};
 use byte_slice_cast::{AsByteSlice, ToByteSlice, FromByteSlice, Error as FromByteSliceError};
