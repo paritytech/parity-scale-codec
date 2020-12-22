@@ -9,7 +9,7 @@ use honggfuzz::arbitrary::{Arbitrary, Unstructured, Result as ArbResult};
 struct LimitedInput<'a> {
 	input: &'a [u8],
 	limited: bool
-};
+}
 
 impl<'a> Input for LimitedInput<'a> {
 	fn remaining_len(&mut self) -> Result<Option<usize>, Error> {
@@ -112,14 +112,14 @@ macro_rules! fuzz_decoder {
 		let num = $counter;
 	$(
 		if $data[0] % num == $index {
-			let mut d = &$data[2..];
+			let d = &$data[2..];
 			let limited = $data[1] % 2 == 0;
 			let raw1 = d.clone();
 			let maybe_obj = <$parsed>::decode(&mut LimitedInput { input: d, limited });
 
 			match maybe_obj {
 				Ok(obj) => {
-					let mut d2: &[u8] = &obj.encode();
+					let d2: &[u8] = &obj.encode();
 					let raw2 = d2.clone();
 					let exp_obj = <$parsed>::decode(&mut LimitedInput { input: d2, limited });
 					match exp_obj {
@@ -177,7 +177,7 @@ macro_rules! fuzz_decoder {
 		let num = $counter;
 	$(
 		if $data[0] % num == $index {
-			let mut d = &$data[2..];
+			let d = &$data[2..];
 			let limited = $data[1] % 2 == 0;
 			let raw1 = &d.clone();
 
