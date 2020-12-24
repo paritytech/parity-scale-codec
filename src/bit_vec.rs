@@ -101,7 +101,7 @@ impl<O: BitOrder, T: BitStore + FromByteSlice> Decode for BitVec<O, T> {
 			unsafe {
 				let aligned_u8_ptr = aligned_vec.as_mut_ptr() as *mut u8;
 				for (i, v) in vec_u8.iter().enumerate() {
-					*aligned_u8_ptr.offset(i as isize) = *v;
+					*aligned_u8_ptr.add(i) = *v;
 				}
 			}
 
