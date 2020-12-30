@@ -1,0 +1,13 @@
+[package]
+name = "parity-scale-codec-derive-utils"
+version = "0.1.0"
+authors = ["Parity Technologies <admin@parity.io>"]
+license = "Apache-2.0"
+repository = "https://github.com/paritytech/parity-scale-codec"
+categories = ["encoding"]
+edition = "2018"
+
+[dependencies]
+syn = { version = "1" }
+quote = "1"
+proc-macro2 = "1"

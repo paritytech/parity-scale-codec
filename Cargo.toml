@@ -48,4 +48,5 @@ full = []
 members = [
 	"derive",
 	"fuzzer",
+	"derive-utils",
 ]

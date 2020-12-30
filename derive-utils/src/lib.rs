@@ -1,4 +1,4 @@
-// Copyright 2018 Parity Technologies
+// Copyright 2020 Parity Technologies
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,10 +11,13 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+#[macro_use]
+extern crate quote;
 
-//! Various internal utils.
-//!
-//! NOTE: attributes finder must be checked using check_attribute first, otherwise macro can panic.
+/// Various internal utils.
+///
+/// NOTE: attributes finder must be checked using check_attribute first,
+/// otherwise the macro can panic.
 
 use std::str::FromStr;
 
@@ -42,8 +45,11 @@ fn find_meta_item<'a, F, R, I>(itr: I, pred: F) -> Option<R> where
 	}).next()
 }
 
+/// Look for a `#[scale(index = $int)]` attribute on a variant. If no attribute
+/// is found, fall back to the discriminant or just the variant index.
+/// Returns a `TokenStream`.
 pub fn index(v: &Variant, i: usize) -> TokenStream {
-	// look for an index in attributes
+	// first look for an attribute
 	let index = find_meta_item(v.attrs.iter(), |meta| {
 		if let NestedMeta::Meta(Meta::NameValue(ref nv)) = meta {
 			if nv.path.is_ident("index") {
@@ -67,8 +73,9 @@ pub fn index(v: &Variant, i: usize) -> TokenStream {
 		)
 }
 
+/// Look for a `#[codec(encoded_as = "SomeType")]` outer attribute on the given
+/// `Field`.
 pub fn get_encoded_as_type(field_entry: &Field) -> Option<TokenStream> {
-	// look for an encoded_as in attributes
 	find_meta_item(field_entry.attrs.iter(), |meta| {
 		if let NestedMeta::Meta(Meta::NameValue(ref nv)) = meta {
 			if nv.path.is_ident("encoded_as") {
@@ -85,8 +92,9 @@ pub fn get_encoded_as_type(field_entry: &Field) -> Option<TokenStream> {
 	})
 }
 
+/// Look for a `#[codec(compact)]` outer attribute on the given `Field`.
+/// Returns true or false.
 pub fn get_enable_compact(field_entry: &Field) -> bool {
-	// look for `encode(compact)` in the attributes
 	find_meta_item(field_entry.attrs.iter(), |meta| {
 		if let NestedMeta::Meta(Meta::Path(ref path)) = meta {
 			if path.is_ident("compact") {
@@ -98,9 +106,9 @@ pub fn get_enable_compact(field_entry: &Field) -> bool {
 	}).is_some()
 }
 
-// return span of skip if found
+/// Look for a `#[codec(skip)]` in the given attributes.
+/// Returns the `Span` of skip if found, `None` otherwise.
 pub fn get_skip(attrs: &[Attribute]) -> Option<Span> {
-	// look for `skip` in the attributes
 	find_meta_item(attrs.iter(), |meta| {
 		if let NestedMeta::Meta(Meta::Path(ref path)) = meta {
 			if path.is_ident("skip") {
@@ -112,7 +120,8 @@ pub fn get_skip(attrs: &[Attribute]) -> Option<Span> {
 	})
 }
 
-/// Returns if the `dumb_trait_bound` attribute is given in `attrs`.
+/// Looks for a `#[codec(dumb_trait_bound)]`in the given attributes.
+/// Returns true or false.
 pub fn get_dumb_trait_bound(attrs: &[Attribute]) -> bool {
 	find_meta_item(attrs.iter(), |meta| {
 		if let NestedMeta::Meta(Meta::Path(ref path)) = meta {
@@ -125,17 +134,32 @@ pub fn get_dumb_trait_bound(attrs: &[Attribute]) -> bool {
 	}).is_some()
 }
 
+/// Given a set of named fields, return an iterator of `Field` where all fields
+/// marked `#[codec(skip)]` are filtered out.
 pub fn filter_skip_named<'a>(fields: &'a syn::FieldsNamed) -> impl Iterator<Item=&Field> + 'a {
 	fields.named.iter()
 		.filter(|f| get_skip(&f.attrs).is_none())
 }
 
+/// Given a set of unnamed fields, return an iterator of `(index, Field)` where all fields
+/// marked `#[codec(skip)]` are filtered out.
 pub fn filter_skip_unnamed<'a>(fields: &'a syn::FieldsUnnamed) -> impl Iterator<Item=(usize, &Field)> + 'a {
 	fields.unnamed.iter()
 		.enumerate()
 		.filter(|(_, f)| get_skip(&f.attrs).is_none())
 }
 
+/// Ensure attributes are correctly applied. This *must* be called before using
+/// any of the attribute finder methods or the macro may panic if it encounters
+/// misapplied attributes.
+/// `#[codec(dumb_trait_bound)]` is the only accepted top attribute.
+/// Fields can have the following attributes:
+/// * `#[codec(skip)]`
+/// * `#[codec(compact)]`
+/// * `#[codec(encoded_as = "$EncodeAs")]` with $EncodedAs a valid TokenStream
+/// Variants can have the following attributes:
+/// * `#[codec(skip)]`
+/// * `#[codec(index = $int)]`
 pub fn check_attributes(input: &DeriveInput) -> syn::Result<()> {
 	for attr in &input.attrs {
 		check_top_attribute(attr)?;
@@ -170,18 +194,18 @@ pub fn check_attributes(input: &DeriveInput) -> syn::Result<()> {
 	Ok(())
 }
 
-// Is accepted only:
+// Ensures a field is decorated only with the following attributes:
 // * `#[codec(skip)]`
 // * `#[codec(compact)]`
 // * `#[codec(encoded_as = "$EncodeAs")]` with $EncodedAs a valid TokenStream
 fn check_field_attribute(attr: &Attribute) -> syn::Result<()> {
-	let field_error = "Invalid attribute on field, only `#[codec(skip)]`, `#[codec(compact)]` and \
+	let field_error = "Invalid attribute on field. Only `#[codec(skip)]`, `#[codec(compact)]` and \
 		`#[codec(encoded_as = \"$EncodeAs\")]` are accepted.";
 
 	if attr.path.is_ident("codec") {
 		match attr.parse_meta()? {
 			Meta::List(ref meta_list) if meta_list.nested.len() == 1 => {
-				match meta_list.nested.first().unwrap() {
+				match meta_list.nested.first().expect("Just checked that there is one item; qed") {
 					NestedMeta::Meta(Meta::Path(path))
 						if path.get_ident().map_or(false, |i| i == "skip") => Ok(()),
 
@@ -203,17 +227,17 @@ fn check_field_attribute(attr: &Attribute) -> syn::Result<()> {
 	}
 }
 
-// Is accepted only:
+// Ensures a field is decorated only with the following attributes:
 // * `#[codec(skip)]`
 // * `#[codec(index = $int)]`
 fn check_variant_attribute(attr: &Attribute) -> syn::Result<()> {
-	let variant_error = "Invalid attribute on variant, only `#[codec(skip)]` and \
+	let variant_error = "Invalid attribute on variant. Only `#[codec(skip)]` and \
 		`#[codec(index = $u8)]` are accepted.";
 
 	if attr.path.is_ident("codec") {
 		match attr.parse_meta()? {
 			Meta::List(ref meta_list) if meta_list.nested.len() == 1 => {
-				match meta_list.nested.first().unwrap() {
+				match meta_list.nested.first().expect("Just checked that there is one item; qed") {
 					NestedMeta::Meta(Meta::Path(path))
 						if path.get_ident().map_or(false, |i| i == "skip") => Ok(()),
 
@@ -234,12 +258,12 @@ fn check_variant_attribute(attr: &Attribute) -> syn::Result<()> {
 
 // Only `#[codec(dumb_trait_bound)]` is accepted as top attribute
 fn check_top_attribute(attr: &Attribute) -> syn::Result<()> {
-	let top_error = "Invalid attribute only `#[codec(dumb_trait_bound)]` is accepted as top \
+	let top_error = "Invalid attribute. Only `#[codec(dumb_trait_bound)]` is accepted as top \
 		attribute";
 	if attr.path.is_ident("codec") {
 		match attr.parse_meta()? {
 			Meta::List(ref meta_list) if meta_list.nested.len() == 1 => {
-				match meta_list.nested.first().unwrap() {
+				match meta_list.nested.first().expect("Just checked that there is one item; qed") {
 					NestedMeta::Meta(Meta::Path(path))
 						if path.get_ident().map_or(false, |i| i == "dumb_trait_bound") => Ok(()),
 

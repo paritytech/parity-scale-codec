@@ -18,8 +18,6 @@ use syn::{
 	Data, Fields, Field, Error,
 };
 
-use crate::utils;
-
 pub fn quote(data: &Data, type_name: &Ident, input: &TokenStream) -> TokenStream {
 	match *data {
 		Data::Struct(ref data) => match data.fields {
@@ -35,7 +33,7 @@ pub fn quote(data: &Data, type_name: &Ident, input: &TokenStream) -> TokenStream
 			},
 		},
 		Data::Enum(ref data) => {
-			let data_variants = || data.variants.iter().filter(|variant| crate::utils::get_skip(&variant.attrs).is_none());
+			let data_variants = || data.variants.iter().filter(|variant| utils::get_skip(&variant.attrs).is_none());
 
 			if data_variants().count() > 256 {
 				return Error::new(

@@ -195,21 +195,21 @@ fn get_types_to_add_trait_bound(
 }
 
 fn needs_codec_bound(field: &syn::Field) -> bool {
-	!crate::utils::get_enable_compact(field)
-		&& crate::utils::get_encoded_as_type(field).is_none()
-		&& crate::utils::get_skip(&field.attrs).is_none()
+	!utils::get_enable_compact(field)
+		&& utils::get_encoded_as_type(field).is_none()
+		&& utils::get_skip(&field.attrs).is_none()
 }
 
 fn needs_has_compact_bound(field: &syn::Field) -> bool {
-	crate::utils::get_enable_compact(field)
+	utils::get_enable_compact(field)
 }
 
 fn needs_default_bound(field: &syn::Field) -> bool {
-	crate::utils::get_skip(&field.attrs).is_some()
+	utils::get_skip(&field.attrs).is_some()
 }
 
 fn variant_not_skipped(variant: &syn::Variant) -> bool {
-	crate::utils::get_skip(&variant.attrs).is_none()
+	utils::get_skip(&variant.attrs).is_none()
 }
 
 fn collect_types(

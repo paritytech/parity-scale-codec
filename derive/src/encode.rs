@@ -22,8 +22,6 @@ use syn::{
 	Data, Field, Fields, Error,
 };
 
-use crate::utils;
-
 type FieldsList = Punctuated<Field, Comma>;
 
 // Encode a signle field by using using_encoded, must not have skip attribute
@@ -200,7 +198,7 @@ fn impl_encode(data: &Data, type_name: &Ident) -> TokenStream {
 			}
 		},
 		Data::Enum(ref data) => {
-			let data_variants = || data.variants.iter().filter(|variant| crate::utils::get_skip(&variant.attrs).is_none());
+			let data_variants = || data.variants.iter().filter(|variant| utils::get_skip(&variant.attrs).is_none());
 
 			if data_variants().count() > 256 {
 				return Error::new(

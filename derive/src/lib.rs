@@ -30,7 +30,6 @@ use syn::{Data, Field, Fields, DeriveInput, Error};
 
 mod decode;
 mod encode;
-mod utils;
 mod trait_bounds;
 
 /// Include the `parity-scale-codec` crate under a known name (`_parity_scale_codec`).
