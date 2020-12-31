@@ -119,7 +119,6 @@ pub fn should_skip(attrs: &[Attribute]) -> bool {
 }
 
 /// Look for a `#[codec(dumb_trait_bound)]`in the given attributes.
-/// Returns true or false.
 pub fn has_dumb_trait_bound(attrs: &[Attribute]) -> bool {
 	find_meta_item(attrs.iter(), |meta| {
 		if let NestedMeta::Meta(Meta::Path(ref path)) = meta {
