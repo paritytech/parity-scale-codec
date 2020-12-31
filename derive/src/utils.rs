@@ -105,7 +105,6 @@ pub fn is_compact(field: &Field) -> bool {
 }
 
 /// Look for a `#[codec(skip)]` in the given attributes.
-/// Returns true or false.
 pub fn should_skip(attrs: &[Attribute]) -> bool {
 	find_meta_item(attrs.iter(), |meta| {
 		if let NestedMeta::Meta(Meta::Path(ref path)) = meta {
