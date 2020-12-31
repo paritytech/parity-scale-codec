@@ -32,9 +32,9 @@ fn encode_single_field(
 	field_name: TokenStream,
 ) -> TokenStream {
 	let encoded_as = utils::get_encoded_as_type(field);
-	let compact = utils::get_enable_compact(field);
+	let compact = utils::is_compact(field);
 
-	if utils::get_skip(&field.attrs).is_some() {
+	if utils::should_skip(&field.attrs) {
 		return Error::new(
 			Span::call_site(),
 			"Internal error: cannot encode single field optimisation if skipped"
@@ -101,8 +101,8 @@ fn encode_fields<F>(
 	let recurse = fields.iter().enumerate().map(|(i, f)| {
 		let field = field_name(i, &f.ident);
 		let encoded_as = utils::get_encoded_as_type(f);
-		let compact = utils::get_enable_compact(f);
-		let skip = utils::get_skip(&f.attrs).is_some();
+		let compact = utils::is_compact(f);
+		let skip = utils::should_skip(&f.attrs);
 
 		if encoded_as.is_some() as u8 + compact as u8 + skip as u8 > 1 {
 			return Error::new(
@@ -200,7 +200,7 @@ fn impl_encode(data: &Data, type_name: &Ident) -> TokenStream {
 			}
 		},
 		Data::Enum(ref data) => {
-			let data_variants = || data.variants.iter().filter(|variant| crate::utils::get_skip(&variant.attrs).is_none());
+			let data_variants = || data.variants.iter().filter(|variant| !utils::should_skip(&variant.attrs));
 
 			if data_variants().count() > 256 {
 				return Error::new(

@@ -21,6 +21,8 @@ use syn::{
 	Generics, Result, Type, TypePath,
 };
 
+use crate::utils;
+
 /// Visits the ast and checks if one of the given idents is found.
 struct ContainIdents<'a> {
 	result: bool,
@@ -195,21 +197,22 @@ fn get_types_to_add_trait_bound(
 }
 
 fn needs_codec_bound(field: &syn::Field) -> bool {
-	!crate::utils::get_enable_compact(field)
-		&& crate::utils::get_encoded_as_type(field).is_none()
-		&& crate::utils::get_skip(&field.attrs).is_none()
+	!utils::is_compact(field)
+		&& utils::get_encoded_as_type(field).is_none()
+		&& !utils::should_skip(&field.attrs)
 }
 
+// TODO: dp these looks like they should go
 fn needs_has_compact_bound(field: &syn::Field) -> bool {
-	crate::utils::get_enable_compact(field)
+	utils::is_compact(field)
 }
 
 fn needs_default_bound(field: &syn::Field) -> bool {
-	crate::utils::get_skip(&field.attrs).is_some()
+	utils::should_skip(&field.attrs)
 }
 
 fn variant_not_skipped(variant: &syn::Variant) -> bool {
-	crate::utils::get_skip(&variant.attrs).is_none()
+	!utils::should_skip(&variant.attrs)
 }
 
 fn collect_types(

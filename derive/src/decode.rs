@@ -35,7 +35,7 @@ pub fn quote(data: &Data, type_name: &Ident, input: &TokenStream) -> TokenStream
 			},
 		},
 		Data::Enum(ref data) => {
-			let data_variants = || data.variants.iter().filter(|variant| crate::utils::get_skip(&variant.attrs).is_none());
+			let data_variants = || data.variants.iter().filter(|variant| !utils::should_skip(&variant.attrs));
 
 			if data_variants().count() > 256 {
 				return Error::new(
@@ -76,8 +76,8 @@ pub fn quote(data: &Data, type_name: &Ident, input: &TokenStream) -> TokenStream
 
 fn create_decode_expr(field: &Field, name: &str, input: &TokenStream) -> TokenStream {
 	let encoded_as = utils::get_encoded_as_type(field);
-	let compact = utils::get_enable_compact(field);
-	let skip = utils::get_skip(&field.attrs).is_some();
+	let compact = utils::is_compact(field);
+	let skip = utils::should_skip(&field.attrs);
 
 	let res = quote!(__codec_res_edqy);
 

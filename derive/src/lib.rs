@@ -251,7 +251,7 @@ pub fn compact_as_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStr
 	let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
 	fn val_or_default(field: &Field) -> proc_macro2::TokenStream {
-		let skip = utils::get_skip(&field.attrs).is_some();
+		let skip = utils::should_skip(&field.attrs);
 		if skip {
 			quote_spanned!(field.span()=> Default::default())
 		} else {
