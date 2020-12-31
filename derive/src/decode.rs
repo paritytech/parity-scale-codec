@@ -46,7 +46,7 @@ pub fn quote(data: &Data, type_name: &Ident, input: &TokenStream) -> TokenStream
 
 			let recurse = data_variants().enumerate().map(|(i, v)| {
 				let name = &v.ident;
-				let index = utils::index(v, i);
+				let index = utils::get_variant_index(v, i);
 
 				let create = create_instance(
 					quote! { #type_name :: #name },

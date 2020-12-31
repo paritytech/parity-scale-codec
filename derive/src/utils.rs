@@ -46,7 +46,7 @@ fn find_meta_item<'a, F, R, I>(itr: I, pred: F) -> Option<R> where
 /// Look for a `#[scale(index = $int)]` attribute on a variant. If no attribute
 /// is found, fall back to the discriminant or just the variant index.
 /// Returns a `TokenStream`.
-pub fn index(v: &Variant, i: usize) -> TokenStream {
+pub fn get_variant_index(v: &Variant, i: usize) -> TokenStream {
 	// first look for an attribute
 	let index = find_meta_item(v.attrs.iter(), |meta| {
 		if let NestedMeta::Meta(Meta::NameValue(ref nv)) = meta {
@@ -120,7 +120,7 @@ pub fn should_skip(attrs: &[Attribute]) -> bool {
 
 /// Look for a `#[codec(dumb_trait_bound)]`in the given attributes.
 /// Returns true or false.
-pub fn get_dumb_trait_bound(attrs: &[Attribute]) -> bool {
+pub fn has_dumb_trait_bound(attrs: &[Attribute]) -> bool {
 	find_meta_item(attrs.iter(), |meta| {
 		if let NestedMeta::Meta(Meta::Path(ref path)) = meta {
 			if path.is_ident("dumb_trait_bound") {

@@ -146,7 +146,7 @@ pub fn encode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 		&input.data,
 		parse_quote!(_parity_scale_codec::Encode),
 		None,
-		utils::get_dumb_trait_bound(&input.attrs),
+		utils::has_dumb_trait_bound(&input.attrs),
 	) {
 		return e.to_compile_error().into();
 	}
@@ -187,7 +187,7 @@ pub fn decode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 		&input.data,
 		parse_quote!(_parity_scale_codec::Decode),
 		Some(parse_quote!(Default)),
-		utils::get_dumb_trait_bound(&input.attrs),
+		utils::has_dumb_trait_bound(&input.attrs),
 	) {
 		return e.to_compile_error().into();
 	}
@@ -242,7 +242,7 @@ pub fn compact_as_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStr
 		&input.data,
 		parse_quote!(_parity_scale_codec::CompactAs),
 		None,
-		utils::get_dumb_trait_bound(&input.attrs),
+		utils::has_dumb_trait_bound(&input.attrs),
 	) {
 		return e.to_compile_error().into();
 	}
