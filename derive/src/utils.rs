@@ -91,7 +91,6 @@ pub fn get_encoded_as_type(field: &Field) -> Option<TokenStream> {
 }
 
 /// Look for a `#[codec(compact)]` outer attribute on the given `Field`.
-/// Returns true or false.
 pub fn is_compact(field: &Field) -> bool {
 	find_meta_item(field.attrs.iter(), |meta| {
 		if let NestedMeta::Meta(Meta::Path(ref path)) = meta {
