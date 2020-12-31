@@ -216,7 +216,7 @@ fn impl_encode(data: &Data, type_name: &Ident) -> TokenStream {
 
 			let recurse = data_variants().enumerate().map(|(i, f)| {
 				let name = &f.ident;
-				let index = utils::get_variant_index(f, i);
+				let index = utils::variant_index(f, i);
 
 				match f.fields {
 					Fields::Named(ref fields) => {
