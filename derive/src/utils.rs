@@ -45,7 +45,6 @@ fn find_meta_item<'a, F, R, I>(itr: I, pred: F) -> Option<R> where
 
 /// Look for a `#[scale(index = $int)]` attribute on a variant. If no attribute
 /// is found, fall back to the discriminant or just the variant index.
-/// Returns a `TokenStream`.
 pub fn get_variant_index(v: &Variant, i: usize) -> TokenStream {
 	// first look for an attribute
 	let index = find_meta_item(v.attrs.iter(), |meta| {
