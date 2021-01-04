@@ -55,7 +55,7 @@ fn reverse_endian(vec_u8: &mut Vec<u8>, size_of_t: usize) {
 ///
 /// In bitvec v0.17.4 the only implementation of BitStore are u8, u16, u32, u64, usize.
 /// This implementation actually only support u8, u16, u32 and u64, encoding of with BitStore being
-/// usize is inconsistent between plateform.
+/// usize is inconsistent between platforms.
 impl<O: BitOrder, T: BitStore + ToByteSlice> Encode for BitVec<O, T> {
 	fn encode_to<W: Output>(&self, dest: &mut W) {
 		let len = self.len();
@@ -67,7 +67,7 @@ impl<O: BitOrder, T: BitStore + ToByteSlice> Encode for BitVec<O, T> {
 
 		let byte_slice: &[u8] = self.as_slice().as_byte_slice();
 
-		if cfg!(target_endian = "big") && mem::size_of::<T>() != 1 {
+		if cfg!(target_endian = "big") && mem::size_of::<T>() > 1 {
 			let mut vec_u8: Vec<u8> = byte_slice.into();
 			reverse_endian(&mut vec_u8, mem::size_of::<T>());
 			dest.write(&vec_u8);
@@ -83,7 +83,7 @@ impl<O: BitOrder, T: BitStore + ToByteSlice> EncodeLike for BitVec<O, T> {}
 ///
 /// In bitvec v0.17.4 the only implementation of BitStore are u8, u16, u32, u64, usize.
 /// This implementation actually only support u8, u16, u32 and u64, encoding of with BitStore being
-/// usize is inconsistent between plateform.
+/// usize is inconsistent between platforms.
 impl<O: BitOrder, T: BitStore + FromByteSlice> Decode for BitVec<O, T> {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		<Compact<u32>>::decode(input).and_then(move |Compact(bits)| {
@@ -92,7 +92,7 @@ impl<O: BitOrder, T: BitStore + FromByteSlice> Decode for BitVec<O, T> {
 
 			let mut vec_u8 = read_vec_from_u8s::<I, u8>(input, required_bytes)?;
 
-			if cfg!(target_endian = "big") && mem::size_of::<T>() != 1 {
+			if cfg!(target_endian = "big") && mem::size_of::<T>() > 1 {
 				reverse_endian(&mut vec_u8, mem::size_of::<T>());
 			}
 
