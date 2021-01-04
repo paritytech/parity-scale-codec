@@ -43,6 +43,9 @@ impl<O: BitOrder, T: BitStore + ToByteSlice> Encode for BitSlice<O, T> {
 	}
 }
 
+/// Reverse bytes of element for element of size `size_of_t`.
+///
+/// E.g. if size is 2 `[1, 2, 3, 4]` is changed to `[2, 1, 4, 3]`.
 fn reverse_endian(vec_u8: &mut Vec<u8>, size_of_t: usize) {
 	for i in 0..vec_u8.len() / size_of_t {
 		for j in 0..size_of_t / 2 {
