@@ -84,9 +84,9 @@ impl<O: BitOrder, T: BitStore + ToByteSlice> EncodeLike for BitVec<O, T> {}
 
 /// # WARNING
 ///
-/// In bitvec v0.17.4 the only implementation of BitStore are u8, u16, u32, u64, usize.
-/// This implementation actually only support u8, u16, u32 and u64, encoding of with BitStore being
-/// usize is inconsistent between platforms.
+/// In bitvec v0.17.4 the only implementations of BitStore are u8, u16, u32, u64, and usize.
+/// This implementation actually only support u8, u16, u32 and u64, as encoding of usize
+/// is inconsistent between platforms.
 impl<O: BitOrder, T: BitStore + FromByteSlice> Decode for BitVec<O, T> {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		<Compact<u32>>::decode(input).and_then(move |Compact(bits)| {
