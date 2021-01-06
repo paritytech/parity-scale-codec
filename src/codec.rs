@@ -601,6 +601,90 @@ macro_rules! impl_for_non_zero {
 		)*
 	}
 }
+
+/// Encode the slice without prepending the len.
+///
+/// This is equivalent to encoding all the element one by one, but it is optimized for some types.
+pub(crate) fn encode_slice_no_len<T: Encode, W: Output>(slice: &[T], dest: &mut W) {
+	macro_rules! encode_to {
+		( u8, $slice:ident, $dest:ident ) => {{
+			let typed = unsafe { mem::transmute::<&[T], &[u8]>(&$slice[..]) };
+			$dest.write(&typed)
+		}};
+		( i8, $slice:ident, $dest:ident ) => {{
+			// `i8` has the same size as `u8`. We can just convert it here and write to the
+			// dest buffer directly.
+			let typed = unsafe { mem::transmute::<&[T], &[u8]>(&$slice[..]) };
+			$dest.write(&typed)
+		}};
+		( $ty:ty, $slice:ident, $dest:ident ) => {{
+			if cfg!(target_endian = "little") {
+				let typed = unsafe { mem::transmute::<&[T], &[$ty]>(&$slice[..]) };
+				$dest.write(<[$ty] as AsByteSlice<$ty>>::as_byte_slice(typed))
+			} else {
+				for item in $slice.iter() {
+					item.encode_to(dest);
+				}
+			}
+		}};
+	}
+
+	with_type_info! {
+		<T as Encode>::TYPE_INFO,
+		encode_to(slice, dest),
+		{
+			for item in slice.iter() {
+				item.encode_to(dest);
+			}
+		},
+	}
+}
+
+/// Encode the slice without prepending the len.
+///
+/// This is equivalent to encoding all the element one by one, but it is optimized in some
+/// situation.
+pub(crate) fn decode_vec_with_len<T: Decode, I: Input>(
+	input: &mut I,
+	len: usize,
+) -> Result<Vec<T>, Error> {
+	fn decode_unoptimized<I: Input, T: Decode>(
+		input: &mut I,
+		items_len: usize,
+	) -> Result<Vec<T>, Error> {
+		let input_capacity = input.remaining_len()?
+			.unwrap_or(MAX_PREALLOCATION)
+			.checked_div(mem::size_of::<T>())
+			.unwrap_or(0);
+		let mut r = Vec::with_capacity(input_capacity.min(items_len));
+		input.descend_ref()?;
+		for _ in 0..items_len {
+			r.push(T::decode(input)?);
+		}
+		input.ascend_ref();
+		Ok(r)
+	}
+
+	macro_rules! decode {
+		( $ty:ty, $input:ident, $len:ident ) => {{
+			if cfg!(target_endian = "little") || mem::size_of::<T>() == 1 {
+				let vec = read_vec_from_u8s::<_, $ty>($input, $len)?;
+				Ok(unsafe { mem::transmute::<Vec<$ty>, Vec<T>>(vec) })
+			} else {
+				decode_unoptimized($input, $len)
+			}
+		}};
+	}
+
+	with_type_info! {
+		<T as Decode>::TYPE_INFO,
+		decode(input, len),
+		{
+			decode_unoptimized(input, len)
+		},
+	}
+}
+
 impl_for_non_zero! {
 	NonZeroI8,
 	NonZeroI16,
@@ -623,38 +707,7 @@ macro_rules! impl_array {
 				}
 
 				fn encode_to<W: Output>(&self, dest: &mut W) {
-					macro_rules! encode_to {
-						( u8, $self:ident, $dest:ident ) => {{
-							let typed = unsafe { mem::transmute::<&[T], &[u8]>(&$self[..]) };
-							$dest.write(&typed)
-						}};
-						( i8, $self:ident, $dest:ident ) => {{
-							// `i8` has the same size as `u8`. We can just convert it here and write to the
-							// dest buffer directly.
-							let typed = unsafe { mem::transmute::<&[T], &[u8]>(&$self[..]) };
-							$dest.write(&typed)
-						}};
-						( $ty:ty, $self:ident, $dest:ident ) => {{
-							if cfg!(target_endian = "little") {
-								let typed = unsafe { mem::transmute::<&[T], &[$ty]>(&$self[..]) };
-								$dest.write(<[$ty] as AsByteSlice<$ty>>::as_byte_slice(typed))
-							} else {
-								for item in $self.iter() {
-									item.encode_to($dest);
-								}
-							}
-						}};
-					}
-
-					with_type_info! {
-						<T as Encode>::TYPE_INFO,
-						encode_to(self, dest),
-						{
-							for item in self.iter() {
-								item.encode_to(dest);
-							}
-						},
-					}
+					encode_slice_no_len(&self[..], dest)
 				}
 			}
 
@@ -742,6 +795,7 @@ impl Decode for String {
 	}
 }
 
+/// Writes the compact encoding of `len` do `dest`.
 pub(crate) fn compact_encode_len_to<W: Output>(dest: &mut W, len: usize) -> Result<(), Error> {
 	if len > u32::max_value() as usize {
 		return Err("Attempted to serialize a collection with too many elements.".into());
@@ -759,38 +813,7 @@ impl<T: Encode> Encode for [T] {
 	fn encode_to<W: Output>(&self, dest: &mut W) {
 		compact_encode_len_to(dest, self.len()).expect("Compact encodes length");
 
-		macro_rules! encode_to {
-			( u8, $self:ident, $dest:ident ) => {{
-				let typed = unsafe { mem::transmute::<&[T], &[u8]>($self) };
-				$dest.write(&typed)
-			}};
-			( i8, $self:ident, $dest:ident ) => {{
-				// `i8` has the same size as `u8`. We can just convert it here and write to the
-				// dest buffer directly.
-				let typed = unsafe { mem::transmute::<&[T], &[u8]>($self) };
-				$dest.write(&typed)
-			}};
-			( $ty:ty, $self:ident, $dest:ident ) => {{
-				if cfg!(target_endian = "little") {
-					let typed = unsafe { mem::transmute::<&[T], &[$ty]>($self) };
-					$dest.write(<[$ty] as AsByteSlice<$ty>>::as_byte_slice(typed))
-				} else {
-					for item in $self {
-						item.encode_to($dest);
-					}
-				}
-			}};
-		}
-
-		with_type_info! {
-			<T as Encode>::TYPE_INFO,
-			encode_to(self, dest),
-			{
-				for item in self {
-					item.encode_to(dest);
-				}
-			},
-		}
+		encode_slice_no_len(self, dest)
 	}
 }
 
@@ -868,43 +891,7 @@ impl<T: EncodeLike<U>, U: Encode> EncodeLike<Vec<U>> for &[T] {}
 impl<T: Decode> Decode for Vec<T> {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		<Compact<u32>>::decode(input).and_then(move |Compact(len)| {
-			let len = len as usize;
-
-			fn decode_unoptimized<I: Input, T: Decode>(
-				input: &mut I,
-				items_len: usize,
-			) -> Result<Vec<T>, Error> {
-				let input_capacity = input.remaining_len()?
-					.unwrap_or(MAX_PREALLOCATION)
-					.checked_div(mem::size_of::<T>())
-					.unwrap_or(0);
-				let mut r = Vec::with_capacity(input_capacity.min(items_len));
-				input.descend_ref()?;
-				for _ in 0..items_len {
-					r.push(T::decode(input)?);
-				}
-				input.ascend_ref();
-				Ok(r)
-			}
-
-			macro_rules! decode {
-				( $ty:ty, $input:ident, $len:ident ) => {{
-					if cfg!(target_endian = "little") || mem::size_of::<T>() == 1 {
-						let vec = read_vec_from_u8s::<_, $ty>($input, $len)?;
-						Ok(unsafe { mem::transmute::<Vec<$ty>, Vec<T>>(vec) })
-					} else {
-						decode_unoptimized($input, $len)
-					}
-				}};
-			}
-
-			with_type_info! {
-				<T as Decode>::TYPE_INFO,
-				decode(input, len),
-				{
-					decode_unoptimized(input, len)
-				},
-			}
+			decode_vec_with_len(input, len as usize)
 		})
 	}
 }

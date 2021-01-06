@@ -12,9 +12,9 @@ edition = "2018"
 arrayvec = { version = "0.5.1", default-features = false, features = ["array-sizes-33-128", "array-sizes-129-255"] }
 serde = { version = "1.0.102", optional = true }
 parity-scale-codec-derive = { path = "derive", version = "1.2.0", default-features = false, optional = true }
-bitvec = { version = "0.17.4", default-features = false, features = ["alloc"], optional = true }
-byte-slice-cast = { version = "0.3.4", default-features = false, features = ["alloc"] }
-generic-array = { version = "0.13.2", optional = true }
+bitvec = { version = "0.20.1", default-features = false, features = ["alloc"], optional = true }
+byte-slice-cast = { version = "1.0.0", default-features = false }
+generic-array = { version = "0.14.4", optional = true }
 arbitrary = { version = "0.4.1", features = ["derive"], optional = true }
 
 [dev-dependencies]
