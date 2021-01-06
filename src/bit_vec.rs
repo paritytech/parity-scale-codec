@@ -56,9 +56,9 @@ fn reverse_endian(vec_u8: &mut Vec<u8>, size_of_t: usize) {
 
 /// # WARNING
 ///
-/// In bitvec v0.17.4 the only implementation of BitStore are u8, u16, u32, u64, usize.
-/// This implementation actually only support u8, u16, u32 and u64, encoding of with BitStore being
-/// usize is inconsistent between platforms.
+/// In bitvec v0.17.4 the only implementations of BitStore are u8, u16, u32, u64, and usize.
+/// This implementation actually only support u8, u16, u32 and u64, as encoding of uszie
+/// is inconsistent between platforms.
 impl<O: BitOrder, T: BitStore + ToByteSlice> Encode for BitVec<O, T> {
 	fn encode_to<W: Output>(&self, dest: &mut W) {
 		let len = self.len();
