@@ -46,7 +46,7 @@ impl<O: BitOrder, T: BitStore + ToByteSlice> Encode for BitSlice<O, T> {
 /// Reverse bytes of element for element of size `size_of_t`.
 ///
 /// E.g. if size is 2 `[1, 2, 3, 4]` is changed to `[2, 1, 4, 3]`.
-fn reverse_endian(vec_u8: &mut Vec<u8>, size_of_t: usize) {
+fn reverse_endian(vec_u8: &mut [u8], size_of_t: usize) {
 	for i in 0..vec_u8.len() / size_of_t {
 		for j in 0..size_of_t / 2 {
 			vec_u8.swap(i * size_of_t + j, i * size_of_t + (size_of_t - 1) - j);
@@ -72,7 +72,7 @@ impl<O: BitOrder, T: BitStore + ToByteSlice> Encode for BitVec<O, T> {
 
 		if cfg!(target_endian = "big") && mem::size_of::<T>() > 1 {
 			let mut vec_u8: Vec<u8> = byte_slice.into();
-			reverse_endian(&mut vec_u8, mem::size_of::<T>());
+			reverse_endian(&mut vec_u8[..], mem::size_of::<T>());
 			dest.write(&vec_u8);
 		} else {
 			dest.write(byte_slice);
@@ -96,7 +96,7 @@ impl<O: BitOrder, T: BitStore + FromByteSlice> Decode for BitVec<O, T> {
 			let mut vec_u8 = read_vec_from_u8s::<I, u8>(input, required_bytes)?;
 
 			if cfg!(target_endian = "big") && mem::size_of::<T>() > 1 {
-				reverse_endian(&mut vec_u8, mem::size_of::<T>());
+				reverse_endian(&mut vec_u8[..], mem::size_of::<T>());
 			}
 
 			let mut aligned_vec: Vec<T> = vec![0u8.into(); required_bytes / mem::size_of::<T>()];
@@ -263,19 +263,19 @@ mod tests {
 		let data = vec![1, 2, 3, 4, 5, 6, 7, 8];
 
 		let mut data_to_u8 = data.clone();
-		reverse_endian(&mut data_to_u8, mem::size_of::<u8>());
+		reverse_endian(&mut data_to_u8[..], mem::size_of::<u8>());
 		assert_eq!(data_to_u8, data);
 
 		let mut data_to_u16 = data.clone();
-		reverse_endian(&mut data_to_u16, mem::size_of::<u16>());
+		reverse_endian(&mut data_to_u16[..], mem::size_of::<u16>());
 		assert_eq!(data_to_u16, vec![2, 1, 4, 3, 6, 5, 8, 7]);
 
 		let mut data_to_u32 = data.clone();
-		reverse_endian(&mut data_to_u32, mem::size_of::<u32>());
+		reverse_endian(&mut data_to_u32[..], mem::size_of::<u32>());
 		assert_eq!(data_to_u32, vec![4, 3, 2, 1, 8, 7, 6, 5]);
 
 		let mut data_to_u64 = data.clone();
-		reverse_endian(&mut data_to_u64, mem::size_of::<u64>());
+		reverse_endian(&mut data_to_u64[..], mem::size_of::<u64>());
 		assert_eq!(data_to_u64, vec![8, 7, 6, 5, 4, 3, 2, 1]);
 	}
 }
