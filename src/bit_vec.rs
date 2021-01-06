@@ -15,11 +15,12 @@
 //! `BitVec` specific serialization.
 
 use core::mem;
+use crate::alloc::vec::Vec;
 
 use bitvec::{vec::BitVec, store::BitStore, order::BitOrder, slice::BitSlice, boxed::BitBox};
 use byte_slice_cast::{AsByteSlice, ToByteSlice, FromByteSlice, Error as FromByteSliceError};
 
-use crate::codec::{Encode, Decode, Input, Output, Error, read_vec_u8};
+use crate::codec::{Encode, Decode, Input, Output, Error, read_vec_from_u8s};
 use crate::compact::Compact;
 use crate::EncodeLike;
 
@@ -42,6 +43,22 @@ impl<O: BitOrder, T: BitStore + ToByteSlice> Encode for BitSlice<O, T> {
 	}
 }
 
+/// Reverse bytes of element for element of size `size_of_t`.
+///
+/// E.g. if size is 2 `[1, 2, 3, 4]` is changed to `[2, 1, 4, 3]`.
+fn reverse_endian(vec_u8: &mut [u8], size_of_t: usize) {
+	for i in 0..vec_u8.len() / size_of_t {
+		for j in 0..size_of_t / 2 {
+			vec_u8.swap(i * size_of_t + j, i * size_of_t + (size_of_t - 1) - j);
+		}
+	}
+}
+
+/// # WARNING
+///
+/// In bitvec v0.17.4 the only implementations of BitStore are u8, u16, u32, u64, and usize.
+/// This implementation actually only support u8, u16, u32 and u64, as encoding of uszie
+/// is inconsistent between platforms.
 impl<O: BitOrder, T: BitStore + ToByteSlice> Encode for BitVec<O, T> {
 	fn encode_to<W: Output>(&self, dest: &mut W) {
 		let len = self.len();
@@ -50,21 +67,48 @@ impl<O: BitOrder, T: BitStore + ToByteSlice> Encode for BitVec<O, T> {
 			"Attempted to serialize a collection with too many elements.",
 		);
 		Compact(len as u32).encode_to(dest);
-		dest.write(self.as_slice().as_byte_slice());
+
+		let byte_slice: &[u8] = self.as_slice().as_byte_slice();
+
+		if cfg!(target_endian = "big") && mem::size_of::<T>() > 1 {
+			let mut vec_u8: Vec<u8> = byte_slice.into();
+			reverse_endian(&mut vec_u8[..], mem::size_of::<T>());
+			dest.write(&vec_u8);
+		} else {
+			dest.write(byte_slice);
+		}
 	}
 }
 
 impl<O: BitOrder, T: BitStore + ToByteSlice> EncodeLike for BitVec<O, T> {}
 
+/// # WARNING
+///
+/// In bitvec v0.17.4 the only implementations of BitStore are u8, u16, u32, u64, and usize.
+/// This implementation actually only support u8, u16, u32 and u64, as encoding of usize
+/// is inconsistent between platforms.
 impl<O: BitOrder, T: BitStore + FromByteSlice> Decode for BitVec<O, T> {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		<Compact<u32>>::decode(input).and_then(move |Compact(bits)| {
 			let bits = bits as usize;
 			let required_bytes = required_bytes::<T>(bits);
 
-			let vec = read_vec_u8(input, required_bytes)?;
+			let mut vec_u8 = read_vec_from_u8s::<I, u8>(input, required_bytes)?;
 
-			let mut result = Self::from_slice(T::from_byte_slice(&vec)?);
+			if cfg!(target_endian = "big") && mem::size_of::<T>() > 1 {
+				reverse_endian(&mut vec_u8[..], mem::size_of::<T>());
+			}
+
+			let mut aligned_vec: Vec<T> = vec![0u8.into(); required_bytes / mem::size_of::<T>()];
+
+			unsafe {
+				let aligned_u8_ptr = aligned_vec.as_mut_ptr() as *mut u8;
+				for (i, v) in vec_u8.iter().enumerate() {
+					*aligned_u8_ptr.add(i) = *v;
+				}
+			}
+
+			let mut result = Self::from_vec(aligned_vec);
 			assert!(bits <= result.len());
 			unsafe { result.set_len(bits); }
 			Ok(result)
@@ -160,6 +204,7 @@ mod tests {
 	}
 
 	#[test]
+	#[cfg_attr(miri, ignore)] // BitVec error due to outdated version of bitvec
 	fn bitvec_u8() {
 		for v in &test_data!(u8) {
 			let encoded = v.encode();
@@ -168,6 +213,7 @@ mod tests {
 	}
 
 	#[test]
+	#[cfg_attr(miri, ignore)] // BitVec error due to outdated version of bitvec
 	fn bitvec_u16() {
 		for v in &test_data!(u16) {
 			let encoded = v.encode();
@@ -176,6 +222,7 @@ mod tests {
 	}
 
 	#[test]
+	#[cfg_attr(miri, ignore)] // BitVec error due to outdated version of bitvec
 	fn bitvec_u32() {
 		for v in &test_data!(u32) {
 			let encoded = v.encode();
@@ -184,6 +231,7 @@ mod tests {
 	}
 
 	#[test]
+	#[cfg_attr(miri, ignore)] // BitVec error due to outdated version of bitvec
 	fn bitvec_u64() {
 		for v in &test_data!(u64) {
 			let encoded = dbg!(v.encode());
@@ -192,6 +240,7 @@ mod tests {
 	}
 
 	#[test]
+	#[cfg_attr(miri, ignore)] // BitVec error due to outdated version of bitvec
 	fn bitslice() {
 		let data: &[u8] = &[0x69];
 		let slice = BitSlice::<Msb0, u8>::from_slice(data);
@@ -207,5 +256,26 @@ mod tests {
 		let encoded = bb.encode();
 		let decoded = BitBox::<Msb0, u8>::decode(&mut &encoded[..]).unwrap();
 		assert_eq!(bb, decoded);
+	}
+
+	#[test]
+	fn reverse_endian_works() {
+		let data = vec![1, 2, 3, 4, 5, 6, 7, 8];
+
+		let mut data_to_u8 = data.clone();
+		reverse_endian(&mut data_to_u8[..], mem::size_of::<u8>());
+		assert_eq!(data_to_u8, data);
+
+		let mut data_to_u16 = data.clone();
+		reverse_endian(&mut data_to_u16[..], mem::size_of::<u16>());
+		assert_eq!(data_to_u16, vec![2, 1, 4, 3, 6, 5, 8, 7]);
+
+		let mut data_to_u32 = data.clone();
+		reverse_endian(&mut data_to_u32[..], mem::size_of::<u32>());
+		assert_eq!(data_to_u32, vec![4, 3, 2, 1, 8, 7, 6, 5]);
+
+		let mut data_to_u64 = data.clone();
+		reverse_endian(&mut data_to_u64[..], mem::size_of::<u64>());
+		assert_eq!(data_to_u64, vec![8, 7, 6, 5, 4, 3, 2, 1]);
 	}
 }
