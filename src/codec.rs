@@ -639,8 +639,8 @@ macro_rules! impl_array {
 								let typed = unsafe { mem::transmute::<&[T], &[$ty]>(&$self[..]) };
 								$dest.write(<[$ty] as AsByteSlice<$ty>>::as_byte_slice(typed))
 							} else {
-								for item in self.iter() {
-									item.encode_to(dest);
+								for item in $self.iter() {
+									item.encode_to($dest);
 								}
 							}
 						}};
@@ -775,8 +775,8 @@ impl<T: Encode> Encode for [T] {
 					let typed = unsafe { mem::transmute::<&[T], &[$ty]>($self) };
 					$dest.write(<[$ty] as AsByteSlice<$ty>>::as_byte_slice(typed))
 				} else {
-					for item in self {
-						item.encode_to(dest);
+					for item in $self {
+						item.encode_to($dest);
 					}
 				}
 			}};
@@ -893,7 +893,7 @@ impl<T: Decode> Decode for Vec<T> {
 						let vec = read_vec_from_u8s::<_, $ty>($input, $len)?;
 						Ok(unsafe { mem::transmute::<Vec<$ty>, Vec<T>>(vec) })
 					} else {
-						decode_unoptimized(input, len)
+						decode_unoptimized($input, $len)
 					}
 				}};
 			}
@@ -988,8 +988,8 @@ impl<T: Encode> Encode for VecDeque<T> {
 					$dest.write(<[$ty] as AsByteSlice<$ty>>::as_byte_slice(typed.0));
 					$dest.write(<[$ty] as AsByteSlice<$ty>>::as_byte_slice(typed.1));
 				} else {
-					for item in self {
-						item.encode_to(dest);
+					for item in $self {
+						item.encode_to($dest);
 					}
 				}
 			}};
