@@ -30,8 +30,9 @@ impl<O: BitOrder, T: BitStore + Encode> Encode for BitSlice<O, T> {
 		);
 		Compact(len as u32).encode_to(dest);
 
-		// NOTE: from `BitSlice::as_slice`: "The returned slice handle views all elements touched
-		// by self"
+		// NOTE: doc of `BitSlice::as_slice`:
+		// > The returned slice handle views all elements touched by self
+		//
 		// Thus we are sure the slice doesn't contain unused elements at the end.
 		let slice = self.as_slice();
 
