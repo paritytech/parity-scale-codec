@@ -21,6 +21,8 @@ use syn::{
 	Generics, Result, Type, TypePath,
 };
 
+use crate::utils;
+
 /// Visits the ast and checks if one of the given idents is found.
 struct ContainIdents<'a> {
 	result: bool,
@@ -118,14 +120,15 @@ pub fn add(
 
 	let codec_types = get_types_to_add_trait_bound(input_ident, data, &ty_params, dumb_trait_bounds)?;
 
-	let compact_types = collect_types(&data, needs_has_compact_bound, variant_not_skipped)?
+	let compact_types = collect_types(&data, utils::is_compact)?
 		.into_iter()
 		// Only add a bound if the type uses a generic
 		.filter(|ty| type_contain_idents(ty, &ty_params))
 		.collect::<Vec<_>>();
 
 	let skip_types = if codec_skip_bound.is_some() {
-		collect_types(&data, needs_default_bound, variant_not_skipped)?
+		let needs_default_bound = |f: &syn::Field| utils::should_skip(&f.attrs);
+		collect_types(&data, needs_default_bound)?
 			.into_iter()
 			// Only add a bound if the type uses a generic
 			.filter(|ty| type_contain_idents(ty, &ty_params))
@@ -171,11 +174,14 @@ fn get_types_to_add_trait_bound(
 	if dumb_trait_bound {
 		Ok(ty_params.iter().map(|t| parse_quote!( #t )).collect())
 	} else {
-		let res = collect_types(&data, needs_codec_bound, variant_not_skipped)?
+		let needs_codec_bound = |f: &syn::Field| !utils::is_compact(f)
+				&& utils::get_encoded_as_type(f).is_none()
+				&& !utils::should_skip(&f.attrs);
+		let res = collect_types(&data, needs_codec_bound)?
 			.into_iter()
 			// Only add a bound if the type uses a generic
 			.filter(|ty| type_contain_idents(ty, &ty_params))
-			// If a struct is cotaining itself as field type, we can not add this type into the where clause.
+			// If a struct contains itself as field type, we can not add this type into the where clause.
 			// This is required to work a round the following compiler bug: https://github.com/rust-lang/rust/issues/47032
 			.flat_map(|ty| {
 				find_type_paths_not_start_or_contain_ident(&ty, input_ident)
@@ -183,7 +189,7 @@ fn get_types_to_add_trait_bound(
 					.map(|ty| Type::Path(ty.clone()))
 					// Remove again types that do not contain any of our generic parameters
 					.filter(|ty| type_contain_idents(ty, &ty_params))
-					// Add back the original type, as we don't want to loose him.
+					// Add back the original type, as we don't want to loose it.
 					.chain(iter::once(ty))
 			})
 			// Remove all remaining types that start/contain the input ident to not have them in the where clause.
@@ -194,28 +200,9 @@ fn get_types_to_add_trait_bound(
 	}
 }
 
-fn needs_codec_bound(field: &syn::Field) -> bool {
-	!crate::utils::get_enable_compact(field)
-		&& crate::utils::get_encoded_as_type(field).is_none()
-		&& crate::utils::get_skip(&field.attrs).is_none()
-}
-
-fn needs_has_compact_bound(field: &syn::Field) -> bool {
-	crate::utils::get_enable_compact(field)
-}
-
-fn needs_default_bound(field: &syn::Field) -> bool {
-	crate::utils::get_skip(&field.attrs).is_some()
-}
-
-fn variant_not_skipped(variant: &syn::Variant) -> bool {
-	crate::utils::get_skip(&variant.attrs).is_none()
-}
-
 fn collect_types(
 	data: &syn::Data,
 	type_filter: fn(&syn::Field) -> bool,
-	variant_filter: fn(&syn::Variant) -> bool,
 ) -> Result<Vec<syn::Type>> {
 	use syn::*;
 
@@ -233,7 +220,7 @@ fn collect_types(
 		},
 
 		Data::Enum(ref data) => data.variants.iter()
-			.filter(|variant| variant_filter(variant))
+			.filter(|variant| !utils::should_skip(&variant.attrs))
 			.flat_map(|variant| {
 				match &variant.fields {
 					| Fields::Named(FieldsNamed { named: fields , .. })

@@ -146,7 +146,7 @@ pub fn encode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 		&input.data,
 		parse_quote!(_parity_scale_codec::Encode),
 		None,
-		utils::get_dumb_trait_bound(&input.attrs),
+		utils::has_dumb_trait_bound(&input.attrs),
 	) {
 		return e.to_compile_error().into();
 	}
@@ -187,7 +187,7 @@ pub fn decode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 		&input.data,
 		parse_quote!(_parity_scale_codec::Decode),
 		Some(parse_quote!(Default)),
-		utils::get_dumb_trait_bound(&input.attrs),
+		utils::has_dumb_trait_bound(&input.attrs),
 	) {
 		return e.to_compile_error().into();
 	}
@@ -195,13 +195,13 @@ pub fn decode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 	let name = &input.ident;
 	let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
-	let input_ = quote!(input);
+	let input_ = quote!(__codec_input_edqy);
 	let decoding = decode::quote(&input.data, name, &input_);
 
 	let impl_block = quote! {
 		impl #impl_generics _parity_scale_codec::Decode for #name #ty_generics #where_clause {
-			fn decode<DecIn: _parity_scale_codec::Input>(
-				#input_: &mut DecIn
+			fn decode<__CodecInputEdqy: _parity_scale_codec::Input>(
+				#input_: &mut __CodecInputEdqy
 			) -> core::result::Result<Self, _parity_scale_codec::Error> {
 				#decoding
 			}
@@ -242,7 +242,7 @@ pub fn compact_as_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStr
 		&input.data,
 		parse_quote!(_parity_scale_codec::CompactAs),
 		None,
-		utils::get_dumb_trait_bound(&input.attrs),
+		utils::has_dumb_trait_bound(&input.attrs),
 	) {
 		return e.to_compile_error().into();
 	}
@@ -251,7 +251,7 @@ pub fn compact_as_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStr
 	let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
 	fn val_or_default(field: &Field) -> proc_macro2::TokenStream {
-		let skip = utils::get_skip(&field.attrs).is_some();
+		let skip = utils::should_skip(&field.attrs);
 		if skip {
 			quote_spanned!(field.span()=> Default::default())
 		} else {

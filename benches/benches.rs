@@ -61,6 +61,18 @@ fn vec_extend_from_slice(b: &mut Bencher) {
 	});
 }
 
+struct NoLimitInput<'a>(&'a [u8]);
+
+impl<'a> Input for NoLimitInput<'a> {
+	fn remaining_len(&mut self) -> Result<Option<usize>, Error> {
+		Ok(None)
+	}
+
+	fn read(&mut self, into: &mut [u8]) -> Result<(), Error> {
+		self.0.read(into)
+	}
+}
+
 #[derive(Encode, Decode)]
 enum Event {
 	ComplexEvent(Vec<u8>, u32, i32, u128, i8),
@@ -126,6 +138,21 @@ fn encode_decode_vec<T: TryFrom<u8> + Codec>(c: &mut Criterion) where T::Error: 
 			let _: Vec<T> = Decode::decode(&mut &vec[..]).unwrap();
 		})
 	}, vec![1, 2, 5, 32, 1024, 2048, 16384]);
+
+	c.bench_function_over_inputs(&format!("vec_decode_no_limit_{}", type_name::<T>()), |b, &vec_size| {
+		let vec: Vec<T> = (0..=127u8)
+			.cycle()
+			.take(vec_size)
+			.map(|v| v.try_into().unwrap())
+			.collect();
+
+		let vec = vec.encode();
+
+		let vec = black_box(vec);
+		b.iter(|| {
+			let _: Vec<T> = Decode::decode(&mut NoLimitInput(&vec[..])).unwrap();
+		})
+	}, vec![16384, 131072]);
 }
 
 fn encode_decode_complex_type(c: &mut Criterion) {

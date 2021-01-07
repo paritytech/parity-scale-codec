@@ -14,8 +14,7 @@
 
 //! Serialisation.
 
-#[cfg(feature = "std")]
-use std::fmt;
+use core::fmt;
 use core::{mem, ops::Deref, marker::PhantomData, iter::FromIterator, convert::TryFrom, time::Duration};
 use core::num::{
 	NonZeroI8,
@@ -31,7 +30,7 @@ use core::num::{
 };
 use arrayvec::ArrayVec;
 
-use byte_slice_cast::{AsByteSlice, IntoVecOf};
+use byte_slice_cast::{AsByteSlice, AsMutByteSlice, ToMutByteSlice};
 
 #[cfg(any(feature = "std", feature = "full"))]
 use crate::alloc::{
@@ -84,9 +83,16 @@ impl Error {
 }
 
 #[cfg(feature = "std")]
-impl std::fmt::Display for Error {
+impl fmt::Display for Error {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		write!(f, "{}", self.0)
+	}
+}
+
+#[cfg(not(feature = "std"))]
+impl fmt::Display for Error {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		f.write_str("Error")
 	}
 }
 
@@ -184,7 +190,7 @@ impl From<std::io::Error> for Error {
 			Interrupted => "io error: Interrupted".into(),
 			Other => "io error: Other".into(),
 			UnexpectedEof => "io error: UnexpectedEof".into(),
-			_ => "io error: Unkown".into(),
+			_ => "io error: Unknown".into(),
 		}
 	}
 }
@@ -328,6 +334,8 @@ impl<S: Decode + FullEncode> FullCodec for S {}
 /// Such types should not carry any additional information
 /// that would require to be encoded, because the encoding
 /// is assumed to be the same as the wrapped type.
+///
+/// The wrapped type that is referred to is the [`Deref::Target`].
 pub trait WrapperTypeEncode: Deref {}
 
 impl<T: ?Sized> WrapperTypeEncode for Box<T> {}
@@ -499,8 +507,8 @@ impl<T: Decode, E: Decode> Decode for Result<T, E> {
 #[derive(Eq, PartialEq, Clone, Copy)]
 pub struct OptionBool(pub Option<bool>);
 
-impl core::fmt::Debug for OptionBool {
-	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+impl fmt::Debug for OptionBool {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		self.0.fmt(f)
 	}
 }
@@ -558,7 +566,7 @@ impl<T: Decode> Decode for Option<T> {
 		match input.read_byte()? {
 			0 => Ok(None),
 			1 => Ok(Some(T::decode(input)?)),
-			_ => Err("unexpecded first byte decoding Option".into()),
+			_ => Err("unexpected first byte decoding Option".into()),
 		}
 	}
 }
@@ -627,8 +635,14 @@ macro_rules! impl_array {
 							$dest.write(&typed)
 						}};
 						( $ty:ty, $self:ident, $dest:ident ) => {{
-							let typed = unsafe { mem::transmute::<&[T], &[$ty]>(&$self[..]) };
-							$dest.write(<[$ty] as AsByteSlice<$ty>>::as_byte_slice(typed))
+							if cfg!(target_endian = "little") {
+								let typed = unsafe { mem::transmute::<&[T], &[$ty]>(&$self[..]) };
+								$dest.write(<[$ty] as AsByteSlice<$ty>>::as_byte_slice(typed))
+							} else {
+								for item in $self.iter() {
+									item.encode_to($dest);
+								}
+							}
 						}};
 					}
 
@@ -665,7 +679,7 @@ macro_rules! impl_array {
 }
 
 impl_array!(
-	1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
+	0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
 	17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31,
 	32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51,
 	52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71,
@@ -757,8 +771,14 @@ impl<T: Encode> Encode for [T] {
 				$dest.write(&typed)
 			}};
 			( $ty:ty, $self:ident, $dest:ident ) => {{
-				let typed = unsafe { mem::transmute::<&[T], &[$ty]>($self) };
-				$dest.write(<[$ty] as AsByteSlice<$ty>>::as_byte_slice(typed))
+				if cfg!(target_endian = "little") {
+					let typed = unsafe { mem::transmute::<&[T], &[$ty]>($self) };
+					$dest.write(<[$ty] as AsByteSlice<$ty>>::as_byte_slice(typed))
+				} else {
+					for item in $self {
+						item.encode_to($dest);
+					}
+				}
 			}};
 		}
 
@@ -774,36 +794,67 @@ impl<T: Encode> Encode for [T] {
 	}
 }
 
-/// Read an `u8` vector from the given input.
-pub(crate) fn read_vec_u8<I: Input>(input: &mut I, len: usize) -> Result<Vec<u8>, Error> {
+/// Create a `Vec<T>` by casting directly from a buffer of read `u8`s
+///
+/// The encoding of `T` must be equal to its binary representation, and size of `T` must be less or
+/// equal to [`MAX_PREALLOCATION`].
+pub(crate) fn read_vec_from_u8s<I, T>(input: &mut I, items_len: usize) -> Result<Vec<T>, Error>
+where
+	I: Input,
+	T: ToMutByteSlice + Default + Clone,
+{
+	debug_assert!(MAX_PREALLOCATION >= mem::size_of::<T>(), "Invalid precondition");
+
+	let byte_len = items_len.checked_mul(mem::size_of::<T>())
+		.ok_or_else(|| "Item is too big and cannot be allocated")?;
+
 	let input_len = input.remaining_len()?;
 
 	// If there is input len and it cannot be pre-allocated then return directly.
-	if input_len.map(|l| l < len).unwrap_or(false) {
+	if input_len.map(|l| l < byte_len).unwrap_or(false) {
 		return Err("Not enough data to decode vector".into())
 	}
 
+	// In both these branches we're going to be creating and resizing a Vec<T>,
+	// but casting it to a &mut [u8] for reading.
+
 	// Note: we checked that if input_len is some then it can preallocated.
-	let r = if input_len.is_some() || len < MAX_PREALLOCATION {
+	let r = if input_len.is_some() || byte_len < MAX_PREALLOCATION {
 		// Here we pre-allocate the whole buffer.
-		let mut r = vec![0; len];
-		input.read(&mut r)?;
+		let mut items: Vec<T> = vec![Default::default(); items_len];
+		let mut bytes_slice = items.as_mut_byte_slice();
+		input.read(&mut bytes_slice)?;
 
-		r
+		items
 	} else {
-		// Here we pre-allocate only the maximum pre-allocation
-		let mut r = vec![];
+		// An allowed number of preallocated item.
+		// Note: `MAX_PREALLOCATION` is expected to be more or equal to size of `T`, precondition.
+		let max_preallocated_items = MAX_PREALLOCATION / mem::size_of::<T>();
 
-		let mut remains = len;
-		while remains != 0 {
-			let len_read = MAX_PREALLOCATION.min(remains);
-			let len_filled = r.len();
-			r.resize(len_filled + len_read, 0);
-			input.read(&mut r[len_filled..])?;
-			remains -= len_read;
+		// Here we pre-allocate only the maximum pre-allocation
+		let mut items: Vec<T> = vec![];
+
+		let mut items_remains = items_len;
+
+		while items_remains > 0 {
+			let items_len_read = max_preallocated_items.min(items_remains);
+
+			let items_len_filled = items.len();
+			let items_new_size = items_len_filled + items_len_read;
+
+			items.reserve_exact(items_len_read);
+			unsafe {
+				items.set_len(items_new_size);
+			}
+
+			let bytes_slice = items.as_mut_byte_slice();
+			let bytes_len_filled = items_len_filled * mem::size_of::<T>();
+			input.read(&mut bytes_slice[bytes_len_filled..])?;
+
+			items_remains = items_remains.saturating_sub(items_len_read);
 		}
 
-		r
+		items
 	};
 
 	Ok(r)
@@ -819,21 +870,31 @@ impl<T: Decode> Decode for Vec<T> {
 		<Compact<u32>>::decode(input).and_then(move |Compact(len)| {
 			let len = len as usize;
 
-			macro_rules! decode {
-				( u8, $input:ident, $len:ident ) => {{
-					let vec = read_vec_u8($input, $len)?;
-					Ok(unsafe { mem::transmute::<Vec<u8>, Vec<T>>(vec) })
-				}};
-				( i8, $input:ident, $len:ident ) => {{
-					let vec = read_vec_u8($input, $len)?;
-					Ok(unsafe { mem::transmute::<Vec<u8>, Vec<T>>(vec) })
-				}};
-				( $ty:ty, $input:ident, $len:ident ) => {{
-					let vec = read_vec_u8($input, $len * mem::size_of::<$ty>())?;
-					let typed = vec.into_vec_of::<$ty>()
-						.map_err(|_| "Failed to convert from `Vec<u8>` to typed vec")?;
+			fn decode_unoptimized<I: Input, T: Decode>(
+				input: &mut I,
+				items_len: usize,
+			) -> Result<Vec<T>, Error> {
+				let input_capacity = input.remaining_len()?
+					.unwrap_or(MAX_PREALLOCATION)
+					.checked_div(mem::size_of::<T>())
+					.unwrap_or(0);
+				let mut r = Vec::with_capacity(input_capacity.min(items_len));
+				input.descend_ref()?;
+				for _ in 0..items_len {
+					r.push(T::decode(input)?);
+				}
+				input.ascend_ref();
+				Ok(r)
+			}
 
-					Ok(unsafe { mem::transmute::<Vec<$ty>, Vec<T>>(typed) })
+			macro_rules! decode {
+				( $ty:ty, $input:ident, $len:ident ) => {{
+					if cfg!(target_endian = "little") || mem::size_of::<T>() == 1 {
+						let vec = read_vec_from_u8s::<_, $ty>($input, $len)?;
+						Ok(unsafe { mem::transmute::<Vec<$ty>, Vec<T>>(vec) })
+					} else {
+						decode_unoptimized($input, $len)
+					}
 				}};
 			}
 
@@ -841,17 +902,7 @@ impl<T: Decode> Decode for Vec<T> {
 				<T as Decode>::TYPE_INFO,
 				decode(input, len),
 				{
-					let input_capacity = input.remaining_len()?
-						.unwrap_or(MAX_PREALLOCATION)
-						.checked_div(mem::size_of::<T>())
-						.unwrap_or(0);
-					let mut r = Vec::with_capacity(input_capacity.min(len));
-					input.descend_ref()?;
-					for _ in 0..len {
-						r.push(T::decode(input)?);
-					}
-					input.ascend_ref();
-					Ok(r)
+					decode_unoptimized(input, len)
 				},
 			}
 		})
@@ -928,13 +979,19 @@ impl<T: Encode> Encode for VecDeque<T> {
 
 		macro_rules! encode_to {
 			( $ty:ty, $self:ident, $dest:ident ) => {{
-				let slices = $self.as_slices();
-				let typed = unsafe {
-					core::mem::transmute::<(&[T], &[T]), (&[$ty], &[$ty])>(slices)
-				};
+				if cfg!(target_endian = "little") || mem::size_of::<T>() == 1 {
+					let slices = $self.as_slices();
+					let typed = unsafe {
+						core::mem::transmute::<(&[T], &[T]), (&[$ty], &[$ty])>(slices)
+					};
 
-				$dest.write(<[$ty] as AsByteSlice<$ty>>::as_byte_slice(typed.0));
-				$dest.write(<[$ty] as AsByteSlice<$ty>>::as_byte_slice(typed.1));
+					$dest.write(<[$ty] as AsByteSlice<$ty>>::as_byte_slice(typed.0));
+					$dest.write(<[$ty] as AsByteSlice<$ty>>::as_byte_slice(typed.1));
+				} else {
+					for item in $self {
+						item.encode_to($dest);
+					}
+				}
 			}};
 		}
 
@@ -1566,5 +1623,13 @@ mod tests {
 
 		let obj = <String>::decode(&mut bytes);
 		assert!(obj.is_err());
+	}
+
+	#[test]
+	fn empty_array_encode_and_decode() {
+		let data: [u32; 0] = [];
+		let encoded = data.encode();
+		assert!(encoded.is_empty());
+		<[u32; 0]>::decode(&mut &encoded[..]).unwrap();
 	}
 }
