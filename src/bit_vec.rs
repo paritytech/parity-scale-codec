@@ -14,8 +14,9 @@
 
 //! `BitVec` specific serialization.
 
-use core::mem;
-use bitvec::{vec::BitVec, store::BitStore, order::BitOrder, slice::BitSlice, boxed::BitBox};
+use bitvec::{
+	vec::BitVec, store::BitStore, order::BitOrder, slice::BitSlice, boxed::BitBox, mem::BitMemory
+};
 use crate::codec::{Encode, Decode, Input, Output, Error, decode_vec_with_len, encode_slice_no_len};
 use crate::compact::Compact;
 use crate::EncodeLike;
@@ -29,13 +30,10 @@ impl<O: BitOrder, T: BitStore + Encode> Encode for BitSlice<O, T> {
 		);
 		Compact(len as u32).encode_to(dest);
 
+		// NOTE: from `BitSlice::as_slice`: "The returned slice handle views all elements touched
+		// by self"
+		// Thus we are sure the slice doesn't contain unused elements at the end.
 		let slice = self.as_slice();
-
-		// NOTE: `BitSlice::as_slice` seems to always return the exact number of necessary
-		// element `T`, but doc doesn't seem to ensure that it will never contained any
-		// useless element `T` at the end.
-		// To be safer we cap with the required_items function.
-		let slice = &slice[..slice.len().min(required_items::<T>(len))];
 
 		encode_slice_no_len(slice, dest)
 	}
@@ -49,20 +47,28 @@ impl<O: BitOrder, T: BitStore + Encode> Encode for BitVec<O, T> {
 
 impl<O: BitOrder, T: BitStore + Encode> EncodeLike for BitVec<O, T> {}
 
+/// Equivalent of `BitStore::MAX_BITS` on 32bit machine.
+const ARCH32BIT_BITSLICE_MAX_BITS: usize = 0x1fff_ffff;
+
 impl<O: BitOrder, T: BitStore + Decode> Decode for BitVec<O, T> {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		<Compact<u32>>::decode(input).and_then(move |Compact(bits)| {
-			let bits = bits as usize;
-			let required_items = required_items::<T>(bits);
-			let vec = decode_vec_with_len(input, required_items)?;
-
-			// Otherwise `from_vec` panics.
-			if bits > BitSlice::<O, T>::MAX_BITS {
+			// Otherwise it is impossible to store it on 32bit machine.
+			if bits as usize > ARCH32BIT_BITSLICE_MAX_BITS {
 				return Err("Attempt to decode a bitvec with too many bits".into());
 			}
-			let mut result = Self::from_vec(vec);
-			assert!(bits <= result.len());
-			unsafe { result.set_len(bits); }
+			let required_elements = required_elements::<T>(bits)? as usize;
+			let vec = decode_vec_with_len(input, required_elements)?;
+
+			let mut result = Self::try_from_vec(vec)
+				.map_err(|_| {
+					Error::from("UNEXPECTED ERROR: `bits` is less than
+					`ARCH32BIT_BITSLICE_MAX_BITS`; So BitVec must be able to handle the number of
+					segment needed for `bits` to be represented; qed")
+				})?;
+
+			assert!(bits as usize <= result.len());
+			unsafe { result.set_len(bits as usize); }
 			Ok(result)
 		})
 	}
@@ -82,11 +88,16 @@ impl<O: BitOrder, T: BitStore + Decode> Decode for BitBox<O, T> {
 	}
 }
 
-/// Calculates the number of item `T` required to store given amount of `bits` as if they were
-/// stored in the array of `T`.
-fn required_items<T>(bits: usize) -> usize {
-	let element_bits = mem::size_of::<T>() * 8;
-	(bits + element_bits - 1) / element_bits
+/// Calculates the number of element `T` required to store given amount of `bits` as if they were
+/// stored in `BitVec<_, T>`
+///
+/// Returns an error if the number of bits + number of bits in element overflow u32 capacity.
+/// NOTE: this should never happen if `bits` is already checked to be less than
+/// `BitStore::MAX_BITS`.
+fn required_elements<T: BitStore>(bits: u32) -> Result<u32, Error> {
+	let element_bits = T::Mem::BITS as u32;
+	let error = Error::from("Attempt to decode bitvec with too many bits");
+	Ok((bits.checked_add(element_bits).ok_or_else(|| error)?  - 1) / element_bits)
 }
 
 #[cfg(test)]
@@ -131,29 +142,29 @@ mod tests {
 
 	#[test]
 	fn required_items_test() {
-		assert_eq!(0, required_items::<u8>(0));
-		assert_eq!(1, required_items::<u8>(1));
-		assert_eq!(1, required_items::<u8>(7));
-		assert_eq!(1, required_items::<u8>(8));
-		assert_eq!(2, required_items::<u8>(9));
+		assert_eq!(Ok(0), required_elements::<u8>(0));
+		assert_eq!(Ok(1), required_elements::<u8>(1));
+		assert_eq!(Ok(1), required_elements::<u8>(7));
+		assert_eq!(Ok(1), required_elements::<u8>(8));
+		assert_eq!(Ok(2), required_elements::<u8>(9));
 
-		assert_eq!(0, required_items::<u16>(0));
-		assert_eq!(1, required_items::<u16>(1));
-		assert_eq!(1, required_items::<u16>(15));
-		assert_eq!(1, required_items::<u16>(16));
-		assert_eq!(2, required_items::<u16>(17));
+		assert_eq!(Ok(0), required_elements::<u16>(0));
+		assert_eq!(Ok(1), required_elements::<u16>(1));
+		assert_eq!(Ok(1), required_elements::<u16>(15));
+		assert_eq!(Ok(1), required_elements::<u16>(16));
+		assert_eq!(Ok(2), required_elements::<u16>(17));
 
-		assert_eq!(0, required_items::<u32>(0));
-		assert_eq!(1, required_items::<u32>(1));
-		assert_eq!(1, required_items::<u32>(31));
-		assert_eq!(1, required_items::<u32>(32));
-		assert_eq!(2, required_items::<u32>(33));
+		assert_eq!(Ok(0), required_elements::<u32>(0));
+		assert_eq!(Ok(1), required_elements::<u32>(1));
+		assert_eq!(Ok(1), required_elements::<u32>(31));
+		assert_eq!(Ok(1), required_elements::<u32>(32));
+		assert_eq!(Ok(2), required_elements::<u32>(33));
 
-		assert_eq!(0, required_items::<u64>(0));
-		assert_eq!(1, required_items::<u64>(1));
-		assert_eq!(1, required_items::<u64>(63));
-		assert_eq!(1, required_items::<u64>(64));
-		assert_eq!(2, required_items::<u64>(65));
+		assert_eq!(Ok(0), required_elements::<u64>(0));
+		assert_eq!(Ok(1), required_elements::<u64>(1));
+		assert_eq!(Ok(1), required_elements::<u64>(63));
+		assert_eq!(Ok(1), required_elements::<u64>(64));
+		assert_eq!(Ok(2), required_elements::<u64>(65));
 	}
 
 	#[test]
