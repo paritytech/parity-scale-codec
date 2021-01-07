@@ -69,7 +69,7 @@ impl<O: BitOrder, T: BitStore + Decode> Decode for BitVec<O, T> {
 				})?;
 
 			assert!(bits as usize <= result.len());
-			unsafe { result.set_len(bits as usize); }
+			result.truncate(bits as usize);
 			Ok(result)
 		})
 	}
