@@ -213,7 +213,7 @@ mod tests {
 	#[test]
 	fn append_non_copyable() {
 		#[derive(Eq, PartialEq, Debug)]
-		struct NoCopy { data: u32 };
+		struct NoCopy { data: u32 }
 
 		impl EncodeLike for NoCopy {}
 
