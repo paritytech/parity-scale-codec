@@ -15,7 +15,7 @@
 use std::{time::Duration, any::type_name, convert::{TryFrom, TryInto}};
 
 #[cfg(feature = "bit-vec")]
-use bitvec::vec::BitVec;
+use bitvec::{vec::BitVec, order::Lsb0};
 use criterion::{Criterion, black_box, Bencher, criterion_group, criterion_main};
 use parity_scale_codec::*;
 use parity_scale_codec_derive::{Encode, Decode};
@@ -203,7 +203,7 @@ fn encode_decode_bitvec_u8(c: &mut Criterion) {
 
 	#[cfg(feature = "bit-vec")]
 	c.bench_function_over_inputs("bitvec_u8_encode - BitVec<u8>", |b, &size| {
-		let vec: BitVec = [true, false]
+		let vec: BitVec<Lsb0, u8> = [true, false]
 			.iter()
 			.cloned()
 			.cycle()
@@ -216,7 +216,7 @@ fn encode_decode_bitvec_u8(c: &mut Criterion) {
 
 	#[cfg(feature = "bit-vec")]
 	c.bench_function_over_inputs("bitvec_u8_decode - BitVec<u8>", |b, &size| {
-		let vec: BitVec = [true, false]
+		let vec: BitVec<Lsb0, u8> = [true, false]
 			.iter()
 			.cloned()
 			.cycle()
@@ -227,7 +227,7 @@ fn encode_decode_bitvec_u8(c: &mut Criterion) {
 
 		let vec = black_box(vec);
 		b.iter(|| {
-			let _: BitVec = Decode::decode(&mut &vec[..]).unwrap();
+			let _: BitVec<Lsb0, u8> = Decode::decode(&mut &vec[..]).unwrap();
 		})
 	}, vec![1, 2, 5, 32, 1024]);
 }
