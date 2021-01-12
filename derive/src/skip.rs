@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Provide the function to implement Decode::skip
+//! Derive the Decode::skip implementation for the type.
 
 use proc_macro2::{Span, TokenStream, Ident};
 use syn::{
@@ -67,7 +67,7 @@ pub fn quote(data: &Data, type_name: &Ident, input: &TokenStream) -> TokenStream
 	}
 }
 
-// return expression that skip field.
+// Return an expression that skips a field.
 // * input: as in `fn skip<..>(input: Input)`
 fn skip_field(field: &Field, input: &TokenStream) -> TokenStream {
 	let encoded_as = utils::get_encoded_as_type(field);
@@ -102,7 +102,7 @@ fn skip_field(field: &Field, input: &TokenStream) -> TokenStream {
 	}
 }
 
-// return expression that skip fields.
+// Return an expression that skips fields.
 // * input: as in `fn skip<..>(input: Input)`
 fn skip_fields(
 	fields: &Fields,

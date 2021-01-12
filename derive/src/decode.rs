@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Provide the function to implement Decode::decode
+//! Derive the Decode::decode implementation for the type.
 
 use proc_macro2::{Span, TokenStream, Ident};
 use syn::{

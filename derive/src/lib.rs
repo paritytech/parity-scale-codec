@@ -198,7 +198,7 @@ pub fn decode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 
 	let input_ = quote!(__codec_input_edqy);
 	let decoding = decode::quote(&input.data, name, &input_);
-	let skipping = skip::quote(&input.data, name, &input_);
+	let skip_impl = skip::quote(&input.data, name, &input_);
 
 	let impl_block = quote! {
 		impl #impl_generics _parity_scale_codec::Decode for #name #ty_generics #where_clause {
