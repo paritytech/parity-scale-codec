@@ -18,7 +18,6 @@ use parity_scale_codec::{
 	Encode, Decode, HasCompact, Compact, EncodeAsRef, CompactAs, Error, assert_decode
 };
 use serde_derive::{Serialize, Deserialize};
-use core::fmt::Debug;
 
 #[derive(Debug, PartialEq, Encode, Decode)]
 struct Unit;
@@ -507,8 +506,8 @@ fn recursive_type() {
 #[test]
 fn crafted_input_for_vec_u8() {
 	assert_eq!(
-		<Vec<u8>>::decode(&mut &Compact(u32::max_value()).encode()[..]),
-		Err("Not enough data to decode vector".into()),
+		Vec::<u8>::decode(&mut &Compact(u32::max_value()).encode()[..]).err().unwrap().what(),
+		"Not enough data to decode vector",
 	);
 }
 

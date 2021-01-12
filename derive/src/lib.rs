@@ -208,8 +208,8 @@ pub fn decode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 				#decoding
 			}
 
-			fn skip<DecIn: _parity_scale_codec::Input>(
-				#input_: &mut DecIn
+			fn skip<__CodecInputEdqy: _parity_scale_codec::Input>(
+				#input_: &mut __CodecInputEdqy
 			) -> core::result::Result<(), _parity_scale_codec::Error> {
 				#skipping
 			}
