@@ -698,7 +698,7 @@ pub(crate) fn encode_slice_no_len<T: Encode, W: Output>(slice: &[T], dest: &mut 
 	}
 }
 
-/// Decode the slice (without prepended the len).
+/// Decode the slice (without the prepended len).
 ///
 /// This is equivalent to decode all elements one by one, but it is optimized in some
 /// situation.
@@ -739,6 +739,39 @@ pub(crate) fn decode_vec_with_len<T: Decode, I: Input>(
 		decode(input, len),
 		{
 			decode_unoptimized(input, len)
+		},
+	}
+}
+
+/// Skip the slice (without the prepended len).
+///
+/// This is equivalent to skip all elements one by one, but it is optimized in some
+/// situation.
+pub(crate) fn skip_vec_with_len<T: Decode, I: Input>(
+	input: &mut I,
+	len: usize,
+) -> Result<(), Error> {
+	macro_rules! skip {
+		( $ty:ty, $input:ident, $len:ident ) => {{
+			match $len.checked_mul(mem::size_of::<$ty>()) {
+				Some(size) => input.skip(size)?,
+				// NOTE: this can be optimized by skipping chunks.
+				None => for _ in 0..len {
+					T::skip(input)?;
+				},
+			}
+			Ok(())
+		}};
+	}
+
+	with_type_info! {
+		<T as Decode>::TYPE_INFO,
+		skip(input, len),
+		{
+			for _ in 0..len {
+				T::skip(input)?;
+			}
+			Ok(())
 		},
 	}
 }
@@ -986,31 +1019,7 @@ impl<T: Decode> Decode for Vec<T> {
 
 	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
 		<Compact<u32>>::decode(input).and_then(move |Compact(len)| {
-			let len = len as usize;
-
-			macro_rules! skip {
-				( $ty:ty, $input:ident, $len:ident ) => {{
-					match $len.checked_mul(mem::size_of::<$ty>()) {
-						Some(size) => input.skip(size)?,
-						// NOTE: this can be optimized by skipping chunks.
-						None => for _ in 0..len {
-							T::skip(input)?;
-						},
-					}
-					Ok(())
-				}};
-			}
-
-			with_type_info! {
-				<T as Decode>::TYPE_INFO,
-				skip(input, len),
-				{
-					for _ in 0..len {
-						T::skip(input)?;
-					}
-					Ok(())
-				},
-			}
+			skip_vec_with_len::<T, _>(input, len as usize)
 		})
 	}
 }

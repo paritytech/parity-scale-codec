@@ -17,7 +17,10 @@
 use bitvec::{
 	vec::BitVec, store::BitStore, order::BitOrder, slice::BitSlice, boxed::BitBox, mem::BitMemory
 };
-use crate::codec::{Encode, Decode, Input, Output, Error, decode_vec_with_len, encode_slice_no_len};
+use crate::codec::{
+	Encode, Decode, Input, Output, Error, decode_vec_with_len, encode_slice_no_len,
+	skip_vec_with_len,
+};
 use crate::compact::Compact;
 use crate::EncodeLike;
 
@@ -75,7 +78,14 @@ impl<O: BitOrder, T: BitStore + Decode> Decode for BitVec<O, T> {
 	}
 
 	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
-		Self::decode(input).map(|_| ())
+		<Compact<u32>>::decode(input).and_then(move |Compact(bits)| {
+			// Otherwise it is impossible to store it on 32bit machine.
+			if bits as usize > ARCH32BIT_BITSLICE_MAX_BITS {
+				return Err("Attempt to decode a bitvec with too many bits".into());
+			}
+			let required_elements = required_elements::<T>(bits)? as usize;
+			skip_vec_with_len::<T, _>(input, required_elements)
+		})
 	}
 }
 
