@@ -23,6 +23,7 @@ use syn::{
 use crate::utils;
 
 /// Implement Decode::skip
+///
 /// * type_name is name of the type to skip, used for error message
 /// * input is as in `fn skip<..>(input: Input)`
 pub fn quote(data: &Data, type_name: &Ident, input: &TokenStream) -> TokenStream {
