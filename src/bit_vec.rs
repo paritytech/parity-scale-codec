@@ -14,35 +14,14 @@
 
 //! `BitVec` specific serialization.
 
-use core::mem;
-
-use bitvec::{vec::BitVec, store::BitStore, order::BitOrder, slice::BitSlice, boxed::BitBox};
-use byte_slice_cast::{AsByteSlice, ToByteSlice, FromByteSlice, Error as FromByteSliceError};
-
-use crate::codec::{Encode, Decode, Input, Output, Error, read_vec_u8};
+use bitvec::{
+	vec::BitVec, store::BitStore, order::BitOrder, slice::BitSlice, boxed::BitBox, mem::BitMemory
+};
+use crate::codec::{Encode, Decode, Input, Output, Error, decode_vec_with_len, encode_slice_no_len};
 use crate::compact::Compact;
 use crate::EncodeLike;
 
-impl From<FromByteSliceError> for Error {
-	fn from(e: FromByteSliceError) -> Error {
-		match e {
-			FromByteSliceError::AlignmentMismatch {..} =>
-				"failed to cast from byte slice: alignment mismatch".into(),
-			FromByteSliceError::LengthMismatch {..} =>
-				"failed to cast from byte slice: length mismatch".into(),
-			FromByteSliceError::CapacityMismatch {..} =>
-				"failed to cast from byte slice: capacity mismatch".into(),
-		}
-	}
-}
-
-impl<O: BitOrder, T: BitStore + ToByteSlice> Encode for BitSlice<O, T> {
-	fn encode_to<W: Output>(&self, dest: &mut W) {
-		self.to_vec().encode_to(dest)
-	}
-}
-
-impl<O: BitOrder, T: BitStore + ToByteSlice> Encode for BitVec<O, T> {
+impl<O: BitOrder, T: BitStore + Encode> Encode for BitSlice<O, T> {
 	fn encode_to<W: Output>(&self, dest: &mut W) {
 		let len = self.len();
 		assert!(
@@ -50,43 +29,65 @@ impl<O: BitOrder, T: BitStore + ToByteSlice> Encode for BitVec<O, T> {
 			"Attempted to serialize a collection with too many elements.",
 		);
 		Compact(len as u32).encode_to(dest);
-		dest.write(self.as_slice().as_byte_slice());
+
+		// NOTE: doc of `BitSlice::as_slice`:
+		// > The returned slice handle views all elements touched by self
+		//
+		// Thus we are sure the slice doesn't contain unused elements at the end.
+		let slice = self.as_slice();
+
+		encode_slice_no_len(slice, dest)
 	}
 }
 
-impl<O: BitOrder, T: BitStore + ToByteSlice> EncodeLike for BitVec<O, T> {}
-
-impl<O: BitOrder, T: BitStore + FromByteSlice> Decode for BitVec<O, T> {
-	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
-		<Compact<u32>>::decode(input).and_then(move |Compact(bits)| {
-			let bits = bits as usize;
-			let required_bytes = required_bytes::<T>(bits);
-
-			let vec = read_vec_u8(input, required_bytes)?;
-
-			let mut result = Self::from_slice(T::from_byte_slice(&vec)?);
-			assert!(bits <= result.len());
-			unsafe { result.set_len(bits); }
-			Ok(result)
-		})
-	}
-
-	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
-		<Compact<u32>>::decode(input).and_then(move |Compact(bits)| {
-			input.skip(required_bytes::<T>(bits as usize))
-		})
-	}
-}
-
-impl<O: BitOrder, T: BitStore + ToByteSlice> Encode for BitBox<O, T> {
+impl<O: BitOrder, T: BitStore + Encode> Encode for BitVec<O, T> {
 	fn encode_to<W: Output>(&self, dest: &mut W) {
 		self.as_bitslice().encode_to(dest)
 	}
 }
 
-impl<O: BitOrder, T: BitStore + ToByteSlice> EncodeLike for BitBox<O, T> {}
+impl<O: BitOrder, T: BitStore + Encode> EncodeLike for BitVec<O, T> {}
 
-impl<O: BitOrder, T: BitStore + FromByteSlice> Decode for BitBox<O, T> {
+/// Equivalent of `BitStore::MAX_BITS` on 32bit machine.
+const ARCH32BIT_BITSLICE_MAX_BITS: usize = 0x1fff_ffff;
+
+impl<O: BitOrder, T: BitStore + Decode> Decode for BitVec<O, T> {
+	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
+		<Compact<u32>>::decode(input).and_then(move |Compact(bits)| {
+			// Otherwise it is impossible to store it on 32bit machine.
+			if bits as usize > ARCH32BIT_BITSLICE_MAX_BITS {
+				return Err("Attempt to decode a bitvec with too many bits".into());
+			}
+			let required_elements = required_elements::<T>(bits)? as usize;
+			let vec = decode_vec_with_len(input, required_elements)?;
+
+			let mut result = Self::try_from_vec(vec)
+				.map_err(|_| {
+					Error::from("UNEXPECTED ERROR: `bits` is less or equal to
+					`ARCH32BIT_BITSLICE_MAX_BITS`; So BitVec must be able to handle the number of
+					segment needed for `bits` to be represented; qed")
+				})?;
+
+			assert!(bits as usize <= result.len());
+			result.truncate(bits as usize);
+			Ok(result)
+		})
+	}
+
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		Self::decode(input).map(|_| ())
+	}
+}
+
+impl<O: BitOrder, T: BitStore + Encode> Encode for BitBox<O, T> {
+	fn encode_to<W: Output>(&self, dest: &mut W) {
+		self.as_bitslice().encode_to(dest)
+	}
+}
+
+impl<O: BitOrder, T: BitStore + Encode> EncodeLike for BitBox<O, T> {}
+
+impl<O: BitOrder, T: BitStore + Decode> Decode for BitBox<O, T> {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		Ok(Self::from_bitslice(BitVec::<O, T>::decode(input)?.as_bitslice()))
 	}
@@ -96,10 +97,16 @@ impl<O: BitOrder, T: BitStore + FromByteSlice> Decode for BitBox<O, T> {
 	}
 }
 
-// Calculates bytes required to store given amount of `bits` as if they were stored in the array of `T`.
-fn required_bytes<T>(bits: usize) -> usize {
-	let element_bits = mem::size_of::<T>() * 8;
-	(bits + element_bits - 1) / element_bits * mem::size_of::<T>()
+/// Calculates the number of element `T` required to store given amount of `bits` as if they were
+/// stored in `BitVec<_, T>`
+///
+/// Returns an error if the number of bits + number of bits in element overflow u32 capacity.
+/// NOTE: this should never happen if `bits` is already checked to be less than
+/// `BitStore::MAX_BITS`.
+fn required_elements<T: BitStore>(bits: u32) -> Result<u32, Error> {
+	let element_bits = T::Mem::BITS as u32;
+	let error = Error::from("Attempt to decode bitvec with too many bits");
+	Ok((bits.checked_add(element_bits).ok_or_else(|| error)?  - 1) / element_bits)
 }
 
 #[cfg(test)]
@@ -144,30 +151,30 @@ mod tests {
 	}
 
 	#[test]
-	fn required_bytes_test() {
-		assert_eq!(0, required_bytes::<u8>(0));
-		assert_eq!(1, required_bytes::<u8>(1));
-		assert_eq!(1, required_bytes::<u8>(7));
-		assert_eq!(1, required_bytes::<u8>(8));
-		assert_eq!(2, required_bytes::<u8>(9));
+	fn required_items_test() {
+		assert_eq!(Ok(0), required_elements::<u8>(0));
+		assert_eq!(Ok(1), required_elements::<u8>(1));
+		assert_eq!(Ok(1), required_elements::<u8>(7));
+		assert_eq!(Ok(1), required_elements::<u8>(8));
+		assert_eq!(Ok(2), required_elements::<u8>(9));
 
-		assert_eq!(0, required_bytes::<u16>(0));
-		assert_eq!(2, required_bytes::<u16>(1));
-		assert_eq!(2, required_bytes::<u16>(15));
-		assert_eq!(2, required_bytes::<u16>(16));
-		assert_eq!(4, required_bytes::<u16>(17));
+		assert_eq!(Ok(0), required_elements::<u16>(0));
+		assert_eq!(Ok(1), required_elements::<u16>(1));
+		assert_eq!(Ok(1), required_elements::<u16>(15));
+		assert_eq!(Ok(1), required_elements::<u16>(16));
+		assert_eq!(Ok(2), required_elements::<u16>(17));
 
-		assert_eq!(0, required_bytes::<u32>(0));
-		assert_eq!(4, required_bytes::<u32>(1));
-		assert_eq!(4, required_bytes::<u32>(31));
-		assert_eq!(4, required_bytes::<u32>(32));
-		assert_eq!(8, required_bytes::<u32>(33));
+		assert_eq!(Ok(0), required_elements::<u32>(0));
+		assert_eq!(Ok(1), required_elements::<u32>(1));
+		assert_eq!(Ok(1), required_elements::<u32>(31));
+		assert_eq!(Ok(1), required_elements::<u32>(32));
+		assert_eq!(Ok(2), required_elements::<u32>(33));
 
-		assert_eq!(0, required_bytes::<u64>(0));
-		assert_eq!(8, required_bytes::<u64>(1));
-		assert_eq!(8, required_bytes::<u64>(63));
-		assert_eq!(8, required_bytes::<u64>(64));
-		assert_eq!(16, required_bytes::<u64>(65));
+		assert_eq!(Ok(0), required_elements::<u64>(0));
+		assert_eq!(Ok(1), required_elements::<u64>(1));
+		assert_eq!(Ok(1), required_elements::<u64>(63));
+		assert_eq!(Ok(1), required_elements::<u64>(64));
+		assert_eq!(Ok(2), required_elements::<u64>(65));
 	}
 
 	#[test]
@@ -205,9 +212,9 @@ mod tests {
 	#[test]
 	fn bitslice() {
 		let data: &[u8] = &[0x69];
-		let slice = BitSlice::<Msb0, u8>::from_slice(data);
+		let slice = BitSlice::<Msb0, u8>::from_slice(data).unwrap();
 		let encoded = slice.encode();
-		assert_decode::<BitVec<Msb0, u8>>(&encoded, slice.to_vec());
+		assert_decode::<BitVec<Msb0, u8>>(&encoded, slice.to_bitvec());
 		let decoded = BitVec::<Msb0, u8>::decode(&mut &encoded[..]).unwrap();
 		assert_eq!(slice, decoded.as_bitslice());
 	}
@@ -215,7 +222,8 @@ mod tests {
 	#[test]
 	fn bitbox() {
 		let data: &[u8] = &[5, 10];
-		let bb = BitBox::<Msb0, u8>::from_slice(data);
+		let slice = BitSlice::<Msb0, u8>::from_slice(data).unwrap();
+		let bb = BitBox::<Msb0, u8>::from_bitslice(slice);
 		let encoded = bb.encode();
 		assert_decode::<BitBox<Msb0, u8>>(&encoded, bb);
 	}

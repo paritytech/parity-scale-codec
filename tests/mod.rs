@@ -514,9 +514,16 @@ fn crafted_input_for_vec_u8() {
 
 #[test]
 fn crafted_input_for_vec_t() {
+	let msg = if cfg!(target_endian = "big") {
+		// use unoptimize decode
+		"Not enough data to fill buffer"
+	} else {
+		"Not enough data to decode vector"
+	};
+
 	assert_eq!(
-		<Vec<u32>>::decode(&mut &Compact(u32::max_value()).encode()[..]),
-		Err("Not enough data to decode vector".into()),
+		Vec::<u32>::decode(&mut &Compact(u32::max_value()).encode()[..]).err().unwrap().what(),
+		msg,
 	);
 }
 

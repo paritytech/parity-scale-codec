@@ -48,7 +48,6 @@ impl<T: Decode, L: generic_array::ArrayLength<T>> Decode for generic_array::Gene
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::assert_decode;
 	use generic_array::{typenum, GenericArray, arr};
 
 	#[test]

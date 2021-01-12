@@ -32,7 +32,7 @@ pub fn quote(data: &Data, type_name: &Ident, input: &TokenStream) -> TokenStream
 			input,
 		),
 		Data::Enum(ref data) => {
-			let data_variants = || data.variants.iter().filter(|variant| crate::utils::get_skip(&variant.attrs).is_none());
+			let data_variants = || data.variants.iter().filter(|variant| !utils::should_skip(&variant.attrs));
 
 			if data_variants().count() > 256 {
 				return Error::new(
@@ -42,7 +42,7 @@ pub fn quote(data: &Data, type_name: &Ident, input: &TokenStream) -> TokenStream
 			}
 
 			let recurse = data_variants().enumerate().map(|(i, v)| {
-				let index = utils::index(v, i);
+				let index = utils::variant_index(v, i);
 
 				let skip = skip_fields(
 					&v.fields,
@@ -71,8 +71,8 @@ pub fn quote(data: &Data, type_name: &Ident, input: &TokenStream) -> TokenStream
 // * input: as in `fn skip<..>(input: Input)`
 fn skip_field(field: &Field, input: &TokenStream) -> TokenStream {
 	let encoded_as = utils::get_encoded_as_type(field);
-	let compact = utils::get_enable_compact(field);
-	let skip = utils::get_skip(&field.attrs).is_some();
+	let compact = utils::is_compact(field);
+	let skip = utils::should_skip(&field.attrs);
 
 	if encoded_as.is_some() as u8 + compact as u8 + skip as u8 > 1 {
 		return Error::new(
