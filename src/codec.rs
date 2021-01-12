@@ -642,7 +642,7 @@ pub(crate) fn encode_slice_no_len<T: Encode, W: Output>(slice: &[T], dest: &mut 
 
 /// Encode the slice without prepending the len.
 ///
-/// This is equivalent to encoding all the element one by one, but it is optimized in some
+/// This is equivalent to decode all elements one by one, but it is optimized in some
 /// situation.
 pub(crate) fn decode_vec_with_len<T: Decode, I: Input>(
 	input: &mut I,
