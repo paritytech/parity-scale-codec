@@ -1,10 +1,9 @@
 #[cfg(not(feature="derive"))]
 use parity_scale_codec_derive::{Encode, Decode};
 #[cfg(feature="derive")]
-use parity_scale_codec::{Encode, Decode};
+use parity_scale_codec::{Decode};
 
-use parity_scale_codec::assert_decode;
-use core::fmt::Debug;
+use parity_scale_codec::{Encode, assert_decode};
 
 #[test]
 fn enum_struct_test() {
