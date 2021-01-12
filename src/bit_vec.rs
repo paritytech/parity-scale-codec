@@ -63,7 +63,7 @@ impl<O: BitOrder, T: BitStore + Decode> Decode for BitVec<O, T> {
 
 			let mut result = Self::try_from_vec(vec)
 				.map_err(|_| {
-					Error::from("UNEXPECTED ERROR: `bits` is less than
+					Error::from("UNEXPECTED ERROR: `bits` is less or equal to
 					`ARCH32BIT_BITSLICE_MAX_BITS`; So BitVec must be able to handle the number of
 					segment needed for `bits` to be represented; qed")
 				})?;
