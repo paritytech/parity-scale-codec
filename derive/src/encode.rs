@@ -74,7 +74,7 @@ fn encode_single_field(
 	let i_self = quote! { self };
 
 	quote_spanned! { field.span() =>
-			fn encode_to<__CodecOutputEdqy: _parity_scale_codec::Output>(
+			fn encode_to<__CodecOutputEdqy: _parity_scale_codec::Output + ?Sized>(
 				&#i_self,
 				__codec_dest_edqy: &mut __CodecOutputEdqy
 			) {
@@ -117,9 +117,12 @@ fn encode_fields<F>(
 			let field_type = &f.ty;
 			quote_spanned! {
 				f.span() => {
-					#dest.push(
-						&<<#field_type as _parity_scale_codec::HasCompact>::Type as
-							_parity_scale_codec::EncodeAsRef<'_, #field_type>>::RefType::from(#field)
+					_parity_scale_codec::Encode::encode_to(
+						&<
+							<#field_type as _parity_scale_codec::HasCompact>::Type as
+							_parity_scale_codec::EncodeAsRef<'_, #field_type>
+						>::RefType::from(#field),
+						#dest,
 					);
 				}
 			}
@@ -127,9 +130,12 @@ fn encode_fields<F>(
 			let field_type = &f.ty;
 			quote_spanned! {
 				f.span() => {
-					#dest.push(
-						&<#encoded_as as
-							_parity_scale_codec::EncodeAsRef<'_, #field_type>>::RefType::from(#field)
+					_parity_scale_codec::Encode::encode_to(
+						&<
+							#encoded_as as
+							_parity_scale_codec::EncodeAsRef<'_, #field_type>
+						>::RefType::from(#field),
+						#dest,
 					);
 				}
 			}
@@ -139,7 +145,7 @@ fn encode_fields<F>(
 			}
 		} else {
 			quote_spanned! { f.span() =>
-					#dest.push(#field);
+					_parity_scale_codec::Encode::encode_to(#field, #dest);
 			}
 		}
 	});
@@ -288,7 +294,10 @@ fn impl_encode(data: &Data, type_name: &Ident) -> TokenStream {
 	};
 
 	quote! {
-		fn encode_to<__CodecOutputEdqy: _parity_scale_codec::Output>(&#self_, #dest: &mut __CodecOutputEdqy) {
+		fn encode_to<__CodecOutputEdqy: _parity_scale_codec::Output + ?Sized>(
+			&#self_,
+			#dest: &mut __CodecOutputEdqy
+		) {
 			#encoding
 		}
 	}

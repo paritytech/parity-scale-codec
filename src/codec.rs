@@ -211,18 +211,13 @@ impl<R: std::io::Read> Input for IoReader<R> {
 }
 
 /// Trait that allows writing of data.
-pub trait Output: Sized {
+pub trait Output {
 	/// Write to the output.
 	fn write(&mut self, bytes: &[u8]);
 
 	/// Write a single byte to the output.
 	fn push_byte(&mut self, byte: u8) {
 		self.write(&[byte]);
-	}
-
-	/// Write encoding of given value to the output.
-	fn push<V: Encode + ?Sized>(&mut self, value: &V) {
-		value.encode_to(self);
 	}
 }
 
@@ -280,7 +275,7 @@ pub trait Encode {
 	}
 
 	/// Convert self to a slice and append it to the destination.
-	fn encode_to<T: Output>(&self, dest: &mut T) {
+	fn encode_to<T: Output + ?Sized>(&self, dest: &mut T) {
 		self.using_encoded(|buf| dest.write(buf));
 	}
 
@@ -396,7 +391,7 @@ impl<T, X> Encode for X where
 		(&**self).encode()
 	}
 
-	fn encode_to<W: Output>(&self, dest: &mut W) {
+	fn encode_to<W: Output + ?Sized>(&self, dest: &mut W) {
 		(&**self).encode_to(dest)
 	}
 }
@@ -471,7 +466,7 @@ impl<T: Encode, E: Encode> Encode for Result<T, E> {
 		}
 	}
 
-	fn encode_to<W: Output>(&self, dest: &mut W) {
+	fn encode_to<W: Output + ?Sized>(&self, dest: &mut W) {
 		match *self {
 			Ok(ref t) => {
 				dest.push_byte(0);
@@ -550,7 +545,7 @@ impl<T: Encode> Encode for Option<T> {
 		}
 	}
 
-	fn encode_to<W: Output>(&self, dest: &mut W) {
+	fn encode_to<W: Output + ?Sized>(&self, dest: &mut W) {
 		match *self {
 			Some(ref t) => {
 				dest.push_byte(1);
@@ -579,7 +574,7 @@ macro_rules! impl_for_non_zero {
 					self.get().size_hint()
 				}
 
-				fn encode_to<W: Output>(&self, dest: &mut W) {
+				fn encode_to<W: Output + ?Sized>(&self, dest: &mut W) {
 					self.get().encode_to(dest)
 				}
 
@@ -605,7 +600,7 @@ macro_rules! impl_for_non_zero {
 /// Encode the slice without prepending the len.
 ///
 /// This is equivalent to encoding all the element one by one, but it is optimized for some types.
-pub(crate) fn encode_slice_no_len<T: Encode, W: Output>(slice: &[T], dest: &mut W) {
+pub(crate) fn encode_slice_no_len<T: Encode, W: Output + ?Sized>(slice: &[T], dest: &mut W) {
 	macro_rules! encode_to {
 		( u8, $slice:ident, $dest:ident ) => {{
 			let typed = unsafe { mem::transmute::<&[T], &[u8]>(&$slice[..]) };
@@ -706,7 +701,7 @@ macro_rules! impl_array {
 					mem::size_of::<T>() * $n
 				}
 
-				fn encode_to<W: Output>(&self, dest: &mut W) {
+				fn encode_to<W: Output + ?Sized>(&self, dest: &mut W) {
 					encode_slice_no_len(&self[..], dest)
 				}
 			}
@@ -755,7 +750,7 @@ impl Encode for str {
 		self.as_bytes().size_hint()
 	}
 
-	fn encode_to<W: Output>(&self, dest: &mut W) {
+	fn encode_to<W: Output + ?Sized>(&self, dest: &mut W) {
 		self.as_bytes().encode_to(dest)
 	}
 
@@ -779,7 +774,7 @@ impl<'a, T: ToOwned + ?Sized> Decode for Cow<'a, T>
 impl<T> EncodeLike for PhantomData<T> {}
 
 impl<T> Encode for PhantomData<T> {
-	fn encode_to<W: Output>(&self, _dest: &mut W) {}
+	fn encode_to<W: Output + ?Sized>(&self, _dest: &mut W) {}
 }
 
 impl<T> Decode for PhantomData<T> {
@@ -796,7 +791,7 @@ impl Decode for String {
 }
 
 /// Writes the compact encoding of `len` do `dest`.
-pub(crate) fn compact_encode_len_to<W: Output>(dest: &mut W, len: usize) -> Result<(), Error> {
+pub(crate) fn compact_encode_len_to<W: Output + ?Sized>(dest: &mut W, len: usize) -> Result<(), Error> {
 	if len > u32::max_value() as usize {
 		return Err("Attempted to serialize a collection with too many elements.".into());
 	}
@@ -810,7 +805,7 @@ impl<T: Encode> Encode for [T] {
 		mem::size_of::<u32>() + mem::size_of::<T>() * self.len()
 	}
 
-	fn encode_to<W: Output>(&self, dest: &mut W) {
+	fn encode_to<W: Output + ?Sized>(&self, dest: &mut W) {
 		compact_encode_len_to(dest, self.len()).expect("Compact encodes length");
 
 		encode_slice_no_len(self, dest)
@@ -908,7 +903,7 @@ macro_rules! impl_codec_through_iterator {
 				mem::size_of::<u32>() $( + mem::size_of::<$generics>() * self.len() )*
 			}
 
-			fn encode_to<W: Output>(&self, dest: &mut W) {
+			fn encode_to<W: Output + ?Sized>(&self, dest: &mut W) {
 				compact_encode_len_to(dest, self.len()).expect("Compact encodes length");
 
 				for i in self.iter() {
@@ -961,7 +956,7 @@ impl<T: Encode> Encode for VecDeque<T> {
 		mem::size_of::<u32>() + mem::size_of::<T>() * self.len()
 	}
 
-	fn encode_to<W: Output>(&self, dest: &mut W) {
+	fn encode_to<W: Output + ?Sized>(&self, dest: &mut W) {
 		compact_encode_len_to(dest, self.len()).expect("Compact encodes length");
 
 		macro_rules! encode_to {
@@ -1003,7 +998,7 @@ impl<T: Decode> Decode for VecDeque<T> {
 impl EncodeLike for () {}
 
 impl Encode for () {
-	fn encode_to<W: Output>(&self, _dest: &mut W) {
+	fn encode_to<W: Output + ?Sized>(&self, _dest: &mut W) {
 	}
 
 	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
@@ -1044,7 +1039,7 @@ macro_rules! tuple_impl {
 				self.0.size_hint()
 			}
 
-			fn encode_to<T: Output>(&self, dest: &mut T) {
+			fn encode_to<T: Output + ?Sized>(&self, dest: &mut T) {
 				self.0.encode_to(dest);
 			}
 
@@ -1085,7 +1080,7 @@ macro_rules! tuple_impl {
 				$( + $rest.size_hint() )+
 			}
 
-			fn encode_to<T: Output>(&self, dest: &mut T) {
+			fn encode_to<T: Output + ?Sized>(&self, dest: &mut T) {
 				let (
 					ref $first,
 					$(ref $rest),+
