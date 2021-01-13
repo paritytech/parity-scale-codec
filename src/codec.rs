@@ -219,6 +219,15 @@ pub trait Output {
 	fn push_byte(&mut self, byte: u8) {
 		self.write(&[byte]);
 	}
+
+	/// Write encoding of given value to the output.
+	///
+	/// NOTE: this is only available when `Self` is `Sized`, thus it is not available in
+	/// `Encode::encode_to`. If you need it when `Self` is not `Sized` consider using
+	/// `Encode::encode_to` directly.
+	fn push<V: Encode + ?Sized>(&mut self, value: &V) where Self: Sized {
+		value.encode_to(self);
+	}
 }
 
 #[cfg(not(feature = "std"))]
