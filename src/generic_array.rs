@@ -17,7 +17,7 @@ use crate::codec::{Encode, Decode, Input, Output, Error};
 use crate::encode_like::EncodeLike;
 
 impl<T: Encode, L: generic_array::ArrayLength<T>> Encode for generic_array::GenericArray<T, L> {
-	fn encode_to<W: Output>(&self, dest: &mut W) {
+	fn encode_to<W: Output + ?Sized>(&self, dest: &mut W) {
 		for item in self.iter() {
 			item.encode_to(dest);
 		}
