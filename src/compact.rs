@@ -113,7 +113,7 @@ where
 		CompactRef(&self.0).size_hint()
 	}
 
-	fn encode_to<W: Output>(&self, dest: &mut W) {
+	fn encode_to<W: Output + ?Sized>(&self, dest: &mut W) {
 		CompactRef(&self.0).encode_to(dest)
 	}
 
@@ -141,7 +141,7 @@ where
 		CompactRef(self.0.encode_as()).size_hint()
 	}
 
-	fn encode_to<Out: Output>(&self, dest: &mut Out) {
+	fn encode_to<Out: Output + ?Sized>(&self, dest: &mut Out) {
 		CompactRef(self.0.encode_as()).encode_to(dest)
 	}
 
@@ -234,7 +234,7 @@ impl<T: 'static> HasCompact for T where
 }
 
 impl<'a> Encode for CompactRef<'a, ()> {
-	fn encode_to<W: Output>(&self, _dest: &mut W) {
+	fn encode_to<W: Output + ?Sized>(&self, _dest: &mut W) {
 	}
 
 	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
@@ -251,7 +251,7 @@ impl<'a> Encode for CompactRef<'a, u8> {
 		Compact::compact_len(self.0)
 	}
 
-	fn encode_to<W: Output>(&self, dest: &mut W) {
+	fn encode_to<W: Output + ?Sized>(&self, dest: &mut W) {
 		match self.0 {
 			0..=0b0011_1111 => dest.push_byte(self.0 << 2),
 			_ => ((u16::from(*self.0) << 2) | 0b01).encode_to(dest),
@@ -279,7 +279,7 @@ impl<'a> Encode for CompactRef<'a, u16> {
 		Compact::compact_len(self.0)
 	}
 
-	fn encode_to<W: Output>(&self, dest: &mut W) {
+	fn encode_to<W: Output + ?Sized>(&self, dest: &mut W) {
 		match self.0 {
 			0..=0b0011_1111 => dest.push_byte((*self.0 as u8) << 2),
 			0..=0b0011_1111_1111_1111 => ((*self.0 << 2) | 0b01).encode_to(dest),
@@ -309,7 +309,7 @@ impl<'a> Encode for CompactRef<'a, u32> {
 		Compact::compact_len(self.0)
 	}
 
-	fn encode_to<W: Output>(&self, dest: &mut W) {
+	fn encode_to<W: Output + ?Sized>(&self, dest: &mut W) {
 		match self.0 {
 			0..=0b0011_1111 => dest.push_byte((*self.0 as u8) << 2),
 			0..=0b0011_1111_1111_1111 => (((*self.0 as u16) << 2) | 0b01).encode_to(dest),
@@ -344,7 +344,7 @@ impl<'a> Encode for CompactRef<'a, u64> {
 		Compact::compact_len(self.0)
 	}
 
-	fn encode_to<W: Output>(&self, dest: &mut W) {
+	fn encode_to<W: Output + ?Sized>(&self, dest: &mut W) {
 		match self.0 {
 			0..=0b0011_1111 => dest.push_byte((*self.0 as u8) << 2),
 			0..=0b0011_1111_1111_1111 => (((*self.0 as u16) << 2) | 0b01).encode_to(dest),
@@ -388,7 +388,7 @@ impl<'a> Encode for CompactRef<'a, u128> {
 		Compact::compact_len(self.0)
 	}
 
-	fn encode_to<W: Output>(&self, dest: &mut W) {
+	fn encode_to<W: Output + ?Sized>(&self, dest: &mut W) {
 		match self.0 {
 			0..=0b0011_1111 => dest.push_byte((*self.0 as u8) << 2),
 			0..=0b0011_1111_1111_1111 => (((*self.0 as u16) << 2) | 0b01).encode_to(dest),

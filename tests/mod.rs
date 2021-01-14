@@ -14,7 +14,9 @@
 
 #[cfg(not(feature="derive"))]
 use parity_scale_codec_derive::{Encode, Decode};
-use parity_scale_codec::{Encode, Decode, HasCompact, Compact, EncodeAsRef, CompactAs, Error};
+use parity_scale_codec::{
+	Encode, Decode, HasCompact, Compact, EncodeAsRef, CompactAs, Error, Output,
+};
 use serde_derive::{Serialize, Deserialize};
 
 #[derive(Debug, PartialEq, Encode, Decode)]
@@ -547,4 +549,9 @@ fn weird_derive() {
     }
 
     make_struct!(#[derive(Encode, Decode)]);
+}
+
+#[test]
+fn output_trait_object() {
+	let _: Box<dyn Output>;
 }
