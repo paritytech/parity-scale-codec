@@ -98,7 +98,7 @@ miri:
     RUST_BACKTRACE:                1
     MIRIFLAGS:                     "-Zmiri-disable-isolation"
   script:
-    - cargo +nightly test
+    -  time cargo +nightly miri test --features bit-vec,generic-array,arbitrary --release
 
 #### stage:                        build
 
