@@ -17,9 +17,10 @@
 use bitvec::{
 	vec::BitVec, store::BitStore, order::BitOrder, slice::BitSlice, boxed::BitBox, mem::BitMemory
 };
-use crate::codec::{Encode, Decode, Input, Output, Error, decode_vec_with_len, encode_slice_no_len};
-use crate::compact::Compact;
-use crate::EncodeLike;
+use crate::{
+	EncodeLike, Encode, Decode, Input, Output, Error, Compact,
+	codec::{decode_vec_with_len, encode_slice_no_len},
+};
 
 impl<O: BitOrder, T: BitStore + Encode> Encode for BitSlice<O, T> {
 	fn encode_to<W: Output + ?Sized>(&self, dest: &mut W) {

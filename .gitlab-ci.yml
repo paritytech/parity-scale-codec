@@ -47,21 +47,28 @@ workflow:
 
 #### stage:                        check
 
-check-rust-stable-no_derive_no_std_full:
+check-rust-stable-bit-vec-generic-array-full:
   stage:                           check
   <<:                              *docker-env
   script:
     - time cargo +stable check --verbose --no-default-features --features bit-vec,generic-array,full
     - sccache -s
 
-check-rust-stable-no_derive_no_std:
+check-rust-stable-bit-vec-generic-array:
   stage:                           check
   <<:                              *docker-env
   script:
     - time cargo +stable check --verbose --no-default-features --features bit-vec,generic-array
     - sccache -s
 
-check-rust-stable-no_derive_full:
+check-rust-stable-chain-error:
+  stage:                           check
+  <<:                              *docker-env
+  script:
+    - time cargo +stable check --verbose --no-default-features --features chain-error
+    - sccache -s
+
+check-rust-stable-std-bit-vec-generic-array-full:
   stage:                           check
   <<:                              *docker-env
   script:
@@ -70,18 +77,25 @@ check-rust-stable-no_derive_full:
 
 #### stage:                        test
 
-test-rust-stable:
+test-rust-stable-std-bit-vec-generic-array-derive:
   stage:                           test
   <<:                              *docker-env
   script:
     - time cargo +stable test --verbose --all --features bit-vec,generic-array,derive
     - sccache -s
 
-test-rust-stable-no_derive:
+test-rust-stable-std-bit-vec-generic-array:
   stage:                           test
   <<:                              *docker-env
   script:
     - time cargo +stable test --verbose --features bit-vec,generic-array
+    - sccache -s
+
+test-rust-stable-std-chain-error:
+  stage:                           test
+  <<:                              *docker-env
+  script:
+    - time cargo +stable test --verbose --features chain-error
     - sccache -s
 
 bench-rust-nightly:

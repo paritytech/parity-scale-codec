@@ -25,6 +25,7 @@ pub fn quote(data: &Data, type_name: &Ident, input: &TokenStream) -> TokenStream
 		Data::Struct(ref data) => match data.fields {
 			Fields::Named(_) | Fields::Unnamed(_) => create_instance(
 				quote! { #type_name },
+				&type_name.to_string(),
 				input,
 				&data.fields,
 			),
@@ -50,6 +51,7 @@ pub fn quote(data: &Data, type_name: &Ident, input: &TokenStream) -> TokenStream
 
 				let create = create_instance(
 					quote! { #type_name :: #name },
+					&format!("{}::{}", type_name, name),
 					input,
 					&v.fields,
 				);
@@ -61,11 +63,20 @@ pub fn quote(data: &Data, type_name: &Ident, input: &TokenStream) -> TokenStream
 				}
 			});
 
-			let err_msg = format!("No such variant in enum {}", type_name);
+			let read_byte_err_msg = format!(
+				"Could not decode `{}`, failed to read variant byte",
+				type_name,
+			);
+			let invalid_variant_err_msg = format!(
+				"Could not decode `{}`, variant doesn't exist",
+				type_name,
+			);
 			quote! {
-				match #input.read_byte()? {
+				match #input.read_byte()
+					.map_err(|e| e.chain(#read_byte_err_msg))?
+				{
 					#( #recurse )*
-					_ => Err(#err_msg.into()),
+					_ => Err(#invalid_variant_err_msg.into()),
 				}
 			}
 
@@ -88,7 +99,7 @@ fn create_decode_expr(field: &Field, name: &str, input: &TokenStream) -> TokenSt
 		).to_compile_error();
 	}
 
-	let err_msg = format!("Error decoding field {}", name);
+	let err_msg = format!("Could not decode `{}`", name);
 
 	if compact {
 		let field_type = &field.ty;
@@ -98,7 +109,7 @@ fn create_decode_expr(field: &Field, name: &str, input: &TokenStream) -> TokenSt
 					<#field_type as _parity_scale_codec::HasCompact>::Type as _parity_scale_codec::Decode
 				>::decode(#input);
 				match #res {
-					Err(_) => return Err(#err_msg.into()),
+					Err(e) => return Err(e.chain(#err_msg)),
 					Ok(#res) => #res.into(),
 				}
 			}
@@ -108,7 +119,7 @@ fn create_decode_expr(field: &Field, name: &str, input: &TokenStream) -> TokenSt
 			{
 				let #res = <#encoded_as as _parity_scale_codec::Decode>::decode(#input);
 				match #res {
-					Err(_) => return Err(#err_msg.into()),
+					Err(e) => return Err(e.chain(#err_msg)),
 					Ok(#res) => #res.into(),
 				}
 			}
@@ -120,7 +131,7 @@ fn create_decode_expr(field: &Field, name: &str, input: &TokenStream) -> TokenSt
 			{
 				let #res = _parity_scale_codec::Decode::decode(#input);
 				match #res {
-					Err(_) => return Err(#err_msg.into()),
+					Err(e) => return Err(e.chain(#err_msg)),
 					Ok(#res) => #res,
 				}
 			}
@@ -130,6 +141,7 @@ fn create_decode_expr(field: &Field, name: &str, input: &TokenStream) -> TokenSt
 
 fn create_instance(
 	name: TokenStream,
+	print_name: &str,
 	input: &TokenStream,
 	fields: &Fields
 ) -> TokenStream {
@@ -137,11 +149,11 @@ fn create_instance(
 		Fields::Named(ref fields) => {
 			let recurse = fields.named.iter().map(|f| {
 				let name_ident = &f.ident;
-				let field = match name_ident {
-					Some(a) => format!("{}.{}", name, a),
-					None => format!("{}", name),
+				let field_name = match name_ident {
+					Some(a) => format!("{}::{}", print_name, a),
+					None => format!("{}", name), // Should never happen, fields are named.
 				};
-				let decode = create_decode_expr(f, &field, input);
+				let decode = create_decode_expr(f, &field_name, input);
 
 				quote_spanned! { f.span() =>
 					#name_ident: #decode
@@ -156,9 +168,9 @@ fn create_instance(
 		},
 		Fields::Unnamed(ref fields) => {
 			let recurse = fields.unnamed.iter().enumerate().map(|(i, f) | {
-				let name = format!("{}.{}", name, i);
+				let field_name = format!("{}::{}", print_name, i);
 
-				create_decode_expr(f, &name, input)
+				create_decode_expr(f, &field_name, input)
 			});
 
 			quote_spanned! { fields.span() =>

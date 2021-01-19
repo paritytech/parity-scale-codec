@@ -273,9 +273,11 @@ mod decode_all;
 mod depth_limit;
 mod encode_append;
 mod encode_like;
+mod error;
 
+pub use self::error::Error;
 pub use self::codec::{
-	Input, Output, Error, Decode, Encode, Codec, EncodeAsRef, WrapperTypeEncode, WrapperTypeDecode,
+	Input, Output, Decode, Encode, Codec, EncodeAsRef, WrapperTypeEncode, WrapperTypeDecode,
 	OptionBool, DecodeLength, FullCodec, FullEncode,
 };
 #[cfg(feature = "std")]

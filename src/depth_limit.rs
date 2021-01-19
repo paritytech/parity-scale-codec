@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::codec::{Error, Decode, Input};
+use crate::{Error, Decode, Input};
 
 /// The error message returned when depth limit is reached.
 const DECODE_MAX_DEPTH_MSG: &str = "Maximum recursion depth reached when decoding";
