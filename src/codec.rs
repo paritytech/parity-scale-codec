@@ -317,7 +317,7 @@ pub trait Decode: Sized {
 		Self::decode(input).map(|_| ())
 	}
 
-	/// Allows to return the fixed encoded size of the type.
+	/// Allows to return the fixed codec size of the type.
 	///
 	/// If it returns `Some(size)` then any possible value of this
 	/// type has the given size (in bytes) when being encoded.
