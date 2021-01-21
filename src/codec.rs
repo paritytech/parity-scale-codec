@@ -317,7 +317,7 @@ pub trait Decode: Sized {
 	/// Return the fix size of the encoded type, if any.
 	///
 	/// If it returns some size then it is the size of any encoded value of the type.
-	/// Otherwise the type may or may not have fixed encoded size.
+	/// Otherwise the type encoding may or may not have fixed size.
 	fn fix_encoded_size() -> Option<usize> {
 		None
 	}
