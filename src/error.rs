@@ -16,7 +16,6 @@
 
 use crate::alloc::borrow::Cow;
 
-
 /// Error type.
 ///
 /// Descriptive on `std` environment, with chaining error on `chain-error` environment,
