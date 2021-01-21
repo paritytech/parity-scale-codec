@@ -317,11 +317,13 @@ pub trait Decode: Sized {
 		Self::decode(input).map(|_| ())
 	}
 
-	/// Return the fix size of the encoded type, if any.
+	/// Allows to return the fixed encoded size of the type.
 	///
-	/// If it returns some size then it is the size of any encoded value of the type.
-	/// Otherwise the type encoding may or may not have fixed size.
-	fn fix_encoded_size() -> Option<usize> {
+	/// If it returns `Some(size)` then any possible value of this
+	/// type has the given size (in bytes) when being encoded.
+	///
+	/// NOTE: A type with a fixed encoded size may return `None`.
+	fn encoded_fixed_size() -> Option<usize> {
 		None
 	}
 }
