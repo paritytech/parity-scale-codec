@@ -314,11 +314,11 @@ pub trait Decode: Sized {
 		Self::decode(input).map(|_| ())
 	}
 
-	/// Return the fix length of the encoded type.
+	/// Return the fix size of the encoded type, if any.
 	///
-	/// If it returns some length then it is the length of any encoded value of the type.
-	/// Otherwise the type may or may not have fixed encoded length.
-	fn fix_encoded_len() -> Option<usize> {
+	/// If it returns some size then it is the size of any encoded value of the type.
+	/// Otherwise the type may or may not have fixed encoded size.
+	fn fix_encoded_size() -> Option<usize> {
 		None
 	}
 }
