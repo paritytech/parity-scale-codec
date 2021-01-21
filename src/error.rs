@@ -15,6 +15,8 @@
 //! Error type, descriptive or undescriptive depending on features.
 
 use crate::alloc::borrow::Cow;
+#[cfg(feature = "chain-error")]
+use crate::alloc::boxed::Box;
 
 /// Error type.
 ///

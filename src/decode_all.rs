@@ -55,7 +55,19 @@ mod tests {
 					);
 
 					encoded.extend(&[1, 2, 3, 4, 5, 6]);
-					assert_eq!(<$type>::decode_all(&encoded).unwrap_err().what(), DECODE_ALL_ERR_MSG);
+					assert_eq!(
+						<$type>::decode_all(&encoded).unwrap_err().what(),
+						{
+							#[cfg(feature = "chain-error")]
+							{
+								"Input buffer has still data left after decoding!\n"
+							}
+							#[cfg(not(feature = "chain-error"))]
+							{
+								"Input buffer has still data left after decoding!"
+							}
+						},
+					);
 				}
 			)*
 		};

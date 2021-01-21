@@ -1439,10 +1439,34 @@ mod tests {
 		assert_eq!(<Vec<u8>>::decode(&mut NoLimit(&i[..])).unwrap(), vec![0u8; len]);
 
 		let i = Compact(len as u32).encode();
-		assert_eq!(<Vec<u8>>::decode(&mut NoLimit(&i[..])).err().unwrap().what(), "Not enough data to fill buffer");
+		assert_eq!(
+			<Vec<u8>>::decode(&mut NoLimit(&i[..])).err().unwrap().what(),
+			{
+				#[cfg(feature = "chain-error")]
+				{
+					"Not enough data to fill buffer\n"
+				}
+				#[cfg(not(feature = "chain-error"))]
+				{
+					"Not enough data to fill buffer"
+				}
+			},
+		);
 
 		let i = Compact(1000u32).encode();
-		assert_eq!(<Vec<u8>>::decode(&mut NoLimit(&i[..])).err().unwrap().what(), "Not enough data to fill buffer");
+		assert_eq!(
+			<Vec<u8>>::decode(&mut NoLimit(&i[..])).err().unwrap().what(),
+			{
+				#[cfg(feature = "chain-error")]
+				{
+					"Not enough data to fill buffer\n"
+				}
+				#[cfg(not(feature = "chain-error"))]
+				{
+					"Not enough data to fill buffer"
+				}
+			},
+		);
 	}
 
 	#[test]
