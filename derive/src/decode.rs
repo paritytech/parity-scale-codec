@@ -141,7 +141,7 @@ fn create_decode_expr(field: &Field, name: &str, input: &TokenStream) -> TokenSt
 
 fn create_instance(
 	name: TokenStream,
-	print_name: &str,
+	name_str: &str,
 	input: &TokenStream,
 	fields: &Fields
 ) -> TokenStream {
@@ -150,7 +150,7 @@ fn create_instance(
 			let recurse = fields.named.iter().map(|f| {
 				let name_ident = &f.ident;
 				let field_name = match name_ident {
-					Some(a) => format!("{}::{}", print_name, a),
+					Some(a) => format!("{}::{}", name_str, a),
 					None => format!("{}", name), // Should never happen, fields are named.
 				};
 				let decode = create_decode_expr(f, &field_name, input);
@@ -168,7 +168,7 @@ fn create_instance(
 		},
 		Fields::Unnamed(ref fields) => {
 			let recurse = fields.unnamed.iter().enumerate().map(|(i, f) | {
-				let field_name = format!("{}::{}", print_name, i);
+				let field_name = format!("{}::{}", name_str, i);
 
 				create_decode_expr(f, &field_name, input)
 			});
