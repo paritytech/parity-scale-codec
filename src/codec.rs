@@ -307,7 +307,20 @@ pub trait Decode: Sized {
 	const TYPE_INFO: TypeInfo = TypeInfo::Unknown;
 
 	/// Attempt to deserialise the value from input.
-	fn decode<I: Input>(value: &mut I) -> Result<Self, Error>;
+	fn decode<I: Input>(input: &mut I) -> Result<Self, Error>;
+
+	/// Attempt to skip the encoded value from input.
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		Self::decode(input).map(|_| ())
+	}
+
+	/// Return the fix length of the encoded type.
+	///
+	/// If it returns some length then it is the length of any encoded value of the type.
+	/// Otherwise the type may or may not have fixed encoded length.
+	fn fix_encoded_len() -> Option<usize> {
+		None
+	}
 }
 
 /// Trait that allows zero-copy read/write of value-references to/from slices in LE format.
