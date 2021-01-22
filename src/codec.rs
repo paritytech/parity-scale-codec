@@ -307,7 +307,25 @@ pub trait Decode: Sized {
 	const TYPE_INFO: TypeInfo = TypeInfo::Unknown;
 
 	/// Attempt to deserialise the value from input.
-	fn decode<I: Input>(value: &mut I) -> Result<Self, Error>;
+	fn decode<I: Input>(input: &mut I) -> Result<Self, Error>;
+
+	/// Attempt to skip the encoded value from input.
+	///
+	/// The default implementation of this function is just calling [`Decode::decode`].
+	/// When possible, an implementation should provided a specialized implementation.
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		Self::decode(input).map(|_| ())
+	}
+
+	/// Returns the fixed encoded size of the type.
+	///
+	/// If it returns `Some(size)` then all possible values of this
+	/// type have the given size (in bytes) when encoded.
+	///
+	/// NOTE: A type with a fixed encoded size may return `None`.
+	fn encoded_fixed_size() -> Option<usize> {
+		None
+	}
 }
 
 /// Trait that allows zero-copy read/write of value-references to/from slices in LE format.
