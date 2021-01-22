@@ -69,7 +69,7 @@ pub fn quote(data: &Data, type_name: &Ident, input: &TokenStream) -> TokenStream
 }
 
 // Return an expression that skips a field.
-// * input: as in `fn skip<..>(input: Input)`
+// * input: the variable name for the type [`Input`] in the call to [`skip`].
 fn skip_field(field: &Field, input: &TokenStream) -> TokenStream {
 	let encoded_as = utils::get_encoded_as_type(field);
 	let compact = utils::is_compact(field);
