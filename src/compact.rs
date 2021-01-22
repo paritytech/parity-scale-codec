@@ -205,21 +205,10 @@ impl<'de, T> serde::Deserialize<'de> for Compact<T> where T: serde::Deserialize<
 	}
 }
 
-#[cfg(feature = "std")]
-pub trait MaybeDebugSerde: core::fmt::Debug + serde::Serialize + for<'a> serde::Deserialize<'a> {}
-#[cfg(feature = "std")]
-impl<T> MaybeDebugSerde for T where T: core::fmt::Debug + serde::Serialize + for<'a> serde::Deserialize<'a> {}
-
-#[cfg(not(feature = "std"))]
-pub trait MaybeDebugSerde {}
-#[cfg(not(feature = "std"))]
-impl<T> MaybeDebugSerde for T {}
-
 /// Trait that tells you if a given type can be encoded/decoded in a compact way.
 pub trait HasCompact: Sized {
 	/// The compact type; this can be
-	type Type: for<'a> EncodeAsRef<'a, Self> + Decode + From<Self> + Into<Self> + Clone +
-		PartialEq + Eq + MaybeDebugSerde;
+	type Type: for<'a> EncodeAsRef<'a, Self> + Decode + From<Self> + Into<Self>;
 }
 
 impl<'a, T: 'a> EncodeAsRef<'a, T> for Compact<T> where CompactRef<'a, T>: Encode + From<&'a T> {
@@ -227,8 +216,7 @@ impl<'a, T: 'a> EncodeAsRef<'a, T> for Compact<T> where CompactRef<'a, T>: Encod
 }
 
 impl<T: 'static> HasCompact for T where
-	Compact<T>: for<'a> EncodeAsRef<'a, T> + Decode + From<Self> + Into<Self> + Clone +
-		PartialEq + Eq + MaybeDebugSerde,
+	Compact<T>: for<'a> EncodeAsRef<'a, T> + Decode + From<Self> + Into<Self>
 {
 	type Type = Compact<T>;
 }
