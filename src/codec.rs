@@ -1588,3 +1588,4 @@ mod tests {
 		<[u32; 0]>::decode(&mut &encoded[..]).unwrap();
 	}
 }
+
