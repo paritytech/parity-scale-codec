@@ -290,6 +290,27 @@ pub trait Encode {
 	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
 		f(&self.encode())
 	}
+
+	/// Calculates the encoded size, used when the encoded bytes is not interested.
+	fn encoded_size(&self) -> usize {
+		let mut size_tracker = SizeTracker { writen: 0 };
+		self.encode_to(&mut size_tracker);
+		size_tracker.writen
+	}
+}
+
+struct SizeTracker {
+	writen: usize,
+}
+
+impl Output for SizeTracker {
+	fn write(&mut self, bytes: &[u8]) {
+		self.writen += bytes.len();
+	}
+
+	fn push_byte(&mut self, _byte: u8) {
+		self.writen += 1;
+	}
 }
 
 /// Trait that allows the length of a collection to be read, without having
@@ -1631,5 +1652,42 @@ mod tests {
 		let encoded = data.encode();
 		assert!(encoded.is_empty());
 		<[u32; 0]>::decode(&mut &encoded[..]).unwrap();
+	}
+
+	fn test_encoded_size(val: impl Encode) {
+		let length = val.using_encoded(|v| v.len());
+
+		assert_eq!(length, val.encoded_size());
+	}
+
+	struct TestStruct {
+		data: Vec<u32>,
+		other: u8,
+		compact: Compact<u128>,
+	}
+
+	impl Encode for TestStruct {
+		fn encode_to<W: Output + ?Sized>(&self, dest: &mut W) {
+			self.data.encode_to(dest);
+			self.other.encode_to(dest);
+			self.compact.encode_to(dest);
+		}
+	}
+
+	#[test]
+	fn encoded_size_works() {
+		test_encoded_size(120u8);
+		test_encoded_size(30u16);
+		test_encoded_size(1u32);
+		test_encoded_size(2343545u64);
+		test_encoded_size(34358394245459854u128);
+		test_encoded_size(vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10u32]);
+		test_encoded_size(Compact(32445u32));
+		test_encoded_size(Compact(34353454453545u128));
+		test_encoded_size(TestStruct {
+			data: vec![1, 2, 4, 5, 6],
+			other: 45,
+			compact: Compact(123234545),
+		});
 	}
 }
