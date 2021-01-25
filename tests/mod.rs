@@ -197,35 +197,35 @@ fn should_work_for_indexed() {
 }
 
 #[test]
-#[should_panic(expected = "Error decoding field Indexed.0")]
+#[should_panic(expected = "Not enough data to fill buffer")]
 fn correct_error_for_indexed_0() {
 	let mut wrong: &[u8] = b"\x08";
 	Indexed::decode(&mut wrong).unwrap();
 }
 
 #[test]
-#[should_panic(expected = "Error decoding field Indexed.1")]
+#[should_panic(expected = "Not enough data to fill buffer")]
 fn correct_error_for_indexed_1() {
 	let mut wrong: &[u8] = b"\0\0\0\0\x01";
 	Indexed::decode(&mut wrong).unwrap();
 }
 
 #[test]
-#[should_panic(expected = "Error decoding field EnumType :: B.0")]
+#[should_panic(expected = "Not enough data to fill buffer")]
 fn correct_error_for_enumtype() {
 	let mut wrong: &[u8] = b"\x01";
 	EnumType::decode(&mut wrong).unwrap();
 }
 
 #[test]
-#[should_panic(expected = "Error decoding field Struct.a")]
+#[should_panic(expected = "Not enough data to fill buffer")]
 fn correct_error_for_named_struct_1() {
 	let mut wrong: &[u8] = b"\x01";
 	Struct::<u32, u32, u32>::decode(&mut wrong).unwrap();
 }
 
 #[test]
-#[should_panic(expected = "Error decoding field Struct.b")]
+#[should_panic(expected = "Not enough data to fill buffer")]
 fn correct_error_for_named_struct_2() {
 	let mut wrong: &[u8] = b"\0\0\0\0\x01";
 	Struct::<u32, u32, u32>::decode(&mut wrong).unwrap();
@@ -481,7 +481,10 @@ fn encode_decode_empty_enum() {
 	fn impls_encode_decode<T: Encode + Decode>() {}
 	impls_encode_decode::<EmptyEnumDerive>();
 
-	assert_eq!(EmptyEnumDerive::decode(&mut &[1, 2, 3][..]), Err("No such variant in enum EmptyEnumDerive".into()));
+	assert_eq!(
+		EmptyEnumDerive::decode(&mut &[1, 2, 3][..]),
+		Err("Could not decode `EmptyEnumDerive`, variant doesn't exist".into())
+	);
 }
 
 #[test]
@@ -515,22 +518,22 @@ fn recursive_type() {
 #[test]
 fn crafted_input_for_vec_u8() {
 	assert_eq!(
-		Vec::<u8>::decode(&mut &Compact(u32::max_value()).encode()[..]).err().unwrap().what(),
+		Vec::<u8>::decode(&mut &Compact(u32::max_value()).encode()[..]).err().unwrap().to_string(),
 		"Not enough data to decode vector",
 	);
 }
 
 #[test]
 fn crafted_input_for_vec_t() {
-	let msg = if cfg!(target_endian = "big") {
+	let msg: String = if cfg!(target_endian = "big") {
 		// use unoptimize decode
-		"Not enough data to fill buffer"
+		"Not enough data to fill buffer".into()
 	} else {
-		"Not enough data to decode vector"
+		"Not enough data to decode vector".into()
 	};
 
 	assert_eq!(
-		Vec::<u32>::decode(&mut &Compact(u32::max_value()).encode()[..]).err().unwrap().what(),
+		Vec::<u32>::decode(&mut &Compact(u32::max_value()).encode()[..]).err().unwrap().to_string(),
 		msg,
 	);
 }

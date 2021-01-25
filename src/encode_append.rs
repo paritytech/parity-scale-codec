@@ -15,7 +15,7 @@
 use core::{iter::ExactSizeIterator, mem};
 
 use crate::alloc::vec::Vec;
-use crate::codec::{Encode, Decode, Error};
+use crate::{Encode, Decode, Error};
 use crate::compact::{Compact, CompactLen};
 use crate::encode_like::EncodeLike;
 

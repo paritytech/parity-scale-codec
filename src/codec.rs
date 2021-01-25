@@ -48,72 +48,10 @@ use crate::alloc::{
 };
 use crate::compact::Compact;
 use crate::encode_like::EncodeLike;
+use crate::Error;
 
 pub(crate) const MAX_PREALLOCATION: usize = 4 * 1024;
 const A_BILLION: u32 = 1_000_000_000;
-
-/// Descriptive error type
-#[cfg(feature = "std")]
-#[derive(PartialEq, Eq, Clone, Debug)]
-pub struct Error(&'static str);
-
-/// Undescriptive error type when compiled for no std
-#[cfg(not(feature = "std"))]
-#[derive(PartialEq, Eq, Clone, Debug)]
-pub struct Error;
-
-impl Error {
-	#[cfg(feature = "std")]
-	/// Error description
-	///
-	/// This function returns an actual error str when running in `std`
-	/// environment, but `""` on `no_std`.
-	pub fn what(&self) -> &'static str {
-		self.0
-	}
-
-	#[cfg(not(feature = "std"))]
-	/// Error description
-	///
-	/// This function returns an actual error str when running in `std`
-	/// environment, but `""` on `no_std`.
-	pub fn what(&self) -> &'static str {
-		""
-	}
-}
-
-#[cfg(feature = "std")]
-impl fmt::Display for Error {
-	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		write!(f, "{}", self.0)
-	}
-}
-
-#[cfg(not(feature = "std"))]
-impl fmt::Display for Error {
-	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		f.write_str("Error")
-	}
-}
-
-#[cfg(feature = "std")]
-impl std::error::Error for Error {
-	fn description(&self) -> &str {
-		self.0
-	}
-}
-
-impl From<&'static str> for Error {
-	#[cfg(feature = "std")]
-	fn from(s: &'static str) -> Error {
-		Error(s)
-	}
-
-	#[cfg(not(feature = "std"))]
-	fn from(_s: &'static str) -> Error {
-		Error
-	}
-}
 
 /// Trait that allows reading of data into a slice.
 pub trait Input {
@@ -508,9 +446,15 @@ where
 
 impl<T: Decode, E: Decode> Decode for Result<T, E> {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
-		match input.read_byte()? {
-			0 => Ok(Ok(T::decode(input)?)),
-			1 => Ok(Err(E::decode(input)?)),
+		match input.read_byte()
+			.map_err(|e| e.chain("Could not result variant byte for `Result`"))?
+		{
+			0 => Ok(
+				Ok(T::decode(input).map_err(|e| e.chain("Could not Decode `Result::Ok(T)`"))?)
+			),
+			1 => Ok(
+				Err(E::decode(input).map_err(|e| e.chain("Could not decode `Result::Error(E)`"))?)
+			),
 			_ => Err("unexpected first byte decoding Result".into()),
 		}
 	}
@@ -576,9 +520,13 @@ impl<T: Encode> Encode for Option<T> {
 
 impl<T: Decode> Decode for Option<T> {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
-		match input.read_byte()? {
+		match input.read_byte()
+			.map_err(|e| e.chain("Could not decode variant byte for `Option`"))?
+		{
 			0 => Ok(None),
-			1 => Ok(Some(T::decode(input)?)),
+			1 => Ok(
+				Some(T::decode(input).map_err(|e| e.chain("Could not decode `Option::Some(T)`"))?)
+			),
 			_ => Err("unexpected first byte decoding Option".into()),
 		}
 	}
@@ -1242,9 +1190,10 @@ impl Encode for Duration {
 
 impl Decode for Duration {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
-		let (secs, nanos) = <(u64, u32)>::decode(input)?;
+		let (secs, nanos) = <(u64, u32)>::decode(input)
+			.map_err(|e| e.chain("Could not decode `Duration(u64, u32)`"))?;
 		if nanos >= A_BILLION {
-			Err("Number of nanoseconds should not be higher than 10^9.".into())
+			Err("Could not decode `Duration`: Number of nanoseconds should not be higher than 10^9.".into())
 		} else {
 			Ok(Duration::new(secs, nanos))
 		}
@@ -1508,10 +1457,16 @@ mod tests {
 		assert_eq!(<Vec<u8>>::decode(&mut NoLimit(&i[..])).unwrap(), vec![0u8; len]);
 
 		let i = Compact(len as u32).encode();
-		assert_eq!(<Vec<u8>>::decode(&mut NoLimit(&i[..])).err().unwrap().what(), "Not enough data to fill buffer");
+		assert_eq!(
+			<Vec<u8>>::decode(&mut NoLimit(&i[..])).err().unwrap().to_string(),
+			"Not enough data to fill buffer",
+		);
 
 		let i = Compact(1000u32).encode();
-		assert_eq!(<Vec<u8>>::decode(&mut NoLimit(&i[..])).err().unwrap().what(), "Not enough data to fill buffer");
+		assert_eq!(
+			<Vec<u8>>::decode(&mut NoLimit(&i[..])).err().unwrap().to_string(),
+			"Not enough data to fill buffer",
+		);
 	}
 
 	#[test]

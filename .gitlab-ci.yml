@@ -61,6 +61,13 @@ check-rust-stable-no_derive_no_std:
     - time cargo +stable check --verbose --no-default-features --features bit-vec,generic-array
     - sccache -s
 
+check-rust-stable-no_std-chain-error:
+  stage:                           check
+  <<:                              *docker-env
+  script:
+    - time cargo +stable check --verbose --no-default-features --features chain-error
+    - sccache -s
+
 check-rust-stable-no_derive_full:
   stage:                           check
   <<:                              *docker-env
