@@ -17,14 +17,16 @@ use crate::codec::{Error, Decode, Input};
 /// The error message returned when depth limit is reached.
 const DECODE_MAX_DEPTH_MSG: &str = "Maximum recursion depth reached when decoding";
 
-/// Extension trait to [`Decode`] that ensures that the given input data is consumed completly while
-/// decoding.
+/// Extension trait to [`Decode`] for decoding with a maximum recursion depth.
 pub trait DecodeLimit: Sized {
-	/// Decode `Self` with given maximum recursion depth.
-	/// is returned.
+	/// Decode `Self` with the given maximum recursion depth.
+	///
+	/// If `limit` is hit, an error is returned.
 	fn decode_with_depth_limit(limit: u32, input: &[u8]) -> Result<Self, Error>;
-	/// Decode `Self` and consume all of the given input data. If not all data is consumed, an error
-	/// is returned.
+
+	/// Decode `Self` and consume all of the given input data.
+	///
+	/// If not all data is consumed or `limit` is hit, an error is returned.
 	fn decode_all_with_depth_limit(limit: u32, input: &[u8]) -> Result<Self, Error>;
 }
 
