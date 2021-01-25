@@ -291,25 +291,26 @@ pub trait Encode {
 		f(&self.encode())
 	}
 
-	/// Calculates the encoded size, used when the encoded bytes is not interested.
+	/// Calculates the encoded size, used when the encoded bytes are not interesting.
 	fn encoded_size(&self) -> usize {
-		let mut size_tracker = SizeTracker { writen: 0 };
+		let mut size_tracker = SizeTracker { written: 0 };
 		self.encode_to(&mut size_tracker);
-		size_tracker.writen
+		size_tracker.written
 	}
 }
 
+// Implements `Output` and only keeps track of the number of written bytes
 struct SizeTracker {
-	writen: usize,
+	written: usize,
 }
 
 impl Output for SizeTracker {
 	fn write(&mut self, bytes: &[u8]) {
-		self.writen += bytes.len();
+		self.written += bytes.len();
 	}
 
 	fn push_byte(&mut self, _byte: u8) {
-		self.writen += 1;
+		self.written += 1;
 	}
 }
 
