@@ -38,7 +38,7 @@ bit-vec = ["bitvec"]
 fuzz = ["std", "arbitrary"]
 
 # Make error fully descriptive with chaining error message.
-# Should not be used in constrained environment.
+# Should not be used in a constrained environment.
 chain-error = []
 
 # WARNING: DO _NOT_ USE THIS FEATURE IF YOU ARE WORKING ON CONSENSUS CODE!*
