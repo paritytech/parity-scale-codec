@@ -150,7 +150,7 @@ fn create_instance(
 			let recurse = fields.named.iter().map(|f| {
 				let name_ident = &f.ident;
 				let field_name = match name_ident {
-					Some(a) => format!("{}.{}", name_str, a),
+					Some(a) => format!("{}::{}", name_str, a),
 					None => format!("{}", name_str), // Should never happen, fields are named.
 				};
 				let decode = create_decode_expr(f, &field_name, input);
@@ -168,7 +168,7 @@ fn create_instance(
 		},
 		Fields::Unnamed(ref fields) => {
 			let recurse = fields.unnamed.iter().enumerate().map(|(i, f) | {
-				let field_name = format!("{}.{}", name_str, i);
+				let field_name = format!("{}::{}", name_str, i);
 
 				create_decode_expr(f, &field_name, input)
 			});
