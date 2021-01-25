@@ -56,7 +56,7 @@ mod tests {
 
 					encoded.extend(&[1, 2, 3, 4, 5, 6]);
 					assert_eq!(
-						<$type>::decode_all(&encoded).unwrap_err().what(),
+						<$type>::decode_all(&encoded).unwrap_err().to_string(),
 						{
 							#[cfg(feature = "chain-error")]
 							{

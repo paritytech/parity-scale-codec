@@ -84,24 +84,6 @@ impl Error {
 			f.write_str("Codec error")
 		}
 	}
-
-	/// Error description
-	pub fn what(&self) -> Cow<'static, str> {
-		#[cfg(feature = "chain-error")]
-		{
-			format!("{}", self).into()
-		}
-
-		#[cfg(all(not(feature = "chain-error"), feature = "std"))]
-		{
-			self.desc.into()
-		}
-
-		#[cfg(all(not(feature = "chain-error"), not(feature = "std")))]
-		{
-			"Codec error".into()
-		}
-	}
 }
 
 impl core::fmt::Display for Error {
@@ -171,8 +153,6 @@ mod tests {
 		let error = Error::from("root cause").chain("wrap cause").chain("final type");
 
 		assert_eq!(&error.to_string(), msg);
-
-		assert_eq!(error.what(), msg);
 	}
 
 	#[test]

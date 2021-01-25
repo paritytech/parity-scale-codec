@@ -44,7 +44,7 @@ fn full_error_struct_named() {
 "#;
 
 	assert_eq!(
-		Wrapper::<StructNamed>::decode(&mut &encoded[..]).unwrap_err().what().to_owned(),
+		Wrapper::<StructNamed>::decode(&mut &encoded[..]).unwrap_err().to_string(),
 		String::from(err),
 	);
 }
@@ -58,7 +58,7 @@ fn full_error_struct_unnamed() {
 "#;
 
 	assert_eq!(
-		Wrapper::<StructUnnamed>::decode(&mut &encoded[..]).unwrap_err().what().to_owned(),
+		Wrapper::<StructUnnamed>::decode(&mut &encoded[..]).unwrap_err().to_string(),
 		String::from(err),
 	);
 }
@@ -70,7 +70,7 @@ fn full_error_enum_unknown_variant() {
 "#;
 
 	assert_eq!(
-		E::decode(&mut &encoded[..]).unwrap_err().what().to_owned(),
+		E::decode(&mut &encoded[..]).unwrap_err().to_string(),
 		String::from(err),
 	);
 }
@@ -83,7 +83,7 @@ fn full_error_enum_named_field() {
 "#;
 
 	assert_eq!(
-		E::decode(&mut &encoded[..]).unwrap_err().what().to_owned(),
+		E::decode(&mut &encoded[..]).unwrap_err().to_string(),
 		String::from(err),
 	);
 }
@@ -96,7 +96,7 @@ fn full_error_enum_unnamed_field() {
 "#;
 
 	assert_eq!(
-		E::decode(&mut &encoded[..]).unwrap_err().what().to_owned(),
+		E::decode(&mut &encoded[..]).unwrap_err().to_string(),
 		String::from(err),
 	);
 }

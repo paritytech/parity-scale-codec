@@ -1440,7 +1440,7 @@ mod tests {
 
 		let i = Compact(len as u32).encode();
 		assert_eq!(
-			<Vec<u8>>::decode(&mut NoLimit(&i[..])).err().unwrap().what(),
+			<Vec<u8>>::decode(&mut NoLimit(&i[..])).err().unwrap().to_string(),
 			{
 				#[cfg(feature = "chain-error")]
 				{
@@ -1455,7 +1455,7 @@ mod tests {
 
 		let i = Compact(1000u32).encode();
 		assert_eq!(
-			<Vec<u8>>::decode(&mut NoLimit(&i[..])).err().unwrap().what(),
+			<Vec<u8>>::decode(&mut NoLimit(&i[..])).err().unwrap().to_string(),
 			{
 				#[cfg(feature = "chain-error")]
 				{
