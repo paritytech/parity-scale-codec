@@ -91,13 +91,6 @@ test-rust-stable-no_derive:
     - time cargo +stable test --verbose --features bit-vec,generic-array
     - sccache -s
 
-test-rust-stable-chain-error:
-  stage:                           test
-  <<:                              *docker-env
-  script:
-    - time cargo +stable test --verbose --features chain-error
-    - sccache -s
-
 bench-rust-nightly:
   stage:                           test
   <<:                              *docker-env

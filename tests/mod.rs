@@ -197,7 +197,6 @@ fn should_work_for_indexed() {
 }
 
 #[test]
-#[should_panic(expected = "Not enough data to fill buffer")]
 fn correct_error_for_indexed_0() {
 	let mut wrong: &[u8] = b"\x08";
 	Indexed::decode(&mut wrong).unwrap();
