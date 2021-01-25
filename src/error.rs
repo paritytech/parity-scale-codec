@@ -130,6 +130,21 @@ impl From<&'static str> for Error {
 	}
 }
 
+#[cfg(feature = "std")]
+impl std::error::Error for Error {
+	fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+		#[cfg(feature = "chain-error")]
+		{
+			self.cause.as_ref().map(|e| e as &(dyn std::error::Error + 'static))
+		}
+
+		#[cfg(not(feature = "chain-error"))]
+		{
+			None
+		}
+	}
+}
+
 #[cfg(test)]
 mod tests {
 	use crate::Error;
@@ -155,8 +170,19 @@ mod tests {
 
 		let error = Error::from("root cause").chain("wrap cause").chain("final type");
 
-		assert_eq!(format!("{}", error), msg);
+		assert_eq!(&error.to_string(), msg);
 
 		assert_eq!(error.what(), msg);
+	}
+
+	#[test]
+	#[cfg(all(feature = "std", feature = "chain-error"))]
+	fn impl_std_error() {
+		use std::error::Error as _;
+
+		let error = Error::from("root cause").chain("wrap cause").chain("final type");
+		let s = error.source().unwrap();
+
+		assert_eq!(&s.to_string(), "wrap cause:\n\troot cause\n");
 	}
 }
