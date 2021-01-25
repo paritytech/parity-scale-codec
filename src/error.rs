@@ -51,23 +51,21 @@ impl Error {
 	/// Display error with indentation.
 	#[cfg(feature = "chain-error")]
 	fn display_with_indent(&self, indent: u32, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-		{
-			for _ in 0..indent {
-				f.write_str("\t")?;
-			}
-			f.write_str(&self.desc)?;
-			if let Some(cause) = &self.cause {
-				f.write_str(":")?;
+		for _ in 0..indent {
+			f.write_str("\t")?;
+		}
+		f.write_str(&self.desc)?;
+		if let Some(cause) = &self.cause {
+			f.write_str(":")?;
+			f.write_str("\n")?;
+			cause.display_with_indent(indent + 1, f)
+		} else {
+			// Only return to new line if the error has been displayed with some indent,
+			// i.e. if the error has some causes.
+			if indent != 0 {
 				f.write_str("\n")?;
-				cause.display_with_indent(indent + 1, f)
-			} else {
-				// Only return to new line if the error has been displayed with some indent,
-				// i.e. if the error has some causes.
-				if indent != 0 {
-					f.write_str("\n")?;
-				}
-				Ok(())
 			}
+			Ok(())
 		}
 	}
 }
