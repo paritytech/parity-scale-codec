@@ -51,8 +51,8 @@ impl Error {
 	}
 
 	/// Display error with indentation.
+	#[cfg(feature = "chain-error")]
 	fn display_with_indent(&self, indent: u32, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-		#[cfg(feature = "chain-error")]
 		{
 			for _ in 0..indent {
 				f.write_str("\t")?;
@@ -63,32 +63,34 @@ impl Error {
 				f.write_str("\n")?;
 				cause.display_with_indent(indent + 1, f)
 			} else {
-				f.write_str("\n")?;
+				// Only return to new line if the error has been displayed with some indent,
+				// i.e. if the error has some causes.
+				if indent != 0 {
+					f.write_str("\n")?;
+				}
 				Ok(())
 			}
 		}
 
-		#[cfg(all(not(feature = "chain-error"), feature = "std"))]
-		{
-			for _ in 0..indent {
-				f.write_str("\t")?;
-			}
-			f.write_str(&self.desc)
-		}
-
-		#[cfg(all(not(feature = "chain-error"), not(feature = "std")))]
-		{
-			for _ in 0..indent {
-				f.write_str("\t")?;
-			}
-			f.write_str("Codec error")
-		}
 	}
 }
 
 impl core::fmt::Display for Error {
 	fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-		self.display_with_indent(0, f)
+		#[cfg(feature = "chain-error")]
+		{
+			self.display_with_indent(0, f)
+		}
+
+		#[cfg(all(not(feature = "chain-error"), feature = "std"))]
+		{
+			f.write_str(&self.desc)
+		}
+
+		#[cfg(all(not(feature = "chain-error"), not(feature = "std")))]
+		{
+			f.write_str("Codec error")
+		}
 	}
 }
 

@@ -57,16 +57,7 @@ mod tests {
 					encoded.extend(&[1, 2, 3, 4, 5, 6]);
 					assert_eq!(
 						<$type>::decode_all(&encoded).unwrap_err().to_string(),
-						{
-							#[cfg(feature = "chain-error")]
-							{
-								"Input buffer has still data left after decoding!\n"
-							}
-							#[cfg(not(feature = "chain-error"))]
-							{
-								"Input buffer has still data left after decoding!"
-							}
-						},
+						"Input buffer has still data left after decoding!",
 					);
 				}
 			)*

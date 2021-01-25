@@ -66,8 +66,7 @@ fn full_error_struct_unnamed() {
 #[test]
 fn full_error_enum_unknown_variant() {
 	let encoded = vec![2];
-	let err = r#"Could not decode `E`, variant doesn't exist
-"#;
+	let err = r#"Could not decode `E`, variant doesn't exist"#;
 
 	assert_eq!(
 		E::decode(&mut &encoded[..]).unwrap_err().to_string(),
