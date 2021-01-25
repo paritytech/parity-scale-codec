@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![cfg(feature = "chain-error")]
-
 #[cfg(not(feature="derive"))]
 use parity_scale_codec_derive::Decode;
 use parity_scale_codec::Decode;

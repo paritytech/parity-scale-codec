@@ -28,8 +28,6 @@ pub struct Error {
 	cause: Option<Box<Error>>,
 	#[cfg(feature = "chain-error")]
 	desc: Cow<'static, str>,
-	#[cfg(all(not(feature = "chain-error"), feature = "std"))]
-	desc: &'static str,
 }
 
 impl Error {
@@ -71,7 +69,6 @@ impl Error {
 				Ok(())
 			}
 		}
-
 	}
 }
 
@@ -82,12 +79,7 @@ impl core::fmt::Display for Error {
 			self.display_with_indent(0, f)
 		}
 
-		#[cfg(all(not(feature = "chain-error"), feature = "std"))]
-		{
-			f.write_str(&self.desc)
-		}
-
-		#[cfg(all(not(feature = "chain-error"), not(feature = "std")))]
+		#[cfg(not(feature = "chain-error"))]
 		{
 			f.write_str("Codec error")
 		}
@@ -101,12 +93,7 @@ impl From<&'static str> for Error {
 			Error { desc: desc.into(), cause: None }
 		}
 
-		#[cfg(all(not(feature = "chain-error"), feature = "std"))]
-		{
-			Error { desc }
-		}
-
-		#[cfg(all(not(feature = "chain-error"), not(feature = "std")))]
+		#[cfg(not(feature = "chain-error"))]
 		{
 			let _ = desc;
 			Error {}
@@ -135,22 +122,7 @@ mod tests {
 
 	#[test]
 	fn test_full_error() {
-		let msg: &str = {
-			#[cfg(feature = "chain-error")]
-			{
-				"final type:\n\twrap cause:\n\t\troot cause\n"
-			}
-
-			#[cfg(all(not(feature = "chain-error"), feature = "std"))]
-			{
-				"root cause"
-			}
-
-			#[cfg(all(not(feature = "chain-error"), not(feature = "std")))]
-			{
-				""
-			}
-		};
+		let msg: &str = "final type:\n\twrap cause:\n\t\troot cause\n";
 
 		let error = Error::from("root cause").chain("wrap cause").chain("final type");
 
@@ -158,7 +130,6 @@ mod tests {
 	}
 
 	#[test]
-	#[cfg(all(feature = "std", feature = "chain-error"))]
 	fn impl_std_error() {
 		use std::error::Error as _;
 
