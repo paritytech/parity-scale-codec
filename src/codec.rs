@@ -291,7 +291,14 @@ pub trait Encode {
 		f(&self.encode())
 	}
 
-	/// Calculates the encoded size, used when the encoded bytes are not interesting.
+	/// Calculates the encoded size.
+	///
+	/// Should be used when the encoded data isn't required.
+	///
+	/// # Note
+	///
+	/// This works by using a special [`Output`] that only tracks the size. So, there are no allocations inside the 
+	/// output. However, this can not prevent allocations that some types are doing inside their own encoding. 
 	fn encoded_size(&self) -> usize {
 		let mut size_tracker = SizeTracker { written: 0 };
 		self.encode_to(&mut size_tracker);
