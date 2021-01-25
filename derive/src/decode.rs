@@ -168,7 +168,7 @@ fn create_instance(
 		},
 		Fields::Unnamed(ref fields) => {
 			let recurse = fields.unnamed.iter().enumerate().map(|(i, f) | {
-				let field_name = format!("{}::{}", name_str, i);
+				let field_name = format!("{}.{}", name_str, i);
 
 				create_decode_expr(f, &field_name, input)
 			});

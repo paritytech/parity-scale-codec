@@ -36,7 +36,7 @@ enum E {
 #[test]
 fn full_error_struct_named() {
 	let encoded = vec![0];
-	let err = r#"Could not decode `Wrapper::0`:
+	let err = r#"Could not decode `Wrapper.0`:
 	Could not decode `StructNamed::foo`:
 		Not enough data to fill buffer
 "#;
@@ -50,8 +50,8 @@ fn full_error_struct_named() {
 #[test]
 fn full_error_struct_unnamed() {
 	let encoded = vec![0];
-	let err = r#"Could not decode `Wrapper::0`:
-	Could not decode `StructUnnamed::0`:
+	let err = r#"Could not decode `Wrapper.0`:
+	Could not decode `StructUnnamed.0`:
 		Not enough data to fill buffer
 "#;
 
@@ -88,7 +88,7 @@ fn full_error_enum_named_field() {
 #[test]
 fn full_error_enum_unnamed_field() {
 	let encoded = vec![1, 0];
-	let err = r#"Could not decode `E::VariantUnnamed::0`:
+	let err = r#"Could not decode `E::VariantUnnamed.0`:
 	Not enough data to fill buffer
 "#;
 
