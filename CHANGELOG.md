@@ -1,5 +1,5 @@
 # Changelog
-All notable changes to this crate will be documented in this file.
+All notable changes to this crate are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this crate adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
@@ -7,11 +7,11 @@ and this crate adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 ## [2.0.0] - 2021-01-26
 
 ### Added
-- `Decode::skip` is introduced, allowing to skip some encoded types.
-- `Decode::encoded_fixed_size` is introduced, allowing to get the fixed encoded size of a type.
+- `Decode::skip` allows to skip some encoded types.
+- `Decode::encoded_fixed_size` allows to get the fixed encoded size of a type.
 - `Error` now contains a chain of causes. This full error description can also be activated on
   no std using the feature `chain-error`.
-- `Encode::encoded_size` is introduced, allowing to get the encoded size of a type more efficiently.
+- `Encode::encoded_size` allows to get the encoded size of a type more efficiently.
 
 ### Changed
 - `CompactAs::decode_from` now returns result. This allow for decoding to fail from their compact
