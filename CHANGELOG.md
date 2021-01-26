@@ -8,7 +8,7 @@ and this crate adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 
 ### Added
 - `Decode::skip` allows to skip some encoded types. Pr #243
-- `Decode::encoded_fixed_size` allows to get the fixed encoded size of a type.
+- `Decode::encoded_fixed_size` allows to get the fixed encoded size of a type. PR #243
 - `Error` now contains a chain of causes. This full error description can also be activated on
   no std using the feature `chain-error`. PR #242 
 - `Encode::encoded_size` allows to get the encoded size of a type more efficiently. PR #245 
