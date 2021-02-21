@@ -235,8 +235,8 @@ pub trait Encode {
 	///
 	/// # Note
 	///
-	/// This works by using a special [`Output`] that only tracks the size. So, there are no allocations inside the 
-	/// output. However, this can not prevent allocations that some types are doing inside their own encoding. 
+	/// This works by using a special [`Output`] that only tracks the size. So, there are no allocations inside the
+	/// output. However, this can not prevent allocations that some types are doing inside their own encoding.
 	fn encoded_size(&self) -> usize {
 		let mut size_tracker = SizeTracker { written: 0 };
 		self.encode_to(&mut size_tracker);
@@ -308,6 +308,9 @@ impl<S: Encode + EncodeLike> FullEncode for S {}
 /// with `EncodeLike` parameters.
 pub trait FullCodec: Decode + FullEncode {}
 impl<S: Decode + FullEncode> FullCodec for S {}
+
+/// Marker trait indicating that SCALE on the struct has strict one-to-one correspondance.
+pub trait StrictCodec: Codec {}
 
 /// A marker trait for types that wrap other encodable type.
 ///
@@ -489,6 +492,8 @@ impl<T: Decode, E: Decode> Decode for Result<T, E> {
 	}
 }
 
+impl<T: StrictCodec, E: StrictCodec> StrictCodec for Result<T, E> {}
+
 /// Shim type because we can't do a specialised implementation for `Option<bool>` directly.
 #[derive(Eq, PartialEq, Clone, Copy)]
 pub struct OptionBool(pub Option<bool>);
@@ -526,6 +531,8 @@ impl Decode for OptionBool {
 	}
 }
 
+impl StrictCodec for OptionBool {}
+
 impl<T: EncodeLike<U>, U: Encode> EncodeLike<Option<U>> for Option<T> {}
 
 impl<T: Encode> Encode for Option<T> {
@@ -561,6 +568,8 @@ impl<T: Decode> Decode for Option<T> {
 	}
 }
 
+impl<T: StrictCodec> StrictCodec for Option<T> {}
+
 macro_rules! impl_for_non_zero {
 	( $( $name:ty ),* $(,)? ) => {
 		$(
@@ -588,6 +597,8 @@ macro_rules! impl_for_non_zero {
 						.ok_or_else(|| Error::from("cannot create non-zero number from 0"))
 				}
 			}
+
+			impl StrictCodec for $name {}
 		)*
 	}
 }
@@ -717,6 +728,8 @@ macro_rules! impl_array {
 			}
 
 			impl<T: EncodeLike<U>, U: Encode> EncodeLike<[U; $n]> for [T; $n] {}
+
+			impl<T: StrictCodec> StrictCodec for [T; $n] {}
 		)*
 	}
 }
@@ -777,6 +790,8 @@ impl<T> Decode for PhantomData<T> {
 		Ok(PhantomData)
 	}
 }
+
+impl<T> StrictCodec for PhantomData<T> {}
 
 #[cfg(any(feature = "std", feature = "full"))]
 impl Decode for String {
@@ -886,6 +901,8 @@ impl<T: Decode> Decode for Vec<T> {
 	}
 }
 
+impl<T: StrictCodec> StrictCodec for Vec<T> {}
+
 macro_rules! impl_codec_through_iterator {
 	($(
 		$type:ident
@@ -990,6 +1007,8 @@ impl<T: Decode> Decode for VecDeque<T> {
 	}
 }
 
+impl<T: StrictCodec> StrictCodec for VecDeque<T> {}
+
 impl EncodeLike for () {}
 
 impl Encode for () {
@@ -1010,6 +1029,8 @@ impl Decode for () {
 		Ok(())
 	}
 }
+
+impl StrictCodec for () {}
 
 macro_rules! impl_len {
 	( $( $type:ident< $($g:ident),* > ),* ) => { $(
@@ -1063,6 +1084,7 @@ macro_rules! tuple_impl {
 		}
 
 		impl<$one: EncodeLike<$extra>, $extra: Encode> crate::EncodeLike<($extra,)> for ($one,) {}
+		impl<$one: StrictCodec> StrictCodec for ($one,) {}
 	};
 	(($first:ident, $fextra:ident), $( ( $rest:ident, $rextra:ident ), )+) => {
 		impl<$first: Encode, $($rest: Encode),+> Encode for ($first, $($rest),+) {
@@ -1111,6 +1133,8 @@ macro_rules! tuple_impl {
 			}
 		}
 
+		impl<$first: StrictCodec, $($rest: StrictCodec),+> StrictCodec for ($first, $($rest),+) {}
+
 		tuple_impl!( $( ($rest, $rextra), )+ );
 	}
 }
@@ -1151,6 +1175,8 @@ macro_rules! impl_endians {
 				Ok(<$t>::from_le_bytes(buf))
 			}
 		}
+
+		impl StrictCodec for $t {}
 	)* }
 }
 macro_rules! impl_one_byte {
@@ -1176,6 +1202,8 @@ macro_rules! impl_one_byte {
 				Ok(input.read_byte()? as $t)
 			}
 		}
+
+		impl StrictCodec for $t {}
 	)* }
 }
 
@@ -1205,6 +1233,8 @@ impl Decode for bool {
 	}
 }
 
+impl StrictCodec for bool {}
+
 impl Encode for Duration {
 	fn size_hint(&self) -> usize {
 		mem::size_of::<u64>() + mem::size_of::<u32>()
@@ -1230,6 +1260,7 @@ impl Decode for Duration {
 }
 
 impl EncodeLike for Duration {}
+impl StrictCodec for Duration {}
 
 #[cfg(test)]
 mod tests {
