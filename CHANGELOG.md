@@ -4,14 +4,18 @@ All notable changes to this crate are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this crate adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+- [Fixing build with latest `bitvec`/`funty`](https://github.com/paritytech/parity-scale-codec/pull/253). If you are using the `bitvec` make sure to upgrade it to `0.21.0` to for the correct traits to be implemented.
+
 ## [2.0.0] - 2021-01-26
 
 ### Added
 - `Decode::skip` allows to skip some encoded types. Pr #243
 - `Decode::encoded_fixed_size` allows to get the fixed encoded size of a type. PR #243
 - `Error` now contains a chain of causes. This full error description can also be activated on
-  no std using the feature `chain-error`. PR #242 
-- `Encode::encoded_size` allows to get the encoded size of a type more efficiently. PR #245 
+  no std using the feature `chain-error`. PR #242
+- `Encode::encoded_size` allows to get the encoded size of a type more efficiently. PR #245
 
 ### Changed
 - `CompactAs::decode_from` now returns result. This allow for decoding to fail from their compact
