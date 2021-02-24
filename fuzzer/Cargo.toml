@@ -9,4 +9,4 @@ publish = false
 parity-scale-codec = { path = "../", features = [ "derive", "bit-vec", "fuzz" ] }
 honggfuzz = "0.5.47"
 arbitrary = { version = "0.4.1", features = ["derive"] }
-bitvec = { version = "0.20.1", features = ["alloc"] }
+bitvec = { version = "0.21.0", features = ["alloc"] }
