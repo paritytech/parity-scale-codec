@@ -17,7 +17,7 @@
 use bitvec::{
 	vec::BitVec, store::BitStore, order::BitOrder, slice::BitSlice, boxed::BitBox,
 };
-use bitvec::macros::internal::funty::IsNumber;
+use funty::IsNumber;
 
 use crate::{
 	EncodeLike, Encode, Decode, Input, Output, Error, Compact,

@@ -13,6 +13,7 @@ arrayvec = { version = "0.5.1", default-features = false, features = ["array-siz
 serde = { version = "1.0.102", optional = true }
 parity-scale-codec-derive = { path = "derive", version = "2.0.0", default-features = false, optional = true }
 bitvec = { version = "0.21.0", default-features = false, features = ["alloc"], optional = true }
+funty  = { version = "1.2.0", default-features = false, optional = true}
 byte-slice-cast = { version = "1.0.0", default-features = false }
 generic-array = { version = "0.14.4", optional = true }
 arbitrary = { version = "0.4.1", features = ["derive"], optional = true }
@@ -34,7 +35,7 @@ bench = false
 default = ["std"]
 derive = ["parity-scale-codec-derive"]
 std = ["serde", "bitvec/std", "byte-slice-cast/std", "chain-error"]
-bit-vec = ["bitvec"]
+bit-vec = ["bitvec", "funty"]
 fuzz = ["std", "arbitrary"]
 
 # Make error fully descriptive with chaining error message.
