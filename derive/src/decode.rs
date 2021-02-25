@@ -20,10 +20,15 @@ use syn::{
 
 use crate::utils;
 
+/// Generate function block for function `Decode::decode`.
+///
+/// * data: data info of the type,
+/// * type_name: name of the type,
+/// * type_generics: the generics of the type, e.g. `<T, I>`, must not contains bounds.
+/// * input: the variable name for the argument of function `decode`.
 pub fn quote(
 	data: &Data,
 	type_name: &Ident,
-	// E.g. `<T, I>`
 	type_generics: &TokenStream,
 	input: &TokenStream,
 ) -> TokenStream {
