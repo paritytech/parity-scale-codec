@@ -25,7 +25,7 @@ pub fn quote(
 	type_name: &Ident,
 	// E.g. `<T, I>`
 	type_generics: &TokenStream,
-	input: &TokenStream
+	input: &TokenStream,
 ) -> TokenStream {
 	match *data {
 		Data::Struct(ref data) => match data.fields {
