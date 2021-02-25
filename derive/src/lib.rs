@@ -194,9 +194,10 @@ pub fn decode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 
 	let name = &input.ident;
 	let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
+	let ty_gen_turbofish = ty_generics.as_turbofish();
 
 	let input_ = quote!(__codec_input_edqy);
-	let decoding = decode::quote(&input.data, name, &quote!(#ty_generics), &input_);
+	let decoding = decode::quote(&input.data, name, &quote!(#ty_gen_turbofish), &input_);
 
 	let impl_block = quote! {
 		impl #impl_generics _parity_scale_codec::Decode for #name #ty_generics #where_clause {

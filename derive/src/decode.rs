@@ -24,7 +24,7 @@ use crate::utils;
 ///
 /// * data: data info of the type,
 /// * type_name: name of the type,
-/// * type_generics: the generics of the type, e.g. `<T, I>`, must not contains bounds.
+/// * type_generics: the generics of the type in turbofish format, without bounds, e.g. `::<T, I>`
 /// * input: the variable name for the argument of function `decode`.
 pub fn quote(
 	data: &Data,
@@ -35,7 +35,7 @@ pub fn quote(
 	match *data {
 		Data::Struct(ref data) => match data.fields {
 			Fields::Named(_) | Fields::Unnamed(_) => create_instance(
-				quote! { #type_name :: #type_generics },
+				quote! { #type_name #type_generics },
 				&type_name.to_string(),
 				input,
 				&data.fields,
@@ -61,7 +61,7 @@ pub fn quote(
 				let index = utils::variant_index(v, i);
 
 				let create = create_instance(
-					quote! { #type_name :: #type_generics :: #name },
+					quote! { #type_name #type_generics :: #name },
 					&format!("{}::{}", type_name, name),
 					input,
 					&v.fields,
