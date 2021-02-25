@@ -4,14 +4,19 @@ All notable changes to this crate are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this crate adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.1] - 2021-02-25
+
+### Fix
+- Fix type inference issue in `Decode` derive macro. Pr #000
+
 ## [2.0.0] - 2021-01-26
 
 ### Added
 - `Decode::skip` allows to skip some encoded types. Pr #243
 - `Decode::encoded_fixed_size` allows to get the fixed encoded size of a type. PR #243
 - `Error` now contains a chain of causes. This full error description can also be activated on
-  no std using the feature `chain-error`. PR #242 
-- `Encode::encoded_size` allows to get the encoded size of a type more efficiently. PR #245 
+  no std using the feature `chain-error`. PR #242
+- `Encode::encoded_size` allows to get the encoded size of a type more efficiently. PR #245
 
 ### Changed
 - `CompactAs::decode_from` now returns result. This allow for decoding to fail from their compact
