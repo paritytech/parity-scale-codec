@@ -7,7 +7,7 @@ and this crate adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 ## [2.0.1] - 2021-02-25
 
 ### Fix
-- Fix type inference issue in `Decode` derive macro. Pr #000
+- Fix type inference issue in `Decode` derive macro. Pr #254
 
 ## [2.0.0] - 2021-01-26
 
