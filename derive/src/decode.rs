@@ -20,11 +20,22 @@ use syn::{
 
 use crate::utils;
 
-pub fn quote(data: &Data, type_name: &Ident, input: &TokenStream) -> TokenStream {
+/// Generate function block for function `Decode::decode`.
+///
+/// * data: data info of the type,
+/// * type_name: name of the type,
+/// * type_generics: the generics of the type in turbofish format, without bounds, e.g. `::<T, I>`
+/// * input: the variable name for the argument of function `decode`.
+pub fn quote(
+	data: &Data,
+	type_name: &Ident,
+	type_generics: &TokenStream,
+	input: &TokenStream,
+) -> TokenStream {
 	match *data {
 		Data::Struct(ref data) => match data.fields {
 			Fields::Named(_) | Fields::Unnamed(_) => create_instance(
-				quote! { #type_name },
+				quote! { #type_name #type_generics },
 				&type_name.to_string(),
 				input,
 				&data.fields,
@@ -50,7 +61,7 @@ pub fn quote(data: &Data, type_name: &Ident, input: &TokenStream) -> TokenStream
 				let index = utils::variant_index(v, i);
 
 				let create = create_instance(
-					quote! { #type_name :: #name },
+					quote! { #type_name #type_generics :: #name },
 					&format!("{}::{}", type_name, name),
 					input,
 					&v.fields,
@@ -127,9 +138,10 @@ fn create_decode_expr(field: &Field, name: &str, input: &TokenStream) -> TokenSt
 	} else if skip {
 		quote_spanned! { field.span() => Default::default() }
 	} else {
+		let field_type = &field.ty;
 		quote_spanned! { field.span() =>
 			{
-				let #res = _parity_scale_codec::Decode::decode(#input);
+				let #res = <#field_type as _parity_scale_codec::Decode>::decode(#input);
 				match #res {
 					Err(e) => return Err(e.chain(#err_msg)),
 					Ok(#res) => #res,
