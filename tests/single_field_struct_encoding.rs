@@ -2,10 +2,10 @@
 use parity_scale_codec_derive::{Encode, Decode, CompactAs};
 #[cfg(feature="derive")]
 use parity_scale_codec::CompactAs;
-use parity_scale_codec::{Compact, Decode, Encode, HasCompact};
+use parity_scale_codec::{Compact, Decode, Encode, HasCompact, Strict};
 use serde_derive::{Serialize, Deserialize};
 
-#[derive(Debug, PartialEq, Encode, Decode)]
+#[derive(Debug, PartialEq, Encode, Decode, Strict)]
 struct S {
 	x: u32,
 }

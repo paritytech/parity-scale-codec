@@ -322,3 +322,36 @@ pub fn compact_as_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStr
 
 	wrap_with_dummy_const(impl_block)
 }
+
+/// Derive marker trait `parity_scale_codec::StrictCodec` for struct and enum.
+#[proc_macro_derive(Strict, attributes(codec))]
+pub fn strict_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+	let mut input: DeriveInput = match syn::parse(input) {
+		Ok(input) => input,
+		Err(e) => return e.to_compile_error().into(),
+	};
+
+	if let Err(e) = utils::check_attributes(&input) {
+		return e.to_compile_error().into();
+	}
+
+	if let Err(e) = trait_bounds::add(
+		&input.ident,
+		&mut input.generics,
+		&input.data,
+		parse_quote!(_parity_scale_codec::StrictCodec),
+		None,
+		utils::has_dumb_trait_bound(&input.attrs),
+	) {
+		return e.to_compile_error().into();
+	}
+
+	let name = &input.ident;
+	let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
+
+	let impl_block = quote! {
+		impl #impl_generics _parity_scale_codec::StrictCodec for #name #ty_generics #where_clause {}
+	};
+
+	wrap_with_dummy_const(impl_block)
+}
