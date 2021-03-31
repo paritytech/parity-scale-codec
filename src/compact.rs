@@ -23,9 +23,9 @@ use crate::Error;
 #[cfg(feature = "fuzz")]
 use arbitrary::Arbitrary;
 
-struct ArrayVecWrapper<T: arrayvec::Array>(ArrayVec<T>);
+struct ArrayVecWrapper<const N: usize>(ArrayVec<u8, N>);
 
-impl<T: arrayvec::Array<Item=u8>> Output for ArrayVecWrapper<T> {
+impl<const N: usize> Output for ArrayVecWrapper<N> {
 	fn write(&mut self, bytes: &[u8]) {
 		let old_len = self.0.len();
 		let new_len = old_len + bytes.len();
@@ -248,7 +248,7 @@ impl<'a> Encode for CompactRef<'a, u8> {
 	}
 
 	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
-		let mut r = ArrayVecWrapper(ArrayVec::<[u8; 2]>::new());
+		let mut r = ArrayVecWrapper(ArrayVec::<u8, 2>::new());
 		self.encode_to(&mut r);
 		f(&r.0)
 	}
@@ -277,7 +277,7 @@ impl<'a> Encode for CompactRef<'a, u16> {
 	}
 
 	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
-		let mut r = ArrayVecWrapper(ArrayVec::<[u8; 4]>::new());
+		let mut r = ArrayVecWrapper(ArrayVec::<u8, 4>::new());
 		self.encode_to(&mut r);
 		f(&r.0)
 	}
@@ -311,7 +311,7 @@ impl<'a> Encode for CompactRef<'a, u32> {
 	}
 
 	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
-		let mut r = ArrayVecWrapper(ArrayVec::<[u8; 5]>::new());
+		let mut r = ArrayVecWrapper(ArrayVec::<u8, 5>::new());
 		self.encode_to(&mut r);
 		f(&r.0)
 	}
@@ -353,7 +353,7 @@ impl<'a> Encode for CompactRef<'a, u64> {
 	}
 
 	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
-		let mut r = ArrayVecWrapper(ArrayVec::<[u8; 9]>::new());
+		let mut r = ArrayVecWrapper(ArrayVec::<u8, 9>::new());
 		self.encode_to(&mut r);
 		f(&r.0)
 	}
@@ -397,7 +397,7 @@ impl<'a> Encode for CompactRef<'a, u128> {
 	}
 
 	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
-		let mut r = ArrayVecWrapper(ArrayVec::<[u8; 17]>::new());
+		let mut r = ArrayVecWrapper(ArrayVec::<u8, 17>::new());
 		self.encode_to(&mut r);
 		f(&r.0)
 	}
@@ -813,13 +813,13 @@ mod tests {
 	#[test]
 	#[should_panic]
 	fn array_vec_output_oob() {
-		let mut v = ArrayVecWrapper(ArrayVec::<[u8; 4]>::new());
+		let mut v = ArrayVecWrapper(ArrayVec::<u8, 4>::new());
 		v.write(&[1, 2, 3, 4, 5]);
 	}
 
 	#[test]
 	fn array_vec_output() {
-		let mut v = ArrayVecWrapper(ArrayVec::<[u8; 4]>::new());
+		let mut v = ArrayVecWrapper(ArrayVec::<u8, 4>::new());
 		v.write(&[1, 2, 3, 4]);
 	}
 
