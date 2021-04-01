@@ -700,15 +700,14 @@ impl<T: Encode, const N: usize> Encode for [T; N] {
 
 impl<T: Decode, const N: usize> Decode for [T; N] {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
-		let mut r = ArrayVec::new();
+		let mut array = ArrayVec::new();
 		for _ in 0..N {
-			r.push(T::decode(input)?);
+			array.push(T::decode(input)?);
 		}
-		let i = r.into_inner();
 
-		match i {
+		match array.into_inner() {
 			Ok(a) => Ok(a),
-			Err(_) => Err("failed to get inner array from ArrayVec".into()),
+			Err(_) => panic!("We decode `N` elements; qed"),
 		}
 	}
 }
