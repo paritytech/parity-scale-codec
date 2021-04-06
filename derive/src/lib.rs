@@ -80,6 +80,8 @@ fn wrap_with_dummy_const(impl_block: proc_macro2::TokenStream) -> proc_macro::To
 ///   type must implement `parity_scale_codec::EncodeAsRef<'_, $FieldType>` with $FieldType the
 ///   type of the field with the attribute. This is intended to be used for types implementing
 ///   `HasCompact` as shown in the example.
+/// * `#[codec(encode_bound(T: Encode))]`: a custom where bound that will be used when deriving the `Encode` trait.
+/// * `#[codec(decode_bound(T: Encode))]`: a custom where bound that will be used when deriving the `Decode` trait.
 ///
 /// ```
 /// # use parity_scale_codec_derive::Encode;
@@ -89,7 +91,7 @@ fn wrap_with_dummy_const(impl_block: proc_macro2::TokenStream) -> proc_macro::To
 ///		#[codec(skip)]
 ///		a: u32,
 ///		#[codec(compact)]
-/// 	b: u32,
+///		b: u32,
 ///		#[codec(encoded_as = "<u32 as HasCompact>::Type")]
 ///		c: u32,
 /// }
@@ -140,7 +142,9 @@ pub fn encode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 		return e.to_compile_error().into();
 	}
 
-	if let Err(e) = trait_bounds::add(
+	if let Some(custom_bound) = utils::custom_encode_trait_bound(&input.attrs) {
+		input.generics.make_where_clause().predicates.extend(custom_bound);
+	} else if let Err(e) = trait_bounds::add(
 		&input.ident,
 		&mut input.generics,
 		&input.data,
@@ -181,7 +185,9 @@ pub fn decode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 		return e.to_compile_error().into();
 	}
 
-	if let Err(e) = trait_bounds::add(
+	if let Some(custom_bound) = utils::custom_decode_trait_bound(&input.attrs) {
+		input.generics.make_where_clause().predicates.extend(custom_bound);
+	} else if let Err(e) = trait_bounds::add(
 		&input.ident,
 		&mut input.generics,
 		&input.data,

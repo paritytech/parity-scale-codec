@@ -540,21 +540,49 @@ fn crafted_input_for_vec_t() {
 
 #[test]
 fn weird_derive() {
-    // Tests that compilation succeeds when the macro invocation
-    // hygiene context is different from the field hygiene context.
-    macro_rules! make_struct {
-        (#[$attr:meta]) => (
-            #[$attr]
-            pub struct MyStruct {
-                field: u8
-            }
-        )
-    }
+	// Tests that compilation succeeds when the macro invocation
+	// hygiene context is different from the field hygiene context.
+	macro_rules! make_struct {
+		(#[$attr:meta]) => (
+			#[$attr]
+			pub struct MyStruct {
+				field: u8
+			}
+		)
+	}
 
-    make_struct!(#[derive(Encode, Decode)]);
+	make_struct!(#[derive(Encode, Decode)]);
 }
 
 #[test]
 fn output_trait_object() {
 	let _: Box<dyn Output>;
+}
+
+#[test]
+fn custom_trait_bound() {
+	#[derive(Encode, Decode)]
+	#[codec(encode_bound(N: Encode, T: Default))]
+	#[codec(decode_bound(N: Decode, T: Default))]
+	struct Something<T, N> {
+		hello: Hello<T>,
+		val: N,
+	}
+
+	#[derive(Encode, Decode)]
+	#[codec(encode_bound())]
+	#[codec(decode_bound())]
+	struct Hello<T> {
+		_phantom: std::marker::PhantomData<T>,
+	}
+
+	#[derive(Default)]
+	struct NotEncode;
+
+	let encoded = Something::<NotEncode, u32> {
+		hello: Hello { _phantom: Default::default() },
+		val: 32u32,
+	}.encode();
+
+	Something::<NotEncode, u32>::decode(&mut &encoded[..]).unwrap();
 }
