@@ -23,24 +23,15 @@ use proc_macro2::TokenStream;
 use syn::{
 	spanned::Spanned,
 	Meta, NestedMeta, Lit, Attribute, Variant, Field, DeriveInput, Fields, Data, FieldsUnnamed,
-	FieldsNamed, MetaNameValue
+	FieldsNamed, MetaNameValue, punctuated::Punctuated, token, parse::Parse,
 };
 
-fn find_meta_item<'a, F, R, I>(itr: I, pred: F) -> Option<R> where
-	F: FnMut(&NestedMeta) -> Option<R> + Clone,
-	I: Iterator<Item=&'a Attribute>
+fn find_meta_item<'a, F, R, I, M>(mut itr: I, mut pred: F) -> Option<R> where
+	F: FnMut(M) -> Option<R> + Clone,
+	I: Iterator<Item=&'a Attribute>,
+	M: Parse,
 {
-	itr.filter_map(|attr| {
-		if attr.path.is_ident("codec") {
-			if let Meta::List(ref meta_list) = attr.parse_meta()
-				.expect("Internal error, parse_meta must have been checked")
-			{
-				return meta_list.nested.iter().filter_map(pred.clone()).next();
-			}
-		}
-
-		None
-	}).next()
+	itr.find_map(|attr| attr.path.is_ident("codec").then(|| pred(attr.parse_args().ok()?)).flatten())
 }
 
 /// Look for a `#[scale(index = $int)]` attribute on a variant. If no attribute
@@ -126,6 +117,48 @@ pub fn has_dumb_trait_bound(attrs: &[Attribute]) -> bool {
 
 		None
 	}).is_some()
+}
+
+/// Trait bounds.
+pub type TraitBounds = Punctuated<syn::WherePredicate, token::Comma>;
+
+/// Parse `name(T: Bound, N: Bound)` as a custom trait bound.
+struct CustomTraitBound<N> {
+	_name: N,
+	_paren_token: token::Paren,
+	bounds: TraitBounds,
+}
+
+impl<N: Parse> Parse for CustomTraitBound<N> {
+	fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+		let content;
+		Ok(Self {
+			_name: input.parse()?,
+			_paren_token: syn::parenthesized!(content in input),
+			bounds: content.parse_terminated(syn::WherePredicate::parse)?,
+		})
+	}
+}
+
+syn::custom_keyword!(encode_bound);
+syn::custom_keyword!(decode_bound);
+
+/// Look for a `#[codec(decode_bound(T: Decode))]`in the given attributes.
+///
+/// If found, it should be used as trait bounds when deriving the `Decode` trait.
+pub fn custom_decode_trait_bound(attrs: &[Attribute]) -> Option<TraitBounds> {
+	find_meta_item(attrs.iter(), |meta: CustomTraitBound<decode_bound>| {
+		Some(meta.bounds)
+	})
+}
+
+/// Look for a `#[codec(encode_bound(T: Encode))]`in the given attributes.
+///
+/// If found, it should be used as trait bounds when deriving the `Encode` trait.
+pub fn custom_encode_trait_bound(attrs: &[Attribute]) -> Option<TraitBounds> {
+	find_meta_item(attrs.iter(), |meta: CustomTraitBound<encode_bound>| {
+		Some(meta.bounds)
+	})
 }
 
 /// Given a set of named fields, return an iterator of `Field` where all fields
@@ -252,19 +285,26 @@ fn check_variant_attribute(attr: &Attribute) -> syn::Result<()> {
 
 // Only `#[codec(dumb_trait_bound)]` is accepted as top attribute
 fn check_top_attribute(attr: &Attribute) -> syn::Result<()> {
-	let top_error = "Invalid attribute only `#[codec(dumb_trait_bound)]` is accepted as top \
-		attribute";
+	let top_error =
+		"Invalid attribute only `#[codec(dumb_trait_bound)]`, `#[codec(encode_bound(T: Encode))]` or \
+		`#[codec(decode_bound(T: Decode))]` are accepted as top attribute";
 	if attr.path.is_ident("codec") {
-		match attr.parse_meta()? {
-			Meta::List(ref meta_list) if meta_list.nested.len() == 1 => {
-				match meta_list.nested.first().expect("Just checked that there is one item; qed") {
-					NestedMeta::Meta(Meta::Path(path))
-						if path.get_ident().map_or(false, |i| i == "dumb_trait_bound") => Ok(()),
+		if attr.parse_args::<CustomTraitBound<encode_bound>>().is_ok() {
+			return Ok(())
+		} else if attr.parse_args::<CustomTraitBound<decode_bound>>().is_ok() {
+			return Ok(())
+		} else {
+			match attr.parse_meta()? {
+				Meta::List(ref meta_list) if meta_list.nested.len() == 1 => {
+					match meta_list.nested.first().expect("Just checked that there is one item; qed") {
+						NestedMeta::Meta(Meta::Path(path))
+							if path.get_ident().map_or(false, |i| i == "dumb_trait_bound") => Ok(()),
 
-					elt @ _ => Err(syn::Error::new(elt.span(), top_error)),
-				}
-			},
-			meta @ _ => Err(syn::Error::new(meta.span(), top_error)),
+						elt @ _ => Err(syn::Error::new(elt.span(), top_error)),
+					}
+				},
+				_ => Err(syn::Error::new(attr.span(), top_error)),
+			}
 		}
 	} else {
 		Ok(())
