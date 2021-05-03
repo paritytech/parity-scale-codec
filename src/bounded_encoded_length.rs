@@ -39,3 +39,29 @@ macro_rules! impl_primitives {
 }
 
 impl_primitives!((), u8, u16, u32, u64, u128, i8, i16, i32, i64, i128);
+
+macro_rules! impl_tuples {
+	// end of recursive descent
+	() => {};
+	// recursive producer
+	( $head:ident $(, $rest:ident )* ) => {
+		impl<$head $(, $rest)*> BoundedEncodedLen for ( $head, $($rest),* )
+		where
+			$head: BoundedEncodedLen,
+			$(
+				$rest: BoundedEncodedLen,
+			)*
+		{
+			fn max_encoded_len() -> usize {
+				$head::max_encoded_len()
+				$(
+					+ $rest::max_encoded_len()
+				)*
+			}
+		}
+
+		impl_tuples!($($rest),*);
+	};
+}
+
+impl_tuples!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R);
