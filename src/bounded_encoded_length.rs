@@ -32,7 +32,7 @@ macro_rules! impl_primitives {
 			impl BoundedEncodedLen for $t {
 				fn max_encoded_len() -> usize {
 					// a compact encoding of a primitive can take 1 byte more than its actual size
-					1 + mem::size_of::<$t>()
+					mem::size_of::<$t>().saturating_add(1)
 				}
 			}
 		)+
@@ -81,7 +81,7 @@ impl<T: BoundedEncodedLen, const N: usize> BoundedEncodedLen for [T; N] {
 
 impl<T: BoundedEncodedLen> BoundedEncodedLen for Option<T> {
 	fn max_encoded_len() -> usize {
-		1 + T::max_encoded_len()
+		T::max_encoded_len().saturating_add(1)
 	}
 }
 
@@ -91,7 +91,7 @@ where
 	E: BoundedEncodedLen,
 {
 	fn max_encoded_len() -> usize {
-		1 + (T::max_encoded_len().max(E::max_encoded_len()))
+		T::max_encoded_len().max(E::max_encoded_len()).saturating_add(1)
 	}
 }
 
