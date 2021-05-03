@@ -62,7 +62,7 @@ macro_rules! impl_tuples {
 			fn max_encoded_len() -> usize {
 				$head::max_encoded_len()
 				$(
-					+ $rest::max_encoded_len()
+					.saturating_add($rest::max_encoded_len())
 				)*
 			}
 		}
@@ -75,6 +75,6 @@ impl_tuples!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R);
 
 impl<T: BoundedEncodedLen, const N: usize> BoundedEncodedLen for [T; N] {
 	fn max_encoded_len() -> usize {
-		T::max_encoded_len() * N
+		T::max_encoded_len().saturating_mul(N)
 	}
 }
