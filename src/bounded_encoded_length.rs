@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use core::mem;
+use core::{mem, marker::PhantomData};
 use crate::Encode;
 
 /// Items implementing `BoundedEncodedLen` have a statically known maximum encoded size.
@@ -76,5 +76,27 @@ impl_tuples!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R);
 impl<T: BoundedEncodedLen, const N: usize> BoundedEncodedLen for [T; N] {
 	fn max_encoded_len() -> usize {
 		T::max_encoded_len().saturating_mul(N)
+	}
+}
+
+impl<T: BoundedEncodedLen> BoundedEncodedLen for Option<T> {
+	fn max_encoded_len() -> usize {
+		1 + T::max_encoded_len()
+	}
+}
+
+impl<T, E> BoundedEncodedLen for Result<T, E>
+where
+	T: BoundedEncodedLen,
+	E: BoundedEncodedLen,
+{
+	fn max_encoded_len() -> usize {
+		1 + (T::max_encoded_len().max(E::max_encoded_len()))
+	}
+}
+
+impl<T> BoundedEncodedLen for PhantomData<T> {
+	fn max_encoded_len() -> usize {
+		0
 	}
 }
