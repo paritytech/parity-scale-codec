@@ -31,14 +31,21 @@ macro_rules! impl_primitives {
 		$(
 			impl BoundedEncodedLen for $t {
 				fn max_encoded_len() -> usize {
-					mem::size_of::<$t>()
+					// a compact encoding of a primitive can take 1 byte more than its actual size
+					1 + mem::size_of::<$t>()
 				}
 			}
 		)+
 	};
 }
 
-impl_primitives!((), u8, u16, u32, u64, u128, i8, i16, i32, i64, i128);
+impl_primitives!(u8, u16, u32, u64, u128, i8, i16, i32, i64, i128);
+
+impl BoundedEncodedLen for () {
+	fn max_encoded_len() -> usize {
+		0
+	}
+}
 
 macro_rules! impl_tuples {
 	// end of recursive descent
