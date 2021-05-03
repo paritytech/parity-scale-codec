@@ -65,3 +65,9 @@ macro_rules! impl_tuples {
 }
 
 impl_tuples!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R);
+
+impl<T: BoundedEncodedLen, const N: usize> BoundedEncodedLen for [T; N] {
+	fn max_encoded_len() -> usize {
+		T::max_encoded_len() * N
+	}
+}
