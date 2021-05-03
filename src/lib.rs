@@ -268,6 +268,7 @@ pub mod alloc {
 
 #[cfg(feature = "bit-vec")]
 mod bit_vec;
+mod bounded_encoded_length;
 mod codec;
 mod compact;
 mod decode_all;
@@ -285,6 +286,7 @@ pub use self::codec::{
 	Input, Output, Decode, Encode, Codec, EncodeAsRef, WrapperTypeEncode, WrapperTypeDecode,
 	OptionBool, DecodeLength, FullCodec, FullEncode,
 };
+pub use bounded_encoded_length::BoundedEncodedLen;
 #[cfg(feature = "std")]
 pub use self::codec::IoReader;
 pub use self::compact::{Compact, HasCompact, CompactAs, CompactLen};
