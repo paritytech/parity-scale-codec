@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use core::mem;
 use crate::Encode;
 
 /// Items implementing `BoundedEncodedLen` have a statically known maximum encoded size.
@@ -24,3 +25,17 @@ pub trait BoundedEncodedLen: Encode {
 	/// Upper bound, in bytes, of the maximum encoded size of this item.
 	fn max_encoded_len() -> usize;
 }
+
+macro_rules! impl_primitives {
+	( $($t:ty),+ ) => {
+		$(
+			impl BoundedEncodedLen for $t {
+				fn max_encoded_len() -> usize {
+					mem::size_of::<$t>()
+				}
+			}
+		)+
+	};
+}
+
+impl_primitives!((), u8, u16, u32, u64, u128, i8, i16, i32, i64, i128);
