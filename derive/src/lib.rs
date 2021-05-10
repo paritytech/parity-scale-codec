@@ -1,4 +1,4 @@
-// Copyright 2017-2018 Parity Technologies
+// Copyright 2017-2021 Parity Technologies
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -30,6 +30,7 @@ use syn::{Data, Field, Fields, DeriveInput, Error};
 
 mod decode;
 mod encode;
+mod max_encoded_len;
 mod utils;
 mod trait_bounds;
 
@@ -327,4 +328,10 @@ pub fn compact_as_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStr
 	};
 
 	wrap_with_dummy_const(impl_block)
+}
+
+/// Derive `MaxEncodedLen`.
+#[proc_macro_derive(MaxEncodedLen)]
+pub fn derive_max_encoded_len(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+	max_encoded_len::derive_max_encoded_len(input)
 }

@@ -20,9 +20,10 @@ impl-trait-for-tuples = "0.2.1"
 
 [dev-dependencies]
 criterion = "0.3.0"
-serde_derive = { version = "1.0" }
 parity-scale-codec-derive = { path = "derive", version = "2.1.0", default-features = false }
 quickcheck = "0.9"
+serde_derive = { version = "1.0" }
+trybuild = "1.0.42"
 
 [[bench]]
 name = "benches"
