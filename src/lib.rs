@@ -1,4 +1,4 @@
-// Copyright 2017, 2018 Parity Technologies
+// Copyright 2017-2021 Parity Technologies
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -274,6 +274,7 @@ mod depth_limit;
 mod encode_append;
 mod encode_like;
 mod error;
+mod max_encoded_len;
 
 pub use self::error::Error;
 pub use self::codec::{
@@ -289,3 +290,4 @@ pub use self::decode_all::DecodeAll;
 pub use self::depth_limit::DecodeLimit;
 pub use self::encode_append::EncodeAppend;
 pub use self::encode_like::{EncodeLike, Ref};
+pub use self::max_encoded_len::MaxEncodedLen;

@@ -16,6 +16,7 @@ bitvec = { version = "0.20.1", default-features = false, features = ["alloc"], o
 byte-slice-cast = { version = "1.0.0", default-features = false }
 generic-array = { version = "0.14.4", optional = true }
 arbitrary = { version = "0.4.1", features = ["derive"], optional = true }
+impl-trait-for-tuples = "0.2.1"
 
 [dev-dependencies]
 criterion = "0.3.0"
