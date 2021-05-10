@@ -16,6 +16,7 @@
 // limitations under the License.
 
 #[test]
+#[cfg(feature = "derive")]
 fn derive_no_bound_ui() {
 	// As trybuild is using `cargo check`, we don't need the real WASM binaries.
 	std::env::set_var("SKIP_WASM_BUILD", "1");
