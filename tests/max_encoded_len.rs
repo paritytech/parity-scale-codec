@@ -20,8 +20,6 @@
 
 use parity_scale_codec::{MaxEncodedLen, Compact, Encode};
 
-// These structs won't even compile if the macro isn't working right.
-
 #[derive(Encode, MaxEncodedLen)]
 struct Primitives {
 	bool: bool,

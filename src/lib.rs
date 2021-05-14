@@ -290,8 +290,6 @@ pub use self::decode_all::DecodeAll;
 pub use self::depth_limit::DecodeLimit;
 pub use self::encode_append::EncodeAppend;
 pub use self::encode_like::{EncodeLike, Ref};
-// This looks like an overlapping import/export, but it isn't:
-// macros and traits live in distinct namespaces.
 pub use max_encoded_len::MaxEncodedLen;
 /// Derive [`MaxEncodedLen`][max_encoded_len::MaxEncodedLen].
 ///
