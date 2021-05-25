@@ -15,7 +15,14 @@
 //! Serialisation.
 
 use core::fmt;
-use core::{mem, ops::Deref, marker::PhantomData, iter::FromIterator, convert::TryFrom, time::Duration};
+use core::{
+	convert::TryFrom,
+	iter::FromIterator,
+	marker::PhantomData,
+	mem,
+	ops::{Deref, Range, RangeInclusive},
+	time::Duration,
+};
 use core::num::{
 	NonZeroI8,
 	NonZeroI16,
@@ -1205,6 +1212,55 @@ impl Decode for Duration {
 
 impl EncodeLike for Duration {}
 
+impl<T> Encode for Range<T>
+where
+	T: Encode
+{
+	fn size_hint(&self) -> usize {
+		2 * mem::size_of::<T>()
+	}
+
+	fn encode(&self) -> Vec<u8> {
+		(&self.start, &self.end).encode()
+	}
+}
+
+impl<T> Decode for Range<T>
+where
+	T: Decode
+{
+	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
+		let (start, end) = <(T, T)>::decode(input)
+			.map_err(|e| e.chain("Could not decode `Range<T>`"))?;
+		Ok(Range { start, end })
+	}
+}
+
+impl<T> Encode for RangeInclusive<T>
+where
+	T: Encode
+{
+	fn size_hint(&self) -> usize {
+		2 * mem::size_of::<T>()
+	}
+
+	fn encode(&self) -> Vec<u8> {
+		(self.start(), self.end()).encode()
+	}
+}
+
+impl<T> Decode for RangeInclusive<T>
+where
+	T: Decode
+{
+	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
+		let (start, end) = <(T, T)>::decode(input)
+			.map_err(|e| e.chain("Could not decode `RangeInclusive<T>`"))?;
+		Ok(RangeInclusive::new(start, end))
+	}
+}
+
+
 #[cfg(test)]
 mod tests {
 	use super::*;
@@ -1626,5 +1682,18 @@ mod tests {
 			other: 45,
 			compact: Compact(123234545),
 		});
+	}
+
+	#[test]
+	fn ranges() {
+		let range = Range { start: 1, end: 100 };
+		let range_bytes = (1, 100).encode();
+		assert_eq!(range.encode(), range_bytes);
+		assert_eq!(Range::decode(&mut &range_bytes[..]), Ok(range));
+
+		let range_inclusive = RangeInclusive::new(1, 100);
+		let range_inclusive_bytes = (1, 100).encode();
+		assert_eq!(range_inclusive.encode(), range_inclusive_bytes);
+		assert_eq!(RangeInclusive::decode(&mut &range_inclusive_bytes[..]), Ok(range_inclusive));
 	}
 }
