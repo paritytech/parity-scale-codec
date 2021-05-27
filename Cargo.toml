@@ -15,7 +15,7 @@ parity-scale-codec-derive = { path = "derive", version = "2.1.0", default-featur
 bitvec = { version = "0.20.1", default-features = false, features = ["alloc"], optional = true }
 byte-slice-cast = { version = "1.0.0", default-features = false }
 generic-array = { version = "0.14.4", optional = true }
-arbitrary = { version = "0.4.1", features = ["derive"], optional = true }
+arbitrary = { version = "1.0.1", features = ["derive"], optional = true }
 
 [dev-dependencies]
 criterion = "0.3.0"
