@@ -24,7 +24,7 @@ extern crate syn;
 extern crate quote;
 
 use proc_macro2::{Ident, Span};
-use proc_macro_crate::crate_name;
+use proc_macro_crate::{crate_name, FoundCrate};
 use syn::spanned::Spanned;
 use syn::{Data, Field, Fields, DeriveInput, Error};
 
@@ -40,7 +40,8 @@ fn include_parity_scale_codec_crate() -> proc_macro2::TokenStream {
 		quote!( extern crate parity_scale_codec as _parity_scale_codec; )
 	} else {
 		match crate_name("parity-scale-codec") {
-			Ok(parity_codec_crate) => {
+			Ok(FoundCrate::Itself) => quote!( extern crate parity_scale_codec as _parity_scale_codec; ),
+			Ok(FoundCrate::Name(parity_codec_crate)) => {
 				let ident = Ident::new(&parity_codec_crate, Span::call_site());
 				quote!( extern crate #ident as _parity_scale_codec; )
 			},
