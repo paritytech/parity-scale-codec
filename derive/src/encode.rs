@@ -85,7 +85,7 @@ fn encode_single_field(
 				_parity_scale_codec::Encode::encode(&#final_field_variable)
 			}
 
-			fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&#i_self, f: F) -> R {
+			fn using_encoded<R, F: ::core::ops::FnOnce(&[::core::primitive::u8]) -> R>(&#i_self, f: F) -> R {
 				_parity_scale_codec::Encode::using_encoded(&#final_field_variable, f)
 			}
 	}
@@ -240,7 +240,7 @@ fn impl_encode(data: &Data, type_name: &Ident) -> TokenStream {
 
 						quote_spanned! { f.span() =>
 							#type_name :: #name { #( ref #names, )* } => {
-								#dest.push_byte(#index as u8);
+								#dest.push_byte(#index as ::core::primitive::u8);
 								#encode_fields
 							}
 						}
@@ -265,7 +265,7 @@ fn impl_encode(data: &Data, type_name: &Ident) -> TokenStream {
 
 						quote_spanned! { f.span() =>
 							#type_name :: #name ( #( ref #names, )* ) => {
-								#dest.push_byte(#index as u8);
+								#dest.push_byte(#index as ::core::primitive::u8);
 								#encode_fields
 							}
 						}
@@ -273,7 +273,7 @@ fn impl_encode(data: &Data, type_name: &Ident) -> TokenStream {
 					Fields::Unit => {
 						quote_spanned! { f.span() =>
 							#type_name :: #name => {
-								#dest.push_byte(#index as u8);
+								#dest.push_byte(#index as ::core::primitive::u8);
 							}
 						}
 					},
