@@ -221,6 +221,14 @@ pub fn check_attributes(input: &DeriveInput) -> syn::Result<()> {
 	Ok(())
 }
 
+// Check if the attribute is `#[allow(..)]`, `#[deny(..)]`, `#[forbid(..)]` or `#[warn(..)]`.
+pub fn is_lint_attribute(attr: &Attribute) -> bool {
+	attr.path.is_ident("allow")
+		|| attr.path.is_ident("deny")
+		|| attr.path.is_ident("forbid")
+		|| attr.path.is_ident("warn")
+}
+
 // Ensure a field is decorated only with the following attributes:
 // * `#[codec(skip)]`
 // * `#[codec(compact)]`
