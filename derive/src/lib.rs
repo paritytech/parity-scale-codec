@@ -24,9 +24,11 @@ extern crate syn;
 extern crate quote;
 
 use proc_macro2::{Ident, Span};
-use proc_macro_crate::crate_name;
+use proc_macro_crate::{crate_name, FoundCrate};
 use syn::spanned::Spanned;
 use syn::{Data, Field, Fields, DeriveInput, Error};
+
+use crate::utils::is_lint_attribute;
 
 mod decode;
 mod encode;
@@ -41,7 +43,8 @@ fn include_parity_scale_codec_crate() -> proc_macro2::TokenStream {
 		quote!( extern crate parity_scale_codec as _parity_scale_codec; )
 	} else {
 		match crate_name("parity-scale-codec") {
-			Ok(parity_codec_crate) => {
+			Ok(FoundCrate::Itself) => quote!( extern crate parity_scale_codec as _parity_scale_codec; ),
+			Ok(FoundCrate::Name(parity_codec_crate)) => {
 				let ident = Ident::new(&parity_codec_crate, Span::call_site());
 				quote!( extern crate #ident as _parity_scale_codec; )
 			},
@@ -51,8 +54,9 @@ fn include_parity_scale_codec_crate() -> proc_macro2::TokenStream {
 }
 
 /// Wraps the impl block in a "dummy const"
-fn wrap_with_dummy_const(impl_block: proc_macro2::TokenStream) -> proc_macro::TokenStream {
+fn wrap_with_dummy_const(input: DeriveInput, impl_block: proc_macro2::TokenStream) -> proc_macro::TokenStream {
 	let parity_codec_crate = include_parity_scale_codec_crate();
+	let attrs = input.attrs.into_iter().filter(is_lint_attribute);
 
 	let generated = quote! {
 		const _: () = {
@@ -60,6 +64,7 @@ fn wrap_with_dummy_const(impl_block: proc_macro2::TokenStream) -> proc_macro::To
 			#[cfg_attr(feature = "cargo-clippy", allow(useless_attribute))]
 			#[allow(rust_2018_idioms)]
 			#parity_codec_crate
+			#(#attrs)*
 			#impl_block
 		};
 	};
@@ -169,7 +174,7 @@ pub fn encode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 		impl #impl_generics _parity_scale_codec::EncodeLike for #name #ty_generics #where_clause {}
 	};
 
-	wrap_with_dummy_const(impl_block)
+	wrap_with_dummy_const(input, impl_block)
 }
 
 /// Derive `parity_scale_codec::Decode` and for struct and enum.
@@ -210,13 +215,13 @@ pub fn decode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 		impl #impl_generics _parity_scale_codec::Decode for #name #ty_generics #where_clause {
 			fn decode<__CodecInputEdqy: _parity_scale_codec::Input>(
 				#input_: &mut __CodecInputEdqy
-			) -> core::result::Result<Self, _parity_scale_codec::Error> {
+			) -> ::core::result::Result<Self, _parity_scale_codec::Error> {
 				#decoding
 			}
 		}
 	};
 
-	wrap_with_dummy_const(impl_block)
+	wrap_with_dummy_const(input, impl_block)
 }
 
 /// Derive `parity_scale_codec::Compact` and `parity_scale_codec::CompactAs` for struct with single
@@ -312,9 +317,9 @@ pub fn compact_as_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStr
 				#inner_field
 			}
 			fn decode_from(x: #inner_ty)
-				-> core::result::Result<#name #ty_generics, _parity_scale_codec::Error>
+				-> ::core::result::Result<#name #ty_generics, _parity_scale_codec::Error>
 			{
-				Ok(#constructor)
+				::core::result::Result::Ok(#constructor)
 			}
 		}
 
@@ -327,7 +332,7 @@ pub fn compact_as_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStr
 		}
 	};
 
-	wrap_with_dummy_const(impl_block)
+	wrap_with_dummy_const(input, impl_block)
 }
 
 /// Derive `MaxEncodedLen`.
