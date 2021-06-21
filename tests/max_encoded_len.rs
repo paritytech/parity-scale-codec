@@ -1,5 +1,3 @@
-// This file is part of Substrate.
-
 // Copyright (C) 2020-2021 Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
