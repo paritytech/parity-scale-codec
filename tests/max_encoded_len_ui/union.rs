@@ -1,4 +1,4 @@
-use parity_scale_codec::{MaxEncodedLen, Encode};
+use parity_scale_codec::{Encode, MaxEncodedLen};
 
 #[derive(Encode, MaxEncodedLen)]
 union Union {

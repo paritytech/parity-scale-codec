@@ -1,0 +1,18 @@
+error: expected exactly 1 item
+ --> $DIR/two_path_list_items.rs:4:3
+  |
+4 | #[max_encoded_len_mod(max_encoded_len, parity_scale_codec::max_encoded_len)]
+  |   ^^^^^^^^^^^^^^^^^^^
+
+error[E0599]: no function or associated item named `max_encoded_len` found for struct `Example` in the current scope
+ --> $DIR/two_path_list_items.rs:8:19
+  |
+5 | struct Example;
+  | --------------- function or associated item `max_encoded_len` not found for this
+...
+8 |     let _ = Example::max_encoded_len();
+  |                      ^^^^^^^^^^^^^^^ function or associated item not found in `Example`
+  |
+  = help: items from traits can only be used if the trait is implemented and in scope
+  = note: the following trait defines an item `max_encoded_len`, perhaps you need to implement it:
+          candidate #1: `MaxEncodedLen`

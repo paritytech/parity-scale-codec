@@ -13,9 +13,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use proc_macro_crate::{crate_name, FoundCrate};
+use proc_macro2::{Span, Ident};
 use quote::{quote, quote_spanned};
 use syn::{
-	Data, DeriveInput, Fields, GenericParam, Generics, TraitBound, Type, TypeParamBound,
+	Data, DeriveInput, Error, Fields, GenericParam, Generics, Meta, TraitBound, Type, TypeParamBound,
 	parse_quote, spanned::Spanned,
 };
 
@@ -26,8 +28,10 @@ pub fn derive_max_encoded_len(input: proc_macro::TokenStream) -> proc_macro::Tok
 		Err(e) => return e.to_compile_error().into(),
 	};
 
-	let crate_import = crate::include_parity_scale_codec_crate();
-	let mel_trait: TraitBound = parse_quote!(_parity_scale_codec::MaxEncodedLen);
+	let mel_trait = match max_encoded_len_trait(&input) {
+		Ok(mel_trait) => mel_trait,
+		Err(e) => return e.to_compile_error().into(),
+	};
 
 	let name = &input.ident;
 	let generics = add_trait_bounds(input.generics, mel_trait.clone());
@@ -37,7 +41,6 @@ pub fn derive_max_encoded_len(input: proc_macro::TokenStream) -> proc_macro::Tok
 
 	quote::quote!(
 		const _: () = {
-			#crate_import
 			impl #impl_generics #mel_trait for #name #ty_generics #where_clause {
 				fn max_encoded_len() -> usize {
 					#data_expr
@@ -46,6 +49,82 @@ pub fn derive_max_encoded_len(input: proc_macro::TokenStream) -> proc_macro::Tok
 		};
 	)
 	.into()
+}
+
+fn max_encoded_len_trait(input: &DeriveInput) -> syn::Result<TraitBound> {
+	let mel = {
+		const EXPECT_LIST: &str = "expect: #[max_encoded_len_mod(path::to::crate)]";
+		const EXPECT_PATH: &str = "expect: path::to::crate";
+
+		macro_rules! return_err {
+			($wrong_style:expr, $err:expr) => {
+				return Err(Error::new($wrong_style.span(), $err))
+			};
+		}
+
+		let mut mel_crates = Vec::with_capacity(2);
+		mel_crates.extend(input
+			.attrs
+			.iter()
+			.filter(|attr| attr.path == parse_quote!(max_encoded_len_mod))
+			.take(2)
+			.map(|attr| {
+				let meta_list = match attr.parse_meta()? {
+					Meta::List(meta_list) => meta_list,
+					Meta::Path(wrong_style) => return_err!(wrong_style, EXPECT_LIST),
+					Meta::NameValue(wrong_style) => return_err!(wrong_style, EXPECT_LIST),
+				};
+				if meta_list.nested.len() != 1 {
+					return_err!(meta_list, "expected exactly 1 item");
+				}
+				let first_nested =
+					meta_list.nested.into_iter().next().expect("length checked above");
+				let meta = match first_nested {
+					syn::NestedMeta::Lit(l) => {
+						return_err!(l, "expected a path item, not a literal")
+					}
+					syn::NestedMeta::Meta(meta) => meta,
+				};
+				let path = match meta {
+					Meta::Path(path) => path,
+					Meta::List(ref wrong_style) => return_err!(wrong_style, EXPECT_PATH),
+					Meta::NameValue(ref wrong_style) => return_err!(wrong_style, EXPECT_PATH),
+				};
+				Ok(path)
+			})
+			.collect::<Result<Vec<_>, _>>()?);
+
+		// we have to return `Result<Ident, Error>` here in order to satisfy the trait
+		// bounds for `.or_else` for `generate_crate_access_2018`, even though `Option<Ident>`
+		// would be more natural in this circumstance.
+		match mel_crates.len() {
+			0 => Err(Error::new(
+				input.span(),
+				"this error is spurious and swallowed by the or_else below",
+			)),
+			1 => Ok(mel_crates.into_iter().next().expect("length is checked")),
+			_ => return_err!(mel_crates[1], "duplicate max_encoded_len_mod definition"),
+		}
+	}
+	.or_else(|_| crate_access().map(|ident| ident.into()))?;
+	Ok(parse_quote!(#mel::MaxEncodedLen))
+}
+
+/// Generate the crate access for the crate using 2018 syntax.
+fn crate_access() -> Result<syn::Ident, Error> {
+	const DEF_CRATE: &str = "parity-scale-codec";
+	match crate_name(DEF_CRATE) {
+		Ok(FoundCrate::Itself) => {
+			let name = DEF_CRATE.to_string().replace("-", "_");
+			Ok(syn::Ident::new(&name, Span::call_site()))
+		},
+		Ok(FoundCrate::Name(name)) => {
+			Ok(Ident::new(&name, Span::call_site()))
+		},
+		Err(e) => {
+			Err(Error::new(Span::call_site(), e))
+		}
+	}
 }
 
 // Add a bound `T: MaxEncodedLen` to every type parameter T.

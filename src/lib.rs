@@ -291,9 +291,15 @@ pub use self::depth_limit::DecodeLimit;
 pub use self::encode_append::EncodeAppend;
 pub use self::encode_like::{EncodeLike, Ref};
 pub use max_encoded_len::MaxEncodedLen;
-/// Derive [`MaxEncodedLen`][max_encoded_len::MaxEncodedLen].
+/// Derive macro for [`MaxEncodedLen`][max_encoded_len::MaxEncodedLen].
 ///
 /// # Examples
+///
+/// ```
+/// # use parity_scale_codec::{Encode, MaxEncodedLen};
+/// #[derive(Encode, MaxEncodedLen)]
+/// struct Example;
+/// ```
 ///
 /// ```
 /// # use parity_scale_codec::{Encode, MaxEncodedLen};
@@ -313,6 +319,20 @@ pub use max_encoded_len::MaxEncodedLen;
 ///
 /// assert_eq!(GenericEnum::<u8>::max_encoded_len(), u8::max_encoded_len() + u8::max_encoded_len());
 /// assert_eq!(GenericEnum::<u128>::max_encoded_len(), u8::max_encoded_len() + u128::max_encoded_len());
+/// ```
+///
+/// # Within other macros
+///
+/// Sometimes the `MaxEncodedLen` trait and macro are used within another macro, and it can't be
+/// guaranteed that the `max_encoded_len` module is available at the call site. In that case, the
+/// macro should reexport the `max_encoded_len` module and specify the path to the reexport:
+///
+/// ```ignore
+/// pub use parity_scale_codec::max_encoded_len;
+///
+/// #[derive(Encode, MaxEncodedLen)]
+/// #[max_encoded_len_mod($crate::max_encoded_len)]
+/// struct Example;
 /// ```
 #[cfg(feature = "derive")]
 pub use parity_scale_codec_derive::MaxEncodedLen;
