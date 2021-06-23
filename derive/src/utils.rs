@@ -150,7 +150,6 @@ fn codec_crate_path_lit(attr: &Attribute) -> Option<Lit> {
 }
 
 /// Match `#[codec(crate = "...")]` and return the contents as a `Path`
-
 pub fn codec_crate_path(attrs: &[Attribute]) -> syn::Result<Path> {
 	match attrs.iter().find_map(codec_crate_path_lit) {
 		Some(Lit::Str(lit_str)) => lit_str.parse::<Path>(),
