@@ -1,0 +1,19 @@
+error: Invalid attribute: only `#[codec(dumb_trait_bound)]`, `#[codec(encode_bound(T: Encode))]`, `#[codec(crate = "path::to::crate")]`, or `#[codec(decode_bound(T: Decode))]` are accepted as top attribute
+ --> $DIR/path_list_item.rs:4:9
+  |
+4 | #[codec(frame_support::max_encoded_len)]
+  |         ^^^^^^^^^^^^^
+
+error[E0277]: the trait bound `Example: WrapperTypeEncode` is not satisfied
+  --> $DIR/path_list_item.rs:3:18
+   |
+3  | #[derive(Encode, MaxEncodedLen)]
+   |                  ^^^^^^^^^^^^^ the trait `WrapperTypeEncode` is not implemented for `Example`
+   |
+  ::: $WORKSPACE/src/max_encoded_len.rs
+   |
+   | pub trait MaxEncodedLen: Encode {
+   |                          ------ required by this bound in `MaxEncodedLen`
+   |
+   = note: required because of the requirements on the impl of `Encode` for `Example`
+   = note: this error originates in a derive macro (in Nightly builds, run with -Z macro-backtrace for more info)

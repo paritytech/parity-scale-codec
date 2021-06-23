@@ -19,11 +19,13 @@
 
 use std::str::FromStr;
 
-use proc_macro2::TokenStream;
+use proc_macro_crate::{crate_name, FoundCrate};
+use proc_macro2::{Span, Ident, TokenStream};
+use quote::quote;
 use syn::{
-	spanned::Spanned,
-	Meta, NestedMeta, Lit, Attribute, Variant, Field, DeriveInput, Fields, Data, FieldsUnnamed,
-	FieldsNamed, MetaNameValue, punctuated::Punctuated, token, parse::Parse,
+	Attribute, Data, DeriveInput, Error, Field, Fields, FieldsNamed, FieldsUnnamed, Lit, Meta,
+	MetaNameValue, NestedMeta, parse::Parse, Path, punctuated::Punctuated,
+	spanned::Spanned, token, Variant,
 };
 
 fn find_meta_item<'a, F, R, I, M>(mut itr: I, mut pred: F) -> Option<R> where
@@ -119,6 +121,48 @@ pub fn has_dumb_trait_bound(attrs: &[Attribute]) -> bool {
 	}).is_some()
 }
 
+/// Generate the crate access for the crate using 2018 syntax.
+fn crate_access() -> syn::Result<Ident> {
+	const DEF_CRATE: &str = "parity-scale-codec";
+	match crate_name(DEF_CRATE) {
+		Ok(FoundCrate::Itself) => {
+			let name = DEF_CRATE.to_string().replace("-", "_");
+			Ok(syn::Ident::new(&name, Span::call_site()))
+		}
+		Ok(FoundCrate::Name(name)) => Ok(Ident::new(&name, Span::call_site())),
+		Err(e) => Err(Error::new(Span::call_site(), e)),
+	}
+}
+
+/// Match `#[codec(crate = ...)]` and return the `...`
+fn codec_crate_path_lit(attr: &Attribute) -> Option<Lit> {
+	// match `#[codec ...]`
+	if !attr.path.is_ident("codec") {
+		return None;
+	};
+	// match `#[codec(crate = ...)]` and return the `...`
+	match attr.parse_meta() {
+		Ok(Meta::NameValue(MetaNameValue { path, lit, .. })) if path.is_ident("crate") => {
+			Some(lit)
+		}
+		_ => None,
+	}
+}
+
+/// Match `#[codec(crate = "...")]` and return the contents as a `Path`
+pub fn codec_crate_path(attrs: &[Attribute]) -> syn::Result<Path> {
+	match attrs.iter().find_map(codec_crate_path_lit) {
+		Some(Lit::Str(lit_str)) => lit_str.parse::<Path>(),
+		Some(lit) => {
+			Err(Error::new(
+				lit.span(),
+				"Expected format: #[codec(crate = \"path::to::codec\")]",
+			))
+		}
+		None => crate_access().map(|ident| ident.into()),
+	}
+}
+
 /// Trait bounds.
 pub type TraitBounds = Punctuated<syn::WherePredicate, token::Comma>;
 
@@ -179,12 +223,20 @@ pub fn filter_skip_unnamed<'a>(fields: &'a syn::FieldsUnnamed) -> impl Iterator<
 /// Ensure attributes are correctly applied. This *must* be called before using
 /// any of the attribute finder methods or the macro may panic if it encounters
 /// misapplied attributes.
-/// `#[codec(dumb_trait_bound)]` is the only accepted top attribute.
+///
+/// The top level can have the following attributes:
+///
+/// * `#[codec(dumb_trait_bound)]`
+/// * `#[codec(crate = "path::to::crate")]
+///
 /// Fields can have the following attributes:
+///
 /// * `#[codec(skip)]`
 /// * `#[codec(compact)]`
 /// * `#[codec(encoded_as = "$EncodeAs")]` with $EncodedAs a valid TokenStream
+///
 /// Variants can have the following attributes:
+///
 /// * `#[codec(skip)]`
 /// * `#[codec(index = $int)]`
 pub fn check_attributes(input: &DeriveInput) -> syn::Result<()> {
@@ -293,26 +345,24 @@ fn check_variant_attribute(attr: &Attribute) -> syn::Result<()> {
 
 // Only `#[codec(dumb_trait_bound)]` is accepted as top attribute
 fn check_top_attribute(attr: &Attribute) -> syn::Result<()> {
-	let top_error =
-		"Invalid attribute only `#[codec(dumb_trait_bound)]`, `#[codec(encode_bound(T: Encode))]` or \
+	let top_error = "Invalid attribute: only `#[codec(dumb_trait_bound)]`, \
+		`#[codec(encode_bound(T: Encode))]`, `#[codec(crate = \"path::to::crate\")]`, or \
 		`#[codec(decode_bound(T: Decode))]` are accepted as top attribute";
-	if attr.path.is_ident("codec") {
-		if attr.parse_args::<CustomTraitBound<encode_bound>>().is_ok() {
-			return Ok(())
-		} else if attr.parse_args::<CustomTraitBound<decode_bound>>().is_ok() {
-			return Ok(())
-		} else {
-			match attr.parse_meta()? {
-				Meta::List(ref meta_list) if meta_list.nested.len() == 1 => {
-					match meta_list.nested.first().expect("Just checked that there is one item; qed") {
+	if attr.path.is_ident("codec")
+		&& attr.parse_args::<CustomTraitBound<encode_bound>>().is_err()
+		&& attr.parse_args::<CustomTraitBound<decode_bound>>().is_err()
+		&& codec_crate_path_lit(attr).is_none()
+	{
+		match attr.parse_meta()? {
+			Meta::List(ref meta_list) if meta_list.nested.len() == 1 => {
+				match meta_list.nested.first().expect("Just checked that there is one item; qed") {
 						NestedMeta::Meta(Meta::Path(path))
 							if path.get_ident().map_or(false, |i| i == "dumb_trait_bound") => Ok(()),
 
 						elt @ _ => Err(syn::Error::new(elt.span(), top_error)),
 					}
-				},
-				_ => Err(syn::Error::new(attr.span(), top_error)),
 			}
+			_ => Err(syn::Error::new(attr.span(), top_error)),
 		}
 	} else {
 		Ok(())
