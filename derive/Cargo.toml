@@ -16,4 +16,4 @@ proc-macro2 = "1.0.6"
 proc-macro-crate = "1.0.0"
 
 [dev-dependencies]
-parity-scale-codec = { path = "..", version = "2.2.0-rc.1" }
+parity-scale-codec = { path = ".." }
