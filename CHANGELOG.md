@@ -10,6 +10,9 @@ and this crate adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 
 ### Added
 - `MaxEncodedLen` trait for items that have a statically known maximum encoded size. ([#268](https://github.com/paritytech/parity-scale-codec/pull/268))
+- `#[codec(crate = <path>)]` top-level attribute to be used with the new `MaxEncodedLen`
+trait, which allows to specify a different path to the crate that contains the `MaxEncodedLen` trait.
+Useful when using renamed dependencies, e.g. importing `parity_scale_codec` as `codec` for brevity.
 
 ## [2.1.3] - 2021-06-14
 
