@@ -137,12 +137,12 @@ fn crate_access() -> syn::Result<Ident> {
 /// Match `#[codec(crate = ...)]` and return the `...`
 fn codec_crate_path_lit(attr: &Attribute) -> Option<Lit> {
 	// match `#[codec ...]`
-	if attr.path != parse_quote!(codec) {
+	if !attr.path.is_ident("codec") {
 		return None;
 	};
 	// match `#[codec(crate = ...)]` and return the `...`
 	match attr.parse_meta() {
-		Ok(Meta::NameValue(MetaNameValue { path, lit, .. })) if path == parse_quote!(crate) => {
+		Ok(Meta::NameValue(MetaNameValue { path, lit, .. })) if path.is_ident("crate") => {
 			Some(lit)
 		}
 		_ => None,
