@@ -24,7 +24,7 @@ use proc_macro2::{Span, Ident, TokenStream};
 use quote::quote;
 use syn::{
 	Attribute, Data, DeriveInput, Error, Field, Fields, FieldsNamed, FieldsUnnamed, Lit, Meta,
-	MetaNameValue, NestedMeta, parse_quote, parse::Parse, Path, punctuated::Punctuated,
+	MetaNameValue, NestedMeta, parse::Parse, Path, punctuated::Punctuated,
 	spanned::Spanned, token, Variant,
 };
 
