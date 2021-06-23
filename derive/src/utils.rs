@@ -350,9 +350,9 @@ fn check_top_attribute(attr: &Attribute) -> syn::Result<()> {
 		`#[codec(encode_bound(T: Encode))]`, `#[codec(crate = \"path::to::crate\")]`, or \
 		`#[codec(decode_bound(T: Decode))]` are accepted as top attribute";
 	if attr.path.is_ident("codec")
-		&& !(attr.parse_args::<CustomTraitBound<encode_bound>>().is_ok()
-			|| attr.parse_args::<CustomTraitBound<decode_bound>>().is_ok()
-			|| codec_crate_path_lit(attr).is_some())
+		&& attr.parse_args::<CustomTraitBound<encode_bound>>().is_err()
+		&& attr.parse_args::<CustomTraitBound<decode_bound>>().is_err()
+		&& codec_crate_path_lit(attr).is_none()
 	{
 		match attr.parse_meta()? {
 			Meta::List(ref meta_list) if meta_list.nested.len() == 1 => {
