@@ -134,31 +134,46 @@ fn crate_access() -> syn::Result<Ident> {
 	}
 }
 
-/// Match `#[codec(crate = ...)]` and return the `...`
-fn codec_crate_path_lit(attr: &Attribute) -> Option<Lit> {
-	// match `#[codec ...]`
-	if !attr.path.is_ident("codec") {
-		return None;
-	};
-	// match `#[codec(crate = ...)]` and return the `...`
-	match attr.parse_meta() {
-		Ok(Meta::NameValue(MetaNameValue { path, lit, .. })) if path.is_ident("crate") => {
-			Some(lit)
-		}
-		_ => None,
-	}
+/// This struct matches `crate = ...` where the ellipsis is a `Path`.
+struct CratePath {
+	_crate_token: Token![crate],
+	_eq_token: Token![=],
+	path: Path,
 }
 
-/// Match `#[codec(crate = "...")]` and return the contents as a `Path`
+impl Parse for CratePath {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        Ok(CratePath {
+			_crate_token: input.parse()?,
+			_eq_token: input.parse()?,
+			path: input.parse()?,
+		})
+    }
+}
+
+impl From<CratePath> for Path {
+    fn from(CratePath { path, ..}: CratePath) -> Self {
+        path
+    }
+}
+
+/// Match `#[codec(crate = ...)]` and return the `...` if it is a `Path`.
+fn codec_crate_path_inner(attr: &Attribute) -> Option<Path> {
+	// match `#[codec ...]`
+	attr.path.is_ident("codec").then(move || {
+		// match `#[codec(crate = ...)]` and return the `...`
+		attr.parse_args::<CratePath>().map(Into::into).ok()
+	}).flatten()
+}
+
+/// Match `#[codec(crate = ...)]` and return the ellipsis as a `Path`.
+///
+/// If not found, returns the default crate access pattern.
+///
+/// If multiple items match the pattern, all but the first are ignored.
 pub fn codec_crate_path(attrs: &[Attribute]) -> syn::Result<Path> {
-	match attrs.iter().find_map(codec_crate_path_lit) {
-		Some(Lit::Str(lit_str)) => lit_str.parse::<Path>(),
-		Some(lit) => {
-			Err(Error::new(
-				lit.span(),
-				"Expected format: #[codec(crate = \"path::to::codec\")]",
-			))
-		}
+	match attrs.iter().find_map(codec_crate_path_inner) {
+		Some(path) => Ok(path),
 		None => crate_access().map(|ident| ident.into()),
 	}
 }
@@ -227,7 +242,7 @@ pub fn filter_skip_unnamed<'a>(fields: &'a syn::FieldsUnnamed) -> impl Iterator<
 /// The top level can have the following attributes:
 ///
 /// * `#[codec(dumb_trait_bound)]`
-/// * `#[codec(crate = "path::to::crate")]
+/// * `#[codec(crate = path::to::crate)]
 ///
 /// Fields can have the following attributes:
 ///
@@ -346,12 +361,12 @@ fn check_variant_attribute(attr: &Attribute) -> syn::Result<()> {
 // Only `#[codec(dumb_trait_bound)]` is accepted as top attribute
 fn check_top_attribute(attr: &Attribute) -> syn::Result<()> {
 	let top_error = "Invalid attribute: only `#[codec(dumb_trait_bound)]`, \
-		`#[codec(encode_bound(T: Encode))]`, `#[codec(crate = \"path::to::crate\")]`, or \
+		`#[codec(encode_bound(T: Encode))]`, `#[codec(crate = path::to::crate)]`, or \
 		`#[codec(decode_bound(T: Decode))]` are accepted as top attribute";
 	if attr.path.is_ident("codec")
 		&& attr.parse_args::<CustomTraitBound<encode_bound>>().is_err()
 		&& attr.parse_args::<CustomTraitBound<decode_bound>>().is_err()
-		&& codec_crate_path_lit(attr).is_none()
+		&& codec_crate_path_inner(attr).is_none()
 	{
 		match attr.parse_meta()? {
 			Meta::List(ref meta_list) if meta_list.nested.len() == 1 => {

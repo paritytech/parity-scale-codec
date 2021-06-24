@@ -1,7 +1,7 @@
 use parity_scale_codec::{Encode, MaxEncodedLen};
 
 #[derive(Encode, MaxEncodedLen)]
-#[codec(frame_support::max_encoded_len)]
+#[codec(crate = "parity_scale_codec")]
 struct Example;
 
 fn main() {

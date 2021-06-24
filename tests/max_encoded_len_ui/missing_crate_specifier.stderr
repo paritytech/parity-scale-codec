@@ -1,11 +1,11 @@
-error: Invalid attribute: only `#[codec(dumb_trait_bound)]`, `#[codec(encode_bound(T: Encode))]`, `#[codec(crate = "path::to::crate")]`, or `#[codec(decode_bound(T: Decode))]` are accepted as top attribute
- --> $DIR/path_list_item.rs:4:9
+error: Invalid attribute: only `#[codec(dumb_trait_bound)]`, `#[codec(encode_bound(T: Encode))]`, `#[codec(crate = path::to::crate)]`, or `#[codec(decode_bound(T: Decode))]` are accepted as top attribute
+ --> $DIR/missing_crate_specifier.rs:4:9
   |
-4 | #[codec(frame_support::max_encoded_len)]
-  |         ^^^^^^^^^^^^^
+4 | #[codec(parity_scale_codec)]
+  |         ^^^^^^^^^^^^^^^^^^
 
 error[E0277]: the trait bound `Example: WrapperTypeEncode` is not satisfied
-  --> $DIR/path_list_item.rs:3:18
+  --> $DIR/missing_crate_specifier.rs:3:18
    |
 3  | #[derive(Encode, MaxEncodedLen)]
    |                  ^^^^^^^^^^^^^ the trait `WrapperTypeEncode` is not implemented for `Example`

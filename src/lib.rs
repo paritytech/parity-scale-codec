@@ -38,7 +38,7 @@
 //! The `Encode` trait is used for encoding of data into the SCALE format. The `Encode` trait
 //! contains the following functions:
 
-//! 
+//!
 //! * `size_hint(&self) -> usize`: Gets the capacity (in bytes) required for the encoded data.
 //! This is to avoid double-allocation of memory needed for the encoding.
 //! It can be an estimate and does not need to be an exact number.
@@ -331,14 +331,14 @@ pub use max_encoded_len::MaxEncodedLen;
 /// # Within other macros
 ///
 /// Sometimes the `MaxEncodedLen` trait and macro are used within another macro, and it can't be
-/// guaranteed that the `max_encoded_len` module is available at the call site. In that case, the
-/// macro should reexport the `max_encoded_len` module and specify the path to the reexport:
+/// guaranteed that the `parity_scale_codec` module is available at the call site. In that case, the
+/// macro should reexport the `parity_scale_codec` module and specify the path to the reexport:
 ///
 /// ```ignore
-/// pub use parity_scale_codec::max_encoded_len;
+/// pub use parity_scale_codec as codec;
 ///
 /// #[derive(Encode, MaxEncodedLen)]
-/// #[codec(crate = "$crate::max_encoded_len")]
+/// #[codec(crate = $crate::codec)]
 /// struct Example;
 /// ```
 #[cfg(feature = "derive")]
