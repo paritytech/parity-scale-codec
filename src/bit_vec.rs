@@ -17,15 +17,18 @@
 use bitvec::{
 	vec::BitVec, store::BitStore, order::BitOrder, slice::BitSlice, boxed::BitBox, mem::BitMemory
 };
-use crate::codec::{
-	Encode, Decode, Input, Output, Error, decode_vec_with_len, encode_slice_no_len,
-	skip_vec_with_len,
+use crate::{
+	codec::{
+		Decode, Encode, Input, Output,
+		decode_vec_with_len, encode_slice_no_len, skip_vec_with_len,
+	},
+	compact::Compact,
+	EncodeLike,
+	Error,
 };
-use crate::compact::Compact;
-use crate::EncodeLike;
 
 impl<O: BitOrder, T: BitStore + Encode> Encode for BitSlice<O, T> {
-	fn encode_to<W: Output>(&self, dest: &mut W) {
+	fn encode_to<W: Output + ?Sized>(&self, dest: &mut W) {
 		let len = self.len();
 		assert!(
 			len <= u32::max_value() as usize,
@@ -44,7 +47,7 @@ impl<O: BitOrder, T: BitStore + Encode> Encode for BitSlice<O, T> {
 }
 
 impl<O: BitOrder, T: BitStore + Encode> Encode for BitVec<O, T> {
-	fn encode_to<W: Output>(&self, dest: &mut W) {
+	fn encode_to<W: Output + ?Sized>(&self, dest: &mut W) {
 		self.as_bitslice().encode_to(dest)
 	}
 }
@@ -90,7 +93,7 @@ impl<O: BitOrder, T: BitStore + Decode> Decode for BitVec<O, T> {
 }
 
 impl<O: BitOrder, T: BitStore + Encode> Encode for BitBox<O, T> {
-	fn encode_to<W: Output>(&self, dest: &mut W) {
+	fn encode_to<W: Output + ?Sized>(&self, dest: &mut W) {
 		self.as_bitslice().encode_to(dest)
 	}
 }

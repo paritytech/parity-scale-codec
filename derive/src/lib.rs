@@ -1,4 +1,4 @@
-// Copyright 2017-2018 Parity Technologies
+// Copyright 2017-2021 Parity Technologies
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,13 +24,16 @@ extern crate syn;
 extern crate quote;
 
 use proc_macro2::{Ident, Span};
-use proc_macro_crate::crate_name;
+use proc_macro_crate::{crate_name, FoundCrate};
 use syn::spanned::Spanned;
 use syn::{Data, Field, Fields, DeriveInput, Error};
+
+use crate::utils::is_lint_attribute;
 
 mod decode;
 mod skip;
 mod encode;
+mod max_encoded_len;
 mod utils;
 mod trait_bounds;
 
@@ -41,7 +44,8 @@ fn include_parity_scale_codec_crate() -> proc_macro2::TokenStream {
 		quote!( extern crate parity_scale_codec as _parity_scale_codec; )
 	} else {
 		match crate_name("parity-scale-codec") {
-			Ok(parity_codec_crate) => {
+			Ok(FoundCrate::Itself) => quote!( extern crate parity_scale_codec as _parity_scale_codec; ),
+			Ok(FoundCrate::Name(parity_codec_crate)) => {
 				let ident = Ident::new(&parity_codec_crate, Span::call_site());
 				quote!( extern crate #ident as _parity_scale_codec; )
 			},
@@ -51,8 +55,9 @@ fn include_parity_scale_codec_crate() -> proc_macro2::TokenStream {
 }
 
 /// Wraps the impl block in a "dummy const"
-fn wrap_with_dummy_const(impl_block: proc_macro2::TokenStream) -> proc_macro::TokenStream {
+fn wrap_with_dummy_const(input: DeriveInput, impl_block: proc_macro2::TokenStream) -> proc_macro::TokenStream {
 	let parity_codec_crate = include_parity_scale_codec_crate();
+	let attrs = input.attrs.into_iter().filter(is_lint_attribute);
 
 	let generated = quote! {
 		const _: () = {
@@ -60,6 +65,7 @@ fn wrap_with_dummy_const(impl_block: proc_macro2::TokenStream) -> proc_macro::To
 			#[cfg_attr(feature = "cargo-clippy", allow(useless_attribute))]
 			#[allow(rust_2018_idioms)]
 			#parity_codec_crate
+			#(#attrs)*
 			#impl_block
 		};
 	};
@@ -81,6 +87,8 @@ fn wrap_with_dummy_const(impl_block: proc_macro2::TokenStream) -> proc_macro::To
 ///   type must implement `parity_scale_codec::EncodeAsRef<'_, $FieldType>` with $FieldType the
 ///   type of the field with the attribute. This is intended to be used for types implementing
 ///   `HasCompact` as shown in the example.
+/// * `#[codec(encode_bound(T: Encode))]`: a custom where bound that will be used when deriving the `Encode` trait.
+/// * `#[codec(decode_bound(T: Encode))]`: a custom where bound that will be used when deriving the `Decode` trait.
 ///
 /// ```
 /// # use parity_scale_codec_derive::Encode;
@@ -90,7 +98,7 @@ fn wrap_with_dummy_const(impl_block: proc_macro2::TokenStream) -> proc_macro::To
 ///		#[codec(skip)]
 ///		a: u32,
 ///		#[codec(compact)]
-/// 	b: u32,
+///		b: u32,
 ///		#[codec(encoded_as = "<u32 as HasCompact>::Type")]
 ///		c: u32,
 /// }
@@ -141,7 +149,9 @@ pub fn encode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 		return e.to_compile_error().into();
 	}
 
-	if let Err(e) = trait_bounds::add(
+	if let Some(custom_bound) = utils::custom_encode_trait_bound(&input.attrs) {
+		input.generics.make_where_clause().predicates.extend(custom_bound);
+	} else if let Err(e) = trait_bounds::add(
 		&input.ident,
 		&mut input.generics,
 		&input.data,
@@ -165,7 +175,7 @@ pub fn encode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 		impl #impl_generics _parity_scale_codec::EncodeLike for #name #ty_generics #where_clause {}
 	};
 
-	wrap_with_dummy_const(impl_block)
+	wrap_with_dummy_const(input, impl_block)
 }
 
 /// Derive `parity_scale_codec::Decode` and for struct and enum.
@@ -182,7 +192,9 @@ pub fn decode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 		return e.to_compile_error().into();
 	}
 
-	if let Err(e) = trait_bounds::add(
+	if let Some(custom_bound) = utils::custom_decode_trait_bound(&input.attrs) {
+		input.generics.make_where_clause().predicates.extend(custom_bound);
+	} else if let Err(e) = trait_bounds::add(
 		&input.ident,
 		&mut input.generics,
 		&input.data,
@@ -195,9 +207,10 @@ pub fn decode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 
 	let name = &input.ident;
 	let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
+	let ty_gen_turbofish = ty_generics.as_turbofish();
 
 	let input_ = quote!(__codec_input_edqy);
-	let decode_impl = decode::quote(&input.data, name, &input_);
+	let decode_impl = decode::quote(&input.data, name, &quote!(#ty_gen_turbofish), &input_);
 	let skip_impl = skip::quote(&input.data, name, &input_);
 
 	let impl_block = quote! {
@@ -216,7 +229,7 @@ pub fn decode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 		}
 	};
 
-	wrap_with_dummy_const(impl_block)
+	wrap_with_dummy_const(input, impl_block)
 }
 
 /// Derive `parity_scale_codec::Compact` and `parity_scale_codec::CompactAs` for struct with single
@@ -312,9 +325,9 @@ pub fn compact_as_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStr
 				#inner_field
 			}
 			fn decode_from(x: #inner_ty)
-				-> core::result::Result<#name #ty_generics, _parity_scale_codec::Error>
+				-> ::core::result::Result<#name #ty_generics, _parity_scale_codec::Error>
 			{
-				Ok(#constructor)
+				::core::result::Result::Ok(#constructor)
 			}
 		}
 
@@ -327,5 +340,11 @@ pub fn compact_as_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStr
 		}
 	};
 
-	wrap_with_dummy_const(impl_block)
+	wrap_with_dummy_const(input, impl_block)
+}
+
+/// Derive `MaxEncodedLen`.
+#[proc_macro_derive(MaxEncodedLen, attributes(max_encoded_len_mod))]
+pub fn derive_max_encoded_len(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+	max_encoded_len::derive_max_encoded_len(input)
 }

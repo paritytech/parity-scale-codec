@@ -15,8 +15,8 @@ pub struct MockStruct{
 #[derive(Encode, Decode, Clone, PartialEq, Debug)]
 pub struct BitVecWrapper<O: BitOrder, T: BitStore>(BitVec<O, T>);
 
-impl<O: 'static + BitOrder, T: 'static + BitStore + Arbitrary> Arbitrary for BitVecWrapper<O, T> {
-	fn arbitrary(u: &mut Unstructured<'_>) -> ArbResult<Self> {
+impl<'a, O: 'static + BitOrder, T: 'static + BitStore + Arbitrary<'a>> Arbitrary<'a> for BitVecWrapper<O, T> {
+	fn arbitrary(u: &mut Unstructured<'a>) -> ArbResult<Self> {
 		let v = Vec::<T>::arbitrary(u)?;
 		Ok(BitVecWrapper(BitVec::<O, T>::from_vec(v)))
 	}

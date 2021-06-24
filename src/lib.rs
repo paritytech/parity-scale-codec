@@ -1,4 +1,4 @@
-// Copyright 2017, 2018 Parity Technologies
+// Copyright 2017-2021 Parity Technologies
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,8 +21,8 @@
 //! suitable for resource-constrained execution environments like blockchain runtimes and low-power,
 //! low-memory devices.
 //!
-//! It is important to note that the encoding context (knowledge of how the types and data structures look)
-//! needs to be known separately at both encoding and decoding ends.
+//! It is important to note that the encoding context (knowledge of how the types and data
+//! structures look) needs to be known separately at both encoding and decoding ends.
 //! The encoded data does not include this contextual information.
 //!
 //! To get a better understanding of how the encoding is done for different types,
@@ -35,46 +35,55 @@
 //!
 //! ### Encode
 //!
-//! The `Encode` trait is used for encoding of data into the SCALE format. The `Encode` trait contains the following functions:
+//! The `Encode` trait is used for encoding of data into the SCALE format. The `Encode` trait
+//! contains the following functions:
 
+//!
 //! * `size_hint(&self) -> usize`: Gets the capacity (in bytes) required for the encoded data.
 //! This is to avoid double-allocation of memory needed for the encoding.
 //! It can be an estimate and does not need to be an exact number.
-//! If the size is not known, even no good maximum, then we can skip this function from the trait implementation.
-//! This is required to be a cheap operation, so should not involve iterations etc.
-//! * `encode_to<T: Output>(&self, dest: &mut T)`: Encodes the value and appends it to a destination buffer.
+//! If the size is not known, even no good maximum, then we can skip this function from the trait
+//! implementation. This is required to be a cheap operation, so should not involve iterations etc.
+//! * `encode_to<T: Output>(&self, dest: &mut T)`: Encodes the value and appends it to a destination
+//!   buffer.
 //! * `encode(&self) -> Vec<u8>`: Encodes the type data and returns a slice.
-//! * `using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R`: Encodes the type data and executes a closure on the encoded value.
+//! * `using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R`: Encodes the type data and
+//!   executes a closure on the encoded value.
 //! Returns the result from the executed closure.
 //!
-//! **Note:** Implementations should override `using_encoded` for value types and `encode_to` for allocating types.
-//! `size_hint` should be implemented for all types, wherever possible. Wrapper types should override all methods.
+//! **Note:** Implementations should override `using_encoded` for value types and `encode_to` for
+//! allocating types. `size_hint` should be implemented for all types, wherever possible. Wrapper
+//! types should override all methods.
 //!
 //! ### Decode
 //!
-//! The `Decode` trait is used for deserialization/decoding of encoded data into the respective types.
+//! The `Decode` trait is used for deserialization/decoding of encoded data into the respective
+//! types.
 //!
-//! * `fn decode<I: Input>(value: &mut I) -> Result<Self, Error>`: Tries to decode the value from SCALE format to the type it is called on.
+//! * `fn decode<I: Input>(value: &mut I) -> Result<Self, Error>`: Tries to decode the value from
+//!   SCALE format to the type it is called on.
 //! Returns an `Err` if the decoding fails.
 //!
 //! ### CompactAs
 //!
-//! The `CompactAs` trait is used for wrapping custom types/structs as compact types, which makes them even more space/memory efficient.
-//! The compact encoding is described [here](https://substrate.dev/docs/en/knowledgebase/advanced/codec#compactgeneral-integers).
+//! The `CompactAs` trait is used for wrapping custom types/structs as compact types, which makes
+//! them even more space/memory efficient. The compact encoding is described [here](https://substrate.dev/docs/en/knowledgebase/advanced/codec#compactgeneral-integers).
 //!
 //! * `encode_as(&self) -> &Self::As`: Encodes the type (self) as a compact type.
 //! The type `As` is defined in the same trait and its implementation should be compact encode-able.
-//! * `decode_from(_: Self::As) -> Result<Self, Error>`: Decodes the type (self) from a compact encode-able type.
+//! * `decode_from(_: Self::As) -> Result<Self, Error>`: Decodes the type (self) from a compact
+//!   encode-able type.
 //!
 //! ### HasCompact
 //!
-//! The `HasCompact` trait, if implemented, tells that the corresponding type is a compact encode-able type.
+//! The `HasCompact` trait, if implemented, tells that the corresponding type is a compact
+//! encode-able type.
 //!
 //! ### EncodeLike
 //!
 //! The `EncodeLike` trait needs to be implemented for each type manually. When using derive, it is
-//! done automatically for you. Basically the trait gives you the opportunity to accept multiple types
-//! to a function that all encode to the same representation.
+//! done automatically for you. Basically the trait gives you the opportunity to accept multiple
+//! types to a function that all encode to the same representation.
 //!
 //! ## Usage Examples
 //!
@@ -212,24 +221,22 @@
 //! ## Derive attributes
 //!
 //! The derive implementation supports the following attributes:
-//! - `codec(dumb_trait_bound)`: This attribute needs to be placed above the type that one of the trait
-//!   should be implemented for. It will make the algorithm that determines the to-add trait bounds
-//!   fall back to just use the type parameters of the type. This can be useful for situation where
-//!   the algorithm includes private types in the public interface. By using this attribute, you should
-//!   not get this error/warning again.
+//! - `codec(dumb_trait_bound)`: This attribute needs to be placed above the type that one of the
+//!   trait should be implemented for. It will make the algorithm that determines the to-add trait
+//!   bounds fall back to just use the type parameters of the type. This can be useful for situation
+//!   where the algorithm includes private types in the public interface. By using this attribute,
+//!   you should not get this error/warning again.
 //! - `codec(skip)`: Needs to be placed above a field  or variant and makes it to be skipped while
 //!   encoding/decoding.
 //! - `codec(compact)`: Needs to be placed above a field and makes the field use compact encoding.
 //!   (The type needs to support compact encoding.)
-//! - `codec(encoded_as = "OtherType")`: Needs to be placed above a field and makes the field being encoded
-//!   by using `OtherType`.
+//! - `codec(encoded_as = "OtherType")`: Needs to be placed above a field and makes the field being
+//!   encoded by using `OtherType`.
 //! - `codec(index = 0)`: Needs to be placed above an enum variant to make the variant use the given
 //!   index when encoded. By default the index is determined by counting from `0` beginning wth the
 //!   first variant.
-//!
 
 #![warn(missing_docs)]
-
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[cfg(not(feature = "std"))]
@@ -273,9 +280,12 @@ mod decode_all;
 mod depth_limit;
 mod encode_append;
 mod encode_like;
+mod error;
+mod max_encoded_len;
 
+pub use self::error::Error;
 pub use self::codec::{
-	Input, Output, Error, Decode, Encode, Codec, EncodeAsRef, WrapperTypeEncode, WrapperTypeDecode,
+	Input, Output, Decode, Encode, Codec, EncodeAsRef, WrapperTypeEncode, WrapperTypeDecode,
 	OptionBool, DecodeLength, FullCodec, FullEncode,
 };
 #[cfg(feature = "std")]
@@ -287,6 +297,52 @@ pub use self::decode_all::DecodeAll;
 pub use self::depth_limit::DecodeLimit;
 pub use self::encode_append::EncodeAppend;
 pub use self::encode_like::{EncodeLike, Ref};
+pub use max_encoded_len::MaxEncodedLen;
+/// Derive macro for [`MaxEncodedLen`][max_encoded_len::MaxEncodedLen].
+///
+/// # Examples
+///
+/// ```
+/// # use parity_scale_codec::{Encode, MaxEncodedLen};
+/// #[derive(Encode, MaxEncodedLen)]
+/// struct Example;
+/// ```
+///
+/// ```
+/// # use parity_scale_codec::{Encode, MaxEncodedLen};
+/// #[derive(Encode, MaxEncodedLen)]
+/// struct TupleStruct(u8, u32);
+///
+/// assert_eq!(TupleStruct::max_encoded_len(), u8::max_encoded_len() + u32::max_encoded_len());
+/// ```
+///
+/// ```
+/// # use parity_scale_codec::{Encode, MaxEncodedLen};
+/// #[derive(Encode, MaxEncodedLen)]
+/// enum GenericEnum<T> {
+/// 	A,
+/// 	B(T),
+/// }
+///
+/// assert_eq!(GenericEnum::<u8>::max_encoded_len(), u8::max_encoded_len() + u8::max_encoded_len());
+/// assert_eq!(GenericEnum::<u128>::max_encoded_len(), u8::max_encoded_len() + u128::max_encoded_len());
+/// ```
+///
+/// # Within other macros
+///
+/// Sometimes the `MaxEncodedLen` trait and macro are used within another macro, and it can't be
+/// guaranteed that the `max_encoded_len` module is available at the call site. In that case, the
+/// macro should reexport the `max_encoded_len` module and specify the path to the reexport:
+///
+/// ```ignore
+/// pub use parity_scale_codec::max_encoded_len;
+///
+/// #[derive(Encode, MaxEncodedLen)]
+/// #[codec(crate = "$crate::max_encoded_len")]
+/// struct Example;
+/// ```
+#[cfg(feature = "derive")]
+pub use parity_scale_codec_derive::MaxEncodedLen;
 
 /// Assert Decode::decode and Decode::skip works
 ///

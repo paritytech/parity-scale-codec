@@ -15,7 +15,7 @@
 #[cfg(not(feature="derive"))]
 use parity_scale_codec_derive::{Encode, Decode};
 use parity_scale_codec::{
-	Encode, Decode, HasCompact, Compact, EncodeAsRef, CompactAs, Error, assert_decode
+	Encode, Decode, HasCompact, Compact, EncodeAsRef, CompactAs, Error, Output, assert_decode,
 };
 use serde_derive::{Serialize, Deserialize};
 
@@ -125,7 +125,7 @@ fn should_work_for_simple_enum() {
 	assert_decode(b"\x0f", a);
 	assert_decode(b"\x01\x01\0\0\0\x02\0\0\0\0\0\0\0", b);
 	assert_decode(b"\x02\x01\0\0\0\x02\0\0\0\0\0\0\0", c);
-	assert_eq!(EnumType::decode(&mut &[0][..]), Err("No such variant in enum EnumType".into()));
+	assert_eq!(EnumType::decode(&mut &[0][..]), Err("Could not decode `EnumType`, variant doesn't exist".into()));
 }
 
 #[test]
@@ -145,7 +145,7 @@ fn should_work_for_enum_with_discriminant() {
 	assert_decode(&[255], EnumWithDiscriminant::C);
 	assert_eq!(
 		EnumWithDiscriminant::decode(&mut &[2][..]),
-		Err("No such variant in enum EnumWithDiscriminant".into())
+		Err("Could not decode `EnumWithDiscriminant`, variant doesn't exist".into())
 	);
 }
 
@@ -189,35 +189,35 @@ fn should_work_for_indexed() {
 }
 
 #[test]
-#[should_panic(expected = "Error decoding field Indexed.0")]
+#[should_panic(expected = "Not enough data to fill buffer")]
 fn correct_error_for_indexed_0() {
 	let mut wrong: &[u8] = b"\x08";
 	Indexed::decode(&mut wrong).unwrap();
 }
 
 #[test]
-#[should_panic(expected = "Error decoding field Indexed.1")]
+#[should_panic(expected = "Not enough data to fill buffer")]
 fn correct_error_for_indexed_1() {
 	let mut wrong: &[u8] = b"\0\0\0\0\x01";
 	Indexed::decode(&mut wrong).unwrap();
 }
 
 #[test]
-#[should_panic(expected = "Error decoding field EnumType :: B.0")]
+#[should_panic(expected = "Not enough data to fill buffer")]
 fn correct_error_for_enumtype() {
 	let mut wrong: &[u8] = b"\x01";
 	EnumType::decode(&mut wrong).unwrap();
 }
 
 #[test]
-#[should_panic(expected = "Error decoding field Struct.a")]
+#[should_panic(expected = "Not enough data to fill buffer")]
 fn correct_error_for_named_struct_1() {
 	let mut wrong: &[u8] = b"\x01";
 	Struct::<u32, u32, u32>::decode(&mut wrong).unwrap();
 }
 
 #[test]
-#[should_panic(expected = "Error decoding field Struct.b")]
+#[should_panic(expected = "Not enough data to fill buffer")]
 fn correct_error_for_named_struct_2() {
 	let mut wrong: &[u8] = b"\0\0\0\0\x01";
 	Struct::<u32, u32, u32>::decode(&mut wrong).unwrap();
@@ -471,7 +471,7 @@ fn encode_decode_empty_enum() {
 
 	assert_eq!(
 		EmptyEnumDerive::decode(&mut &[1, 2, 3][..]),
-		Err("No such variant in enum EmptyEnumDerive".into())
+		Err("Could not decode `EmptyEnumDerive`, variant doesn't exist".into())
 	);
 }
 
@@ -506,38 +506,71 @@ fn recursive_type() {
 #[test]
 fn crafted_input_for_vec_u8() {
 	assert_eq!(
-		Vec::<u8>::decode(&mut &Compact(u32::max_value()).encode()[..]).err().unwrap().what(),
+		Vec::<u8>::decode(&mut &Compact(u32::max_value()).encode()[..]).err().unwrap().to_string(),
 		"Not enough data to decode vector",
 	);
 }
 
 #[test]
 fn crafted_input_for_vec_t() {
-	let msg = if cfg!(target_endian = "big") {
+	let msg: String = if cfg!(target_endian = "big") {
 		// use unoptimize decode
-		"Not enough data to fill buffer"
+		"Not enough data to fill buffer".into()
 	} else {
-		"Not enough data to decode vector"
+		"Not enough data to decode vector".into()
 	};
 
 	assert_eq!(
-		Vec::<u32>::decode(&mut &Compact(u32::max_value()).encode()[..]).err().unwrap().what(),
+		Vec::<u32>::decode(&mut &Compact(u32::max_value()).encode()[..]).err().unwrap().to_string(),
 		msg,
 	);
 }
 
 #[test]
 fn weird_derive() {
-    // Tests that compilation succeeds when the macro invocation
-    // hygiene context is different from the field hygiene context.
-    macro_rules! make_struct {
-        (#[$attr:meta]) => (
-            #[$attr]
-            pub struct MyStruct {
-                field: u8
-            }
-        )
-    }
+	// Tests that compilation succeeds when the macro invocation
+	// hygiene context is different from the field hygiene context.
+	macro_rules! make_struct {
+		(#[$attr:meta]) => (
+			#[$attr]
+			pub struct MyStruct {
+				field: u8
+			}
+		)
+	}
 
-    make_struct!(#[derive(Encode, Decode)]);
+	make_struct!(#[derive(Encode, Decode)]);
+}
+
+#[test]
+fn output_trait_object() {
+	let _: Box<dyn Output>;
+}
+
+#[test]
+fn custom_trait_bound() {
+	#[derive(Encode, Decode)]
+	#[codec(encode_bound(N: Encode, T: Default))]
+	#[codec(decode_bound(N: Decode, T: Default))]
+	struct Something<T, N> {
+		hello: Hello<T>,
+		val: N,
+	}
+
+	#[derive(Encode, Decode)]
+	#[codec(encode_bound())]
+	#[codec(decode_bound())]
+	struct Hello<T> {
+		_phantom: std::marker::PhantomData<T>,
+	}
+
+	#[derive(Default)]
+	struct NotEncode;
+
+	let encoded = Something::<NotEncode, u32> {
+		hello: Hello { _phantom: Default::default() },
+		val: 32u32,
+	}.encode();
+
+	Something::<NotEncode, u32>::decode(&mut &encoded[..]).unwrap();
 }

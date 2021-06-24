@@ -12,10 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Serialisation.
+//! Serialization.
 
 use core::fmt;
-use core::{mem, ops::Deref, marker::PhantomData, iter::FromIterator, convert::TryFrom, time::Duration};
+use core::{
+	convert::TryFrom,
+	iter::FromIterator,
+	marker::PhantomData,
+	mem,
+	ops::{Deref, Range, RangeInclusive},
+	time::Duration,
+};
 use core::num::{
 	NonZeroI8,
 	NonZeroI16,
@@ -48,72 +55,10 @@ use crate::alloc::{
 };
 use crate::compact::Compact;
 use crate::encode_like::EncodeLike;
+use crate::Error;
 
 pub(crate) const MAX_PREALLOCATION: usize = 4 * 1024;
 const A_BILLION: u32 = 1_000_000_000;
-
-/// Descriptive error type
-#[cfg(feature = "std")]
-#[derive(PartialEq, Eq, Clone, Debug)]
-pub struct Error(&'static str);
-
-/// Undescriptive error type when compiled for no std
-#[cfg(not(feature = "std"))]
-#[derive(PartialEq, Eq, Clone, Debug)]
-pub struct Error;
-
-impl Error {
-	#[cfg(feature = "std")]
-	/// Error description
-	///
-	/// This function returns an actual error str when running in `std`
-	/// environment, but `""` on `no_std`.
-	pub fn what(&self) -> &'static str {
-		self.0
-	}
-
-	#[cfg(not(feature = "std"))]
-	/// Error description
-	///
-	/// This function returns an actual error str when running in `std`
-	/// environment, but `""` on `no_std`.
-	pub fn what(&self) -> &'static str {
-		""
-	}
-}
-
-#[cfg(feature = "std")]
-impl fmt::Display for Error {
-	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		write!(f, "{}", self.0)
-	}
-}
-
-#[cfg(not(feature = "std"))]
-impl fmt::Display for Error {
-	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		f.write_str("Error")
-	}
-}
-
-#[cfg(feature = "std")]
-impl std::error::Error for Error {
-	fn description(&self) -> &str {
-		self.0
-	}
-}
-
-impl From<&'static str> for Error {
-	#[cfg(feature = "std")]
-	fn from(s: &'static str) -> Error {
-		Error(s)
-	}
-
-	#[cfg(not(feature = "std"))]
-	fn from(_s: &'static str) -> Error {
-		Error
-	}
-}
 
 /// Trait that allows reading of data into a slice.
 pub trait Input {
@@ -239,18 +184,13 @@ impl<R: std::io::Read> Input for IoReader<R> {
 }
 
 /// Trait that allows writing of data.
-pub trait Output: Sized {
+pub trait Output {
 	/// Write to the output.
 	fn write(&mut self, bytes: &[u8]);
 
 	/// Write a single byte to the output.
 	fn push_byte(&mut self, byte: u8) {
 		self.write(&[byte]);
-	}
-
-	/// Write encoding of given value to the output.
-	fn push<V: Encode + ?Sized>(&mut self, value: &V) {
-		value.encode_to(self);
 	}
 }
 
@@ -308,7 +248,7 @@ pub trait Encode {
 	}
 
 	/// Convert self to a slice and append it to the destination.
-	fn encode_to<T: Output>(&self, dest: &mut T) {
+	fn encode_to<T: Output + ?Sized>(&self, dest: &mut T) {
 		self.using_encoded(|buf| dest.write(buf));
 	}
 
@@ -322,6 +262,35 @@ pub trait Encode {
 	/// Convert self to a slice and then invoke the given closure with it.
 	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
 		f(&self.encode())
+	}
+
+	/// Calculates the encoded size.
+	///
+	/// Should be used when the encoded data isn't required.
+	///
+	/// # Note
+	///
+	/// This works by using a special [`Output`] that only tracks the size. So, there are no allocations inside the
+	/// output. However, this can not prevent allocations that some types are doing inside their own encoding.
+	fn encoded_size(&self) -> usize {
+		let mut size_tracker = SizeTracker { written: 0 };
+		self.encode_to(&mut size_tracker);
+		size_tracker.written
+	}
+}
+
+// Implements `Output` and only keeps track of the number of written bytes
+struct SizeTracker {
+	written: usize,
+}
+
+impl Output for SizeTracker {
+	fn write(&mut self, bytes: &[u8]) {
+		self.written += bytes.len();
+	}
+
+	fn push_byte(&mut self, _byte: u8) {
+		self.written += 1;
 	}
 }
 
@@ -340,10 +309,25 @@ pub trait Decode: Sized {
 	const TYPE_INFO: TypeInfo = TypeInfo::Unknown;
 
 	/// Attempt to deserialise the value from input.
-	fn decode<I: Input>(value: &mut I) -> Result<Self, Error>;
+	fn decode<I: Input>(input: &mut I) -> Result<Self, Error>;
 
-	/// Attempt to skip the value from input.
-	fn skip<I: Input>(value: &mut I) -> Result<(), Error>;
+	/// Attempt to skip the encoded value from input.
+	///
+	/// The default implementation of this function is just calling [`Decode::decode`].
+	/// When possible, an implementation should provided a specialized implementation.
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		Self::decode(input).map(|_| ())
+	}
+
+	/// Returns the fixed encoded size of the type.
+	///
+	/// If it returns `Some(size)` then all possible values of this
+	/// type have the given size (in bytes) when encoded.
+	///
+	/// NOTE: A type with a fixed encoded size may return `None`.
+	fn encoded_fixed_size() -> Option<usize> {
+		None
+	}
 }
 
 /// Trait that allows zero-copy read/write of value-references to/from slices in LE format.
@@ -427,7 +411,7 @@ impl<T, X> Encode for X where
 		(&**self).encode()
 	}
 
-	fn encode_to<W: Output>(&self, dest: &mut W) {
+	fn encode_to<W: Output + ?Sized>(&self, dest: &mut W) {
 		(&**self).encode_to(dest)
 	}
 }
@@ -505,7 +489,7 @@ impl<T: Encode, E: Encode> Encode for Result<T, E> {
 		}
 	}
 
-	fn encode_to<W: Output>(&self, dest: &mut W) {
+	fn encode_to<W: Output + ?Sized>(&self, dest: &mut W) {
 		match *self {
 			Ok(ref t) => {
 				dest.push_byte(0);
@@ -529,9 +513,15 @@ where
 
 impl<T: Decode, E: Decode> Decode for Result<T, E> {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
-		match input.read_byte()? {
-			0 => Ok(Ok(T::decode(input)?)),
-			1 => Ok(Err(E::decode(input)?)),
+		match input.read_byte()
+			.map_err(|e| e.chain("Could not result variant byte for `Result`"))?
+		{
+			0 => Ok(
+				Ok(T::decode(input).map_err(|e| e.chain("Could not Decode `Result::Ok(T)`"))?)
+			),
+			1 => Ok(
+				Err(E::decode(input).map_err(|e| e.chain("Could not decode `Result::Error(E)`"))?)
+			),
 			_ => Err("unexpected first byte decoding Result".into()),
 		}
 	}
@@ -596,7 +586,7 @@ impl<T: Encode> Encode for Option<T> {
 		}
 	}
 
-	fn encode_to<W: Output>(&self, dest: &mut W) {
+	fn encode_to<W: Output + ?Sized>(&self, dest: &mut W) {
 		match *self {
 			Some(ref t) => {
 				dest.push_byte(1);
@@ -609,9 +599,13 @@ impl<T: Encode> Encode for Option<T> {
 
 impl<T: Decode> Decode for Option<T> {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
-		match input.read_byte()? {
+		match input.read_byte()
+			.map_err(|e| e.chain("Could not decode variant byte for `Option`"))?
+		{
 			0 => Ok(None),
-			1 => Ok(Some(T::decode(input)?)),
+			1 => Ok(
+				Some(T::decode(input).map_err(|e| e.chain("Could not decode `Option::Some(T)`"))?)
+			),
 			_ => Err("unexpected first byte decoding Option".into()),
 		}
 	}
@@ -633,7 +627,7 @@ macro_rules! impl_for_non_zero {
 					self.get().size_hint()
 				}
 
-				fn encode_to<W: Output>(&self, dest: &mut W) {
+				fn encode_to<W: Output + ?Sized>(&self, dest: &mut W) {
 					self.get().encode_to(dest)
 				}
 
@@ -663,7 +657,7 @@ macro_rules! impl_for_non_zero {
 /// Encode the slice without prepending the len.
 ///
 /// This is equivalent to encoding all the element one by one, but it is optimized for some types.
-pub(crate) fn encode_slice_no_len<T: Encode, W: Output>(slice: &[T], dest: &mut W) {
+pub(crate) fn encode_slice_no_len<T: Encode, W: Output + ?Sized>(slice: &[T], dest: &mut W) {
 	macro_rules! encode_to {
 		( u8, $slice:ident, $dest:ident ) => {{
 			let typed = unsafe { mem::transmute::<&[T], &[u8]>(&$slice[..]) };
@@ -789,83 +783,57 @@ impl_for_non_zero! {
 	NonZeroU128, u128,
 }
 
-macro_rules! impl_array {
-	( $( $n:expr, )* ) => {
-		$(
-			impl<T: Encode> Encode for [T; $n] {
-				fn size_hint(&self) -> usize {
-					mem::size_of::<T>() * $n
-				}
+impl<T: Encode, const N: usize> Encode for [T; N] {
+	fn size_hint(&self) -> usize {
+		mem::size_of::<T>() * N
+	}
 
-				fn encode_to<W: Output>(&self, dest: &mut W) {
-					encode_slice_no_len(&self[..], dest)
-				}
-			}
-
-			impl<T: Decode> Decode for [T; $n] {
-				fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
-					let mut r = ArrayVec::new();
-					for _ in 0..$n {
-						r.push(T::decode(input)?);
-					}
-					let i = r.into_inner();
-
-					match i {
-						Ok(a) => Ok(a),
-						Err(_) => Err("failed to get inner array from ArrayVec".into()),
-					}
-				}
-
-				fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
-					macro_rules! skip_array {
-						( $ty:ty, $self:ident, $dest:ident ) => {{
-							input.skip(mem::size_of::<Self>())
-						}};
-					}
-
-					with_type_info! {
-						<T as Decode>::TYPE_INFO,
-						skip_array(self, dest),
-						{
-							for _ in 0..$n {
-								T::skip(input)?;
-							}
-							Ok(())
-						},
-					}
-				}
-			}
-
-			impl<T: EncodeLike<U>, U: Encode> EncodeLike<[U; $n]> for [T; $n] {}
-		)*
+	fn encode_to<W: Output + ?Sized>(&self, dest: &mut W) {
+		encode_slice_no_len(&self[..], dest)
 	}
 }
 
-impl_array!(
-	0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
-	17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31,
-	32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51,
-	52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71,
-	72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91,
-	92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108,
-	109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124,
-	125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140,
-	141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156,
-	157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172,
-	173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188,
-	189, 190, 191, 192, 193, 194, 195, 196, 197, 198, 199, 200, 201, 202, 203, 204,
-	205, 206, 207, 208, 209, 210, 211, 212, 213, 214, 215, 216, 217, 218, 219, 220,
-	221, 222, 223, 224, 225, 226, 227, 228, 229, 230, 231, 232, 233, 234, 235, 236,
-	237, 238, 239, 240, 241, 242, 243, 244, 245, 246, 247, 248, 249, 250, 251, 252,
-	253, 254, 255, 256, 384, 512, 768, 1024, 2048, 4096, 8192, 16384, 32768,
-);
+impl<T: Decode, const N: usize> Decode for [T; N] {
+	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
+		let mut array = ArrayVec::new();
+		for _ in 0..N {
+			array.push(T::decode(input)?);
+		}
+
+		match array.into_inner() {
+			Ok(a) => Ok(a),
+			Err(_) => panic!("We decode `N` elements; qed"),
+		}
+	}
+
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		macro_rules! skip_array {
+			( $ty:ty, $self:ident, $dest:ident ) => {{
+				input.skip(mem::size_of::<Self>())
+			}};
+		}
+
+		with_type_info! {
+			<T as Decode>::TYPE_INFO,
+			skip_array(self, dest),
+			{
+				for _ in 0..N {
+					T::skip(input)?;
+				}
+				Ok(())
+			},
+		}
+	}
+}
+
+impl<T: EncodeLike<U>, U: Encode, const N: usize> EncodeLike<[U; N]> for [T; N] {}
 
 impl Encode for str {
 	fn size_hint(&self) -> usize {
 		self.as_bytes().size_hint()
 	}
 
-	fn encode_to<W: Output>(&self, dest: &mut W) {
+	fn encode_to<W: Output + ?Sized>(&self, dest: &mut W) {
 		self.as_bytes().encode_to(dest)
 	}
 
@@ -893,7 +861,7 @@ impl<'a, T: ToOwned + ?Sized> Decode for Cow<'a, T>
 impl<T> EncodeLike for PhantomData<T> {}
 
 impl<T> Encode for PhantomData<T> {
-	fn encode_to<W: Output>(&self, _dest: &mut W) {}
+	fn encode_to<W: Output + ?Sized>(&self, _dest: &mut W) {}
 }
 
 impl<T> Decode for PhantomData<T> {
@@ -918,7 +886,7 @@ impl Decode for String {
 }
 
 /// Writes the compact encoding of `len` do `dest`.
-pub(crate) fn compact_encode_len_to<W: Output>(dest: &mut W, len: usize) -> Result<(), Error> {
+pub(crate) fn compact_encode_len_to<W: Output + ?Sized>(dest: &mut W, len: usize) -> Result<(), Error> {
 	if len > u32::max_value() as usize {
 		return Err("Attempted to serialize a collection with too many elements.".into());
 	}
@@ -932,7 +900,7 @@ impl<T: Encode> Encode for [T] {
 		mem::size_of::<u32>() + mem::size_of::<T>() * self.len()
 	}
 
-	fn encode_to<W: Output>(&self, dest: &mut W) {
+	fn encode_to<W: Output + ?Sized>(&self, dest: &mut W) {
 		compact_encode_len_to(dest, self.len()).expect("Compact encodes length");
 
 		encode_slice_no_len(self, dest)
@@ -1037,7 +1005,7 @@ macro_rules! impl_codec_through_iterator {
 				mem::size_of::<u32>() $( + mem::size_of::<$generics>() * self.len() )*
 			}
 
-			fn encode_to<W: Output>(&self, dest: &mut W) {
+			fn encode_to<W: Output + ?Sized>(&self, dest: &mut W) {
 				compact_encode_len_to(dest, self.len()).expect("Compact encodes length");
 
 				for i in self.iter() {
@@ -1091,7 +1059,7 @@ impl<T: Encode> Encode for VecDeque<T> {
 		mem::size_of::<u32>() + mem::size_of::<T>() * self.len()
 	}
 
-	fn encode_to<W: Output>(&self, dest: &mut W) {
+	fn encode_to<W: Output + ?Sized>(&self, dest: &mut W) {
 		compact_encode_len_to(dest, self.len()).expect("Compact encodes length");
 
 		macro_rules! encode_to {
@@ -1137,7 +1105,7 @@ impl<T: Decode> Decode for VecDeque<T> {
 impl EncodeLike for () {}
 
 impl Encode for () {
-	fn encode_to<W: Output>(&self, _dest: &mut W) {
+	fn encode_to<W: Output + ?Sized>(&self, _dest: &mut W) {
 	}
 
 	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
@@ -1182,7 +1150,7 @@ macro_rules! tuple_impl {
 				self.0.size_hint()
 			}
 
-			fn encode_to<T: Output>(&self, dest: &mut T) {
+			fn encode_to<T: Output + ?Sized>(&self, dest: &mut T) {
 				self.0.encode_to(dest);
 			}
 
@@ -1227,7 +1195,7 @@ macro_rules! tuple_impl {
 				$( + $rest.size_hint() )+
 			}
 
-			fn encode_to<T: Output>(&self, dest: &mut T) {
+			fn encode_to<T: Output + ?Sized>(&self, dest: &mut T) {
 				let (
 					ref $first,
 					$(ref $rest),+
@@ -1389,9 +1357,10 @@ impl Encode for Duration {
 
 impl Decode for Duration {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
-		let (secs, nanos) = <(u64, u32)>::decode(input)?;
+		let (secs, nanos) = <(u64, u32)>::decode(input)
+			.map_err(|e| e.chain("Could not decode `Duration(u64, u32)`"))?;
 		if nanos >= A_BILLION {
-			Err("Number of nanoseconds should not be higher than 10^9.".into())
+			Err("Could not decode `Duration`: Number of nanoseconds should not be higher than 10^9.".into())
 		} else {
 			Ok(Duration::new(secs, nanos))
 		}
@@ -1403,6 +1372,55 @@ impl Decode for Duration {
 }
 
 impl EncodeLike for Duration {}
+
+impl<T> Encode for Range<T>
+where
+	T: Encode
+{
+	fn size_hint(&self) -> usize {
+		2 * mem::size_of::<T>()
+	}
+
+	fn encode(&self) -> Vec<u8> {
+		(&self.start, &self.end).encode()
+	}
+}
+
+impl<T> Decode for Range<T>
+where
+	T: Decode
+{
+	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
+		let (start, end) = <(T, T)>::decode(input)
+			.map_err(|e| e.chain("Could not decode `Range<T>`"))?;
+		Ok(Range { start, end })
+	}
+}
+
+impl<T> Encode for RangeInclusive<T>
+where
+	T: Encode
+{
+	fn size_hint(&self) -> usize {
+		2 * mem::size_of::<T>()
+	}
+
+	fn encode(&self) -> Vec<u8> {
+		(self.start(), self.end()).encode()
+	}
+}
+
+impl<T> Decode for RangeInclusive<T>
+where
+	T: Decode
+{
+	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
+		let (start, end) = <(T, T)>::decode(input)
+			.map_err(|e| e.chain("Could not decode `RangeInclusive<T>`"))?;
+		Ok(RangeInclusive::new(start, end))
+	}
+}
+
 
 #[cfg(test)]
 mod tests {
@@ -1683,10 +1701,16 @@ mod tests {
 		assert_eq!(<Vec<u8>>::decode(&mut NoLimit(&i[..])).unwrap(), vec![0u8; len]);
 
 		let i = Compact(len as u32).encode();
-		assert_eq!(<Vec<u8>>::decode(&mut NoLimit(&i[..])).err().unwrap().what(), "Not enough data to fill buffer");
+		assert_eq!(
+			<Vec<u8>>::decode(&mut NoLimit(&i[..])).err().unwrap().to_string(),
+			"Not enough data to fill buffer",
+		);
 
 		let i = Compact(1000u32).encode();
-		assert_eq!(<Vec<u8>>::decode(&mut NoLimit(&i[..])).err().unwrap().what(), "Not enough data to fill buffer");
+		assert_eq!(
+			<Vec<u8>>::decode(&mut NoLimit(&i[..])).err().unwrap().to_string(),
+			"Not enough data to fill buffer",
+		);
 	}
 
 	#[test]
@@ -1780,7 +1804,7 @@ mod tests {
 		let encoded = (0u64, invalid_nanos).encode();
 		assert_eq!(
 			Duration::decode(&mut &encoded[..]),
-			Err("Number of nanoseconds should not be higher than 10^9.".into())
+			Err("Could not decode `Duration`: Number of nanoseconds should not be higher than 10^9.".into())
 		);
 
 		let num_secs = 1u64;
@@ -1790,7 +1814,7 @@ mod tests {
 		// This test should fail, as the number of nano seconds encoded is bigger than 10^9.
 		assert_eq!(
 			Duration::decode(&mut &encoded[..]),
-			Err("Number of nanoseconds should not be higher than 10^9.".into())
+			Err("Could not decode `Duration`: Number of nanoseconds should not be higher than 10^9.".into())
 		);
 
 		// Now constructing a valid duration and encoding it. Those asserts should not fail.
@@ -1822,7 +1846,7 @@ mod tests {
 		let encoded = (num_secs, num_nanos).encode();
 		assert_eq!(
 			Duration::decode(&mut &encoded[..]),
-			Err("Number of nanoseconds should not be higher than 10^9.".into())
+			Err("Could not decode `Duration`: Number of nanoseconds should not be higher than 10^9.".into())
 		);
 	}
 
@@ -1839,5 +1863,55 @@ mod tests {
 		let encoded = data.encode();
 		assert!(encoded.is_empty());
 		<[u32; 0]>::decode(&mut &encoded[..]).unwrap();
+	}
+
+	fn test_encoded_size(val: impl Encode) {
+		let length = val.using_encoded(|v| v.len());
+
+		assert_eq!(length, val.encoded_size());
+	}
+
+	struct TestStruct {
+		data: Vec<u32>,
+		other: u8,
+		compact: Compact<u128>,
+	}
+
+	impl Encode for TestStruct {
+		fn encode_to<W: Output + ?Sized>(&self, dest: &mut W) {
+			self.data.encode_to(dest);
+			self.other.encode_to(dest);
+			self.compact.encode_to(dest);
+		}
+	}
+
+	#[test]
+	fn encoded_size_works() {
+		test_encoded_size(120u8);
+		test_encoded_size(30u16);
+		test_encoded_size(1u32);
+		test_encoded_size(2343545u64);
+		test_encoded_size(34358394245459854u128);
+		test_encoded_size(vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10u32]);
+		test_encoded_size(Compact(32445u32));
+		test_encoded_size(Compact(34353454453545u128));
+		test_encoded_size(TestStruct {
+			data: vec![1, 2, 4, 5, 6],
+			other: 45,
+			compact: Compact(123234545),
+		});
+	}
+
+	#[test]
+	fn ranges() {
+		let range = Range { start: 1, end: 100 };
+		let range_bytes = (1, 100).encode();
+		assert_eq!(range.encode(), range_bytes);
+		assert_eq!(Range::decode(&mut &range_bytes[..]), Ok(range));
+
+		let range_inclusive = RangeInclusive::new(1, 100);
+		let range_inclusive_bytes = (1, 100).encode();
+		assert_eq!(range_inclusive.encode(), range_inclusive_bytes);
+		assert_eq!(RangeInclusive::decode(&mut &range_inclusive_bytes[..]), Ok(range_inclusive));
 	}
 }

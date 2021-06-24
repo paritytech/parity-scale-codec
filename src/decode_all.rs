@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::codec::{Error, Decode};
+use crate::{Error, Decode};
 
 /// The error message returned when `decode_all` fails.
 pub(crate) const DECODE_ALL_ERR_MSG: &str = "Input buffer has still data left after decoding!";
@@ -20,8 +20,9 @@ pub(crate) const DECODE_ALL_ERR_MSG: &str = "Input buffer has still data left af
 /// Extension trait to [`Decode`] that ensures that the given input data is consumed completly while
 /// decoding.
 pub trait DecodeAll: Sized {
-	/// Decode `Self` and consume all of the given input data. If not all data is consumed, an error
-	/// is returned.
+	/// Decode `Self` and consume all of the given input data.
+	///
+	/// If not all data is consumed, an error is returned.
 	fn decode_all(input: &[u8]) -> Result<Self, Error>;
 }
 
@@ -55,7 +56,10 @@ mod tests {
 					);
 
 					encoded.extend(&[1, 2, 3, 4, 5, 6]);
-					assert_eq!(<$type>::decode_all(&encoded).unwrap_err().what(), DECODE_ALL_ERR_MSG);
+					assert_eq!(
+						<$type>::decode_all(&encoded).unwrap_err().to_string(),
+						"Input buffer has still data left after decoding!",
+					);
 				}
 			)*
 		};

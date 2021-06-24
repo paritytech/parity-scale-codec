@@ -2,13 +2,13 @@
 #
 
 stages:
+  - check
   - test
   - build
 
 variables:
   GIT_STRATEGY:                    fetch
   GIT_DEPTH:                       "100"
-  CARGO_HOME:                      "/ci-cache/${CI_PROJECT_NAME}/cargo/${CI_COMMIT_REF_NAME}/${CI_JOB_NAME}"
   CARGO_TARGET_DIR:                "/ci-cache/${CI_PROJECT_NAME}/targets/${CI_COMMIT_REF_NAME}/${CI_JOB_NAME}"
   CARGO_INCREMENTAL:               0
   CI_SERVER_NAME:                  "GitLab CI"
@@ -19,7 +19,7 @@ workflow:
     - if: $CI_COMMIT_BRANCH
 
 .docker-env:                       &docker-env
-  image:                           paritytech/ci-linux:production
+  image:                           paritytech/ink-ci-linux:production
   before_script:
     - cargo -vV
     - rustc -vV
@@ -45,41 +45,50 @@ workflow:
   tags:
     - linux-docker
 
+#### stage:                        check
+
+check-rust-stable-no_derive_no_std_full:
+  stage:                           check
+  <<:                              *docker-env
+  script:
+    - time cargo +stable check --verbose --no-default-features --features bit-vec,generic-array,full
+    - sccache -s
+
+check-rust-stable-no_derive_no_std:
+  stage:                           check
+  <<:                              *docker-env
+  script:
+    - time cargo +stable check --verbose --no-default-features --features bit-vec,generic-array
+    - sccache -s
+
+check-rust-stable-no_std-chain-error:
+  stage:                           check
+  <<:                              *docker-env
+  script:
+    - time cargo +stable check --verbose --no-default-features --features chain-error
+    - sccache -s
+
+check-rust-stable-no_derive_full:
+  stage:                           check
+  <<:                              *docker-env
+  script:
+    - time cargo +stable check --verbose --features bit-vec,generic-array,full
+    - sccache -s
+
 #### stage:                        test
 
 test-rust-stable:
   stage:                           test
   <<:                              *docker-env
   script:
-    - time cargo test --verbose --all --features bit-vec,generic-array,derive
+    - time cargo +stable test --verbose --all --features bit-vec,generic-array,derive
     - sccache -s
 
 test-rust-stable-no_derive:
   stage:                           test
   <<:                              *docker-env
   script:
-    - time cargo test --verbose --features bit-vec,generic-array
-    - sccache -s
-
-check-rust-stable-no_derive_no_std_full:
-  stage:                           test
-  <<:                              *docker-env
-  script:
-    - time cargo check --verbose --no-default-features --features bit-vec,generic-array,full
-    - sccache -s
-
-check-rust-stable-no_derive_no_std:
-  stage:                           test
-  <<:                              *docker-env
-  script:
-    - time cargo check --verbose --no-default-features --features bit-vec,generic-array
-    - sccache -s
-
-check-rust-stable-no_derive_full:
-  stage:                           test
-  <<:                              *docker-env
-  script:
-    - time cargo check --verbose --features bit-vec,generic-array,full
+    - time cargo +stable test --verbose --features bit-vec,generic-array
     - sccache -s
 
 bench-rust-nightly:
@@ -88,6 +97,15 @@ bench-rust-nightly:
   script:
     - time cargo +nightly bench --features bit-vec,generic-array,derive
     - sccache -s
+
+miri:
+  stage:                           test
+  <<:                              *docker-env
+  variables:
+    RUST_BACKTRACE:                1
+    MIRIFLAGS:                     "-Zmiri-disable-isolation"
+  script:
+    - time cargo +nightly miri test --features bit-vec,generic-array,arbitrary --release
 
 #### stage:                        build
 
