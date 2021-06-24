@@ -21,4 +21,5 @@ fn derive_no_bound_ui() {
 
 	let t = trybuild::TestCases::new();
 	t.compile_fail("tests/max_encoded_len_ui/*.rs");
+	t.pass("tests/max_encoded_len_ui/pass/*.rs");
 }
