@@ -374,7 +374,7 @@ fn check_variant_attribute(attr: &Attribute) -> syn::Result<()> {
 // Only `#[codec(dumb_trait_bound)]` is accepted as top attribute
 fn check_top_attribute(attr: &Attribute) -> syn::Result<()> {
 	let top_error = "Invalid attribute: only `#[codec(dumb_trait_bound)]`, \
-		`#[codec(encode_bound(T: Encode))]`, `#[codec(crate = path::to::crate)]`, \
+		`#[codec(crate = path::to::crate)]`, `#[codec(encode_bound(T: Encode))]`, \
 		`#[codec(decode_bound(T: Decode))]`, or `#[codec(mel_bound(T: MaxEncodedLen))]` \
 		are accepted as top attribute";
 	if attr.path.is_ident("codec")

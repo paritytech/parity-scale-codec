@@ -1,4 +1,4 @@
-error: Invalid attribute: only `#[codec(dumb_trait_bound)]`, `#[codec(encode_bound(T: Encode))]`, `#[codec(crate = path::to::crate)]`, `#[codec(decode_bound(T: Decode))]`, or `#[codec(mel_bound(T: MaxEncodedLen))]` are accepted as top attribute
+error: Invalid attribute: only `#[codec(dumb_trait_bound)]`, `#[codec(crate = path::to::crate)]`, `#[codec(encode_bound(T: Encode))]`, `#[codec(decode_bound(T: Decode))]`, or `#[codec(mel_bound(T: MaxEncodedLen))]` are accepted as top attribute
  --> $DIR/incomplete_attr.rs:4:9
   |
 4 | #[codec(crate)]
