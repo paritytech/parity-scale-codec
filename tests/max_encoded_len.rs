@@ -95,6 +95,43 @@ fn tuple_generic_max_length() {
 	assert_eq!(TupleGeneric::<u32>::max_encoded_len(), u32::max_encoded_len() * 2);
 }
 
+#[derive(Encode)]
+struct ConstU32<const N: u32>;
+
+trait Get<T>: Encode {
+	fn get() -> T;
+}
+
+impl<const N: u32> Get<u32> for ConstU32<N> {
+	fn get() -> u32 {
+		N
+	}
+}
+
+#[derive(Encode)]
+struct SomeVec<T, N> {
+	element: T,
+	size: N,
+}
+
+impl<T: MaxEncodedLen, N: Get<u32>> MaxEncodedLen for SomeVec<T, N> {
+	fn max_encoded_len() -> usize {
+		T::max_encoded_len() * N::get() as usize
+	}
+}
+
+#[derive(Encode, MaxEncodedLen)]
+#[codec(mel_bound(N: Get<u32>))]
+struct SizeGeneric<N> {
+	vec: SomeVec<u64, N>,
+}
+
+#[test]
+fn some_vec_max_length() {
+	assert_eq!(SomeVec::<u64, ConstU32<3>>::max_encoded_len(), u64::max_encoded_len() * 3);
+	assert_eq!(SizeGeneric::<ConstU32<5>>::max_encoded_len(), u64::max_encoded_len() * 5);
+}
+
 #[derive(Encode, MaxEncodedLen)]
 #[allow(unused)]
 enum UnitEnum {
