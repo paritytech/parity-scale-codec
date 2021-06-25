@@ -6,6 +6,9 @@ and this crate adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 
 ## Unreleased
 
+## [2.2.0-rc.3] - 2021-06-25
+- Add support for custom where bounds `codec(mel_bound(T: MaxEncodedLen))` when deriving the traits. PR #279
+
 ## [2.2.0-rc.2] - 2021-06-24
 
 - Updated syntax of `#[codec(crate = <path>)]` attribute macro: no longer expects the crate path to
