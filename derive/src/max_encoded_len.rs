@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::utils::codec_crate_path;
+use crate::utils::{self, codec_crate_path, custom_mel_trait_bound};
 use quote::{quote, quote_spanned};
 use syn::{
 	Data, DeriveInput, Fields, GenericParam, Generics, TraitBound, Type, TypeParamBound,
@@ -33,7 +33,11 @@ pub fn derive_max_encoded_len(input: proc_macro::TokenStream) -> proc_macro::Tok
 	};
 
 	let name = &input.ident;
-	let generics = add_trait_bounds(input.generics, mel_trait.clone());
+	let generics = if let Some(custom_bound) = custom_mel_trait_bound(&input.attrs) {
+		add_custom_trait_bounds(input.generics, custom_bound)
+	} else {
+		add_trait_bounds(input.generics, mel_trait.clone())
+	};
 	let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
 	let data_expr = data_length_expr(&input.data);
@@ -62,6 +66,12 @@ fn add_trait_bounds(mut generics: Generics, mel_trait: TraitBound) -> Generics {
 			type_param.bounds.push(TypeParamBound::Trait(mel_trait.clone()));
 		}
 	}
+	generics
+}
+
+// Add custom trait bounds to the type parameters as specified by the user.
+fn add_custom_trait_bounds(mut generics: Generics, custom_bound: utils::TraitBounds) -> Generics {
+	generics.make_where_clause().predicates.extend(custom_bound);
 	generics
 }
 
@@ -124,7 +134,7 @@ fn data_length_expr(data: &Data) -> proc_macro2::TokenStream {
 		Data::Union(ref data) => {
 			// https://github.com/paritytech/parity-scale-codec/
 			//   blob/f0341dabb01aa9ff0548558abb6dcc5c31c669a1/derive/src/encode.rs#L290-L293
-			syn::Error::new(data.union_token.span(), "Union types are not supported")
+			syn::Error::new(data.union_token.span(), "Union types are not supported.")
 				.to_compile_error()
 		}
 	}
