@@ -13,6 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#![cfg(feature = "max-encoded-len")]
+
 use crate::utils::{self, codec_crate_path, custom_mel_trait_bound};
 use quote::{quote, quote_spanned};
 use syn::{
