@@ -1,7 +1,7 @@
 [package]
 name = "parity-scale-codec-derive"
 description = "Serialization and deserialization derive macro for Parity SCALE Codec"
-version = "2.2.0-rc.3"
+version = "2.2.0"
 authors = ["Parity Technologies <admin@parity.io>"]
 license = "Apache-2.0"
 edition = "2018"
@@ -17,3 +17,9 @@ proc-macro-crate = "1.0.0"
 
 [dev-dependencies]
 parity-scale-codec = { path = ".." }
+
+[features]
+# Enables the new `MaxEncodedLen` trait.
+# NOTE: This is still considered experimental and is exempt from the usual
+# SemVer guarantees. We do not guarantee no code breakage when using this.
+max-encoded-len = []

@@ -336,6 +336,7 @@ pub fn compact_as_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStr
 }
 
 /// Derive `MaxEncodedLen`.
+#[cfg(feature = "max-encoded-len")]
 #[proc_macro_derive(MaxEncodedLen, attributes(max_encoded_len_mod))]
 pub fn derive_max_encoded_len(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 	max_encoded_len::derive_max_encoded_len(input)

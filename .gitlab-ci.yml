@@ -81,7 +81,7 @@ test-rust-stable:
   stage:                           test
   <<:                              *docker-env
   script:
-    - time cargo +stable test --verbose --all --features bit-vec,generic-array,derive
+    - time cargo +stable test --verbose --all --features bit-vec,generic-array,derive,max-encoded-len
     - sccache -s
 
 test-rust-stable-no_derive:
