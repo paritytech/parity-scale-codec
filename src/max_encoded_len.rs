@@ -15,8 +15,6 @@
 
 //! `trait MaxEncodedLen` bounds the maximum encoded length of items.
 
-#![cfg(feature = "max-encoded-len")]
-
 use crate::{Compact, Encode};
 use impl_trait_for_tuples::impl_for_tuples;
 use core::{mem, marker::PhantomData};

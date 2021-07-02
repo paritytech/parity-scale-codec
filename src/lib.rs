@@ -343,5 +343,5 @@ pub use max_encoded_len::MaxEncodedLen;
 /// #[codec(crate = $crate::codec)]
 /// struct Example;
 /// ```
-#[cfg(feature = "derive")]
+#[cfg(all(feature = "derive", feature = "max-encoded-len"))]
 pub use parity_scale_codec_derive::MaxEncodedLen;
