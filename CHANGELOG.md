@@ -4,19 +4,18 @@ All notable changes to this crate are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this crate adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## [2.2.0] - 2021-07-02
 
-## [2.2.0-rc.3] - 2021-06-25
+### Added
+
 - Add support for custom where bounds `codec(mel_bound(T: MaxEncodedLen))` when deriving the traits. PR #279
 
-## [2.2.0-rc.2] - 2021-06-24
+### Changed
 
 - Updated syntax of `#[codec(crate = <path>)]` attribute macro: no longer expects the crate path to
   be a string literal, but a path literal. This improves usability when used within other macros;
   the external macro doesn't need to construct a string, but can simply do
   `#[codec(crate = $crate::my_codec_reexport)]`.
-
-## [2.2.0-rc.1] - 2021-06-22
 
 ### Added
 
