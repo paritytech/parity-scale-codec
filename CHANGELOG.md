@@ -9,6 +9,10 @@ and this crate adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 ### Added
 
 - Add support for custom where bounds `codec(mel_bound(T: MaxEncodedLen))` when deriving the traits. PR #279
+- `MaxEncodedLen` trait for items that have a statically known maximum encoded size. ([#268](https://github.com/paritytech/parity-scale-codec/pull/268))
+- `#[codec(crate = "<path>")]` top-level attribute to be used with the new `MaxEncodedLen`
+trait, which allows to specify a different path to the crate that contains the `MaxEncodedLen` trait.
+Useful when using generating a type through a macro and this type should implement `MaxEncodedLen` and the final crate doesn't have `parity-scale-codec` as dependency.
 
 ### Changed
 
@@ -16,13 +20,6 @@ and this crate adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.h
   be a string literal, but a path literal. This improves usability when used within other macros;
   the external macro doesn't need to construct a string, but can simply do
   `#[codec(crate = $crate::my_codec_reexport)]`.
-
-### Added
-
-- `MaxEncodedLen` trait for items that have a statically known maximum encoded size. ([#268](https://github.com/paritytech/parity-scale-codec/pull/268))
-- `#[codec(crate = "<path>")]` top-level attribute to be used with the new `MaxEncodedLen`
-trait, which allows to specify a different path to the crate that contains the `MaxEncodedLen` trait.
-Useful when using generating a type through a macro and this type should implement `MaxEncodedLen` and the final crate doesn't have `parity-scale-codec` as dependency.
 
 ## [2.1.3] - 2021-06-14
 
