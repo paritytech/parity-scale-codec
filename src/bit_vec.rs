@@ -196,7 +196,7 @@ mod tests {
 	#[test]
 	fn bitvec_u64() {
 		for v in &test_data!(u64) {
-			let encoded = dbg!(v.encode());
+			let encoded = v.encode();
 			assert_eq!(*v, BitVec::<Msb0, u64>::decode(&mut &encoded[..]).unwrap());
 		}
 	}
