@@ -179,7 +179,7 @@
 //! use serde_derive::{Serialize, Deserialize};
 //! use parity_scale_codec::{Encode, Decode, Compact, HasCompact, CompactAs, Error};
 //!
-//! #[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
+//! #[cfg_attr(feature = "serde", derive(Serialize, Deserialize, Debug))]
 //! #[derive(PartialEq, Eq, Clone)]
 //! struct StructHasCompact(u32);
 //!
@@ -249,7 +249,7 @@ pub extern crate alloc;
 #[macro_use]
 extern crate parity_scale_codec_derive;
 
-#[cfg(all(feature = "std", test))]
+#[cfg(all(feature = "serde", test))]
 #[macro_use]
 extern crate serde_derive;
 
@@ -289,7 +289,6 @@ pub use self::codec::{
 	Input, Output, Decode, Encode, Codec, EncodeAsRef, WrapperTypeEncode, WrapperTypeDecode,
 	OptionBool, DecodeLength, FullCodec, FullEncode,
 };
-#[cfg(feature = "std")]
 pub use self::codec::IoReader;
 pub use self::compact::{Compact, HasCompact, CompactAs, CompactLen};
 pub use self::joiner::Joiner;

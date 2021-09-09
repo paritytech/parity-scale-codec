@@ -368,7 +368,7 @@ fn generic_bound_encoded_as() {
 
 #[test]
 fn generic_bound_hascompact() {
-	#[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
+	#[cfg_attr(feature = "serde", derive(Serialize, Deserialize, Debug))]
 	#[derive(PartialEq, Eq, Clone)]
 	// This struct does not impl Codec
 	struct StructHasCompact(u32);

@@ -10,13 +10,14 @@ edition = "2018"
 
 [dependencies]
 arrayvec = { version = "0.7", default-features = false }
-serde = { version = "1.0.102", optional = true }
+serde = { version = "1.0.102", optional = true, default-features = false }
 parity-scale-codec-derive = { path = "derive", version = "2.2.0", default-features = false, optional = true }
 bitvec = { version = "0.20.1", default-features = false, features = ["alloc"], optional = true }
 byte-slice-cast = { version = "1.0.0", default-features = false }
 generic-array = { version = "0.14.4", optional = true }
 arbitrary = { version = "1.0.1", features = ["derive"], optional = true }
 impl-trait-for-tuples = "0.2.1"
+core2 = { version = "0.3.1", default-features = false, features = ["alloc"] }
 
 [dev-dependencies]
 criterion = "0.3.0"
@@ -33,9 +34,9 @@ harness = false
 bench = false
 
 [features]
-default = ["std"]
+default = ["std", "serde"]
 derive = ["parity-scale-codec-derive"]
-std = ["serde", "bitvec/std", "byte-slice-cast/std", "chain-error"]
+std = ["serde/std", "bitvec/std", "byte-slice-cast/std", "chain-error", "core2/std"]
 bit-vec = ["bitvec"]
 fuzz = ["std", "arbitrary"]
 

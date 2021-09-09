@@ -192,14 +192,14 @@ impl<T> core::fmt::Debug for Compact<T> where T: core::fmt::Debug {
 	}
 }
 
-#[cfg(feature = "std")]
+#[cfg(feature = "serde")]
 impl<T> serde::Serialize for Compact<T> where T: serde::Serialize {
 	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: serde::Serializer {
 		T::serialize(&self.0, serializer)
 	}
 }
 
-#[cfg(feature = "std")]
+#[cfg(feature = "serde")]
 impl<'de, T> serde::Deserialize<'de> for Compact<T> where T: serde::Deserialize<'de> {
 	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: serde::Deserializer<'de> {
 		T::deserialize(deserializer).map(Compact)
@@ -752,7 +752,7 @@ mod tests {
 		}
 	}
 
-	#[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
+	#[cfg_attr(feature = "serde", derive(Serialize, Deserialize, Debug))]
 	#[derive(PartialEq, Eq, Clone)]
 	struct Wrapper(u8);
 

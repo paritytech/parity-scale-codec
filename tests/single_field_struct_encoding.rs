@@ -10,7 +10,7 @@ struct S {
 	x: u32,
 }
 
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Encode, Decode, CompactAs)]
 struct SSkip {
 	#[codec(skip)]
@@ -32,15 +32,15 @@ struct Sh<T: HasCompact> {
 	x: T,
 }
 
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Encode, Decode, CompactAs)]
 struct U(u32);
 
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Encode, Decode, CompactAs)]
 struct U2 { a: u64 }
 
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Encode, Decode, CompactAs)]
 struct USkip(#[codec(skip)] u32, u32, #[codec(skip)] u32);
 

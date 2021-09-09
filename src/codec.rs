@@ -23,6 +23,7 @@ use core::{
 	ops::{Deref, Range, RangeInclusive},
 	time::Duration,
 };
+use core2::io;
 use core::num::{
 	NonZeroI8,
 	NonZeroI16,
@@ -112,10 +113,9 @@ impl<'a> Input for &'a [u8] {
 	}
 }
 
-#[cfg(feature = "std")]
-impl From<std::io::Error> for Error {
-	fn from(err: std::io::Error) -> Self {
-		use std::io::ErrorKind::*;
+impl From<io::Error> for Error {
+	fn from(err: io::Error) -> Self {
+		use io::ErrorKind::*;
 		match err.kind() {
 			NotFound => "io error: NotFound".into(),
 			PermissionDenied => "io error: PermissionDenied".into(),
@@ -141,11 +141,9 @@ impl From<std::io::Error> for Error {
 }
 
 /// Wrapper that implements Input for any `Read` type.
-#[cfg(feature = "std")]
-pub struct IoReader<R: std::io::Read>(pub R);
+pub struct IoReader<R: io::Read>(pub R);
 
-#[cfg(feature = "std")]
-impl<R: std::io::Read> Input for IoReader<R> {
+impl<R: io::Read> Input for IoReader<R> {
 	fn remaining_len(&mut self) -> Result<Option<usize>, Error> {
 		Ok(None)
 	}
@@ -166,17 +164,9 @@ pub trait Output {
 	}
 }
 
-#[cfg(not(feature = "std"))]
-impl Output for Vec<u8> {
+impl<W: io::Write> Output for W {
 	fn write(&mut self, bytes: &[u8]) {
-		self.extend_from_slice(bytes)
-	}
-}
-
-#[cfg(feature = "std")]
-impl<W: std::io::Write> Output for W {
-	fn write(&mut self, bytes: &[u8]) {
-		(self as &mut dyn std::io::Write).write_all(bytes).expect("Codec outputs are infallible");
+		(self as &mut dyn io::Write).write_all(bytes).expect("Codec outputs are infallible");
 	}
 }
 
@@ -242,8 +232,8 @@ pub trait Encode {
 	///
 	/// # Note
 	///
-	/// This works by using a special [`Output`] that only tracks the size. So, there are no allocations inside the 
-	/// output. However, this can not prevent allocations that some types are doing inside their own encoding. 
+	/// This works by using a special [`Output`] that only tracks the size. So, there are no allocations inside the
+	/// output. However, this can not prevent allocations that some types are doing inside their own encoding.
 	fn encoded_size(&self) -> usize {
 		let mut size_tracker = SizeTracker { written: 0 };
 		self.encode_to(&mut size_tracker);
@@ -1477,7 +1467,7 @@ mod tests {
 
 	#[test]
 	fn io_reader() {
-		let mut io_reader = IoReader(std::io::Cursor::new(&[1u8, 2, 3][..]));
+		let mut io_reader = IoReader(io::Cursor::new(&[1u8, 2, 3][..]));
 
 		let mut v = [0; 2];
 		io_reader.read(&mut v[..]).unwrap();
