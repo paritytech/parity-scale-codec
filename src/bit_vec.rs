@@ -14,7 +14,9 @@
 
 //! `BitVec` specific serialization.
 
-use bitvec::{vec::BitVec, store::BitStore, order::BitOrder, slice::BitSlice, boxed::BitBox};
+use bitvec::{
+	vec::BitVec, store::BitStore, order::BitOrder, slice::BitSlice, boxed::BitBox, mem::BitMemory
+};
 use crate::{
 	EncodeLike, Encode, Decode, Input, Output, Error, Compact,
 	codec::{decode_vec_with_len, encode_slice_no_len},
@@ -29,11 +31,11 @@ impl<O: BitOrder, T: BitStore + Encode> Encode for BitSlice<O, T> {
 		);
 		Compact(len as u32).encode_to(dest);
 
-		// NOTE: doc of `BitSlice::as_raw_slice`:
+		// NOTE: doc of `BitSlice::as_slice`:
 		// > The returned slice handle views all elements touched by self
 		//
 		// Thus we are sure the slice doesn't contain unused elements at the end.
-		let slice = self.as_raw_slice();
+		let slice = self.as_slice();
 
 		encode_slice_no_len(slice, dest)
 	}
@@ -95,7 +97,7 @@ impl<O: BitOrder, T: BitStore + Decode> Decode for BitBox<O, T> {
 /// NOTE: this should never happen if `bits` is already checked to be less than
 /// `BitStore::MAX_BITS`.
 fn required_elements<T: BitStore>(bits: u32) -> Result<u32, Error> {
-	let element_bits = core::mem::size_of::<T::Mem>() as u32 * 8;
+	let element_bits = T::Mem::BITS as u32;
 	let error = Error::from("Attempt to decode bitvec with too many bits");
 	Ok((bits.checked_add(element_bits).ok_or_else(|| error)?  - 1) / element_bits)
 }
