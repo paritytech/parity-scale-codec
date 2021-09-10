@@ -211,6 +211,10 @@ mod tests {
 	}
 
 	#[test]
+	// Flacky test due to:
+	// * https://github.com/bitvecto-rs/bitvec/issues/135
+	// * https://github.com/rust-lang/miri/issues/1866
+	#[cfg(not(miri))]
 	fn bitbox() {
 		let data: &[u8] = &[5, 10];
 		let slice = BitSlice::<Msb0, u8>::from_slice(data).unwrap();
