@@ -19,11 +19,10 @@
 
 use std::str::FromStr;
 
-use proc_macro_crate::{crate_name, FoundCrate};
-use proc_macro2::{Span, Ident, TokenStream};
+use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{
-	Attribute, Data, DeriveInput, Error, Field, Fields, FieldsNamed, FieldsUnnamed, Lit, Meta,
+	Attribute, Data, DeriveInput, Field, Fields, FieldsNamed, FieldsUnnamed, Lit, Meta,
 	MetaNameValue, NestedMeta, parse::Parse, Path, punctuated::Punctuated,
 	spanned::Spanned, token, Variant,
 };
@@ -122,7 +121,10 @@ pub fn has_dumb_trait_bound(attrs: &[Attribute]) -> bool {
 }
 
 /// Generate the crate access for the crate using 2018 syntax.
-fn crate_access() -> syn::Result<Ident> {
+#[cfg(feature = "max-encoded-len")]
+fn crate_access() -> syn::Result<proc_macro2::Ident> {
+	use proc_macro_crate::{crate_name, FoundCrate};
+	use proc_macro2::{Span, Ident};
 	const DEF_CRATE: &str = "parity-scale-codec";
 	match crate_name(DEF_CRATE) {
 		Ok(FoundCrate::Itself) => {
@@ -130,7 +132,7 @@ fn crate_access() -> syn::Result<Ident> {
 			Ok(syn::Ident::new(&name, Span::call_site()))
 		}
 		Ok(FoundCrate::Name(name)) => Ok(Ident::new(&name, Span::call_site())),
-		Err(e) => Err(Error::new(Span::call_site(), e)),
+		Err(e) => Err(syn::Error::new(Span::call_site(), e)),
 	}
 }
 
@@ -171,6 +173,7 @@ fn codec_crate_path_inner(attr: &Attribute) -> Option<Path> {
 /// If not found, returns the default crate access pattern.
 ///
 /// If multiple items match the pattern, all but the first are ignored.
+#[cfg(feature = "max-encoded-len")]
 pub fn codec_crate_path(attrs: &[Attribute]) -> syn::Result<Path> {
 	match attrs.iter().find_map(codec_crate_path_inner) {
 		Some(path) => Ok(path),
@@ -224,6 +227,7 @@ pub fn custom_encode_trait_bound(attrs: &[Attribute]) -> Option<TraitBounds> {
 /// Look for a `#[codec(mel_bound(T: MaxEncodedLen))]` in the given attributes.
 ///
 /// If found, it should be used as the trait bounds when deriving the `MaxEncodedLen` trait.
+#[cfg(feature = "max-encoded-len")]
 pub fn custom_mel_trait_bound(attrs: &[Attribute]) -> Option<TraitBounds> {
 	find_meta_item(attrs.iter(), |meta: CustomTraitBound<mel_bound>| {
 		Some(meta.bounds)

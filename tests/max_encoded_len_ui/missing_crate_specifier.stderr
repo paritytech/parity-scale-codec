@@ -16,4 +16,4 @@ error[E0277]: the trait bound `Example: WrapperTypeEncode` is not satisfied
    |                          ------ required by this bound in `MaxEncodedLen`
    |
    = note: required because of the requirements on the impl of `Encode` for `Example`
-   = note: this error originates in a derive macro (in Nightly builds, run with -Z macro-backtrace for more info)
+   = note: this error originates in the derive macro `MaxEncodedLen` (in Nightly builds, run with -Z macro-backtrace for more info)
