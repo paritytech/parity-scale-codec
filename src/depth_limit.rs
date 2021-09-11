@@ -24,6 +24,11 @@ pub trait DecodeLimit: Sized {
 	/// If `limit` is hit, an error is returned.
 	fn decode_with_depth_limit(limit: u32, input: &[u8]) -> Result<Self, Error>;
 
+	/// Decode `Self` and advance `input` by the number of bytes consumed.
+	///
+	/// If `limit` is hit, an error is returned.
+	fn decode_and_advance_with_depth_limit<I: Input>(limit: u32, input: &mut I) -> Result<Self, Error>;
+
 	/// Decode `Self` and consume all of the given input data.
 	///
 	/// If not all data is consumed or `limit` is hit, an error is returned.
@@ -82,6 +87,15 @@ impl<T: Decode> DecodeLimit for T {
 		}
 	}
 
+	fn decode_and_advance_with_depth_limit<I: Input>(limit: u32, input: &mut I) -> Result<Self, Error> {
+		let mut input = DepthTrackingInput {
+			input,
+			depth: 0,
+			max_depth: limit,
+		};
+		T::decode(&mut input)
+	}
+
 	fn decode_with_depth_limit(limit: u32, input: &[u8]) -> Result<Self, Error> {
 		let mut input = DepthTrackingInput {
 			input: &mut &input[..],
@@ -106,5 +120,16 @@ mod tests {
 		let decoded = NestedVec::decode_with_depth_limit(3, &encoded).unwrap();
 		assert_eq!(decoded, nested);
 		assert!(NestedVec::decode_with_depth_limit(2, &encoded).is_err());
+	}
+
+	#[test]
+	fn decode_and_advance_works() {
+		type NestedVec = Vec<Vec<Vec<Vec<u8>>>>;
+		let nested: NestedVec = vec![vec![vec![vec![1]]]];
+		let encoded = &mut &nested.encode()[..];
+
+		let decoded = Vec::<u8>::decode_and_advance_with_depth_limit(1, encoded).unwrap();
+		assert_eq!(decoded, vec![4]);
+		assert!(NestedVec::decode_with_depth_limit(3, encoded).is_err());
 	}
 }

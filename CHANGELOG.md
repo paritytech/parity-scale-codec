@@ -4,6 +4,11 @@ All notable changes to this crate are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this crate adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.0] - 2021-09-11
+
+### Added
+- `decode_and_advance_with_depth_limit` to the `DecodeLimit` trait. This allows advancing the cursor while decoding the input. PR #286
+
 ## [2.2.0] - 2021-07-02
 
 ### Added
