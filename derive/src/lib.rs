@@ -27,7 +27,7 @@ use proc_macro2::{Ident, Span};
 use proc_macro_crate::{crate_name, FoundCrate};
 use syn::spanned::Spanned;
 use syn::{Data, Field, Fields, DeriveInput, Error};
-
+use proc_macro2::TokenStream as TokenStream2;
 use crate::utils::is_lint_attribute;
 
 mod decode;
@@ -36,10 +36,11 @@ mod max_encoded_len;
 mod utils;
 mod trait_bounds;
 
-/// Include the `parity-scale-codec` crate under a known name (`_parity_scale_codec`).
-fn include_parity_scale_codec_crate() -> proc_macro2::TokenStream {
-	match parity_scale_codec_ident() {
-		Ok(ident) => quote! { extern crate #ident as _parity_scale_codec; },
+/// Returns a tokenstream to refer to the `parity-scale-codec` crate
+/// independent of it being renamed as import or it being the crate itself.
+pub(crate) fn parity_scale_codec_ident() -> TokenStream2 {
+	match parity_scale_codec_ident_or_err() {
+		Ok(ident) => ident,
 		Err(e) => e.into_compile_error(),
 	}
 }
@@ -48,19 +49,21 @@ fn include_parity_scale_codec_crate() -> proc_macro2::TokenStream {
 ///
 /// The identifier might change if the depending crate imported it
 /// using a custom package name.
-fn parity_scale_codec_ident() -> Result<Ident, Error> {
-	static ORIGINAL_NAME: &str = "parity-scale-codec";
-	static ORIGINAL_IDENT: &str = "parity_scale_codec";
-	fn ident_from_str(name: &str) -> Ident {
-		Ident::new(name, Span::call_site())
+fn parity_scale_codec_ident_or_err() -> Result<TokenStream2, Error> {
+	static CRATE_NAME: &str = "parity-scale-codec";
+	fn root_import(name: &str) -> TokenStream2 {
+		let ident = Ident::new(name, Span::call_site());
+		quote!{ :: #ident }
 	}
 	// This "hack" is required for the tests.
-	if std::env::var("CARGO_PKG_NAME").unwrap() == ORIGINAL_NAME {
-		Ok(ident_from_str(ORIGINAL_IDENT))
+	if std::env::var("CARGO_PKG_NAME").unwrap() == CRATE_NAME {
+		Ok(root_import("parity_scale_codec"))
 	} else {
-		match crate_name(ORIGINAL_NAME) {
-			Ok(FoundCrate::Itself) => Ok(ident_from_str(ORIGINAL_IDENT)),
-			Ok(FoundCrate::Name(custom_name)) => Ok(ident_from_str(&custom_name)),
+		match crate_name(CRATE_NAME) {
+			Ok(FoundCrate::Itself) => {
+				Ok(quote! { crate })
+			}
+			Ok(FoundCrate::Name(custom_name)) => Ok(root_import(&custom_name)),
 			Err(e) => Err(Error::new(Span::call_site(), &e)),
 		}
 	}
@@ -68,15 +71,9 @@ fn parity_scale_codec_ident() -> Result<Ident, Error> {
 
 /// Wraps the impl block in a "dummy const"
 fn wrap_with_dummy_const(input: DeriveInput, impl_block: proc_macro2::TokenStream) -> proc_macro::TokenStream {
-	let parity_codec_crate = include_parity_scale_codec_crate();
 	let attrs = input.attrs.into_iter().filter(is_lint_attribute);
-
 	let generated = quote! {
 		const _: () = {
-			#[allow(unknown_lints)]
-			#[cfg_attr(feature = "cargo-clippy", allow(useless_attribute))]
-			#[allow(rust_2018_idioms)]
-			#parity_codec_crate
 			#(#attrs)*
 			#impl_block
 		};
@@ -161,13 +158,14 @@ pub fn encode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 		return e.to_compile_error().into();
 	}
 
+	let crate_ident = crate::parity_scale_codec_ident();
 	if let Some(custom_bound) = utils::custom_encode_trait_bound(&input.attrs) {
 		input.generics.make_where_clause().predicates.extend(custom_bound);
 	} else if let Err(e) = trait_bounds::add(
 		&input.ident,
 		&mut input.generics,
 		&input.data,
-		parse_quote!(_parity_scale_codec::Encode),
+		parse_quote!(#crate_ident::Encode),
 		None,
 		utils::has_dumb_trait_bound(&input.attrs),
 	) {
@@ -180,11 +178,11 @@ pub fn encode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 	let encode_impl = encode::quote(&input.data, name);
 
 	let impl_block = quote! {
-		impl #impl_generics _parity_scale_codec::Encode for #name #ty_generics #where_clause {
+		impl #impl_generics #crate_ident::Encode for #name #ty_generics #where_clause {
 			#encode_impl
 		}
 
-		impl #impl_generics _parity_scale_codec::EncodeLike for #name #ty_generics #where_clause {}
+		impl #impl_generics #crate_ident::EncodeLike for #name #ty_generics #where_clause {}
 	};
 
 	wrap_with_dummy_const(input, impl_block)
@@ -203,6 +201,7 @@ pub fn decode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 	if let Err(e) = utils::check_attributes(&input) {
 		return e.to_compile_error().into();
 	}
+	let crate_ident = crate::parity_scale_codec_ident();
 
 	if let Some(custom_bound) = utils::custom_decode_trait_bound(&input.attrs) {
 		input.generics.make_where_clause().predicates.extend(custom_bound);
@@ -210,7 +209,7 @@ pub fn decode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 		&input.ident,
 		&mut input.generics,
 		&input.data,
-		parse_quote!(_parity_scale_codec::Decode),
+		parse_quote!(#crate_ident::Decode),
 		Some(parse_quote!(Default)),
 		utils::has_dumb_trait_bound(&input.attrs),
 	) {
@@ -225,10 +224,10 @@ pub fn decode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 	let decoding = decode::quote(&input.data, name, &quote!(#ty_gen_turbofish), &input_);
 
 	let impl_block = quote! {
-		impl #impl_generics _parity_scale_codec::Decode for #name #ty_generics #where_clause {
-			fn decode<__CodecInputEdqy: _parity_scale_codec::Input>(
+		impl #impl_generics #crate_ident::Decode for #name #ty_generics #where_clause {
+			fn decode<__CodecInputEdqy: #crate_ident::Input>(
 				#input_: &mut __CodecInputEdqy
-			) -> ::core::result::Result<Self, _parity_scale_codec::Error> {
+			) -> ::core::result::Result<Self, #crate_ident::Error> {
 				#decoding
 			}
 		}
@@ -262,11 +261,12 @@ pub fn compact_as_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStr
 		return e.to_compile_error().into();
 	}
 
+	let crate_ident = crate::parity_scale_codec_ident();
 	if let Err(e) = trait_bounds::add(
 		&input.ident,
 		&mut input.generics,
 		&input.data,
-		parse_quote!(_parity_scale_codec::CompactAs),
+		parse_quote!(#crate_ident::CompactAs),
 		None,
 		utils::has_dumb_trait_bound(&input.attrs),
 	) {
@@ -324,22 +324,22 @@ pub fn compact_as_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStr
 	};
 
 	let impl_block = quote! {
-		impl #impl_generics _parity_scale_codec::CompactAs for #name #ty_generics #where_clause {
+		impl #impl_generics #crate_ident::CompactAs for #name #ty_generics #where_clause {
 			type As = #inner_ty;
 			fn encode_as(&self) -> &#inner_ty {
 				#inner_field
 			}
 			fn decode_from(x: #inner_ty)
-				-> ::core::result::Result<#name #ty_generics, _parity_scale_codec::Error>
+				-> ::core::result::Result<#name #ty_generics, #crate_ident::Error>
 			{
 				::core::result::Result::Ok(#constructor)
 			}
 		}
 
-		impl #impl_generics From<_parity_scale_codec::Compact<#name #ty_generics>>
+		impl #impl_generics From<#crate_ident::Compact<#name #ty_generics>>
 			for #name #ty_generics #where_clause
 		{
-			fn from(x: _parity_scale_codec::Compact<#name #ty_generics>) -> #name #ty_generics {
+			fn from(x: #crate_ident::Compact<#name #ty_generics>) -> #name #ty_generics {
 				x.0
 			}
 		}

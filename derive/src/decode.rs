@@ -111,13 +111,14 @@ fn create_decode_expr(field: &Field, name: &str, input: &TokenStream) -> TokenSt
 	}
 
 	let err_msg = format!("Could not decode `{}`", name);
+	let crate_ident = crate::parity_scale_codec_ident();
 
 	if compact {
 		let field_type = &field.ty;
 		quote_spanned! { field.span() =>
 			{
 				let #res = <
-					<#field_type as _parity_scale_codec::HasCompact>::Type as _parity_scale_codec::Decode
+					<#field_type as #crate_ident::HasCompact>::Type as #crate_ident::Decode
 				>::decode(#input);
 				match #res {
 					::core::result::Result::Err(e) => return ::core::result::Result::Err(e.chain(#err_msg)),
@@ -128,7 +129,7 @@ fn create_decode_expr(field: &Field, name: &str, input: &TokenStream) -> TokenSt
 	} else if let Some(encoded_as) = encoded_as {
 		quote_spanned! { field.span() =>
 			{
-				let #res = <#encoded_as as _parity_scale_codec::Decode>::decode(#input);
+				let #res = <#encoded_as as #crate_ident::Decode>::decode(#input);
 				match #res {
 					::core::result::Result::Err(e) => return ::core::result::Result::Err(e.chain(#err_msg)),
 					::core::result::Result::Ok(#res) => #res.into(),
@@ -141,7 +142,7 @@ fn create_decode_expr(field: &Field, name: &str, input: &TokenStream) -> TokenSt
 		let field_type = &field.ty;
 		quote_spanned! { field.span() =>
 			{
-				let #res = <#field_type as _parity_scale_codec::Decode>::decode(#input);
+				let #res = <#field_type as #crate_ident::Decode>::decode(#input);
 				match #res {
 					::core::result::Result::Err(e) => return ::core::result::Result::Err(e.chain(#err_msg)),
 					::core::result::Result::Ok(#res) => #res,

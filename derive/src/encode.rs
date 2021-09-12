@@ -48,12 +48,14 @@ fn encode_single_field(
 		).to_compile_error();
 	}
 
+	let crate_ident = crate::parity_scale_codec_ident();
+
 	let final_field_variable = if compact {
 		let field_type = &field.ty;
 		quote_spanned! {
 			field.span() => {
-				<<#field_type as _parity_scale_codec::HasCompact>::Type as
-					_parity_scale_codec::EncodeAsRef<'_, #field_type>>::RefType::from(#field_name)
+				<<#field_type as #crate_ident::HasCompact>::Type as
+				#crate_ident::EncodeAsRef<'_, #field_type>>::RefType::from(#field_name)
 			}
 		}
 	} else if let Some(encoded_as) = encoded_as {
@@ -61,7 +63,7 @@ fn encode_single_field(
 		quote_spanned! {
 			field.span() => {
 				<#encoded_as as
-					_parity_scale_codec::EncodeAsRef<'_, #field_type>>::RefType::from(#field_name)
+				#crate_ident::EncodeAsRef<'_, #field_type>>::RefType::from(#field_name)
 			}
 		}
 	} else {
@@ -74,19 +76,19 @@ fn encode_single_field(
 	let i_self = quote! { self };
 
 	quote_spanned! { field.span() =>
-			fn encode_to<__CodecOutputEdqy: _parity_scale_codec::Output + ?::core::marker::Sized>(
+			fn encode_to<__CodecOutputEdqy: #crate_ident::Output + ?::core::marker::Sized>(
 				&#i_self,
 				__codec_dest_edqy: &mut __CodecOutputEdqy
 			) {
-				_parity_scale_codec::Encode::encode_to(&#final_field_variable, __codec_dest_edqy)
+				#crate_ident::Encode::encode_to(&#final_field_variable, __codec_dest_edqy)
 			}
 
-			fn encode(&#i_self) -> _parity_scale_codec::alloc::vec::Vec<::core::primitive::u8> {
-				_parity_scale_codec::Encode::encode(&#final_field_variable)
+			fn encode(&#i_self) -> #crate_ident::alloc::vec::Vec<::core::primitive::u8> {
+				#crate_ident::Encode::encode(&#final_field_variable)
 			}
 
 			fn using_encoded<R, F: ::core::ops::FnOnce(&[::core::primitive::u8]) -> R>(&#i_self, f: F) -> R {
-				_parity_scale_codec::Encode::using_encoded(&#final_field_variable, f)
+				#crate_ident::Encode::using_encoded(&#final_field_variable, f)
 			}
 	}
 }
@@ -103,6 +105,7 @@ fn encode_fields<F>(
 		let encoded_as = utils::get_encoded_as_type(f);
 		let compact = utils::is_compact(f);
 		let skip = utils::should_skip(&f.attrs);
+		let crate_ident = crate::parity_scale_codec_ident();
 
 		if encoded_as.is_some() as u8 + compact as u8 + skip as u8 > 1 {
 			return Error::new(
@@ -117,10 +120,10 @@ fn encode_fields<F>(
 			let field_type = &f.ty;
 			quote_spanned! {
 				f.span() => {
-					_parity_scale_codec::Encode::encode_to(
+					#crate_ident::Encode::encode_to(
 						&<
-							<#field_type as _parity_scale_codec::HasCompact>::Type as
-							_parity_scale_codec::EncodeAsRef<'_, #field_type>
+							<#field_type as #crate_ident::HasCompact>::Type as
+							#crate_ident::EncodeAsRef<'_, #field_type>
 						>::RefType::from(#field),
 						#dest,
 					);
@@ -130,10 +133,10 @@ fn encode_fields<F>(
 			let field_type = &f.ty;
 			quote_spanned! {
 				f.span() => {
-					_parity_scale_codec::Encode::encode_to(
+					#crate_ident::Encode::encode_to(
 						&<
 							#encoded_as as
-							_parity_scale_codec::EncodeAsRef<'_, #field_type>
+							#crate_ident::EncodeAsRef<'_, #field_type>
 						>::RefType::from(#field),
 						#dest,
 					);
@@ -145,7 +148,7 @@ fn encode_fields<F>(
 			}
 		} else {
 			quote_spanned! { f.span() =>
-					_parity_scale_codec::Encode::encode_to(#field, #dest);
+				#crate_ident::Encode::encode_to(#field, #dest);
 			}
 		}
 	});
@@ -292,9 +295,9 @@ fn impl_encode(data: &Data, type_name: &Ident) -> TokenStream {
 			"Union types are not supported."
 		).to_compile_error(),
 	};
-
+	let crate_ident = crate::parity_scale_codec_ident();
 	quote! {
-		fn encode_to<__CodecOutputEdqy: _parity_scale_codec::Output + ?Sized>(
+		fn encode_to<__CodecOutputEdqy: #crate_ident::Output + ?::core::marker::Sized>(
 			&#self_,
 			#dest: &mut __CodecOutputEdqy
 		) {

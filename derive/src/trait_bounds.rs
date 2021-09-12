@@ -146,7 +146,8 @@ pub fn add(
 				where_clause.predicates.push(parse_quote!(#ty : #codec_bound))
 			});
 
-		let has_compact_bound: syn::Path = parse_quote!(_parity_scale_codec::HasCompact);
+		let crate_ident = crate::parity_scale_codec_ident();
+		let has_compact_bound: syn::Path = parse_quote!(#crate_ident::HasCompact);
 		compact_types
 			.into_iter()
 			.for_each(|ty| {
