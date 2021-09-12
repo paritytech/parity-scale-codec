@@ -38,17 +38,30 @@ mod trait_bounds;
 
 /// Include the `parity-scale-codec` crate under a known name (`_parity_scale_codec`).
 fn include_parity_scale_codec_crate() -> proc_macro2::TokenStream {
+	match parity_scale_codec_ident() {
+		Ok(ident) => quote! { extern crate #ident as _parity_scale_codec; },
+		Err(e) => e.into_compile_error(),
+	}
+}
+
+/// Returns the identifier of the `parity-scale-codec` crate as used.
+///
+/// The identifier might change if the depending crate imported it
+/// using a custom package name.
+fn parity_scale_codec_ident() -> Result<Ident, Error> {
+	static ORIGINAL_NAME: &str = "parity-scale-codec";
+	static ORIGINAL_IDENT: &str = "parity_scale_codec";
+	fn ident_from_str(name: &str) -> Ident {
+		Ident::new(name, Span::call_site())
+	}
 	// This "hack" is required for the tests.
-	if std::env::var("CARGO_PKG_NAME").unwrap() == "parity-scale-codec" {
-		quote!( extern crate parity_scale_codec as _parity_scale_codec; )
+	if std::env::var("CARGO_PKG_NAME").unwrap() == ORIGINAL_NAME {
+		Ok(ident_from_str(ORIGINAL_IDENT))
 	} else {
-		match crate_name("parity-scale-codec") {
-			Ok(FoundCrate::Itself) => quote!( extern crate parity_scale_codec as _parity_scale_codec; ),
-			Ok(FoundCrate::Name(parity_codec_crate)) => {
-				let ident = Ident::new(&parity_codec_crate, Span::call_site());
-				quote!( extern crate #ident as _parity_scale_codec; )
-			},
-			Err(e) => Error::new(Span::call_site(), &e).to_compile_error(),
+		match crate_name(ORIGINAL_NAME) {
+			Ok(FoundCrate::Itself) => Ok(ident_from_str(ORIGINAL_IDENT)),
+			Ok(FoundCrate::Name(custom_name)) => Ok(ident_from_str(&custom_name)),
+			Err(e) => Err(Error::new(Span::call_site(), &e)),
 		}
 	}
 }
