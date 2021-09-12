@@ -74,14 +74,14 @@ fn encode_single_field(
 	let i_self = quote! { self };
 
 	quote_spanned! { field.span() =>
-			fn encode_to<__CodecOutputEdqy: _parity_scale_codec::Output + ?Sized>(
+			fn encode_to<__CodecOutputEdqy: _parity_scale_codec::Output + ?::core::marker::Sized>(
 				&#i_self,
 				__codec_dest_edqy: &mut __CodecOutputEdqy
 			) {
 				_parity_scale_codec::Encode::encode_to(&#final_field_variable, __codec_dest_edqy)
 			}
 
-			fn encode(&#i_self) -> _parity_scale_codec::alloc::vec::Vec<u8> {
+			fn encode(&#i_self) -> _parity_scale_codec::alloc::vec::Vec<::core::primitive::u8> {
 				_parity_scale_codec::Encode::encode(&#final_field_variable)
 			}
 
