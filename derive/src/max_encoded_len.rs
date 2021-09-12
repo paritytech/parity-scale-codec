@@ -47,7 +47,7 @@ pub fn derive_max_encoded_len(input: proc_macro::TokenStream) -> proc_macro::Tok
 	quote::quote!(
 		const _: () = {
 			impl #impl_generics #mel_trait for #name #ty_generics #where_clause {
-				fn max_encoded_len() -> usize {
+				fn max_encoded_len() -> ::core::primitive::usize {
 					#data_expr
 				}
 			}
