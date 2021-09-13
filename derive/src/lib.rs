@@ -40,7 +40,7 @@ mod trait_bounds;
 ///
 /// The identifier might change if the depending crate imported it
 /// using a custom package name.
-pub(crate) fn parity_scale_codec_ident_or_err() -> Result<TokenStream2, Error> {
+fn parity_scale_codec_ident() -> Result<TokenStream2, Error> {
 	static CRATE_NAME: &str = "parity-scale-codec";
 	fn root_import(name: &str) -> TokenStream2 {
 		let ident = Ident::new(name, Span::call_site());
@@ -149,7 +149,7 @@ pub fn encode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 		return e.to_compile_error().into();
 	}
 
-	let crate_ident = match crate::parity_scale_codec_ident_or_err() {
+	let crate_ident = match crate::parity_scale_codec_ident() {
 		Ok(crate_ident) => crate_ident,
 		Err(error) => {
 			return error.into_compile_error().into()
@@ -200,7 +200,7 @@ pub fn decode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 		return e.to_compile_error().into();
 	}
 
-	let crate_ident = match crate::parity_scale_codec_ident_or_err() {
+	let crate_ident = match crate::parity_scale_codec_ident() {
 		Ok(crate_ident) => crate_ident,
 		Err(error) => {
 			return error.into_compile_error().into()
@@ -266,7 +266,7 @@ pub fn compact_as_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStr
 		return e.to_compile_error().into();
 	}
 
-	let crate_ident = match crate::parity_scale_codec_ident_or_err() {
+	let crate_ident = match crate::parity_scale_codec_ident() {
 		Ok(crate_ident) => crate_ident,
 		Err(error) => {
 			return error.into_compile_error().into()
