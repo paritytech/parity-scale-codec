@@ -36,20 +36,11 @@ mod max_encoded_len;
 mod utils;
 mod trait_bounds;
 
-/// Returns a tokenstream to refer to the `parity-scale-codec` crate
-/// independent of it being renamed as import or it being the crate itself.
-pub(crate) fn parity_scale_codec_ident() -> TokenStream2 {
-	match parity_scale_codec_ident_or_err() {
-		Ok(ident) => ident,
-		Err(e) => e.into_compile_error(),
-	}
-}
-
 /// Returns the identifier of the `parity-scale-codec` crate as used.
 ///
 /// The identifier might change if the depending crate imported it
 /// using a custom package name.
-fn parity_scale_codec_ident_or_err() -> Result<TokenStream2, Error> {
+pub(crate) fn parity_scale_codec_ident_or_err() -> Result<TokenStream2, Error> {
 	static CRATE_NAME: &str = "parity-scale-codec";
 	fn root_import(name: &str) -> TokenStream2 {
 		let ident = Ident::new(name, Span::call_site());
@@ -158,7 +149,13 @@ pub fn encode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 		return e.to_compile_error().into();
 	}
 
-	let crate_ident = crate::parity_scale_codec_ident();
+	let crate_ident = match crate::parity_scale_codec_ident_or_err() {
+		Ok(crate_ident) => crate_ident,
+		Err(error) => {
+			return error.into_compile_error().into()
+		}
+	};
+
 	if let Some(custom_bound) = utils::custom_encode_trait_bound(&input.attrs) {
 		input.generics.make_where_clause().predicates.extend(custom_bound);
 	} else if let Err(e) = trait_bounds::add(
@@ -168,6 +165,7 @@ pub fn encode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 		parse_quote!(#crate_ident::Encode),
 		None,
 		utils::has_dumb_trait_bound(&input.attrs),
+		&crate_ident,
 	) {
 		return e.to_compile_error().into();
 	}
@@ -175,7 +173,7 @@ pub fn encode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 	let name = &input.ident;
 	let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
-	let encode_impl = encode::quote(&input.data, name);
+	let encode_impl = encode::quote(&input.data, name, &crate_ident);
 
 	let impl_block = quote! {
 		impl #impl_generics #crate_ident::Encode for #name #ty_generics #where_clause {
@@ -201,7 +199,13 @@ pub fn decode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 	if let Err(e) = utils::check_attributes(&input) {
 		return e.to_compile_error().into();
 	}
-	let crate_ident = crate::parity_scale_codec_ident();
+
+	let crate_ident = match crate::parity_scale_codec_ident_or_err() {
+		Ok(crate_ident) => crate_ident,
+		Err(error) => {
+			return error.into_compile_error().into()
+		}
+	};
 
 	if let Some(custom_bound) = utils::custom_decode_trait_bound(&input.attrs) {
 		input.generics.make_where_clause().predicates.extend(custom_bound);
@@ -212,6 +216,7 @@ pub fn decode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 		parse_quote!(#crate_ident::Decode),
 		Some(parse_quote!(Default)),
 		utils::has_dumb_trait_bound(&input.attrs),
+		&crate_ident,
 	) {
 		return e.to_compile_error().into();
 	}
@@ -221,7 +226,7 @@ pub fn decode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 	let ty_gen_turbofish = ty_generics.as_turbofish();
 
 	let input_ = quote!(__codec_input_edqy);
-	let decoding = decode::quote(&input.data, name, &quote!(#ty_gen_turbofish), &input_);
+	let decoding = decode::quote(&input.data, name, &quote!(#ty_gen_turbofish), &input_, &crate_ident);
 
 	let impl_block = quote! {
 		impl #impl_generics #crate_ident::Decode for #name #ty_generics #where_clause {
@@ -261,7 +266,13 @@ pub fn compact_as_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStr
 		return e.to_compile_error().into();
 	}
 
-	let crate_ident = crate::parity_scale_codec_ident();
+	let crate_ident = match crate::parity_scale_codec_ident_or_err() {
+		Ok(crate_ident) => crate_ident,
+		Err(error) => {
+			return error.into_compile_error().into()
+		}
+	};
+
 	if let Err(e) = trait_bounds::add(
 		&input.ident,
 		&mut input.generics,
@@ -269,6 +280,7 @@ pub fn compact_as_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStr
 		parse_quote!(#crate_ident::CompactAs),
 		None,
 		utils::has_dumb_trait_bound(&input.attrs),
+		&crate_ident,
 	) {
 		return e.to_compile_error().into();
 	}

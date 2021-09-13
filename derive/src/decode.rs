@@ -31,6 +31,7 @@ pub fn quote(
 	type_name: &Ident,
 	type_generics: &TokenStream,
 	input: &TokenStream,
+	crate_ident: &TokenStream,
 ) -> TokenStream {
 	match *data {
 		Data::Struct(ref data) => match data.fields {
@@ -39,6 +40,7 @@ pub fn quote(
 				&type_name.to_string(),
 				input,
 				&data.fields,
+				crate_ident,
 			),
 			Fields::Unit => {
 				quote_spanned! { data.fields.span() =>
@@ -65,6 +67,7 @@ pub fn quote(
 					&format!("{}::{}", type_name, name),
 					input,
 					&v.fields,
+					crate_ident,
 				);
 
 				quote_spanned! { v.span() =>
@@ -96,7 +99,7 @@ pub fn quote(
 	}
 }
 
-fn create_decode_expr(field: &Field, name: &str, input: &TokenStream) -> TokenStream {
+fn create_decode_expr(field: &Field, name: &str, input: &TokenStream, crate_ident: &TokenStream) -> TokenStream {
 	let encoded_as = utils::get_encoded_as_type(field);
 	let compact = utils::is_compact(field);
 	let skip = utils::should_skip(&field.attrs);
@@ -111,7 +114,6 @@ fn create_decode_expr(field: &Field, name: &str, input: &TokenStream) -> TokenSt
 	}
 
 	let err_msg = format!("Could not decode `{}`", name);
-	let crate_ident = crate::parity_scale_codec_ident();
 
 	if compact {
 		let field_type = &field.ty;
@@ -156,7 +158,8 @@ fn create_instance(
 	name: TokenStream,
 	name_str: &str,
 	input: &TokenStream,
-	fields: &Fields
+	fields: &Fields,
+	crate_ident: &TokenStream,
 ) -> TokenStream {
 	match *fields {
 		Fields::Named(ref fields) => {
@@ -166,7 +169,7 @@ fn create_instance(
 					Some(a) => format!("{}::{}", name_str, a),
 					None => format!("{}", name_str), // Should never happen, fields are named.
 				};
-				let decode = create_decode_expr(f, &field_name, input);
+				let decode = create_decode_expr(f, &field_name, input, crate_ident);
 
 				quote_spanned! { f.span() =>
 					#name_ident: #decode
@@ -183,7 +186,7 @@ fn create_instance(
 			let recurse = fields.unnamed.iter().enumerate().map(|(i, f) | {
 				let field_name = format!("{}.{}", name_str, i);
 
-				create_decode_expr(f, &field_name, input)
+				create_decode_expr(f, &field_name, input, crate_ident)
 			});
 
 			quote_spanned! { fields.span() =>

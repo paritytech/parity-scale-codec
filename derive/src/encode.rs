@@ -30,6 +30,7 @@ type FieldsList = Punctuated<Field, Comma>;
 fn encode_single_field(
 	field: &Field,
 	field_name: TokenStream,
+	crate_ident: &TokenStream,
 ) -> TokenStream {
 	let encoded_as = utils::get_encoded_as_type(field);
 	let compact = utils::is_compact(field);
@@ -47,8 +48,6 @@ fn encode_single_field(
 			"`encoded_as` and `compact` can not be used at the same time!"
 		).to_compile_error();
 	}
-
-	let crate_ident = crate::parity_scale_codec_ident();
 
 	let final_field_variable = if compact {
 		let field_type = &field.ty;
@@ -97,6 +96,7 @@ fn encode_fields<F>(
 	dest: &TokenStream,
 	fields: &FieldsList,
 	field_name: F,
+	crate_ident: &TokenStream,
 ) -> TokenStream where
 	F: Fn(usize, &Option<Ident>) -> TokenStream,
 {
@@ -105,7 +105,6 @@ fn encode_fields<F>(
 		let encoded_as = utils::get_encoded_as_type(f);
 		let compact = utils::is_compact(f);
 		let skip = utils::should_skip(&f.attrs);
-		let crate_ident = crate::parity_scale_codec_ident();
 
 		if encoded_as.is_some() as u8 + compact as u8 + skip as u8 > 1 {
 			return Error::new(
@@ -158,7 +157,7 @@ fn encode_fields<F>(
 	}
 }
 
-fn try_impl_encode_single_field_optimisation(data: &Data) -> Option<TokenStream> {
+fn try_impl_encode_single_field_optimisation(data: &Data, crate_ident: &TokenStream) -> Option<TokenStream> {
 	match *data {
 		Data::Struct(ref data) => {
 			match data.fields {
@@ -167,7 +166,8 @@ fn try_impl_encode_single_field_optimisation(data: &Data) -> Option<TokenStream>
 					let name = &field.ident;
 					Some(encode_single_field(
 						field,
-						quote!(&self.#name)
+						quote!(&self.#name),
+						crate_ident,
 					))
 				},
 				Fields::Unnamed(ref fields) if utils::filter_skip_unnamed(fields).count() == 1 => {
@@ -176,7 +176,8 @@ fn try_impl_encode_single_field_optimisation(data: &Data) -> Option<TokenStream>
 
 					Some(encode_single_field(
 						field,
-						quote!(&self.#id)
+						quote!(&self.#id),
+						crate_ident,
 					))
 				},
 				_ => None,
@@ -186,7 +187,7 @@ fn try_impl_encode_single_field_optimisation(data: &Data) -> Option<TokenStream>
 	}
 }
 
-fn impl_encode(data: &Data, type_name: &Ident) -> TokenStream {
+fn impl_encode(data: &Data, type_name: &Ident, crate_ident: &TokenStream) -> TokenStream {
 	let self_ = quote!(self);
 	let dest = &quote!(__codec_dest_edqy);
 	let encoding = match *data {
@@ -196,6 +197,7 @@ fn impl_encode(data: &Data, type_name: &Ident) -> TokenStream {
 					dest,
 					&fields.named,
 					|_, name| quote!(&#self_.#name),
+					crate_ident,
 				),
 				Fields::Unnamed(ref fields) => encode_fields(
 					dest,
@@ -204,6 +206,7 @@ fn impl_encode(data: &Data, type_name: &Ident) -> TokenStream {
 						let i = syn::Index::from(i);
 						quote!(&#self_.#i)
 					},
+					crate_ident,
 				),
 				Fields::Unit => quote!(),
 			}
@@ -239,6 +242,7 @@ fn impl_encode(data: &Data, type_name: &Ident) -> TokenStream {
 							dest,
 							&fields.named,
 							|a, b| field_name(a, b),
+							crate_ident,
 						);
 
 						quote_spanned! { f.span() =>
@@ -264,6 +268,7 @@ fn impl_encode(data: &Data, type_name: &Ident) -> TokenStream {
 							dest,
 							&fields.unnamed,
 							|a, b| field_name(a, b),
+							crate_ident,
 						);
 
 						quote_spanned! { f.span() =>
@@ -295,7 +300,6 @@ fn impl_encode(data: &Data, type_name: &Ident) -> TokenStream {
 			"Union types are not supported."
 		).to_compile_error(),
 	};
-	let crate_ident = crate::parity_scale_codec_ident();
 	quote! {
 		fn encode_to<__CodecOutputEdqy: #crate_ident::Output + ?::core::marker::Sized>(
 			&#self_,
@@ -306,11 +310,11 @@ fn impl_encode(data: &Data, type_name: &Ident) -> TokenStream {
 	}
 }
 
-pub fn quote(data: &Data, type_name: &Ident) -> TokenStream {
-	if let Some(implementation) = try_impl_encode_single_field_optimisation(data) {
+pub fn quote(data: &Data, type_name: &Ident, crate_ident: &TokenStream) -> TokenStream {
+	if let Some(implementation) = try_impl_encode_single_field_optimisation(data, crate_ident) {
 		implementation
 	} else {
-		impl_encode(data, type_name)
+		impl_encode(data, type_name, crate_ident)
 	}
 }
 
