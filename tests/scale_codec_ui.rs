@@ -16,9 +16,6 @@
 #[test]
 #[cfg(feature = "derive")]
 fn scale_codec_ui_tests() {
-	// As trybuild is using `cargo check`, we don't need the real WASM binaries.
-	std::env::set_var("SKIP_WASM_BUILD", "1");
-
 	let t = trybuild::TestCases::new();
 	t.compile_fail("tests/scale_codec_ui/*.rs");
 	t.pass("tests/scale_codec_ui/pass/*.rs");
