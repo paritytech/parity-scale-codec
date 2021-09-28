@@ -7,10 +7,6 @@ and this crate adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 
 ## [2.3.1] - 2021-09-28
 
-### Added
-
-- Associated method to DecodeLimit for advancing input index. ([#286](https://github.com/paritytech/parity-scale-codec/pull/286))
-
 ### Fix
 
 - Improve macro hygiene of `Encode` and `Decode` proc. macro expansions. ([#291](https://github.com/paritytech/parity-scale-codec/pull/291), [#293](https://github.com/paritytech/parity-scale-codec/pull/293))
