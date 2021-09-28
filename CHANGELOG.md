@@ -13,8 +13,7 @@ and this crate adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 
 ### Fix
 
-- Improve macro hygiene of `Encode` and `Decode` proc. macro expansions.
-
+- Improve macro hygiene of `Encode` and `Decode` proc. macro expansions. ([#291](https://github.com/paritytech/parity-scale-codec/pull/291), [#293](https://github.com/paritytech/parity-scale-codec/pull/293))
 
 ## [2.3.0] - 2021-09-11
 
