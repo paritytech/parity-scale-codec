@@ -11,7 +11,7 @@ edition = "2018"
 [dependencies]
 arrayvec = { version = "0.7", default-features = false }
 serde = { version = "1.0.102", optional = true }
-parity-scale-codec-derive = { path = "derive", version = "2.2.0", default-features = false, optional = true }
+parity-scale-codec-derive = { path = "derive", version = "2.3.1", default-features = false, optional = true }
 bitvec = { version = "0.20.1", default-features = false, features = ["alloc"], optional = true }
 byte-slice-cast = { version = "1.0.0", default-features = false }
 generic-array = { version = "0.14.4", optional = true }
