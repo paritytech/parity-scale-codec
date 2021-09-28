@@ -90,7 +90,9 @@ pub fn quote(
 					.map_err(|e| e.chain(#read_byte_err_msg))?
 				{
 					#( #recurse )*
-					_ => ::core::result::Result::Err(#invalid_variant_err_msg.into()),
+					_ => ::core::result::Result::Err(
+						<_ as ::core::convert::Into<_>>::into(#invalid_variant_err_msg)
+					),
 				}
 			}
 
