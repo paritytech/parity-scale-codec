@@ -191,6 +191,10 @@ mod tests {
 	}
 
 	#[test]
+	// Flaky test due to:
+	// * https://github.com/bitvecto-rs/bitvec/issues/135
+	// * https://github.com/rust-lang/miri/issues/1866
+	#[cfg(not(miri))]
 	fn bitvec_u32() {
 		for v in &test_data!(u32) {
 			let encoded = v.encode();
