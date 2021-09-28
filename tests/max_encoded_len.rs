@@ -14,7 +14,7 @@
 // limitations under the License.
 
 //! Tests for MaxEncodedLen derive macro
-#![cfg(feature = "derive")]
+#![cfg(all(feature = "derive", feature = "max-encoded-len"))]
 
 use parity_scale_codec::{MaxEncodedLen, Compact, Encode};
 
