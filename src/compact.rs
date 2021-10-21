@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! [Compact encoding](https://substrate.dev/docs/en/overview/low-level-data-format#compact-general-integers)
+//! [Compact encoding](https://docs.substrate.io/v3/advanced/scale-codec/#compactgeneral-integers)
 
 use arrayvec::ArrayVec;
 
