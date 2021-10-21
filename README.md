@@ -13,7 +13,7 @@ The encoded data does not include this contextual information.
 
 To get a better understanding of how the encoding is done for different types,
 take a look at the
-[low-level data formats overview page at the Substrate docs site](https://substrate.dev/docs/en/knowledgebase/advanced/codec).
+[low-level data formats overview page at the Substrate docs site](https://docs.substrate.io/v3/advanced/scale-codec/).
 
 ## Implementation
 
@@ -45,7 +45,7 @@ Returns an `Err` if the decoding fails.
 ### CompactAs
 
 The `CompactAs` trait is used for wrapping custom types/structs as compact types, which makes them even more space/memory efficient.
-The compact encoding is described [here](https://substrate.dev/docs/en/knowledgebase/advanced/codec#compactgeneral-integers).
+The compact encoding is described [here](https://docs.substrate.io/v3/advanced/scale-codec/#compactgeneral-integers).
 
 * `encode_as(&self) -> &Self::As`: Encodes the type (self) as a compact type.
 The type `As` is defined in the same trait and its implementation should be compact encode-able.
