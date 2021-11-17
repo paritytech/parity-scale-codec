@@ -35,7 +35,6 @@ use core::num::{
 	NonZeroU64,
 	NonZeroU128,
 };
-use arrayvec::ArrayVec;
 
 use byte_slice_cast::{AsByteSlice, AsMutByteSlice, ToMutByteSlice};
 
@@ -707,15 +706,16 @@ impl<T: Encode, const N: usize> Encode for [T; N] {
 
 impl<T: Decode, const N: usize> Decode for [T; N] {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
-		let mut array = ArrayVec::new();
-		for _ in 0..N {
-			array.push(T::decode(input)?);
+		let mut data: ::core::mem::MaybeUninit<[T; N]> = unsafe {
+			::core::mem::MaybeUninit::uninit().assume_init()
+		};
+
+		let ptr = data.as_mut_ptr();
+		for i in 0..N {
+			unsafe { ::core::ptr::addr_of_mut!((*ptr)[i]).write(T::decode(input)?); }
 		}
 
-		match array.into_inner() {
-			Ok(a) => Ok(a),
-			Err(_) => panic!("We decode `N` elements; qed"),
-		}
+		Ok(unsafe { data.assume_init() })
 	}
 }
 
