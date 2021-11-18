@@ -20,8 +20,13 @@ use core::{
 	iter::FromIterator,
 	marker::PhantomData,
 	mem,
+	mem::{
+		MaybeUninit,
+		ManuallyDrop,
+	},
 	ops::{Deref, Range, RangeInclusive},
 	time::Duration,
+	ptr,
 };
 use core::num::{
 	NonZeroI8,
@@ -643,7 +648,7 @@ pub(crate) fn encode_slice_no_len<T: Encode, W: Output + ?Sized>(slice: &[T], de
 pub(crate) fn decode_array<I: Input, T: Decode, const N: usize>(input: &mut I) -> Result<[T; N], Error> {
 	#[inline]
 	fn general_array_decode<I: Input, T: Decode, const N: usize>(input: &mut I) -> Result<[T; N], Error> {
-		let mut uninit = <::core::mem::MaybeUninit<[T; N]>>::uninit();
+		let mut uninit = <MaybeUninit<[T; N]>>::uninit();
 		// The following line coerces the pointer to the array to a pointer
 		// to the first array element which is equivalent.
 		let mut ptr = uninit.as_mut_ptr() as *mut T;
@@ -652,7 +657,7 @@ pub(crate) fn decode_array<I: Input, T: Decode, const N: usize>(input: &mut I) -
 			// SAFETY: We do not read uninitialized array contents
 			//         while initializing them.
 			unsafe {
-				::core::ptr::write(ptr, decoded);
+				ptr::write(ptr, decoded);
 			}
 			// SAFETY: Point to the next element after every iteration.
 			//         We do this N times therefore this is safe.
@@ -665,31 +670,28 @@ pub(crate) fn decode_array<I: Input, T: Decode, const N: usize>(input: &mut I) -
 
 	macro_rules! decode {
 		( u8 ) => {{
-			let mut array: [u8; N] = [0; N];
+			let mut array: ManuallyDrop<[u8; N]> = ManuallyDrop::new([0; N]);
 			input.read(&mut array[..])?;
 			let ref_typed: &[T; N] = unsafe { mem::transmute(&array) };
-			let typed: [T; N] = unsafe { ::core::ptr::read(ref_typed) };
-			::core::mem::forget(array);
+			let typed: [T; N] = unsafe { ptr::read(ref_typed) };
             Ok(typed)
 		}};
 		( i8 ) => {{
-			let mut array: [i8; N] = [0; N];
+			let mut array: ManuallyDrop<[i8; N]> = ManuallyDrop::new([0; N]);
 			let bytes = unsafe { mem::transmute::<&mut [i8], &mut [u8]>(&mut array[..]) };
 			input.read(bytes)?;
 
 			let ref_typed: &[T; N] = unsafe { mem::transmute(&array) };
-			let typed: [T; N] = unsafe { ::core::ptr::read(ref_typed) };
-			::core::mem::forget(array);
+			let typed: [T; N] = unsafe { ptr::read(ref_typed) };
             Ok(typed)
 		}};
 		( $ty:ty ) => {{
 			if cfg!(target_endian = "little") {
-				let mut array: [$ty; N] = [0; N];
+				let mut array: ManuallyDrop<[$ty; N]> = ManuallyDrop::new([0; N]);
 				let bytes = <[$ty] as AsMutByteSlice<$ty>>::as_mut_byte_slice(&mut array[..]);
 				input.read(bytes)?;
 				let ref_typed: &[T; N] = unsafe { mem::transmute(&array) };
-				let typed: [T; N] = unsafe { ::core::ptr::read(ref_typed) };
-				::core::mem::forget(array);
+				let typed: [T; N] = unsafe { ptr::read(ref_typed) };
 				Ok(typed)
 			} else {
 				general_array_decode(input)
@@ -1710,10 +1712,10 @@ mod tests {
 	}
 
 
-	macro_rules! array_encode_and_decode {
+	macro_rules! test_array_encode_and_decode {
 		( $( $name:ty ),* $(,)? ) => {
 			$(
-                paste::item! {
+				paste::item! {
 					#[test]
 					fn [<test_array_encode_and_decode _ $name>]() {
 						let data: [$name; 32] = [123; 32];
@@ -1721,12 +1723,12 @@ mod tests {
 						let decoded: [$name; 32] = Decode::decode(&mut &encoded[..]).unwrap();
 						assert_eq!(decoded, data);
 					}
-                }
+				}
 			)*
 		}
 	}
 
-	array_encode_and_decode!(u8, i8, u16, i16, u32, i32, u64, i64, u128, i128);
+	test_array_encode_and_decode!(u8, i8, u16, i16, u32, i32, u64, i64, u128, i128);
 
 	fn test_encoded_size(val: impl Encode) {
 		let length = val.using_encoded(|v| v.len());
