@@ -639,8 +639,8 @@ pub(crate) fn encode_slice_no_len<T: Encode, W: Output + ?Sized>(slice: &[T], de
 /// Decode the array.
 ///
 /// This is equivalent to decoding all the element one by one, but it is optimized for some types.
-pub(crate) fn decode_array<I: Input, T: Decode + std::fmt::Debug, const N: usize>(input: &mut I) -> Result<[T; N], Error> {
-	fn general_array_decode<I: Input, T: Decode + std::fmt::Debug, const N: usize>(input: &mut I) -> Result<[T; N], Error> {
+pub(crate) fn decode_array<I: Input, T: Decode, const N: usize>(input: &mut I) -> Result<[T; N], Error> {
+	fn general_array_decode<I: Input, T: Decode, const N: usize>(input: &mut I) -> Result<[T; N], Error> {
 		let mut uninit = <::core::mem::MaybeUninit<[T; N]>>::uninit();
 		// The following line coerces the pointer to the array to a pointer
 		// to the first array element which is equivalent.
@@ -772,7 +772,7 @@ impl<T: Encode, const N: usize> Encode for [T; N] {
 	}
 }
 
-impl<T: Decode + std::fmt::Debug, const N: usize> Decode for [T; N] {
+impl<T: Decode, const N: usize> Decode for [T; N] {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		decode_array(input)
 	}
