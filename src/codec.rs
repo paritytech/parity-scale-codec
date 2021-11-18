@@ -674,7 +674,7 @@ pub(crate) fn decode_array<I: Input, T: Decode, const N: usize>(input: &mut I) -
 			input.read(&mut array[..])?;
 			let ref_typed: &[T; N] = unsafe { mem::transmute(&array) };
 			let typed: [T; N] = unsafe { ptr::read(ref_typed) };
-            Ok(typed)
+			Ok(typed)
 		}};
 		( i8 ) => {{
 			let mut array: ManuallyDrop<[i8; N]> = ManuallyDrop::new([0; N]);
@@ -683,7 +683,7 @@ pub(crate) fn decode_array<I: Input, T: Decode, const N: usize>(input: &mut I) -
 
 			let ref_typed: &[T; N] = unsafe { mem::transmute(&array) };
 			let typed: [T; N] = unsafe { ptr::read(ref_typed) };
-            Ok(typed)
+			Ok(typed)
 		}};
 		( $ty:ty ) => {{
 			if cfg!(target_endian = "little") {
