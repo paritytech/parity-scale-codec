@@ -636,7 +636,75 @@ pub(crate) fn encode_slice_no_len<T: Encode, W: Output + ?Sized>(slice: &[T], de
 	}
 }
 
-/// Decode the slice (without prepended the len).
+/// Decode the array.
+///
+/// This is equivalent to decoding all the element one by one, but it is optimized for some types.
+pub(crate) fn decode_array<I: Input, T: Decode + std::fmt::Debug, const N: usize>(input: &mut I) -> Result<[T; N], Error> {
+	fn general_array_decode<I: Input, T: Decode + std::fmt::Debug, const N: usize>(input: &mut I) -> Result<[T; N], Error> {
+		let mut uninit = <::core::mem::MaybeUninit<[T; N]>>::uninit();
+		// The following line coerces the pointer to the array to a pointer
+		// to the first array element which is equivalent.
+		let mut ptr = uninit.as_mut_ptr() as *mut T;
+		for _ in 0..N {
+			let decoded = T::decode(input)?;
+			// SAFETY: We do not read uninitialized array contents
+			//         while initializing them.
+			unsafe {
+				::core::ptr::write(ptr, decoded);
+			}
+			// SAFETY: Point to the next element after every iteration.
+			//         We do this N times therefore this is safe.
+			ptr = unsafe { ptr.add(1) };
+		}
+		// SAFETY: All array elements have been initialized above.
+		let init = unsafe { uninit.assume_init() };
+		Ok(init)
+	}
+
+	macro_rules! decode {
+		( u8 ) => {{
+			let mut array: [u8; N] = [0; N];
+			input.read(&mut array[..])?;
+			let ref_typed: &[T; N] = unsafe { mem::transmute(&array) };
+			let typed: [T; N] = unsafe { ::core::ptr::read(ref_typed) };
+			::core::mem::forget(array);
+            Ok(typed)
+		}};
+		( i8 ) => {{
+			let mut array: [i8; N] = [0; N];
+			let bytes = unsafe { mem::transmute::<&mut [i8], &mut [u8]>(&mut array[..]) };
+			input.read(bytes)?;
+
+			let ref_typed: &[T; N] = unsafe { mem::transmute(&array) };
+			let typed: [T; N] = unsafe { ::core::ptr::read(ref_typed) };
+			::core::mem::forget(array);
+            Ok(typed)
+		}};
+		( $ty:ty ) => {{
+			if cfg!(target_endian = "little") {
+				let mut array: [$ty; N] = [0; N];
+				let bytes = <[$ty] as AsMutByteSlice<$ty>>::as_mut_byte_slice(&mut array[..]);
+				input.read(bytes)?;
+				let ref_typed: &[T; N] = unsafe { mem::transmute(&array) };
+				let typed: [T; N] = unsafe { ::core::ptr::read(ref_typed) };
+				::core::mem::forget(array);
+				Ok(typed)
+			} else {
+				general_array_decode(input)
+			}
+		}};
+	}
+
+	with_type_info! {
+		<T as Decode>::TYPE_INFO,
+		decode,
+		{
+			general_array_decode(input)
+		},
+	}
+}
+
+/// Decode the vec (without prepended the len).
 ///
 /// This is equivalent to decode all elements one by one, but it is optimized in some
 /// situation.
@@ -704,26 +772,9 @@ impl<T: Encode, const N: usize> Encode for [T; N] {
 	}
 }
 
-impl<T: Decode + Sized, const N: usize> Decode for [T; N] {
+impl<T: Decode + std::fmt::Debug, const N: usize> Decode for [T; N] {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
-		let mut uninit = <::core::mem::MaybeUninit<[T; N]>>::uninit();
-		// The following line coerces the pointer to the array to a pointer
-		// to the first array element which is equivalent.
-		let mut ptr = uninit.as_mut_ptr() as *mut T;
-		for _ in 0..N {
-			let decoded = T::decode(input)?;
-			// SAFETY: We do not read uninitialized array contents
-			//         while initializing them.
-			unsafe {
-				::core::ptr::write(ptr, decoded);
-			}
-			// SAFETY: Point to the next element after every iteration.
-			//         We do this N times therefore this is safe.
-			ptr = unsafe { ptr.add(1) };
-		}
-		// SAFETY: All array elements have been initialized above.
-		let init = unsafe { uninit.assume_init() };
-		Ok(init)
+		decode_array(input)
 	}
 }
 
@@ -1654,6 +1705,25 @@ mod tests {
 		assert!(encoded.is_empty());
 		<[u32; 0]>::decode(&mut &encoded[..]).unwrap();
 	}
+
+
+	macro_rules! array_encode_and_decode {
+		( $( $name:ty ),* $(,)? ) => {
+			$(
+                paste::item! {
+					#[test]
+					fn [<test_array_encode_and_decode _ $name>]() {
+						let data: [$name; 32] = [123; 32];
+						let encoded = data.encode();
+						let decoded: [$name; 32] = Decode::decode(&mut &encoded[..]).unwrap();
+						assert_eq!(decoded, data);
+					}
+                }
+			)*
+		}
+	}
+
+	array_encode_and_decode!(u8, i8, u16, i16, u32, i32, u64, i64, u128, i128);
 
 	fn test_encoded_size(val: impl Encode) {
 		let length = val.using_encoded(|v| v.len());
