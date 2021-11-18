@@ -704,18 +704,26 @@ impl<T: Encode, const N: usize> Encode for [T; N] {
 	}
 }
 
-impl<T: Decode, const N: usize> Decode for [T; N] {
+impl<T: Decode + Sized, const N: usize> Decode for [T; N] {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
-		let mut data: ::core::mem::MaybeUninit<[T; N]> = unsafe {
-			::core::mem::MaybeUninit::uninit().assume_init()
-		};
-
-		let ptr = data.as_mut_ptr();
-		for i in 0..N {
-			unsafe { ::core::ptr::addr_of_mut!((*ptr)[i]).write(T::decode(input)?); }
+		let mut uninit = <::core::mem::MaybeUninit<[T; N]>>::uninit();
+		// The following line coerces the pointer to the array to a pointer
+		// to the first array element which is equivalent.
+		let mut ptr = uninit.as_mut_ptr() as *mut T;
+		for _ in 0..N {
+			let decoded = T::decode(input)?;
+			// SAFETY: We do not read uninitialized array contents
+			//         while initializing them.
+			unsafe {
+				::core::ptr::write(ptr, decoded);
+			}
+			// SAFETY: Point to the next element after every iteration.
+			//         We do this N times therefore this is safe.
+			ptr = unsafe { ptr.add(1) };
 		}
-
-		Ok(unsafe { data.assume_init() })
+		// SAFETY: All array elements have been initialized above.
+		let init = unsafe { uninit.assume_init() };
+		Ok(init)
 	}
 }
 
