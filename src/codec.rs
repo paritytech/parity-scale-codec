@@ -655,12 +655,12 @@ pub(crate) fn decode_array<I: Input, T: Decode, const N: usize>(input: &mut I) -
 		for _ in 0..N {
 			let decoded = T::decode(input)?;
 			// SAFETY: We do not read uninitialized array contents
-			//         while initializing them.
+			//		 while initializing them.
 			unsafe {
 				ptr::write(ptr, decoded);
 			}
 			// SAFETY: Point to the next element after every iteration.
-			//         We do this N times therefore this is safe.
+			//		 We do this N times therefore this is safe.
 			ptr = unsafe { ptr.add(1) };
 		}
 		// SAFETY: All array elements have been initialized above.
@@ -668,6 +668,19 @@ pub(crate) fn decode_array<I: Input, T: Decode, const N: usize>(input: &mut I) -
 		Ok(init)
 	}
 
+	// Description for the code below.
+	// It is not possible to transmute `[u8; N]` into `[T; N]` due to this issue:
+	// 		https://github.com/rust-lang/rust/issues/61956
+	//
+	// Workaround: Transmute `&[u8; N]` into `&[T; N]` and interpret that reference as value.
+	// ```
+	// let mut array: ManuallyDrop<[u8; N]> = ManuallyDrop::new([0; N]);
+	// let ref_typed: &[T; N] = unsafe { mem::transmute(&array) };
+	// let typed: [T; N] = unsafe { ptr::read(ref_typed) };
+	// Here `array` and `typed` points on the same memory.
+	// Function returns `typed` -> it is not dropped, but `array` will be dropped.
+	// To avoid that `array` under the `ManuallyDrop`.
+	// ```
 	macro_rules! decode {
 		( u8 ) => {{
 			let mut array: ManuallyDrop<[u8; N]> = ManuallyDrop::new([0; N]);
