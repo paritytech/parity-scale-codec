@@ -1,13 +1,13 @@
 error[E0277]: the trait bound `NotEncode: WrapperTypeEncode` is not satisfied
-  --> $DIR/not_encode.rs:3:10
+  --> tests/max_encoded_len_ui/not_encode.rs:3:10
    |
 3  | #[derive(MaxEncodedLen)]
    |          ^^^^^^^^^^^^^ the trait `WrapperTypeEncode` is not implemented for `NotEncode`
    |
    = note: required because of the requirements on the impl of `Encode` for `NotEncode`
 note: required by a bound in `MaxEncodedLen`
-  --> $DIR/max_encoded_len.rs:28:26
+  --> src/max_encoded_len.rs
    |
-28 | pub trait MaxEncodedLen: Encode {
+   | pub trait MaxEncodedLen: Encode {
    |                          ^^^^^^ required by this bound in `MaxEncodedLen`
    = note: this error originates in the derive macro `MaxEncodedLen` (in Nightly builds, run with -Z macro-backtrace for more info)

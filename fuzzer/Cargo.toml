@@ -2,7 +2,8 @@
 name = "codec-fuzzer"
 version = "0.1.0"
 authors = ["Parity Technologies <admin@parity.io>", "Vincent Ulitzsch <vincent@srlabs.de>"]
-edition = "2018"
+edition = "2021"
+rust-version = "1.56.1"
 publish = false
 
 [dependencies]
