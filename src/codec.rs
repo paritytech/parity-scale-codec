@@ -22,7 +22,7 @@ use core::{
 	mem,
 	mem::{
 		MaybeUninit,
-		ManuallyDrop,
+		forget,
 	},
 	ops::{Deref, Range, RangeInclusive},
 	time::Duration,
@@ -674,37 +674,41 @@ pub(crate) fn decode_array<I: Input, T: Decode, const N: usize>(input: &mut I) -
 	//
 	// Workaround: Transmute `&[u8; N]` into `&[T; N]` and interpret that reference as value.
 	// ```
-	// let mut array: ManuallyDrop<[u8; N]> = ManuallyDrop::new([0; N]);
+	// let mut array: [u8; N] = [0; N];
 	// let ref_typed: &[T; N] = unsafe { mem::transmute(&array) };
 	// let typed: [T; N] = unsafe { ptr::read(ref_typed) };
+	// forget(array);
 	// Here `array` and `typed` points on the same memory.
 	// Function returns `typed` -> it is not dropped, but `array` will be dropped.
-	// To avoid that `array` under the `ManuallyDrop`.
+	// To avoid that `array` should be forgotten.
 	// ```
 	macro_rules! decode {
 		( u8 ) => {{
-			let mut array: ManuallyDrop<[u8; N]> = ManuallyDrop::new([0; N]);
+			let mut array: [u8; N] = [0; N];
 			input.read(&mut array[..])?;
 			let ref_typed: &[T; N] = unsafe { mem::transmute(&array) };
 			let typed: [T; N] = unsafe { ptr::read(ref_typed) };
+			forget(array);
 			Ok(typed)
 		}};
 		( i8 ) => {{
-			let mut array: ManuallyDrop<[i8; N]> = ManuallyDrop::new([0; N]);
+			let mut array: [i8; N] = [0; N];
 			let bytes = unsafe { mem::transmute::<&mut [i8], &mut [u8]>(&mut array[..]) };
 			input.read(bytes)?;
 
 			let ref_typed: &[T; N] = unsafe { mem::transmute(&array) };
 			let typed: [T; N] = unsafe { ptr::read(ref_typed) };
+			forget(array);
 			Ok(typed)
 		}};
 		( $ty:ty ) => {{
 			if cfg!(target_endian = "little") {
-				let mut array: ManuallyDrop<[$ty; N]> = ManuallyDrop::new([0; N]);
+				let mut array: [$ty; N] = [0; N];
 				let bytes = <[$ty] as AsMutByteSlice<$ty>>::as_mut_byte_slice(&mut array[..]);
 				input.read(bytes)?;
 				let ref_typed: &[T; N] = unsafe { mem::transmute(&array) };
 				let typed: [T; N] = unsafe { ptr::read(ref_typed) };
+				forget(array);
 				Ok(typed)
 			} else {
 				general_array_decode(input)
