@@ -4,7 +4,8 @@ description = "Serialization and deserialization derive macro for Parity SCALE C
 version = "2.3.1"
 authors = ["Parity Technologies <admin@parity.io>"]
 license = "Apache-2.0"
-edition = "2018"
+edition = "2021"
+rust-version = "1.56.1"
 
 [lib]
 proc-macro = true

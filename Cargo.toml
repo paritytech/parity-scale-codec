@@ -6,7 +6,8 @@ authors = ["Parity Technologies <admin@parity.io>"]
 license = "Apache-2.0"
 repository = "https://github.com/paritytech/parity-scale-codec"
 categories = ["encoding"]
-edition = "2018"
+edition = "2021"
+rust-version = "1.56.1"
 
 [dependencies]
 arrayvec = { version = "0.7", default-features = false }

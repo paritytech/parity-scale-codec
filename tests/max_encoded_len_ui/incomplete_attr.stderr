@@ -1,19 +1,19 @@
 error: Invalid attribute: only `#[codec(dumb_trait_bound)]`, `#[codec(crate = path::to::crate)]`, `#[codec(encode_bound(T: Encode))]`, `#[codec(decode_bound(T: Decode))]`, or `#[codec(mel_bound(T: MaxEncodedLen))]` are accepted as top attribute
- --> $DIR/incomplete_attr.rs:4:9
+ --> tests/max_encoded_len_ui/incomplete_attr.rs:4:9
   |
 4 | #[codec(crate)]
   |         ^^^^^
 
 error[E0277]: the trait bound `Example: WrapperTypeEncode` is not satisfied
-  --> $DIR/incomplete_attr.rs:3:18
+  --> tests/max_encoded_len_ui/incomplete_attr.rs:3:18
    |
 3  | #[derive(Encode, MaxEncodedLen)]
    |                  ^^^^^^^^^^^^^ the trait `WrapperTypeEncode` is not implemented for `Example`
    |
-  ::: $WORKSPACE/src/max_encoded_len.rs
+   = note: required because of the requirements on the impl of `Encode` for `Example`
+note: required by a bound in `MaxEncodedLen`
+  --> src/max_encoded_len.rs
    |
    | pub trait MaxEncodedLen: Encode {
-   |                          ------ required by this bound in `MaxEncodedLen`
-   |
-   = note: required because of the requirements on the impl of `Encode` for `Example`
+   |                          ^^^^^^ required by this bound in `MaxEncodedLen`
    = note: this error originates in the derive macro `MaxEncodedLen` (in Nightly builds, run with -Z macro-backtrace for more info)
