@@ -21,7 +21,7 @@ struct Wrapper<T>(T);
 
 #[derive(Decode, Debug)]
 struct StructNamed {
-	foo: u16
+	_foo: u16
 }
 
 #[derive(Decode, Debug)]
@@ -29,7 +29,7 @@ struct StructUnnamed(u16);
 
 #[derive(Decode, Debug)]
 enum E {
-	VariantNamed { foo: u16, },
+	VariantNamed { _foo: u16, },
 	VariantUnnamed(u16),
 }
 
@@ -37,7 +37,7 @@ enum E {
 fn full_error_struct_named() {
 	let encoded = vec![0];
 	let err = r#"Could not decode `Wrapper.0`:
-	Could not decode `StructNamed::foo`:
+	Could not decode `StructNamed::_foo`:
 		Not enough data to fill buffer
 "#;
 
@@ -75,7 +75,7 @@ fn full_error_enum_unknown_variant() {
 #[test]
 fn full_error_enum_named_field() {
 	let encoded = vec![0, 0];
-	let err = r#"Could not decode `E::VariantNamed::foo`:
+	let err = r#"Could not decode `E::VariantNamed::_foo`:
 	Not enough data to fill buffer
 "#;
 
