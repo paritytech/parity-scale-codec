@@ -77,12 +77,12 @@ fn wrap_with_dummy_const(input: DeriveInput, impl_block: proc_macro2::TokenStrea
 ///
 /// # Top level attributes
 ///
-/// By default the macro will try to bound the types needed to implement their trait, but the
+/// By default the macro will add [`Encode`] and [`Decode`] bounds to all types, but the
 /// bounds can be specified manually with the top level attributes:
-/// * `#[codec(encode_bound(T: Encode))]`: a custom where bound that will be used when deriving the
-///   `Encode` trait.
-/// * `#[codec(decode_bound(T: Decode))]`: a custom where bound that will be used when deriving the
-///   `Decode` trait.
+/// * `#[codec(encode_bound(T: Encode))]`: a custom bound added to the `where`-clause when deriving the
+///   `Encode` trait, overriding the default.
+/// * `#[codec(decode_bound(T: Decode))]`: a custom bound added to the `where`-clause when deriving the
+///   `Decode` trait, overriding the default.
 ///
 /// # Struct
 ///
