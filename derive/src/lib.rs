@@ -75,6 +75,15 @@ fn wrap_with_dummy_const(input: DeriveInput, impl_block: proc_macro2::TokenStrea
 
 /// Derive `parity_scale_codec::Encode` and `parity_scale_codec::EncodeLike` for struct and enum.
 ///
+/// # Top level attributes
+///
+/// By default the macro will try to bound the types needed to implement their trait, but the
+/// bounds can be specified manually with the top level attributes:
+/// * `#[codec(encode_bound(T: Encode))]`: a custom where bound that will be used when deriving the
+///   `Encode` trait.
+/// * `#[codec(decode_bound(T: Decode))]`: a custom where bound that will be used when deriving the
+///   `Decode` trait.
+///
 /// # Struct
 ///
 /// A struct is encoded by encoding each of its fields successively.
@@ -87,8 +96,6 @@ fn wrap_with_dummy_const(input: DeriveInput, impl_block: proc_macro2::TokenStrea
 ///   type must implement `parity_scale_codec::EncodeAsRef<'_, $FieldType>` with $FieldType the
 ///   type of the field with the attribute. This is intended to be used for types implementing
 ///   `HasCompact` as shown in the example.
-/// * `#[codec(encode_bound(T: Encode))]`: a custom where bound that will be used when deriving the `Encode` trait.
-/// * `#[codec(decode_bound(T: Encode))]`: a custom where bound that will be used when deriving the `Decode` trait.
 ///
 /// ```
 /// # use parity_scale_codec_derive::Encode;
@@ -360,7 +367,19 @@ pub fn compact_as_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStr
 	wrap_with_dummy_const(input, impl_block)
 }
 
-/// Derive `MaxEncodedLen`.
+/// Derive `parity_scale_codec::MaxEncodedLen` for struct and enum.
+///
+/// # Top level attribute
+///
+/// By default the macro will try to bound the types needed to implement `MaxEncodedLen`, but the
+/// bounds can be specified manually with the top level attribute:
+/// ```
+/// # use parity_scale_codec_derive::Encode;
+/// # use parity_scale_codec::MaxEncodedLen;
+/// # #[derive(Encode, MaxEncodedLen)]
+/// #[codec(mel_bound(T: MaxEncodedLen))]
+/// # struct MyWrapper<T>(T);
+/// ```
 #[cfg(feature = "max-encoded-len")]
 #[proc_macro_derive(MaxEncodedLen, attributes(max_encoded_len_mod))]
 pub fn derive_max_encoded_len(input: proc_macro::TokenStream) -> proc_macro::TokenStream {

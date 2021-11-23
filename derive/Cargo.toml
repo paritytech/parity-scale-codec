@@ -16,7 +16,7 @@ proc-macro2 = "1.0.6"
 proc-macro-crate = "1.0.0"
 
 [dev-dependencies]
-parity-scale-codec = { path = ".." }
+parity-scale-codec = { path = "..", features = ["max-encoded-len"] }
 
 [features]
 # Enables the new `MaxEncodedLen` trait.
