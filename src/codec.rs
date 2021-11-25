@@ -39,6 +39,7 @@ use core::num::{
 	NonZeroU32,
 	NonZeroU64,
 	NonZeroU128,
+	NonZeroUsize
 };
 
 use byte_slice_cast::{AsByteSlice, AsMutByteSlice, ToMutByteSlice};
@@ -203,6 +204,7 @@ pub enum TypeInfo {
 	I64,
 	U128,
 	I128,
+	USIZE
 }
 
 /// Trait that allows zero-copy write of value-references to slices in LE format.
@@ -246,8 +248,8 @@ pub trait Encode {
 	///
 	/// # Note
 	///
-	/// This works by using a special [`Output`] that only tracks the size. So, there are no allocations inside the 
-	/// output. However, this can not prevent allocations that some types are doing inside their own encoding. 
+	/// This works by using a special [`Output`] that only tracks the size. So, there are no allocations inside the
+	/// output. However, this can not prevent allocations that some types are doing inside their own encoding.
 	fn encoded_size(&self) -> usize {
 		let mut size_tracker = SizeTracker { written: 0 };
 		self.encode_to(&mut size_tracker);
@@ -443,6 +445,7 @@ macro_rules! with_type_info {
 			TypeInfo::I64 => { $macro!(i64 $( $( , $params )* )? ) },
 			TypeInfo::U128 => { $macro!(u128 $( $( , $params )* )? ) },
 			TypeInfo::I128 => { $macro!(i128 $( $( , $params )* )? ) },
+			TypeInfo::USIZE => { $macro!(usize $( $( , $params )* )? ) },
 			TypeInfo::Unknown => { $( $unknown_variant )* },
 		}
 	};
@@ -781,6 +784,7 @@ impl_for_non_zero! {
 	NonZeroU32,
 	NonZeroU64,
 	NonZeroU128,
+	NonZeroUsize
 }
 
 impl<T: Encode, const N: usize> Encode for [T; N] {
@@ -1241,7 +1245,7 @@ macro_rules! impl_one_byte {
 	)* }
 }
 
-impl_endians!(u16; U16, u32; U32, u64; U64, u128; U128, i16; I16, i32; I32, i64; I64, i128; I128);
+impl_endians!(u16; U16, u32; U32, u64; U64, u128; U128, i16; I16, i32; I32, i64; I64, i128; I128, usize; USIZE);
 impl_one_byte!(u8; U8, i8; I8);
 
 impl EncodeLike for bool {}
@@ -1745,7 +1749,7 @@ mod tests {
 		}
 	}
 
-	test_array_encode_and_decode!(u8, i8, u16, i16, u32, i32, u64, i64, u128, i128);
+	test_array_encode_and_decode!(u8, i8, u16, i16, u32, i32, u64, i64, u128, i128, usize);
 
 	fn test_encoded_size(val: impl Encode) {
 		let length = val.using_encoded(|v| v.len());
