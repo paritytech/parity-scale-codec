@@ -42,7 +42,7 @@ impl<T: Decode> DecodeAll for T {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::{Encode, Input, Compact, EncodeLike};
+	use crate::{alloc::vec::Vec, Encode, Input, Compact, EncodeLike};
 
 	macro_rules! test_decode_all {
 		(
@@ -50,14 +50,21 @@ mod tests {
 		) => {
 			$(
 				{
+					#[cfg(feature="chain-error")]
+					use crate::alloc::string::ToString as _;
+
 					let mut encoded = <$type as Encode>::encode(&$value);
 					<$type>::decode_all(&encoded).expect(
 						&format!("`{} => {}` decodes all!", stringify!($type), stringify!($value)),
 					);
 
 					encoded.extend(&[1, 2, 3, 4, 5, 6]);
+					let res = <$type>::decode_all(&encoded);
+					assert!(res.is_err());
+
+					#[cfg(feature = "chain-error")]
 					assert_eq!(
-						<$type>::decode_all(&encoded).unwrap_err().to_string(),
+						res.unwrap_err().to_string(),
 						"Input buffer has still data left after decoding!",
 					);
 				}

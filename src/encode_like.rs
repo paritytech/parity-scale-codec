@@ -104,7 +104,7 @@ impl<'a, T: EncodeLike<U>, U: Encode> EncodeLike<U> for &Ref<'a, T, U> {}
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use std::collections::BTreeMap;
+	use crate::alloc::{collections::BTreeMap, vec::Vec};
 
 	struct ComplexStuff<T>(T);
 
@@ -138,6 +138,9 @@ mod tests {
 
 	#[test]
 	fn interface_testing() {
+		#[cfg(any(feature = "std", feature = "full"))]
+		use crate::alloc::string::String;
+
 		let value = 10u32;
 		let data = (value, value, value);
 		let encoded = ComplexStuff::<(u32, u32, u32)>::complex_method(&data);
@@ -151,8 +154,9 @@ mod tests {
 
 		let vec_data: Vec<u8> = vec![1, 2, 3];
 		ComplexStuff::<Vec<u8>>::complex_method(&vec_data);
-		ComplexStuff::<&'static str>::complex_method(&String::from("test"));
 		ComplexStuff::<&'static str>::complex_method(&"test");
+		#[cfg(any(feature = "std", feature = "full"))]
+		ComplexStuff::<&'static str>::complex_method(&String::from("test"));
 
 		let slice: &[u8] = &vec_data;
 		assert_eq!(

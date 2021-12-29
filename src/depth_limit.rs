@@ -109,7 +109,7 @@ impl<T: Decode> DecodeLimit for T {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::Encode;
+	use crate::{Encode, alloc::vec::Vec};
 
 	#[test]
 	fn decode_limit_works() {

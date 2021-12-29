@@ -116,18 +116,22 @@ impl std::error::Error for Error {
 
 #[cfg(test)]
 mod tests {
+	#[cfg(feature="chain-error")]
 	use crate::Error;
 
 	#[test]
+    #[cfg(feature = "chain-error")]
 	fn test_full_error() {
-		let msg: &str = "final type:\n\twrap cause:\n\t\troot cause\n";
+		use crate::alloc::string::ToString as _;
 
+		let msg: &str = "final type:\n\twrap cause:\n\t\troot cause\n";
 		let error = Error::from("root cause").chain("wrap cause").chain("final type");
 
 		assert_eq!(&error.to_string(), msg);
 	}
 
 	#[test]
+	#[cfg(feature = "std")]
 	fn impl_std_error() {
 		use std::error::Error as _;
 

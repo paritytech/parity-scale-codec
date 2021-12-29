@@ -145,7 +145,7 @@ impl From<std::io::Error> for Error {
 }
 
 /// Wrapper that implements Input for any `Read` type.
-#[cfg(feature = "std")]
+#[cfg(any(feature = "std"))]
 pub struct IoReader<R: std::io::Read>(pub R);
 
 #[cfg(feature = "std")]
@@ -246,8 +246,8 @@ pub trait Encode {
 	///
 	/// # Note
 	///
-	/// This works by using a special [`Output`] that only tracks the size. So, there are no allocations inside the 
-	/// output. However, this can not prevent allocations that some types are doing inside their own encoding. 
+	/// This works by using a special [`Output`] that only tracks the size. So, there are no allocations inside the
+	/// output. However, this can not prevent allocations that some types are doing inside their own encoding.
 	fn encoded_size(&self) -> usize {
 		let mut size_tracker = SizeTracker { written: 0 };
 		self.encode_to(&mut size_tracker);
@@ -1341,11 +1341,12 @@ where
 	}
 }
 
-
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use std::borrow::Cow;
+
+	#[cfg(any(feature = "std", feature = "full"))]
+	use crate::alloc::string::String;
 
 	#[test]
 	fn vec_is_sliceable() {
@@ -1376,6 +1377,7 @@ mod tests {
 	}
 
 	#[test]
+	#[cfg(any(feature = "std", feature = "full"))]
 	fn cow_string_works() {
 		let x = "Hello world!";
 		let y = Cow::Borrowed(&x);
@@ -1385,11 +1387,13 @@ mod tests {
 		assert_eq!(*z, *x);
 	}
 
+	#[cfg(any(feature = "std", feature = "full"))]
 	fn hexify(bytes: &[u8]) -> String {
 		bytes.iter().map(|ref b| format!("{:02x}", b)).collect::<Vec<String>>().join(" ")
 	}
 
 	#[test]
+	#[cfg(any(feature = "std", feature = "full"))]
 	fn string_encoded_as_expected() {
 		let value = String::from("Hello, World!");
 		let encoded = value.encode();
@@ -1401,6 +1405,7 @@ mod tests {
 	fn vec_of_u8_encoded_as_expected() {
 		let value = vec![0u8, 1, 1, 2, 3, 5, 8, 13, 21, 34];
 		let encoded = value.encode();
+		#[cfg(any(feature = "std", feature = "full"))]
 		assert_eq!(hexify(&encoded), "28 00 01 01 02 03 05 08 0d 15 22");
 		assert_eq!(<Vec<u8>>::decode(&mut &encoded[..]).unwrap(), value);
 	}
@@ -1409,6 +1414,7 @@ mod tests {
 	fn vec_of_i16_encoded_as_expected() {
 		let value = vec![0i16, 1, -1, 2, -2, 3, -3];
 		let encoded = value.encode();
+		#[cfg(any(feature = "std", feature = "full"))]
 		assert_eq!(hexify(&encoded), "1c 00 00 01 00 ff ff 02 00 fe ff 03 00 fd ff");
 		assert_eq!(<Vec<i16>>::decode(&mut &encoded[..]).unwrap(), value);
 	}
@@ -1417,6 +1423,7 @@ mod tests {
 	fn vec_of_option_int_encoded_as_expected() {
 		let value = vec![Some(1i8), Some(-1), None];
 		let encoded = value.encode();
+		#[cfg(any(feature = "std", feature = "full"))]
 		assert_eq!(hexify(&encoded), "0c 01 01 01 ff 00");
 		assert_eq!(<Vec<Option<i8>>>::decode(&mut &encoded[..]).unwrap(), value);
 	}
@@ -1425,6 +1432,7 @@ mod tests {
 	fn vec_of_option_bool_encoded_as_expected() {
 		let value = vec![OptionBool(Some(true)), OptionBool(Some(false)), OptionBool(None)];
 		let encoded = value.encode();
+		#[cfg(any(feature = "std", feature = "full"))]
 		assert_eq!(hexify(&encoded), "0c 01 02 00");
 		assert_eq!(<Vec<OptionBool>>::decode(&mut &encoded[..]).unwrap(), value);
 	}
@@ -1465,6 +1473,7 @@ mod tests {
 	}
 
 	#[test]
+	#[cfg(any(feature = "std", feature = "full"))]
 	fn vec_of_string_encoded_as_expected() {
 		let value = vec![
 			"Hamlet".to_owned(),
@@ -1557,6 +1566,7 @@ mod tests {
 	}
 
 	#[test]
+	#[cfg(any(feature = "std"))]
 	fn io_reader() {
 		let mut io_reader = IoReader(std::io::Cursor::new(&[1u8, 2, 3][..]));
 
@@ -1570,14 +1580,16 @@ mod tests {
 	}
 
 	#[test]
+	#[cfg(any(feature = "std", feature = "full"))]
 	fn shared_references_implement_encode() {
-		std::sync::Arc::new(10u32).encode();
-		std::rc::Rc::new(10u32).encode();
+		Arc::new(10u32).encode();
+		Rc::new(10u32).encode();
 	}
 
 	#[test]
 	fn not_limit_input_test() {
-		use crate::Input;
+		#[cfg(feature="chain-error")]
+		use crate::{alloc::string::ToString as _, Input};
 
 		struct NoLimit<'a>(&'a [u8]);
 
@@ -1597,16 +1609,18 @@ mod tests {
 		assert_eq!(<Vec<u8>>::decode(&mut NoLimit(&i[..])).unwrap(), vec![0u8; len]);
 
 		let i = Compact(len as u32).encode();
-		assert_eq!(
-			<Vec<u8>>::decode(&mut NoLimit(&i[..])).err().unwrap().to_string(),
-			"Not enough data to fill buffer",
-		);
+		let res = <Vec<u8>>::decode(&mut NoLimit(&i[..])).err();
+		assert!(res.is_some());
+
+		#[cfg(feature = "chain-error")]
+		assert_eq!(res.unwrap().to_string(), "Not enough data to fill buffer");
 
 		let i = Compact(1000u32).encode();
-		assert_eq!(
-			<Vec<u8>>::decode(&mut NoLimit(&i[..])).err().unwrap().to_string(),
-			"Not enough data to fill buffer",
-		);
+		let res = <Vec<u8>>::decode(&mut NoLimit(&i[..])).err();
+		assert!(res.is_some());
+
+		#[cfg(feature = "chain-error")]
+		assert_eq!(res.unwrap().to_string(), "Not enough data to fill buffer",);
 	}
 
 	#[test]
@@ -1639,6 +1653,7 @@ mod tests {
 	}
 
 	#[test]
+	#[cfg(any(feature = "std", feature = "full"))]
 	fn vec_decode_right_capacity() {
 		let data: Vec<u32> = vec![1, 2, 3];
 		let mut encoded = data.encode();
@@ -1712,6 +1727,7 @@ mod tests {
 	}
 
 	#[test]
+	#[cfg(any(feature = "std", feature = "full"))]
 	fn string_invalid_utf8() {
 		// `167, 10` is not a valid utf8 sequence, so this should be an error.
 		let mut bytes: &[u8] = &[20, 114, 167, 10, 20, 114];

@@ -632,6 +632,7 @@ impl Decode for Compact<u128> {
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use crate::alloc::string::String;
 
 	#[test]
 	fn compact_128_encoding_works() {
@@ -752,8 +753,8 @@ mod tests {
 		}
 	}
 
-	#[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
-	#[derive(PartialEq, Eq, Clone)]
+	#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+	#[derive(Debug, PartialEq, Eq, Clone)]
 	struct Wrapper(u8);
 
 	impl CompactAs for Wrapper {
@@ -797,17 +798,17 @@ mod tests {
 
 	#[test]
 	fn compact_using_encoded_arrayvec_size() {
-		Compact(std::u8::MAX).using_encoded(|_| {});
-		Compact(std::u16::MAX).using_encoded(|_| {});
-		Compact(std::u32::MAX).using_encoded(|_| {});
-		Compact(std::u64::MAX).using_encoded(|_| {});
-		Compact(std::u128::MAX).using_encoded(|_| {});
+		Compact(core::u8::MAX).using_encoded(|_| {});
+		Compact(core::u16::MAX).using_encoded(|_| {});
+		Compact(core::u32::MAX).using_encoded(|_| {});
+		Compact(core::u64::MAX).using_encoded(|_| {});
+		Compact(core::u128::MAX).using_encoded(|_| {});
 
-		CompactRef(&std::u8::MAX).using_encoded(|_| {});
-		CompactRef(&std::u16::MAX).using_encoded(|_| {});
-		CompactRef(&std::u32::MAX).using_encoded(|_| {});
-		CompactRef(&std::u64::MAX).using_encoded(|_| {});
-		CompactRef(&std::u128::MAX).using_encoded(|_| {});
+		CompactRef(&core::u8::MAX).using_encoded(|_| {});
+		CompactRef(&core::u16::MAX).using_encoded(|_| {});
+		CompactRef(&core::u32::MAX).using_encoded(|_| {});
+		CompactRef(&core::u64::MAX).using_encoded(|_| {});
+		CompactRef(&core::u128::MAX).using_encoded(|_| {});
 	}
 
 	#[test]

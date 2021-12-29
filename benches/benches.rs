@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::{time::Duration, any::type_name, convert::{TryFrom, TryInto}};
+use core::{time::Duration, any::type_name, convert::{TryFrom, TryInto}};
 
 #[cfg(feature = "bit-vec")]
 use bitvec::{vec::BitVec, order::Lsb0};

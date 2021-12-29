@@ -14,7 +14,7 @@
 
 use core::{iter::ExactSizeIterator, mem};
 
-use crate::alloc::vec::Vec;
+use crate::alloc::{collections::vec_deque::VecDeque, vec::Vec};
 use crate::{Encode, Decode, Error};
 use crate::compact::{Compact, CompactLen};
 use crate::encode_like::EncodeLike;
@@ -68,7 +68,7 @@ impl<T: Encode> EncodeAppend for Vec<T> {
 	}
 }
 
-impl<T: Encode> EncodeAppend for crate::alloc::collections::VecDeque<T> {
+impl<T: Encode> EncodeAppend for VecDeque<T> {
 	type Item = T;
 
 	fn append_or_new<EncodeLikeItem, I>(
@@ -152,8 +152,7 @@ where
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::{Input, Encode, EncodeLike};
-	use std::collections::VecDeque;
+	use crate::{alloc::boxed::Box, Input, Encode, EncodeLike};
 
 	const TEST_VALUE: u32 = {
 		#[cfg(not(miri))]
@@ -165,7 +164,7 @@ mod tests {
 	#[test]
 	fn vec_encode_append_works() {
 		let encoded = (0..TEST_VALUE).fold(Vec::new(), |encoded, v| {
-			<Vec<u32> as EncodeAppend>::append_or_new(encoded, std::iter::once(&v)).unwrap()
+			<Vec<u32> as EncodeAppend>::append_or_new(encoded, core::iter::once(&v)).unwrap()
 		});
 
 		let decoded = Vec::<u32>::decode(&mut &encoded[..]).unwrap();
@@ -189,7 +188,7 @@ mod tests {
 	#[test]
 	fn vecdeque_encode_append_works() {
 		let encoded = (0..TEST_VALUE).fold(Vec::new(), |encoded, v| {
-			<VecDeque<u32> as EncodeAppend>::append_or_new(encoded, std::iter::once(&v)).unwrap()
+			<VecDeque<u32> as EncodeAppend>::append_or_new(encoded, core::iter::once(&v)).unwrap()
 		});
 
 		let decoded = VecDeque::<u32>::decode(&mut &encoded[..]).unwrap();
@@ -231,7 +230,7 @@ mod tests {
 
 		let append = NoCopy { data: 100 };
 		let data = Vec::new();
-		let encoded = <Vec<NoCopy> as EncodeAppend>::append_or_new(data, std::iter::once(&append)).unwrap();
+		let encoded = <Vec<NoCopy> as EncodeAppend>::append_or_new(data, core::iter::once(&append)).unwrap();
 
 		let decoded = <Vec<NoCopy>>::decode(&mut &encoded[..]).unwrap();
 		assert_eq!(vec![append], decoded);
@@ -240,7 +239,7 @@ mod tests {
 	#[test]
 	fn vec_encode_like_append_works() {
 		let encoded = (0..TEST_VALUE).fold(Vec::new(), |encoded, v| {
-			<Vec<u32> as EncodeAppend>::append_or_new(encoded, std::iter::once(Box::new(v as u32))).unwrap()
+			<Vec<u32> as EncodeAppend>::append_or_new(encoded, core::iter::once(Box::new(v as u32))).unwrap()
 		});
 
 		let decoded = Vec::<u32>::decode(&mut &encoded[..]).unwrap();

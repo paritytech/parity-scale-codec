@@ -17,6 +17,7 @@ use parity_scale_codec_derive::{Encode, Decode};
 use parity_scale_codec::{
 	Encode, Decode, HasCompact, Compact, EncodeAsRef, CompactAs, Error, Output,
 };
+#[cfg(feature="std")]
 use serde_derive::{Serialize, Deserialize};
 
 #[derive(Debug, PartialEq, Encode, Decode)]
@@ -197,6 +198,7 @@ fn should_work_for_indexed() {
 }
 
 #[test]
+#[cfg(feature = "chain-error")]
 #[should_panic(expected = "Not enough data to fill buffer")]
 fn correct_error_for_indexed_0() {
 	let mut wrong: &[u8] = b"\x08";
@@ -204,6 +206,7 @@ fn correct_error_for_indexed_0() {
 }
 
 #[test]
+#[cfg(feature = "chain-error")]
 #[should_panic(expected = "Not enough data to fill buffer")]
 fn correct_error_for_indexed_1() {
 	let mut wrong: &[u8] = b"\0\0\0\0\x01";
@@ -211,6 +214,7 @@ fn correct_error_for_indexed_1() {
 }
 
 #[test]
+#[cfg(feature = "chain-error")]
 #[should_panic(expected = "Not enough data to fill buffer")]
 fn correct_error_for_enumtype() {
 	let mut wrong: &[u8] = b"\x01";
@@ -218,6 +222,7 @@ fn correct_error_for_enumtype() {
 }
 
 #[test]
+#[cfg(feature = "chain-error")]
 #[should_panic(expected = "Not enough data to fill buffer")]
 fn correct_error_for_named_struct_1() {
 	let mut wrong: &[u8] = b"\x01";
@@ -225,6 +230,7 @@ fn correct_error_for_named_struct_1() {
 }
 
 #[test]
+#[cfg(feature = "chain-error")]
 #[should_panic(expected = "Not enough data to fill buffer")]
 fn correct_error_for_named_struct_2() {
 	let mut wrong: &[u8] = b"\0\0\0\0\x01";
@@ -517,25 +523,29 @@ fn recursive_type() {
 
 #[test]
 fn crafted_input_for_vec_u8() {
-	assert_eq!(
-		Vec::<u8>::decode(&mut &Compact(u32::max_value()).encode()[..]).err().unwrap().to_string(),
-		"Not enough data to decode vector",
-	);
+	let res = Vec::<u8>::decode(&mut &Compact(u32::max_value()).encode()[..]);
+	assert!(res.is_err());
+
+	#[cfg(feature = "chain-error")]
+	assert_eq!(res.unwrap_err().to_string(), "Not enough data to decode vector");
 }
 
 #[test]
 fn crafted_input_for_vec_t() {
-	let msg: String = if cfg!(target_endian = "big") {
-		// use unoptimize decode
-		"Not enough data to fill buffer".into()
-	} else {
-		"Not enough data to decode vector".into()
-	};
+	let res = Vec::<u32>::decode(&mut &Compact(u32::max_value()).encode()[..]);
+	assert!(res.is_err());
 
+	#[cfg(feature = "chain-error")]
 	assert_eq!(
-		Vec::<u32>::decode(&mut &Compact(u32::max_value()).encode()[..]).err().unwrap().to_string(),
-		msg,
+		res.unwrap_err().to_string(),
+		if cfg!(target_endian = "big") {
+			// use unoptimize decode
+			"Not enough data to fill buffer"
+		} else {
+			"Not enough data to decode vector"
+		}
 	);
+
 }
 
 #[test]
