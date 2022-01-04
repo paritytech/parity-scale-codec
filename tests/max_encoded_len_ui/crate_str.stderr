@@ -2,7 +2,7 @@ error: Invalid attribute: only `#[codec(dumb_trait_bound)]`, `#[codec(crate = pa
  --> tests/max_encoded_len_ui/crate_str.rs:4:9
   |
 4 | #[codec(crate = "parity_scale_codec")]
-  |         ^^^^^
+  |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 error[E0277]: the trait bound `Example: WrapperTypeEncode` is not satisfied
   --> tests/max_encoded_len_ui/crate_str.rs:3:18
