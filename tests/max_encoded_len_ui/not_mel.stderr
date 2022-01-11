@@ -1,5 +1,5 @@
 error[E0599]: the function or associated item `max_encoded_len` exists for struct `Generic<NotMel>`, but its trait bounds were not satisfied
-  --> $DIR/not_mel.rs:12:29
+  --> tests/max_encoded_len_ui/not_mel.rs:12:29
    |
 4  | struct NotMel;
    | -------------- doesn't satisfy `NotMel: MaxEncodedLen`
@@ -16,6 +16,14 @@ error[E0599]: the function or associated item `max_encoded_len` exists for struc
    = note: the following trait bounds were not satisfied:
            `NotMel: MaxEncodedLen`
            which is required by `Generic<NotMel>: MaxEncodedLen`
+note: the following trait must be implemented
+  --> src/max_encoded_len.rs
+   |
+   | / pub trait MaxEncodedLen: Encode {
+   | |     /// Upper bound, in bytes, of the maximum encoded size of this item.
+   | |     fn max_encoded_len() -> usize;
+   | | }
+   | |_^
    = help: items from traits can only be used if the trait is implemented and in scope
    = note: the following trait defines an item `max_encoded_len`, perhaps you need to implement it:
            candidate #1: `MaxEncodedLen`
