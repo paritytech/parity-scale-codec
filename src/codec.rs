@@ -1455,7 +1455,7 @@ mod tests {
 		assert_eq!(encoded, encoded_vec);
 
 		assert_eq!(
-			&*b"hello"[..],
+			&b"hello"[..],
 			bytes::Bytes::decode(&mut &encoded[..]).unwrap(),
 		);
 	}
