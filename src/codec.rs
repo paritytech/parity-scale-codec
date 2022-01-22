@@ -374,7 +374,7 @@ mod feature_full_wrapper_type_encode {
 #[cfg(feature = "bytes")]
 mod feature_wrapper_bytes {
 	use super::*;
-	use bytes_crate::Bytes;
+	use bytes::Bytes;
 
 	impl WrapperTypeEncode for Bytes {}
 	impl EncodeLike for Bytes {}
@@ -1449,14 +1449,14 @@ mod tests {
 	#[cfg(feature = "bytes")]
 	#[test]
 	fn bytes_works_as_expected() {
-		let input = bytes_crate::Bytes::from_static(b"hello");
+		let input = bytes::Bytes::from_static(b"hello");
 		let encoded = Encode::encode(&input);
 		let encoded_vec = input.to_vec().encode();
 		assert_eq!(encoded, encoded_vec);
 
 		assert_eq!(
-			bytes_crate::Bytes::decode(&mut (&encoded as &[u8])).unwrap(),
-			Vec::<u8>::decode(&mut (&encoded as &[u8])).unwrap()
+			&*b"hello"[..],
+			bytes::Bytes::decode(&mut &encoded[..]).unwrap(),
 		);
 	}
 	fn test_encode_length<T: Encode + Decode + DecodeLength>(thing: &T, len: usize) {
