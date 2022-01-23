@@ -371,6 +371,23 @@ mod feature_full_wrapper_type_encode {
 	impl EncodeLike<String> for &str {}
 }
 
+#[cfg(feature = "bytes")]
+mod feature_wrapper_bytes {
+	use super::*;
+	use bytes::Bytes;
+
+	impl WrapperTypeEncode for Bytes {}
+	impl EncodeLike for Bytes {}
+	impl EncodeLike<&[u8]> for Bytes {}
+	impl EncodeLike<Vec<u8>> for Bytes {}
+	impl EncodeLike<Bytes> for &[u8] {}
+	impl EncodeLike<Bytes> for Vec<u8> {}
+
+	impl WrapperTypeDecode for Bytes {
+		type Wrapped = Vec<u8>;
+	}
+}
+
 impl<T, X> Encode for X where
 	T: Encode + ?Sized,
 	X: WrapperTypeEncode<Target = T>,
@@ -1429,6 +1446,19 @@ mod tests {
 		assert_eq!(<Vec<OptionBool>>::decode(&mut &encoded[..]).unwrap(), value);
 	}
 
+	#[cfg(feature = "bytes")]
+	#[test]
+	fn bytes_works_as_expected() {
+		let input = bytes::Bytes::from_static(b"hello");
+		let encoded = Encode::encode(&input);
+		let encoded_vec = input.to_vec().encode();
+		assert_eq!(encoded, encoded_vec);
+
+		assert_eq!(
+			&b"hello"[..],
+			bytes::Bytes::decode(&mut &encoded[..]).unwrap(),
+		);
+	}
 	fn test_encode_length<T: Encode + Decode + DecodeLength>(thing: &T, len: usize) {
 		assert_eq!(<T as DecodeLength>::len(&mut &thing.encode()[..]).unwrap(), len);
 	}
