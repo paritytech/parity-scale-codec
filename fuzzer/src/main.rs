@@ -13,12 +13,12 @@ pub struct MockStruct{
 
 /// Used for implementing the Arbitrary trait for a BitVec.
 #[derive(Encode, Decode, Clone, PartialEq, Debug)]
-pub struct BitVecWrapper<O: BitOrder, T: BitStore>(BitVec<O, T>);
+pub struct BitVecWrapper<T: BitStore, O: BitOrder>(BitVec<T, O>);
 
-impl<'a, O: 'static + BitOrder, T: 'static + BitStore + Arbitrary<'a>> Arbitrary<'a> for BitVecWrapper<O, T> {
+impl<'a, O: 'static + BitOrder, T: 'static + BitStore + Arbitrary<'a>> Arbitrary<'a> for BitVecWrapper<T, O> {
 	fn arbitrary(u: &mut Unstructured<'a>) -> ArbResult<Self> {
 		let v = Vec::<T>::arbitrary(u)?;
-		Ok(BitVecWrapper(BitVec::<O, T>::from_vec(v)))
+		Ok(BitVecWrapper(BitVec::<T, O>::from_vec(v)))
 	}
 }
 
@@ -40,7 +40,7 @@ pub enum MockEnum {
 	UnitVec(Vec<u8>),
 	Complex {
 		data: Vec<u32>,
-		bitvec: BitVecWrapper<Msb0, u8>,
+		bitvec: BitVecWrapper<u8, Msb0>,
 		string: String,
 	},
 	Mock(MockStruct),
@@ -226,8 +226,8 @@ fn fuzz_decode(data: &[u8]) {
 		VecDeque<u8>,
 		MockStruct,
 		MockEnum,
-		BitVec<Msb0, u8>,
-		BitVec<Msb0, u32>,
+		BitVec<u8, Msb0>,
+		BitVec<u32, Msb0>,
 		Duration,
 	};
 	// Types for which we wish to apply the "sorted" method.
@@ -299,8 +299,8 @@ macro_rules! fuzz_encoding {
 			BinaryHeapWrapper,
 			MockStruct,
 			MockEnum,
-			BitVecWrapper<Msb0, u8>,
-			BitVecWrapper<Msb0, u32>,
+			BitVecWrapper<u8, Msb0>,
+			BitVecWrapper<u32, Msb0>,
 			Duration,
 		}
 	};
