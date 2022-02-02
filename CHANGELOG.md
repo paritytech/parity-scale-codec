@@ -7,7 +7,6 @@ and this crate adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 
 ## [3.0.0] - 2022-02-02
 
-
 ### Fix
 
 - Optimised the Decode::decode for [T; N] [#299](https://github.com/paritytech/parity-scale-codec/pull/299)
