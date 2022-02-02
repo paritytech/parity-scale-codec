@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{Error, Decode};
+use crate::{Decode, Error, Input};
 
 /// The error message returned when `decode_all` fails.
 pub(crate) const DECODE_ALL_ERR_MSG: &str = "Input buffer has still data left after decoding!";
@@ -23,15 +23,14 @@ pub trait DecodeAll: Sized {
 	/// Decode `Self` and consume all of the given input data.
 	///
 	/// If not all data is consumed, an error is returned.
-	fn decode_all(input: &[u8]) -> Result<Self, Error>;
+	fn decode_all<I: Input>(input: &mut I) -> Result<Self, Error>;
 }
 
 impl<T: Decode> DecodeAll for T {
-	fn decode_all(input: &[u8]) -> Result<Self, Error> {
-		let input = &mut &input[..];
+	fn decode_all<I: Input>(input: &mut I) -> Result<Self, Error> {
 		let res = T::decode(input)?;
 
-		if input.is_empty() {
+		if input.remaining_len() == Ok(Some(0)) {
 			Ok(res)
 		} else {
 			Err(DECODE_ALL_ERR_MSG.into())
@@ -42,7 +41,7 @@ impl<T: Decode> DecodeAll for T {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::{Encode, Input, Compact, EncodeLike};
+	use crate::{Compact, Encode, EncodeLike, Input};
 
 	macro_rules! test_decode_all {
 		(
@@ -51,13 +50,13 @@ mod tests {
 			$(
 				{
 					let mut encoded = <$type as Encode>::encode(&$value);
-					<$type>::decode_all(&encoded).expect(
+					<$type>::decode_all(&mut encoded.as_slice()).expect(
 						&format!("`{} => {}` decodes all!", stringify!($type), stringify!($value)),
 					);
 
 					encoded.extend(&[1, 2, 3, 4, 5, 6]);
 					assert_eq!(
-						<$type>::decode_all(&encoded).unwrap_err().to_string(),
+						<$type>::decode_all(&mut encoded.as_slice()).unwrap_err().to_string(),
 						"Input buffer has still data left after decoding!",
 					);
 				}
@@ -86,13 +85,11 @@ mod tests {
 
 	impl Decode for TestStruct {
 		fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
-			Ok(
-				Self {
-					data: Vec::<u32>::decode(input)?,
-					other: u8::decode(input)?,
-					compact: Compact::<u128>::decode(input)?,
-				}
-			)
+			Ok(Self {
+				data: Vec::<u32>::decode(input)?,
+				other: u8::decode(input)?,
+				compact: Compact::<u128>::decode(input)?,
+			})
 		}
 	}
 
