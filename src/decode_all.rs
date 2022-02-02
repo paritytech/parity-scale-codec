@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{Decode, Error, Input};
+use crate::{Decode, Error};
 
 /// The error message returned when `decode_all` fails.
 pub(crate) const DECODE_ALL_ERR_MSG: &str = "Input buffer has still data left after decoding!";
@@ -23,14 +23,14 @@ pub trait DecodeAll: Sized {
 	/// Decode `Self` and consume all of the given input data.
 	///
 	/// If not all data is consumed, an error is returned.
-	fn decode_all<I: Input>(input: &mut I) -> Result<Self, Error>;
+	fn decode_all(input: &mut &[u8]) -> Result<Self, Error>;
 }
 
 impl<T: Decode> DecodeAll for T {
-	fn decode_all<I: Input>(input: &mut I) -> Result<Self, Error> {
+	fn decode_all(input: &mut &[u8]) -> Result<Self, Error> {
 		let res = T::decode(input)?;
 
-		if input.remaining_len() == Ok(Some(0)) {
+		if input.is_empty() {
 			Ok(res)
 		} else {
 			Err(DECODE_ALL_ERR_MSG.into())

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{Decode, DecodeAll, Error, Input};
+use crate::{Decode, Error, Input};
 
 /// The error message returned when depth limit is reached.
 const DECODE_MAX_DEPTH_MSG: &str = "Maximum recursion depth reached when decoding";
@@ -27,7 +27,7 @@ pub trait DecodeLimit: Sized {
 	/// Decode `Self` and consume all of the given input data.
 	///
 	/// If not all data is consumed or `limit` is hit, an error is returned.
-	fn decode_all_with_depth_limit<I: Input>(limit: u32, input: &mut I) -> Result<Self, Error>;
+	fn decode_all_with_depth_limit(limit: u32, input: &mut &[u8]) -> Result<Self, Error>;
 }
 
 struct DepthTrackingInput<'a, I> {
@@ -66,13 +66,14 @@ impl<'a, I: Input> Input for DepthTrackingInput<'a, I> {
 }
 
 impl<T: Decode> DecodeLimit for T {
-	fn decode_all_with_depth_limit<I: Input>(limit: u32, input: &mut I) -> Result<Self, Error> {
-		let mut input = DepthTrackingInput {
-			input,
-			depth: 0,
-			max_depth: limit,
-		};
-		T::decode_all(&mut input)
+	fn decode_all_with_depth_limit(limit: u32, input: &mut &[u8]) -> Result<Self, Error> {
+		let t = <Self as DecodeLimit>::decode_with_depth_limit(limit, input)?;
+
+		if input.is_empty() {
+			Ok(t)
+		} else {
+			Err(crate::decode_all::DECODE_ALL_ERR_MSG.into())
+		}
 	}
 
 	fn decode_with_depth_limit<I: Input>(limit: u32, input: &mut I) -> Result<Self, Error> {
@@ -102,7 +103,7 @@ mod tests {
 	}
 
 	#[test]
-	fn decode_and_advance_works() {
+	fn decode_limit_advances_input() {
 		type NestedVec = Vec<Vec<Vec<Vec<u8>>>>;
 		let nested: NestedVec = vec![vec![vec![vec![1]]]];
 		let encoded = nested.encode();
@@ -111,5 +112,23 @@ mod tests {
 		let decoded = Vec::<u8>::decode_with_depth_limit(1, encoded_slice).unwrap();
 		assert_eq!(decoded, vec![4]);
 		assert!(NestedVec::decode_with_depth_limit(3, encoded_slice).is_err());
+	}
+
+	#[test]
+	fn decode_all_with_limit_advances_input() {
+		type NestedVec = Vec<Vec<Vec<Vec<u8>>>>;
+		let nested: NestedVec = vec![vec![vec![vec![1]]]];
+		let mut encoded = NestedVec::encode(&nested);
+
+		let decoded = NestedVec::decode_all_with_depth_limit(3, &mut encoded.as_slice()).unwrap();
+		assert_eq!(decoded, nested);
+
+		encoded.extend(&[1, 2, 3, 4, 5, 6]);
+		assert_eq!(
+			NestedVec::decode_all_with_depth_limit(3, &mut encoded.as_slice())
+				.unwrap_err()
+				.to_string(),
+			"Input buffer has still data left after decoding!",
+		);
 	}
 }
