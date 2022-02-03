@@ -12,8 +12,8 @@ rust-version = "1.56.1"
 [dependencies]
 arrayvec = { version = "0.7", default-features = false }
 serde = { version = "1.0.102", optional = true }
-parity-scale-codec-derive = { path = "derive", version = "2.3.1", default-features = false, optional = true }
-bitvec = { version = "1", default-features = false, features = ["alloc"], optional = true }
+parity-scale-codec-derive = { path = "derive", version = "3.0.0", default-features = false, optional = true }
+bitvec = { version = "1", default-features = false, features = [ "alloc" ], optional = true }
 bytes = { version = "1", default-features = false, optional = true }
 byte-slice-cast = { version = "1.0.0", default-features = false }
 generic-array = { version = "0.14.4", optional = true }
@@ -59,7 +59,4 @@ chain-error = []
 full = []
 
 [workspace]
-members = [
-	"derive",
-	"fuzzer",
-]
+members = ["derive", "fuzzer"]

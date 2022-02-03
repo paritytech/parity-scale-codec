@@ -19,7 +19,8 @@ const DECODE_MAX_DEPTH_MSG: &str = "Maximum recursion depth reached when decodin
 
 /// Extension trait to [`Decode`] for decoding with a maximum recursion depth.
 pub trait DecodeLimit: Sized {
-	/// Decode `Self` and advance `input` by the number of bytes consumed.
+	/// Decode `Self` with the given maximum recursion depth and advance `input` by the number of
+	/// bytes consumed.
 	///
 	/// If `limit` is hit, an error is returned.
 	fn decode_with_depth_limit<I: Input>(limit: u32, input: &mut I) -> Result<Self, Error>;
@@ -77,11 +78,7 @@ impl<T: Decode> DecodeLimit for T {
 	}
 
 	fn decode_with_depth_limit<I: Input>(limit: u32, input: &mut I) -> Result<Self, Error> {
-		let mut input = DepthTrackingInput {
-			input,
-			depth: 0,
-			max_depth: limit,
-		};
+		let mut input = DepthTrackingInput { input, depth: 0, max_depth: limit };
 		T::decode(&mut input)
 	}
 }
