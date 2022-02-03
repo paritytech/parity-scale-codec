@@ -5,8 +5,21 @@ All notable changes to this crate are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this crate adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## [3.0.0] - 2022-02-02
+
+### Fix
+
+- Optimised the Decode::decode for [T; N] [#299](https://github.com/paritytech/parity-scale-codec/pull/299)
+
+### Changed
+
 - Migrated to 2021 edition, enforcing MSRV of `1.56.1`. [#298](https://github.com/paritytech/parity-scale-codec/pull/298)
+- Upgrade to BitVec 1.0 [#311](https://github.com/paritytech/parity-scale-codec/pull/311)
+- DecodeLimit and DecodeAll extensions now advance input [#314](https://github.com/paritytech/parity-scale-codec/pull/314)
+
+### Added
+
+- Add bytes::Bytes implementation [#309](https://github.com/paritytech/parity-scale-codec/pull/309)
 
 ## [2.3.1] - 2021-09-28
 
@@ -17,6 +30,7 @@ and this crate adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 ## [2.3.0] - 2021-09-11
 
 ### Added
+
 - `decode_and_advance_with_depth_limit` to the `DecodeLimit` trait. This allows advancing the cursor while decoding the input. PR #286
 
 ## [2.2.0] - 2021-07-02
