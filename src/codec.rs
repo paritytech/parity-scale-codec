@@ -43,13 +43,10 @@ use core::num::{
 
 use byte_slice_cast::{AsByteSlice, AsMutByteSlice, ToMutByteSlice};
 
-#[cfg(any(feature = "std", feature = "full"))]
 use crate::alloc::{
 	string::String,
 	sync::Arc,
 	rc::Rc,
-};
-use crate::alloc::{
 	vec::Vec,
 	boxed::Box,
 	borrow::{Cow, ToOwned},
@@ -170,7 +167,6 @@ pub trait Output {
 	}
 }
 
-#[cfg(not(feature = "std"))]
 impl Output for Vec<u8> {
 	fn write(&mut self, bytes: &[u8]) {
 		self.extend_from_slice(bytes)
@@ -351,7 +347,6 @@ impl<'a, T: ToOwned + Encode + ?Sized> EncodeLike for Cow<'a, T> {}
 impl<'a, T: ToOwned + Encode> EncodeLike<T> for Cow<'a, T> {}
 impl<'a, T: ToOwned + Encode> EncodeLike<Cow<'a, T>> for T {}
 
-#[cfg(any(feature = "std", feature = "full"))]
 mod feature_full_wrapper_type_encode {
 	use super::*;
 
@@ -419,11 +414,9 @@ pub trait WrapperTypeDecode: Sized {
 impl<T> WrapperTypeDecode for Box<T> {
 	type Wrapped = T;
 }
-#[cfg(any(feature = "std", feature = "full"))]
 impl<T> WrapperTypeDecode for Arc<T> {
 	type Wrapped = T;
 }
-#[cfg(any(feature = "std", feature = "full"))]
 impl<T> WrapperTypeDecode for Rc<T> {
 	type Wrapped = T;
 }
@@ -857,7 +850,6 @@ impl<T> Decode for PhantomData<T> {
 	}
 }
 
-#[cfg(any(feature = "std", feature = "full"))]
 impl Decode for String {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		Self::from_utf8(Vec::decode(input)?).map_err(|_| "Invalid utf8 sequence".into())
