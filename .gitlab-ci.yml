@@ -25,7 +25,7 @@ workflow:
     - rustc -vV
     - rustup show
     - bash --version
-    - ./scripts/pre_cache.sh
+    - ./scripts/ci/pre_cache.sh
     - sccache -s
   rules:
     - if: $CI_PIPELINE_SOURCE == "trigger"
