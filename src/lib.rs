@@ -291,7 +291,7 @@ pub use self::codec::{
 };
 #[cfg(feature = "std")]
 pub use self::codec::IoReader;
-pub use self::compact::{Compact, HasCompact, CompactAs, CompactLen};
+pub use self::compact::{Compact, HasCompact, CompactAs, CompactLen, CompactRef};
 pub use self::joiner::Joiner;
 pub use self::keyedvec::KeyedVec;
 pub use self::decode_all::DecodeAll;
