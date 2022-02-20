@@ -201,6 +201,9 @@ The derive implementation supports the following attributes:
 - `codec(index = 0)`: Needs to be placed above an enum variant to make the variant use the given
   index when encoded. By default the index is determined by counting from `0` beginning wth the
   first variant.
+- `codec(crate = path::to::crate)`: Specify a path to the parity-scale-codec crate instance to use
+  when referring to Codec APIs from generated code. This is normally only applicable when invoking
+  re-exported Codec derives from a public macro in a different crate.
 
 
 License: Apache-2.0
