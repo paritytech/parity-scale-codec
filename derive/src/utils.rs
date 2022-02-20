@@ -121,7 +121,6 @@ pub fn has_dumb_trait_bound(attrs: &[Attribute]) -> bool {
 }
 
 /// Generate the crate access for the crate using 2018 syntax.
-#[cfg(feature = "max-encoded-len")]
 fn crate_access() -> syn::Result<proc_macro2::Ident> {
 	use proc_macro_crate::{crate_name, FoundCrate};
 	use proc_macro2::{Span, Ident};
@@ -173,7 +172,6 @@ fn codec_crate_path_inner(attr: &Attribute) -> Option<Path> {
 /// If not found, returns the default crate access pattern.
 ///
 /// If multiple items match the pattern, all but the first are ignored.
-#[cfg(feature = "max-encoded-len")]
 pub fn codec_crate_path(attrs: &[Attribute]) -> syn::Result<Path> {
 	match attrs.iter().find_map(codec_crate_path_inner) {
 		Some(path) => Ok(path),

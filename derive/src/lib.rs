@@ -23,42 +23,15 @@ extern crate syn;
 #[macro_use]
 extern crate quote;
 
-use proc_macro2::{Ident, Span};
-use proc_macro_crate::{crate_name, FoundCrate};
 use syn::spanned::Spanned;
 use syn::{Data, Field, Fields, DeriveInput, Error};
-use proc_macro2::TokenStream as TokenStream2;
-use crate::utils::is_lint_attribute;
+use crate::utils::{codec_crate_path, is_lint_attribute};
 
 mod decode;
 mod encode;
 mod max_encoded_len;
 mod utils;
 mod trait_bounds;
-
-/// Returns the identifier of the `parity-scale-codec` crate as used.
-///
-/// The identifier might change if the depending crate imported it
-/// using a custom package name.
-fn parity_scale_codec_ident() -> Result<TokenStream2, Error> {
-	static CRATE_NAME: &str = "parity-scale-codec";
-	fn root_import(name: &str) -> TokenStream2 {
-		let ident = Ident::new(name, Span::call_site());
-		quote!{ :: #ident }
-	}
-	// This "hack" is required for the tests.
-	if std::env::var("CARGO_PKG_NAME").unwrap() == CRATE_NAME {
-		Ok(root_import("parity_scale_codec"))
-	} else {
-		match crate_name(CRATE_NAME) {
-			Ok(FoundCrate::Itself) => {
-				Ok(quote! { crate })
-			}
-			Ok(FoundCrate::Name(custom_name)) => Ok(root_import(&custom_name)),
-			Err(e) => Err(Error::new(Span::call_site(), &e)),
-		}
-	}
-}
 
 /// Wraps the impl block in a "dummy const"
 fn wrap_with_dummy_const(input: DeriveInput, impl_block: proc_macro2::TokenStream) -> proc_macro::TokenStream {
@@ -156,8 +129,8 @@ pub fn encode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 		return e.to_compile_error().into();
 	}
 
-	let crate_ident = match crate::parity_scale_codec_ident() {
-		Ok(crate_ident) => crate_ident,
+	let crate_path = match codec_crate_path(&input.attrs) {
+		Ok(crate_path) => parse_quote!(#crate_path),
 		Err(error) => {
 			return error.into_compile_error().into()
 		}
@@ -169,10 +142,10 @@ pub fn encode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 		&input.ident,
 		&mut input.generics,
 		&input.data,
-		parse_quote!(#crate_ident::Encode),
+		parse_quote!(#crate_path::Encode),
 		None,
 		utils::has_dumb_trait_bound(&input.attrs),
-		&crate_ident,
+		&crate_path,
 	) {
 		return e.to_compile_error().into();
 	}
@@ -180,14 +153,14 @@ pub fn encode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 	let name = &input.ident;
 	let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
-	let encode_impl = encode::quote(&input.data, name, &crate_ident);
+	let encode_impl = encode::quote(&input.data, name, &crate_path);
 
 	let impl_block = quote! {
-		impl #impl_generics #crate_ident::Encode for #name #ty_generics #where_clause {
+		impl #impl_generics #crate_path::Encode for #name #ty_generics #where_clause {
 			#encode_impl
 		}
 
-		impl #impl_generics #crate_ident::EncodeLike for #name #ty_generics #where_clause {}
+		impl #impl_generics #crate_path::EncodeLike for #name #ty_generics #where_clause {}
 	};
 
 	wrap_with_dummy_const(input, impl_block)
@@ -207,8 +180,8 @@ pub fn decode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 		return e.to_compile_error().into();
 	}
 
-	let crate_ident = match crate::parity_scale_codec_ident() {
-		Ok(crate_ident) => crate_ident,
+	let crate_path = match codec_crate_path(&input.attrs) {
+		Ok(crate_path) => parse_quote!(#crate_path),
 		Err(error) => {
 			return error.into_compile_error().into()
 		}
@@ -220,10 +193,10 @@ pub fn decode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 		&input.ident,
 		&mut input.generics,
 		&input.data,
-		parse_quote!(#crate_ident::Decode),
+		parse_quote!(#crate_path::Decode),
 		Some(parse_quote!(Default)),
 		utils::has_dumb_trait_bound(&input.attrs),
-		&crate_ident,
+		&crate_path,
 	) {
 		return e.to_compile_error().into();
 	}
@@ -233,13 +206,13 @@ pub fn decode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 	let ty_gen_turbofish = ty_generics.as_turbofish();
 
 	let input_ = quote!(__codec_input_edqy);
-	let decoding = decode::quote(&input.data, name, &quote!(#ty_gen_turbofish), &input_, &crate_ident);
+	let decoding = decode::quote(&input.data, name, &quote!(#ty_gen_turbofish), &input_, &crate_path);
 
 	let impl_block = quote! {
-		impl #impl_generics #crate_ident::Decode for #name #ty_generics #where_clause {
-			fn decode<__CodecInputEdqy: #crate_ident::Input>(
+		impl #impl_generics #crate_path::Decode for #name #ty_generics #where_clause {
+			fn decode<__CodecInputEdqy: #crate_path::Input>(
 				#input_: &mut __CodecInputEdqy
-			) -> ::core::result::Result<Self, #crate_ident::Error> {
+			) -> ::core::result::Result<Self, #crate_path::Error> {
 				#decoding
 			}
 		}
@@ -273,8 +246,8 @@ pub fn compact_as_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStr
 		return e.to_compile_error().into();
 	}
 
-	let crate_ident = match crate::parity_scale_codec_ident() {
-		Ok(crate_ident) => crate_ident,
+	let crate_path = match codec_crate_path(&input.attrs) {
+		Ok(crate_path) => parse_quote!(#crate_path),
 		Err(error) => {
 			return error.into_compile_error().into()
 		}
@@ -284,10 +257,10 @@ pub fn compact_as_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStr
 		&input.ident,
 		&mut input.generics,
 		&input.data,
-		parse_quote!(#crate_ident::CompactAs),
+		parse_quote!(#crate_path::CompactAs),
 		None,
 		utils::has_dumb_trait_bound(&input.attrs),
-		&crate_ident,
+		&crate_path,
 	) {
 		return e.to_compile_error().into();
 	}
@@ -343,22 +316,22 @@ pub fn compact_as_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStr
 	};
 
 	let impl_block = quote! {
-		impl #impl_generics #crate_ident::CompactAs for #name #ty_generics #where_clause {
+		impl #impl_generics #crate_path::CompactAs for #name #ty_generics #where_clause {
 			type As = #inner_ty;
 			fn encode_as(&self) -> &#inner_ty {
 				#inner_field
 			}
 			fn decode_from(x: #inner_ty)
-				-> ::core::result::Result<#name #ty_generics, #crate_ident::Error>
+				-> ::core::result::Result<#name #ty_generics, #crate_path::Error>
 			{
 				::core::result::Result::Ok(#constructor)
 			}
 		}
 
-		impl #impl_generics From<#crate_ident::Compact<#name #ty_generics>>
+		impl #impl_generics From<#crate_path::Compact<#name #ty_generics>>
 			for #name #ty_generics #where_clause
 		{
-			fn from(x: #crate_ident::Compact<#name #ty_generics>) -> #name #ty_generics {
+			fn from(x: #crate_path::Compact<#name #ty_generics>) -> #name #ty_generics {
 				x.0
 			}
 		}
