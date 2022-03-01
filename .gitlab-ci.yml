@@ -105,6 +105,7 @@ miri:
     RUST_BACKTRACE:                1
     MIRIFLAGS:                     "-Zmiri-disable-isolation"
   script:
+    - cargo +nightly install miri rust-src llvm-tools-preview grcov rust-covfix xargo cargo-contract
     - time cargo +nightly miri test --features bit-vec,bytes,generic-array,arbitrary --release
 
 #### stage:                        build
