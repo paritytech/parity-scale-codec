@@ -31,7 +31,7 @@ pub fn quote(
 	type_name: &Ident,
 	type_generics: &TokenStream,
 	input: &TokenStream,
-	crate_ident: &TokenStream,
+	crate_path: &syn::Path,
 ) -> TokenStream {
 	match *data {
 		Data::Struct(ref data) => match data.fields {
@@ -40,7 +40,7 @@ pub fn quote(
 				&type_name.to_string(),
 				input,
 				&data.fields,
-				crate_ident,
+				crate_path,
 			),
 			Fields::Unit => {
 				quote_spanned! { data.fields.span() =>
@@ -67,7 +67,7 @@ pub fn quote(
 					&format!("{}::{}", type_name, name),
 					input,
 					&v.fields,
-					crate_ident,
+					crate_path,
 				);
 
 				quote_spanned! { v.span() =>
@@ -101,7 +101,7 @@ pub fn quote(
 	}
 }
 
-fn create_decode_expr(field: &Field, name: &str, input: &TokenStream, crate_ident: &TokenStream) -> TokenStream {
+fn create_decode_expr(field: &Field, name: &str, input: &TokenStream, crate_path: &syn::Path) -> TokenStream {
 	let encoded_as = utils::get_encoded_as_type(field);
 	let compact = utils::is_compact(field);
 	let skip = utils::should_skip(&field.attrs);
@@ -122,7 +122,7 @@ fn create_decode_expr(field: &Field, name: &str, input: &TokenStream, crate_iden
 		quote_spanned! { field.span() =>
 			{
 				let #res = <
-					<#field_type as #crate_ident::HasCompact>::Type as #crate_ident::Decode
+					<#field_type as #crate_path::HasCompact>::Type as #crate_path::Decode
 				>::decode(#input);
 				match #res {
 					::core::result::Result::Err(e) => return ::core::result::Result::Err(e.chain(#err_msg)),
@@ -133,7 +133,7 @@ fn create_decode_expr(field: &Field, name: &str, input: &TokenStream, crate_iden
 	} else if let Some(encoded_as) = encoded_as {
 		quote_spanned! { field.span() =>
 			{
-				let #res = <#encoded_as as #crate_ident::Decode>::decode(#input);
+				let #res = <#encoded_as as #crate_path::Decode>::decode(#input);
 				match #res {
 					::core::result::Result::Err(e) => return ::core::result::Result::Err(e.chain(#err_msg)),
 					::core::result::Result::Ok(#res) => #res.into(),
@@ -146,7 +146,7 @@ fn create_decode_expr(field: &Field, name: &str, input: &TokenStream, crate_iden
 		let field_type = &field.ty;
 		quote_spanned! { field.span() =>
 			{
-				let #res = <#field_type as #crate_ident::Decode>::decode(#input);
+				let #res = <#field_type as #crate_path::Decode>::decode(#input);
 				match #res {
 					::core::result::Result::Err(e) => return ::core::result::Result::Err(e.chain(#err_msg)),
 					::core::result::Result::Ok(#res) => #res,
@@ -161,7 +161,7 @@ fn create_instance(
 	name_str: &str,
 	input: &TokenStream,
 	fields: &Fields,
-	crate_ident: &TokenStream,
+	crate_path: &syn::Path,
 ) -> TokenStream {
 	match *fields {
 		Fields::Named(ref fields) => {
@@ -171,7 +171,7 @@ fn create_instance(
 					Some(a) => format!("{}::{}", name_str, a),
 					None => format!("{}", name_str), // Should never happen, fields are named.
 				};
-				let decode = create_decode_expr(f, &field_name, input, crate_ident);
+				let decode = create_decode_expr(f, &field_name, input, crate_path);
 
 				quote_spanned! { f.span() =>
 					#name_ident: #decode
@@ -188,7 +188,7 @@ fn create_instance(
 			let recurse = fields.unnamed.iter().enumerate().map(|(i, f) | {
 				let field_name = format!("{}.{}", name_str, i);
 
-				create_decode_expr(f, &field_name, input, crate_ident)
+				create_decode_expr(f, &field_name, input, crate_path)
 			});
 
 			quote_spanned! { fields.span() =>

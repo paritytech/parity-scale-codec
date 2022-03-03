@@ -130,7 +130,7 @@ pub fn encode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 	}
 
 	let crate_path = match codec_crate_path(&input.attrs) {
-		Ok(crate_path) => parse_quote!(#crate_path),
+		Ok(crate_path) => crate_path,
 		Err(error) => {
 			return error.into_compile_error().into()
 		}
@@ -181,7 +181,7 @@ pub fn decode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 	}
 
 	let crate_path = match codec_crate_path(&input.attrs) {
-		Ok(crate_path) => parse_quote!(#crate_path),
+		Ok(crate_path) => crate_path,
 		Err(error) => {
 			return error.into_compile_error().into()
 		}
@@ -247,7 +247,7 @@ pub fn compact_as_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStr
 	}
 
 	let crate_path = match codec_crate_path(&input.attrs) {
-		Ok(crate_path) => parse_quote!(#crate_path),
+		Ok(crate_path) => crate_path,
 		Err(error) => {
 			return error.into_compile_error().into()
 		}
