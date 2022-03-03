@@ -19,7 +19,8 @@ workflow:
     - if: $CI_COMMIT_BRANCH
 
 .docker-env:                       &docker-env
-  image:                           paritytech/ink-ci-linux:production
+  # Temporary image, remove when clang in "ink-ci-linux:production" is updated to 13
+  image:                           paritytech/parity-scale-codec:staging
   before_script:
     - cargo -vV
     - rustc -vV
