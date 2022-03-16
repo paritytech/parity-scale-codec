@@ -91,7 +91,7 @@ impl<O: BitOrder, T: BitStore + Decode> Decode for BitBox<T, O> {
 mod tests {
 	use super::*;
 	use bitvec::{bitvec, order::Msb0};
-	use crate::codec::MAX_PREALLOCATION;
+	use crate::{codec::MAX_PREALLOCATION, CompactLen};
 
 	macro_rules! test_data {
 		($inner_type:ident) => (
@@ -133,8 +133,9 @@ mod tests {
 			let encoded = v.encode();
 			assert_eq!(*v, BitVec::<u8, Msb0>::decode(&mut &encoded[..]).unwrap());
 
-			let encoded = v.as_bitslice().encode();
-			assert_eq!(*v, BitVec::<u8, Msb0>::decode(&mut &encoded[..]).unwrap());
+			let elements = bitvec::mem::elts::<u8>(v.len());
+			let compact_len = Compact::compact_len(&(v.len() as u32));
+			assert_eq!(compact_len + elements, encoded.len(), "{}", v);
 		}
 	}
 
@@ -144,8 +145,9 @@ mod tests {
 			let encoded = v.encode();
 			assert_eq!(*v, BitVec::<u16, Msb0>::decode(&mut &encoded[..]).unwrap());
 
-			let encoded = v.as_bitslice().encode();
-			assert_eq!(*v, BitVec::<u16, Msb0>::decode(&mut &encoded[..]).unwrap());
+			let elements = bitvec::mem::elts::<u16>(v.len());
+			let compact_len = Compact::compact_len(&(v.len() as u32));
+			assert_eq!(compact_len + elements * 2, encoded.len(), "{}", v);
 		}
 	}
 
@@ -155,8 +157,9 @@ mod tests {
 			let encoded = v.encode();
 			assert_eq!(*v, BitVec::<u32, Msb0>::decode(&mut &encoded[..]).unwrap());
 
-			let encoded = v.as_bitslice().encode();
-			assert_eq!(*v, BitVec::<u32, Msb0>::decode(&mut &encoded[..]).unwrap());
+			let elements = bitvec::mem::elts::<u32>(v.len());
+			let compact_len = Compact::compact_len(&(v.len() as u32));
+			assert_eq!(compact_len + elements * 4, encoded.len(), "{}", v);
 		}
 	}
 
@@ -165,6 +168,10 @@ mod tests {
 		for v in &test_data!(u64) {
 			let encoded = v.encode();
 			assert_eq!(*v, BitVec::<u64, Msb0>::decode(&mut &encoded[..]).unwrap());
+
+			let elements = bitvec::mem::elts::<u64>(v.len());
+			let compact_len = Compact::compact_len(&(v.len() as u32));
+			assert_eq!(compact_len + elements * 8, encoded.len(), "{}", v);
 		}
 	}
 
