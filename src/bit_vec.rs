@@ -73,7 +73,7 @@ impl<O: BitOrder, T: BitStore + Decode> Decode for BitVec<T, O> {
 	}
 }
 
-impl<O: BitOrder, T: BitStore + Encode + std::fmt::Debug> Encode for BitBox<T, O> {
+impl<O: BitOrder, T: BitStore + Encode> Encode for BitBox<T, O> {
 	fn encode_to<W: Output + ?Sized>(&self, dest: &mut W) {
 		self.as_bitslice().encode_to(dest)
 	}
