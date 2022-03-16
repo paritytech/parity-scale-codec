@@ -90,7 +90,7 @@ impl<O: BitOrder, T: BitStore + Decode> Decode for BitBox<T, O> {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use bitvec::{bitvec, order::Msb0};
+	use bitvec::{bitvec, order::{Msb0, Lsb0}};
 	use crate::{codec::MAX_PREALLOCATION, CompactLen};
 
 	macro_rules! test_data {
@@ -192,5 +192,20 @@ mod tests {
 		let encoded = bb.encode();
 		let decoded = BitBox::<u8, Msb0>::decode(&mut &encoded[..]).unwrap();
 		assert_eq!(bb, decoded);
+	}
+
+	#[test]
+	fn bitvec_u8_encodes_as_expected() {
+		let cases = vec![
+			(bitvec![u8, Lsb0; 0, 0, 1, 1].encode(), (Compact(4u32), 0b00001100u8).encode()),
+			(bitvec![u8, Lsb0; 0, 1, 1, 1].encode(), (Compact(4u32), 0b00001110u8).encode()),
+			(bitvec![u8, Lsb0; 1, 1, 1, 1].encode(), (Compact(4u32), 0b00001111u8).encode()),
+			(bitvec![u8, Lsb0; 1, 1, 1, 1, 1].encode(), (Compact(5u32), 0b00011111u8).encode()),
+			(bitvec![u8, Lsb0; 1, 1, 1, 1, 1, 0].encode(), (Compact(6u32), 0b00011111u8).encode()),
+		];
+
+		for (idx, (actual, expected)) in cases.into_iter().enumerate() {
+			assert_eq!(actual, expected, "case at index {} failed; encodings differ", idx);
+		}
 	}
 }
