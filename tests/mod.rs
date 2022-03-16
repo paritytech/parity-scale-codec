@@ -588,6 +588,7 @@ fn custom_trait_bound() {
 }
 
 #[test]
+#[cfg(feature = "bit-vec")]
 fn bit_vec_works() {
 	use bitvec::prelude::*;
 
