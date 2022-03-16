@@ -15,17 +15,13 @@
 //! `BitVec` specific serialization.
 
 use bitvec::{
-	vec::BitVec, store::BitStore, order::BitOrder, slice::BitSlice, boxed::BitBox,
+	vec::BitVec, store::BitStore, order::BitOrder, slice::BitSlice, boxed::BitBox, view::BitView,
 };
 use crate::{
-	EncodeLike, Encode, Decode, Input, Output, Error, Compact,
-	codec::{decode_vec_with_len, encode_slice_no_len},
+	EncodeLike, Encode, Decode, Input, Output, Error, Compact, codec::decode_vec_with_len,
 };
 
-impl<O: BitOrder, T: BitStore> Encode for BitSlice<T, O>
-	where
-		T::Mem: Encode
-{
+impl<O: BitOrder, T: BitStore + Encode> Encode for BitSlice<T, O> {
 	fn encode_to<W: Output + ?Sized>(&self, dest: &mut W) {
 		let bits = self.len();
 		assert!(
@@ -34,7 +30,10 @@ impl<O: BitOrder, T: BitStore> Encode for BitSlice<T, O>
 		);
 		Compact(bits as u32).encode_to(dest);
 
-		for element in self.domain() {
+		// Iterate over chunks
+		for chunk in self.chunks(core::mem::size_of::<T>() * 8) {
+			let mut element = T::ZERO;
+			element.view_bits_mut::<O>()[..chunk.len()].copy_from_bitslice(chunk);
 			element.encode_to(dest);
 		}
 	}
@@ -42,15 +41,7 @@ impl<O: BitOrder, T: BitStore> Encode for BitSlice<T, O>
 
 impl<O: BitOrder, T: BitStore + Encode> Encode for BitVec<T, O> {
 	fn encode_to<W: Output + ?Sized>(&self, dest: &mut W) {
-		let bits = self.len();
-		assert!(
-			bits <= ARCH32BIT_BITSLICE_MAX_BITS,
-			"Attempted to encode a BitVec with too many bits.",
-		);
-		Compact(bits as u32).encode_to(dest);
-
-		let slice = self.as_raw_slice();
-		encode_slice_no_len(slice, dest)
+		self.as_bitslice().encode_to(dest)
 	}
 }
 
@@ -82,17 +73,9 @@ impl<O: BitOrder, T: BitStore + Decode> Decode for BitVec<T, O> {
 	}
 }
 
-impl<O: BitOrder, T: BitStore + Encode> Encode for BitBox<T, O> {
+impl<O: BitOrder, T: BitStore + Encode + std::fmt::Debug> Encode for BitBox<T, O> {
 	fn encode_to<W: Output + ?Sized>(&self, dest: &mut W) {
-		let bits = self.len();
-		assert!(
-			bits <= ARCH32BIT_BITSLICE_MAX_BITS,
-			"Attempted to encode a BitBox with too many bits.",
-		);
-		Compact(bits as u32).encode_to(dest);
-
-		let slice = self.as_raw_slice();
-		encode_slice_no_len(slice, dest)
+		self.as_bitslice().encode_to(dest)
 	}
 }
 

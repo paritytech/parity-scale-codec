@@ -15,7 +15,7 @@
 #[cfg(not(feature="derive"))]
 use parity_scale_codec_derive::{Encode, Decode};
 use parity_scale_codec::{
-	Encode, Decode, HasCompact, Compact, EncodeAsRef, CompactAs, Error, Output,
+	Encode, Decode, HasCompact, Compact, EncodeAsRef, CompactAs, Error, Output, DecodeAll
 };
 use serde_derive::{Serialize, Deserialize};
 
@@ -585,4 +585,35 @@ fn custom_trait_bound() {
 	}.encode();
 
 	Something::<NotEncode, u32>::decode(&mut &encoded[..]).unwrap();
+}
+
+#[test]
+fn bit_vec_works() {
+	use bitvec::prelude::*;
+
+	// Try some fancy stuff
+	let original_vec = bitvec![u8, Msb0; 1; 8];
+	let mut original_vec_clone = original_vec.clone();
+	original_vec_clone = original_vec_clone.split_off(5);
+	original_vec_clone.push(true);
+	original_vec_clone.push(true);
+	original_vec_clone.push(true);
+	original_vec_clone.push(true);
+	original_vec_clone.push(true);
+
+	assert_eq!(original_vec, original_vec_clone);
+
+	#[derive(Decode, Encode, PartialEq, Debug)]
+	struct MyStruct {
+		v: BitVec<u8, Msb0>,
+		x: u8,
+	}
+
+	let v1 = MyStruct { v: original_vec, x: 42 }.encode();
+	let v2 = MyStruct { v: original_vec_clone, x: 42 }.encode();
+	assert_eq!(v1, v2);
+
+	let v1 = MyStruct::decode(&mut &v1[..]).unwrap();
+	let v2 = MyStruct::decode_all(&mut &v2[..]).unwrap();
+	assert_eq!(v1.x, v2.x);
 }
