@@ -143,25 +143,25 @@ struct CratePath {
 }
 
 impl Parse for CratePath {
-    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-        Ok(CratePath {
+	fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+		Ok(CratePath {
 			_crate_token: input.parse()?,
 			_eq_token: input.parse()?,
 			path: input.parse()?,
 		})
-    }
+	}
 }
 
 impl From<CratePath> for Path {
-    fn from(CratePath { path, ..}: CratePath) -> Self {
-        path
-    }
+	fn from(CratePath { path, ..}: CratePath) -> Self {
+		path
+	}
 }
 
 /// Match `#[codec(crate = ...)]` and return the `...` if it is a `Path`.
 fn codec_crate_path_inner(attr: &Attribute) -> Option<Path> {
 	// match `#[codec ...]`
-	attr.path.is_ident("codec").then(move || {
+	attr.path.is_ident("codec").then(|| {
 		// match `#[codec(crate = ...)]` and return the `...`
 		attr.parse_args::<CratePath>().map(Into::into).ok()
 	}).flatten()
@@ -175,7 +175,7 @@ fn codec_crate_path_inner(attr: &Attribute) -> Option<Path> {
 pub fn codec_crate_path(attrs: &[Attribute]) -> syn::Result<Path> {
 	match attrs.iter().find_map(codec_crate_path_inner) {
 		Some(path) => Ok(path),
-		None => crate_access().map(|ident| ident.into()),
+		None => crate_access().map(|ident| parse_quote!(::#ident)),
 	}
 }
 
