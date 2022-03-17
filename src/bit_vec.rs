@@ -15,17 +15,13 @@
 //! `BitVec` specific serialization.
 
 use bitvec::{
-	vec::BitVec, store::BitStore, order::BitOrder, slice::BitSlice, boxed::BitBox,
+	vec::BitVec, store::BitStore, order::BitOrder, slice::BitSlice, boxed::BitBox, view::BitView,
 };
 use crate::{
-	EncodeLike, Encode, Decode, Input, Output, Error, Compact,
-	codec::{decode_vec_with_len, encode_slice_no_len},
+	EncodeLike, Encode, Decode, Input, Output, Error, Compact, codec::decode_vec_with_len,
 };
 
-impl<O: BitOrder, T: BitStore> Encode for BitSlice<T, O>
-	where
-		T::Mem: Encode
-{
+impl<O: BitOrder, T: BitStore + Encode> Encode for BitSlice<T, O> {
 	fn encode_to<W: Output + ?Sized>(&self, dest: &mut W) {
 		let bits = self.len();
 		assert!(
@@ -34,7 +30,10 @@ impl<O: BitOrder, T: BitStore> Encode for BitSlice<T, O>
 		);
 		Compact(bits as u32).encode_to(dest);
 
-		for element in self.domain() {
+		// Iterate over chunks
+		for chunk in self.chunks(core::mem::size_of::<T>() * 8) {
+			let mut element = T::ZERO;
+			element.view_bits_mut::<O>()[..chunk.len()].copy_from_bitslice(chunk);
 			element.encode_to(dest);
 		}
 	}
@@ -42,15 +41,7 @@ impl<O: BitOrder, T: BitStore> Encode for BitSlice<T, O>
 
 impl<O: BitOrder, T: BitStore + Encode> Encode for BitVec<T, O> {
 	fn encode_to<W: Output + ?Sized>(&self, dest: &mut W) {
-		let bits = self.len();
-		assert!(
-			bits <= ARCH32BIT_BITSLICE_MAX_BITS,
-			"Attempted to encode a BitVec with too many bits.",
-		);
-		Compact(bits as u32).encode_to(dest);
-
-		let slice = self.as_raw_slice();
-		encode_slice_no_len(slice, dest)
+		self.as_bitslice().encode_to(dest)
 	}
 }
 
@@ -84,15 +75,7 @@ impl<O: BitOrder, T: BitStore + Decode> Decode for BitVec<T, O> {
 
 impl<O: BitOrder, T: BitStore + Encode> Encode for BitBox<T, O> {
 	fn encode_to<W: Output + ?Sized>(&self, dest: &mut W) {
-		let bits = self.len();
-		assert!(
-			bits <= ARCH32BIT_BITSLICE_MAX_BITS,
-			"Attempted to encode a BitBox with too many bits.",
-		);
-		Compact(bits as u32).encode_to(dest);
-
-		let slice = self.as_raw_slice();
-		encode_slice_no_len(slice, dest)
+		self.as_bitslice().encode_to(dest)
 	}
 }
 
@@ -107,8 +90,8 @@ impl<O: BitOrder, T: BitStore + Decode> Decode for BitBox<T, O> {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use bitvec::{bitvec, order::Msb0};
-	use crate::codec::MAX_PREALLOCATION;
+	use bitvec::{bitvec, order::{Msb0, Lsb0}};
+	use crate::{codec::MAX_PREALLOCATION, CompactLen};
 
 	macro_rules! test_data {
 		($inner_type:ident) => (
@@ -150,8 +133,9 @@ mod tests {
 			let encoded = v.encode();
 			assert_eq!(*v, BitVec::<u8, Msb0>::decode(&mut &encoded[..]).unwrap());
 
-			let encoded = v.as_bitslice().encode();
-			assert_eq!(*v, BitVec::<u8, Msb0>::decode(&mut &encoded[..]).unwrap());
+			let elements = bitvec::mem::elts::<u8>(v.len());
+			let compact_len = Compact::compact_len(&(v.len() as u32));
+			assert_eq!(compact_len + elements, encoded.len(), "{}", v);
 		}
 	}
 
@@ -161,8 +145,9 @@ mod tests {
 			let encoded = v.encode();
 			assert_eq!(*v, BitVec::<u16, Msb0>::decode(&mut &encoded[..]).unwrap());
 
-			let encoded = v.as_bitslice().encode();
-			assert_eq!(*v, BitVec::<u16, Msb0>::decode(&mut &encoded[..]).unwrap());
+			let elements = bitvec::mem::elts::<u16>(v.len());
+			let compact_len = Compact::compact_len(&(v.len() as u32));
+			assert_eq!(compact_len + elements * 2, encoded.len(), "{}", v);
 		}
 	}
 
@@ -172,8 +157,9 @@ mod tests {
 			let encoded = v.encode();
 			assert_eq!(*v, BitVec::<u32, Msb0>::decode(&mut &encoded[..]).unwrap());
 
-			let encoded = v.as_bitslice().encode();
-			assert_eq!(*v, BitVec::<u32, Msb0>::decode(&mut &encoded[..]).unwrap());
+			let elements = bitvec::mem::elts::<u32>(v.len());
+			let compact_len = Compact::compact_len(&(v.len() as u32));
+			assert_eq!(compact_len + elements * 4, encoded.len(), "{}", v);
 		}
 	}
 
@@ -182,6 +168,10 @@ mod tests {
 		for v in &test_data!(u64) {
 			let encoded = v.encode();
 			assert_eq!(*v, BitVec::<u64, Msb0>::decode(&mut &encoded[..]).unwrap());
+
+			let elements = bitvec::mem::elts::<u64>(v.len());
+			let compact_len = Compact::compact_len(&(v.len() as u32));
+			assert_eq!(compact_len + elements * 8, encoded.len(), "{}", v);
 		}
 	}
 
@@ -202,5 +192,20 @@ mod tests {
 		let encoded = bb.encode();
 		let decoded = BitBox::<u8, Msb0>::decode(&mut &encoded[..]).unwrap();
 		assert_eq!(bb, decoded);
+	}
+
+	#[test]
+	fn bitvec_u8_encodes_as_expected() {
+		let cases = vec![
+			(bitvec![u8, Lsb0; 0, 0, 1, 1].encode(), (Compact(4u32), 0b00001100u8).encode()),
+			(bitvec![u8, Lsb0; 0, 1, 1, 1].encode(), (Compact(4u32), 0b00001110u8).encode()),
+			(bitvec![u8, Lsb0; 1, 1, 1, 1].encode(), (Compact(4u32), 0b00001111u8).encode()),
+			(bitvec![u8, Lsb0; 1, 1, 1, 1, 1].encode(), (Compact(5u32), 0b00011111u8).encode()),
+			(bitvec![u8, Lsb0; 1, 1, 1, 1, 1, 0].encode(), (Compact(6u32), 0b00011111u8).encode()),
+		];
+
+		for (idx, (actual, expected)) in cases.into_iter().enumerate() {
+			assert_eq!(actual, expected, "case at index {} failed; encodings differ", idx);
+		}
 	}
 }
