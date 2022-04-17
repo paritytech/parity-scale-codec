@@ -1460,7 +1460,7 @@ mod tests {
 		);
 	}
 	fn test_encode_length<T: Encode + Decode + DecodeLength>(thing: &T, len: usize) {
-		assert_eq!(<T as DecodeLength>::len(&mut &thing.encode()[..]).unwrap(), len);
+		assert_eq!(<T as DecodeLength>::len(&thing.encode()[..]).unwrap(), len);
 	}
 
 	#[test]
