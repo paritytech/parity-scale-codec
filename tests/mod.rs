@@ -15,7 +15,7 @@
 #[cfg(not(feature="derive"))]
 use parity_scale_codec_derive::{Encode, Decode};
 use parity_scale_codec::{
-	Encode, Decode, HasCompact, Compact, EncodeAsRef, CompactAs, Error, Output
+	Encode, Decode, HasCompact, Compact, EncodeAsRef, CompactAs, Error, Output, DecodeAll
 };
 use serde_derive::{Serialize, Deserialize};
 
