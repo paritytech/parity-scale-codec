@@ -290,7 +290,7 @@ pub trait Decode: Sized {
 	/// Attempt to skip the encoded value from input.
 	///
 	/// The default implementation of this function is just calling [`Decode::decode`].
-	/// When possible, an implementation should provided a specialized implementation.
+	/// When possible, an implementation should provide a specialized implementation.
 	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
 		Self::decode(input).map(|_| ())
 	}
