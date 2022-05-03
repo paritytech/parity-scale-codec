@@ -23,18 +23,20 @@ extern crate syn;
 #[macro_use]
 extern crate quote;
 
-use syn::spanned::Spanned;
-use syn::{Data, Field, Fields, DeriveInput, Error};
 use crate::utils::{codec_crate_path, is_lint_attribute};
+use syn::{spanned::Spanned, Data, DeriveInput, Error, Field, Fields};
 
 mod decode;
 mod encode;
 mod max_encoded_len;
-mod utils;
 mod trait_bounds;
+mod utils;
 
 /// Wraps the impl block in a "dummy const"
-fn wrap_with_dummy_const(input: DeriveInput, impl_block: proc_macro2::TokenStream) -> proc_macro::TokenStream {
+fn wrap_with_dummy_const(
+	input: DeriveInput,
+	impl_block: proc_macro2::TokenStream,
+) -> proc_macro::TokenStream {
 	let attrs = input.attrs.into_iter().filter(is_lint_attribute);
 	let generated = quote! {
 		const _: () = {
@@ -66,8 +68,8 @@ fn wrap_with_dummy_const(input: DeriveInput, impl_block: proc_macro2::TokenStrea
 /// * `#[codec(compact)]`: the field is encoded in its compact representation i.e. the field must
 ///   implement `parity_scale_codec::HasCompact` and will be encoded as `HasCompact::Type`.
 /// * `#[codec(encoded_as = "$EncodeAs")]`: the field is encoded as an alternative type. $EncodedAs
-///   type must implement `parity_scale_codec::EncodeAsRef<'_, $FieldType>` with $FieldType the
-///   type of the field with the attribute. This is intended to be used for types implementing
+///   type must implement `parity_scale_codec::EncodeAsRef<'_, $FieldType>` with $FieldType the type
+///   of the field with the attribute. This is intended to be used for types implementing
 ///   `HasCompact` as shown in the example.
 ///
 /// ```
@@ -75,12 +77,12 @@ fn wrap_with_dummy_const(input: DeriveInput, impl_block: proc_macro2::TokenStrea
 /// # use parity_scale_codec::{Encode as _, HasCompact};
 /// #[derive(Encode)]
 /// struct StructType {
-///		#[codec(skip)]
-///		a: u32,
-///		#[codec(compact)]
-///		b: u32,
-///		#[codec(encoded_as = "<u32 as HasCompact>::Type")]
-///		c: u32,
+/// 		#[codec(skip)]
+/// 		a: u32,
+/// 		#[codec(compact)]
+/// 		b: u32,
+/// 		#[codec(encoded_as = "<u32 as HasCompact>::Type")]
+/// 		c: u32,
 /// }
 /// ```
 ///
@@ -126,28 +128,25 @@ pub fn encode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 	};
 
 	if let Err(e) = utils::check_attributes(&input) {
-		return e.to_compile_error().into();
+		return e.to_compile_error().into()
 	}
 
 	let crate_path = match codec_crate_path(&input.attrs) {
 		Ok(crate_path) => crate_path,
-		Err(error) => {
-			return error.into_compile_error().into()
-		}
+		Err(error) => return error.into_compile_error().into(),
 	};
 
-	if let Some(custom_bound) = utils::custom_encode_trait_bound(&input.attrs) {
-		input.generics.make_where_clause().predicates.extend(custom_bound);
-	} else if let Err(e) = trait_bounds::add(
+	if let Err(e) = trait_bounds::add(
 		&input.ident,
 		&mut input.generics,
 		&input.data,
+		utils::custom_encode_trait_bound(&input.attrs),
 		parse_quote!(#crate_path::Encode),
 		None,
 		utils::has_dumb_trait_bound(&input.attrs),
 		&crate_path,
 	) {
-		return e.to_compile_error().into();
+		return e.to_compile_error().into()
 	}
 
 	let name = &input.ident;
@@ -177,28 +176,25 @@ pub fn decode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 	};
 
 	if let Err(e) = utils::check_attributes(&input) {
-		return e.to_compile_error().into();
+		return e.to_compile_error().into()
 	}
 
 	let crate_path = match codec_crate_path(&input.attrs) {
 		Ok(crate_path) => crate_path,
-		Err(error) => {
-			return error.into_compile_error().into()
-		}
+		Err(error) => return error.into_compile_error().into(),
 	};
 
-	if let Some(custom_bound) = utils::custom_decode_trait_bound(&input.attrs) {
-		input.generics.make_where_clause().predicates.extend(custom_bound);
-	} else if let Err(e) = trait_bounds::add(
+	if let Err(e) = trait_bounds::add(
 		&input.ident,
 		&mut input.generics,
 		&input.data,
+		utils::custom_decode_trait_bound(&input.attrs),
 		parse_quote!(#crate_path::Decode),
 		Some(parse_quote!(Default)),
 		utils::has_dumb_trait_bound(&input.attrs),
 		&crate_path,
 	) {
-		return e.to_compile_error().into();
+		return e.to_compile_error().into()
 	}
 
 	let name = &input.ident;
@@ -206,7 +202,8 @@ pub fn decode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 	let ty_gen_turbofish = ty_generics.as_turbofish();
 
 	let input_ = quote!(__codec_input_edqy);
-	let decoding = decode::quote(&input.data, name, &quote!(#ty_gen_turbofish), &input_, &crate_path);
+	let decoding =
+		decode::quote(&input.data, name, &quote!(#ty_gen_turbofish), &input_, &crate_path);
 
 	let impl_block = quote! {
 		impl #impl_generics #crate_path::Decode for #name #ty_generics #where_clause {
@@ -243,26 +240,25 @@ pub fn compact_as_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStr
 	};
 
 	if let Err(e) = utils::check_attributes(&input) {
-		return e.to_compile_error().into();
+		return e.to_compile_error().into()
 	}
 
 	let crate_path = match codec_crate_path(&input.attrs) {
 		Ok(crate_path) => crate_path,
-		Err(error) => {
-			return error.into_compile_error().into()
-		}
+		Err(error) => return error.into_compile_error().into(),
 	};
 
-	if let Err(e) = trait_bounds::add(
+	if let Err(e) = trait_bounds::add::<()>(
 		&input.ident,
 		&mut input.generics,
 		&input.data,
+		None,
 		parse_quote!(#crate_path::CompactAs),
 		None,
 		utils::has_dumb_trait_bound(&input.attrs),
 		&crate_path,
 	) {
-		return e.to_compile_error().into();
+		return e.to_compile_error().into()
 	}
 
 	let name = &input.ident;
@@ -278,41 +274,40 @@ pub fn compact_as_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStr
 	}
 
 	let (inner_ty, inner_field, constructor) = match input.data {
-		Data::Struct(ref data) => {
-			match data.fields {
-				Fields::Named(ref fields) if utils::filter_skip_named(fields).count() == 1 => {
-					let recurse = fields.named.iter().map(|f| {
-						let name_ident = &f.ident;
-						let val_or_default = val_or_default(&f);
-						quote_spanned!(f.span()=> #name_ident: #val_or_default)
-					});
-					let field = utils::filter_skip_named(fields).next().expect("Exactly one field");
-					let field_name = &field.ident;
-					let constructor = quote!( #name { #( #recurse, )* });
-					(&field.ty, quote!(&self.#field_name), constructor)
-				},
-				Fields::Unnamed(ref fields) if utils::filter_skip_unnamed(fields).count() == 1 => {
-					let recurse = fields.unnamed.iter().enumerate().map(|(_, f) | {
-						let val_or_default = val_or_default(&f);
-						quote_spanned!(f.span()=> #val_or_default)
-					});
-					let (id, field) = utils::filter_skip_unnamed(fields).next().expect("Exactly one field");
-					let id = syn::Index::from(id);
-					let constructor = quote!( #name(#( #recurse, )*));
-					(&field.ty, quote!(&self.#id), constructor)
-				},
-				_ => {
-					return Error::new(
-						data.fields.span(),
-						"Only structs with a single non-skipped field can derive CompactAs"
-					).to_compile_error().into();
-				},
-			}
+		Data::Struct(ref data) => match data.fields {
+			Fields::Named(ref fields) if utils::filter_skip_named(fields).count() == 1 => {
+				let recurse = fields.named.iter().map(|f| {
+					let name_ident = &f.ident;
+					let val_or_default = val_or_default(&f);
+					quote_spanned!(f.span()=> #name_ident: #val_or_default)
+				});
+				let field = utils::filter_skip_named(fields).next().expect("Exactly one field");
+				let field_name = &field.ident;
+				let constructor = quote!( #name { #( #recurse, )* });
+				(&field.ty, quote!(&self.#field_name), constructor)
+			},
+			Fields::Unnamed(ref fields) if utils::filter_skip_unnamed(fields).count() == 1 => {
+				let recurse = fields.unnamed.iter().enumerate().map(|(_, f)| {
+					let val_or_default = val_or_default(&f);
+					quote_spanned!(f.span()=> #val_or_default)
+				});
+				let (id, field) =
+					utils::filter_skip_unnamed(fields).next().expect("Exactly one field");
+				let id = syn::Index::from(id);
+				let constructor = quote!( #name(#( #recurse, )*));
+				(&field.ty, quote!(&self.#id), constructor)
+			},
+			_ =>
+				return Error::new(
+					data.fields.span(),
+					"Only structs with a single non-skipped field can derive CompactAs",
+				)
+				.to_compile_error()
+				.into(),
 		},
 		Data::Enum(syn::DataEnum { enum_token: syn::token::Enum { span }, .. }) |
-		Data::Union(syn::DataUnion { union_token: syn::token::Union { span }, .. }) => {
-			return Error::new(span, "Only structs can derive CompactAs").to_compile_error().into();
-		},
+		Data::Union(syn::DataUnion { union_token: syn::token::Union { span }, .. }) =>
+			return Error::new(span, "Only structs can derive CompactAs").to_compile_error().into(),
 	};
 
 	let impl_block = quote! {

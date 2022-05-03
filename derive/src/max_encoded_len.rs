@@ -15,11 +15,11 @@
 
 #![cfg(feature = "max-encoded-len")]
 
-use crate::utils::{self, codec_crate_path, custom_mel_trait_bound};
+use crate::utils::{self, codec_crate_path, custom_mel_trait_bound, CustomTraitBound};
 use quote::{quote, quote_spanned};
 use syn::{
-	Data, DeriveInput, Fields, GenericParam, Generics, TraitBound, Type, TypeParamBound,
-	parse_quote, spanned::Spanned,
+	parse_quote, spanned::Spanned, Data, DeriveInput, Fields, GenericParam, Generics, TraitBound,
+	Type, TypeParamBound,
 };
 
 /// impl for `#[derive(MaxEncodedLen)]`
@@ -35,11 +35,8 @@ pub fn derive_max_encoded_len(input: proc_macro::TokenStream) -> proc_macro::Tok
 	};
 
 	let name = &input.ident;
-	let generics = if let Some(custom_bound) = custom_mel_trait_bound(&input.attrs) {
-		add_custom_trait_bounds(input.generics, custom_bound)
-	} else {
-		add_trait_bounds(input.generics, mel_trait.clone())
-	};
+	let generics =
+		add_trait_bounds(input.generics, mel_trait.clone(), custom_mel_trait_bound(&input.attrs));
 	let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
 	let data_expr = data_length_expr(&input.data);
@@ -62,18 +59,29 @@ fn max_encoded_len_trait(input: &DeriveInput) -> syn::Result<TraitBound> {
 }
 
 // Add a bound `T: MaxEncodedLen` to every type parameter T.
-fn add_trait_bounds(mut generics: Generics, mel_trait: TraitBound) -> Generics {
+fn add_trait_bounds(
+	mut generics: Generics,
+	mel_trait: TraitBound,
+	custom_bound: Option<CustomTraitBound<utils::mel_bound>>,
+) -> Generics {
+	let skip_type_params = match custom_bound {
+		Some(CustomTraitBound::SpecifiedBounds { bounds, .. }) => {
+			generics.make_where_clause().predicates.extend(bounds);
+			return generics
+		}
+		Some(CustomTraitBound::SkipTypeParams { type_params, .. }) => {
+			type_params.into_iter().map(|tp| tp.ident).collect()
+		},
+		None => Vec::new()
+	};
+
 	for param in &mut generics.params {
 		if let GenericParam::Type(ref mut type_param) = *param {
-			type_param.bounds.push(TypeParamBound::Trait(mel_trait.clone()));
+			if skip_type_params.iter().all(|skip| skip != &type_param.ident) {
+				type_param.bounds.push(TypeParamBound::Trait(mel_trait.clone()));
+			}
 		}
 	}
-	generics
-}
-
-// Add custom trait bounds to the type parameters as specified by the user.
-fn add_custom_trait_bounds(mut generics: Generics, custom_bound: utils::TraitBounds) -> Generics {
-	generics.make_where_clause().predicates.extend(custom_bound);
 	generics
 }
 
@@ -132,12 +140,12 @@ fn data_length_expr(data: &Data) -> proc_macro2::TokenStream {
 			quote! {
 				0_usize #( #expansion )* .saturating_add(1)
 			}
-		}
+		},
 		Data::Union(ref data) => {
 			// https://github.com/paritytech/parity-scale-codec/
 			//   blob/f0341dabb01aa9ff0548558abb6dcc5c31c669a1/derive/src/encode.rs#L290-L293
 			syn::Error::new(data.union_token.span(), "Union types are not supported.")
 				.to_compile_error()
-		}
+		},
 	}
 }
