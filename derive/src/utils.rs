@@ -189,7 +189,7 @@ pub fn codec_crate_path(attrs: &[Attribute]) -> syn::Result<Path> {
 	}
 }
 
-/// Parse `name(T: Bound, N: Bound)` as a custom trait bound.
+/// Parse `name(T: Bound, N: Bound)` or `name(skip_type_params(T, N))` as a custom trait bound.
 pub enum CustomTraitBound<N> {
 	SpecifiedBounds {
 		_name: N,
