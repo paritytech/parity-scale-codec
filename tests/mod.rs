@@ -591,6 +591,7 @@ fn custom_trait_bound() {
 #[cfg(feature = "bit-vec")]
 fn bit_vec_works() {
 	use bitvec::prelude::*;
+	use parity_scale_codec::DecodeAll;
 
 	// Try some fancy stuff
 	let original_vec = bitvec![u8, Msb0; 1; 8];
