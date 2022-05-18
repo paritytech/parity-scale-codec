@@ -23,8 +23,7 @@ use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{
 	parse::Parse, punctuated::Punctuated, spanned::Spanned, token, Attribute, Data, DeriveInput,
-	Field, Fields, FieldsNamed, FieldsUnnamed, Lit, Meta, MetaNameValue, NestedMeta, Path,
-	TypeParam, Variant,
+	Field, Fields, FieldsNamed, FieldsUnnamed, Lit, Meta, MetaNameValue, NestedMeta, Path, Variant,
 };
 
 fn find_meta_item<'a, F, R, I, M>(mut itr: I, mut pred: F) -> Option<R>
@@ -194,14 +193,14 @@ pub enum CustomTraitBound<N> {
 	SpecifiedBounds {
 		_name: N,
 		_paren_token: token::Paren,
-		bounds: Punctuated<syn::WherePredicate, token::Comma>,
+		bounds: Punctuated<syn::WherePredicate, Token![,]>,
 	},
 	SkipTypeParams {
 		_name: N,
 		_paren_token_1: token::Paren,
 		_skip_type_params: skip_type_params,
 		_paren_token_2: token::Paren,
-		type_params: Punctuated<TypeParam, Token![,]>,
+		type_names: Punctuated<syn::Ident, Token![,]>,
 	},
 }
 
@@ -210,21 +209,21 @@ impl<N: Parse> Parse for CustomTraitBound<N> {
 		let mut content;
 		let _name: N = input.parse()?;
 		let _paren_token = syn::parenthesized!(content in input);
-		let lookahead = content.lookahead1();
-		if lookahead.peek(skip_type_params) {
-			return Ok(Self::SkipTypeParams {
+		if content.peek(skip_type_params) {
+			Ok(Self::SkipTypeParams {
 				_name,
 				_paren_token_1: _paren_token,
 				_skip_type_params: content.parse::<skip_type_params>()?,
 				_paren_token_2: syn::parenthesized!(content in content),
-				type_params: content.parse_terminated(syn::TypeParam::parse)?,
+				type_names: content.parse_terminated(syn::Ident::parse)?,
+			})
+		} else {
+			Ok(Self::SpecifiedBounds {
+				_name,
+				_paren_token,
+				bounds: content.parse_terminated(syn::WherePredicate::parse)?,
 			})
 		}
-		Ok(Self::SpecifiedBounds {
-			_name,
-			_paren_token,
-			bounds: content.parse_terminated(syn::WherePredicate::parse)?,
-		})
 	}
 }
 

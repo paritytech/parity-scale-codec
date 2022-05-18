@@ -120,19 +120,15 @@ pub fn add<N>(
 			generics.make_where_clause().predicates.extend(bounds);
 			return Ok(())
 		},
-		Some(CustomTraitBound::SkipTypeParams { type_params, .. }) =>
-			type_params.into_iter().map(|tp| tp.ident).collect::<Vec<_>>(),
+		Some(CustomTraitBound::SkipTypeParams { type_names, .. }) =>
+			type_names.into_iter().collect::<Vec<_>>(),
 		None => Vec::new(),
 	};
 
 	let ty_params = generics
 		.type_params()
 		.filter_map(|tp| {
-			if skip_type_params.iter().any(|skip| skip == &tp.ident) {
-				None
-			} else {
-				Some(tp.ident.clone())
-			}
+			skip_type_params.iter().all(|skip| skip != &tp.ident).then(|| tp.ident.clone())
 		})
 		.collect::<Vec<_>>();
 	if ty_params.is_empty() {
@@ -172,7 +168,7 @@ pub fn add<N>(
 			.for_each(|ty| where_clause.predicates.push(parse_quote!(#ty : #has_compact_bound)));
 
 		skip_types.into_iter().for_each(|ty| {
-			let codec_skip_bound = codec_skip_bound.as_ref().unwrap();
+			let codec_skip_bound = codec_skip_bound.as_ref();
 			where_clause.predicates.push(parse_quote!(#ty : #codec_skip_bound))
 		});
 	}

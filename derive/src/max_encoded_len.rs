@@ -69,8 +69,8 @@ fn add_trait_bounds(
 			generics.make_where_clause().predicates.extend(bounds);
 			return generics
 		}
-		Some(CustomTraitBound::SkipTypeParams { type_params, .. }) => {
-			type_params.into_iter().map(|tp| tp.ident).collect()
+		Some(CustomTraitBound::SkipTypeParams { type_names, .. }) => {
+			type_names.into_iter().collect::<Vec<_>>()
 		},
 		None => Vec::new()
 	};
