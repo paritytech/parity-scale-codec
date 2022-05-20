@@ -15,35 +15,45 @@
 
 #![cfg(feature = "max-encoded-len")]
 
-use crate::utils::{self, codec_crate_path, custom_mel_trait_bound, CustomTraitBound};
-use quote::{quote, quote_spanned};
-use syn::{
-	parse_quote, spanned::Spanned, Data, DeriveInput, Fields, GenericParam, Generics, TraitBound,
-	Type, TypeParamBound,
+use crate::{
+	trait_bounds,
+	utils::{codec_crate_path, custom_mel_trait_bound},
 };
+use quote::{quote, quote_spanned};
+use syn::{parse_quote, spanned::Spanned, Data, DeriveInput, Fields, Type};
 
 /// impl for `#[derive(MaxEncodedLen)]`
 pub fn derive_max_encoded_len(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-	let input: DeriveInput = match syn::parse(input) {
+	let mut input: DeriveInput = match syn::parse(input) {
 		Ok(input) => input,
 		Err(e) => return e.to_compile_error().into(),
 	};
 
-	let mel_trait = match max_encoded_len_trait(&input) {
-		Ok(mel_trait) => mel_trait,
-		Err(e) => return e.to_compile_error().into(),
+	let crate_path = match codec_crate_path(&input.attrs) {
+		Ok(crate_path) => crate_path,
+		Err(error) => return error.into_compile_error().into(),
 	};
 
 	let name = &input.ident;
-	let generics =
-		add_trait_bounds(input.generics, mel_trait.clone(), custom_mel_trait_bound(&input.attrs));
-	let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+	if let Err(e) = trait_bounds::add(
+		&input.ident,
+		&mut input.generics,
+		&input.data,
+		custom_mel_trait_bound(&input.attrs),
+		parse_quote!(#crate_path::MaxEncodedLen),
+		None,
+		true,
+		&crate_path
+	) {
+		return e.to_compile_error().into()
+	}
+	let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
 	let data_expr = data_length_expr(&input.data);
 
 	quote::quote!(
 		const _: () = {
-			impl #impl_generics #mel_trait for #name #ty_generics #where_clause {
+			impl #impl_generics #crate_path::MaxEncodedLen for #name #ty_generics #where_clause {
 				fn max_encoded_len() -> ::core::primitive::usize {
 					#data_expr
 				}
@@ -51,38 +61,6 @@ pub fn derive_max_encoded_len(input: proc_macro::TokenStream) -> proc_macro::Tok
 		};
 	)
 	.into()
-}
-
-fn max_encoded_len_trait(input: &DeriveInput) -> syn::Result<TraitBound> {
-	let mel = codec_crate_path(&input.attrs)?;
-	Ok(parse_quote!(#mel::MaxEncodedLen))
-}
-
-// Add a bound `T: MaxEncodedLen` to every type parameter T.
-fn add_trait_bounds(
-	mut generics: Generics,
-	mel_trait: TraitBound,
-	custom_bound: Option<CustomTraitBound<utils::mel_bound>>,
-) -> Generics {
-	let skip_type_params = match custom_bound {
-		Some(CustomTraitBound::SpecifiedBounds { bounds, .. }) => {
-			generics.make_where_clause().predicates.extend(bounds);
-			return generics
-		}
-		Some(CustomTraitBound::SkipTypeParams { type_names, .. }) => {
-			type_names.into_iter().collect::<Vec<_>>()
-		},
-		None => Vec::new()
-	};
-
-	for param in &mut generics.params {
-		if let GenericParam::Type(ref mut type_param) = *param {
-			if skip_type_params.iter().all(|skip| skip != &type_param.ident) {
-				type_param.bounds.push(TypeParamBound::Trait(mel_trait.clone()));
-			}
-		}
-	}
-	generics
 }
 
 /// generate an expression to sum up the max encoded length from several fields
