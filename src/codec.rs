@@ -203,6 +203,11 @@ pub enum TypeInfo {
 	I64,
 	U128,
 	I128,
+
+	#[cfg(feature = "full")]
+	F32,
+	#[cfg(feature = "full")]
+	F64,
 }
 
 /// Trait that allows zero-copy write of value-references to slices in LE format.
@@ -461,6 +466,11 @@ macro_rules! with_type_info {
 			TypeInfo::U128 => { $macro!(u128 $( $( , $params )* )? ) },
 			TypeInfo::I128 => { $macro!(i128 $( $( , $params )* )? ) },
 			TypeInfo::Unknown => { $( $unknown_variant )* },
+
+			#[cfg(feature = "full")]
+			TypeInfo::F32 => { $macro!(f32 $( $( , $params )* )? ) },
+			#[cfg(feature = "full")]
+			TypeInfo::F64 => { $macro!(f64 $( $( , $params )* )? ) },
 		}
 	};
 }
@@ -720,7 +730,7 @@ pub(crate) fn decode_array<I: Input, T: Decode, const N: usize>(input: &mut I) -
 		}};
 		( $ty:ty ) => {{
 			if cfg!(target_endian = "little") {
-				let mut array: [$ty; N] = [0; N];
+				let mut array: [$ty; N] = [0 as $ty; N];
 				let bytes = <[$ty] as AsMutByteSlice<$ty>>::as_mut_byte_slice(&mut array[..]);
 				input.read(bytes)?;
 				let ref_typed: &[T; N] = unsafe { mem::transmute(&array) };
@@ -1261,6 +1271,9 @@ macro_rules! impl_one_byte {
 impl_endians!(u16; U16, u32; U32, u64; U64, u128; U128, i16; I16, i32; I32, i64; I64, i128; I128);
 impl_one_byte!(u8; U8, i8; I8);
 
+#[cfg(feature = "full")]
+impl_endians!(f32; F32, f64; F64);
+
 impl EncodeLike for bool {}
 
 impl Encode for bool {
@@ -1765,7 +1778,7 @@ mod tests {
 				paste::item! {
 					#[test]
 					fn [<test_array_encode_and_decode _ $name>]() {
-						let data: [$name; 32] = [123; 32];
+						let data: [$name; 32] = [123 as $name; 32];
 						let encoded = data.encode();
 						let decoded: [$name; 32] = Decode::decode(&mut &encoded[..]).unwrap();
 						assert_eq!(decoded, data);
@@ -1776,6 +1789,9 @@ mod tests {
 	}
 
 	test_array_encode_and_decode!(u8, i8, u16, i16, u32, i32, u64, i64, u128, i128);
+
+	#[cfg(feature = "full")]
+	test_array_encode_and_decode!(f32, f64);
 
 	fn test_encoded_size(val: impl Encode) {
 		let length = val.using_encoded(|v| v.len());
