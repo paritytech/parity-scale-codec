@@ -345,3 +345,6 @@ pub use max_encoded_len::MaxEncodedLen;
 /// ```
 #[cfg(all(feature = "derive", feature = "max-encoded-len"))]
 pub use parity_scale_codec_derive::MaxEncodedLen;
+
+#[cfg(feature = "bytes")]
+pub use self::codec::decode_from_bytes;

@@ -98,6 +98,15 @@ pub trait Input {
 	/// Ascend to previous structure level when decoding.
 	/// This is called when decoding reference-based type is finished.
 	fn ascend_ref(&mut self) {}
+
+	/// !INTERNAL USE ONLY!
+	///
+	/// Decodes a `bytes::Bytes`.
+	#[cfg(feature = "bytes")]
+	#[doc(hidden)]
+	fn scale_internal_decode_bytes(&mut self) -> Result<bytes::Bytes, Error> where Self: Sized {
+		Vec::<u8>::decode(self).map(bytes::Bytes::from)
+	}
 }
 
 impl<'a> Input for &'a [u8] {
@@ -387,9 +396,74 @@ mod feature_wrapper_bytes {
 	impl EncodeLike<Vec<u8>> for Bytes {}
 	impl EncodeLike<Bytes> for &[u8] {}
 	impl EncodeLike<Bytes> for Vec<u8> {}
+}
 
-	impl WrapperTypeDecode for Bytes {
-		type Wrapped = Vec<u8>;
+#[cfg(feature = "bytes")]
+struct BytesCursor {
+	bytes: bytes::Bytes,
+	position: usize
+}
+
+#[cfg(feature = "bytes")]
+impl Input for BytesCursor {
+	fn remaining_len(&mut self) -> Result<Option<usize>, Error> {
+		Ok(Some(self.bytes.len() - self.position))
+	}
+
+	fn read(&mut self, into: &mut [u8]) -> Result<(), Error> {
+		if into.len() > self.bytes.len() - self.position {
+			return Err("Not enough data to fill buffer".into())
+		}
+
+		into.copy_from_slice(&self.bytes[self.position..self.position + into.len()]);
+		self.position += into.len();
+		Ok(())
+	}
+
+	fn scale_internal_decode_bytes(&mut self) -> Result<bytes::Bytes, Error> {
+		let length = <Compact<u32>>::decode(self)?.0 as usize;
+
+		bytes::Buf::advance(&mut self.bytes, self.position);
+		self.position = 0;
+
+		if length > self.bytes.len() {
+			return Err("Not enough data to fill buffer".into());
+		}
+
+		Ok(self.bytes.split_to(length))
+	}
+}
+
+/// Decodes a given `T` from `Bytes`.
+#[cfg(feature = "bytes")]
+pub fn decode_from_bytes<T>(bytes: bytes::Bytes) -> Result<T, Error> where T: Decode {
+	// We could just use implement `Input` for `Bytes` and use `Bytes::split_to`
+	// to move the cursor, however doing it this way allows us to prevent an
+	// unnecessary allocation when the `T` which is being deserialized doesn't
+	// take advantage of the fact that it's being deserialized from `Bytes`.
+	//
+	// `Bytes` can be cheaply created from a `Vec<u8>`. It is both zero-copy
+	// *and* zero-allocation. However once you `.clone()` it or call `split_to()`
+	// an extra one-time allocation is triggered where the `Bytes` changes it's internal
+	// representation from essentially being a `Box<[u8]>` into being an `Arc<Box<[u8]>>`.
+	//
+	// If the `T` is `Bytes` or is a structure which contains `Bytes` in it then
+	// we don't really care, because this allocation will have to be made anyway.
+	//
+	// However, if `T` doesn't contain any `Bytes` then this extra allocation is
+	// technically unnecessary, and we can avoid it by tracking the position ourselves
+	// and treating the underlying `Bytes` as a fancy `&[u8]`.
+	let mut input = BytesCursor {
+		bytes,
+		position: 0
+	};
+	T::decode(&mut input)
+}
+
+#[cfg(feature = "bytes")]
+impl Decode for bytes::Bytes {
+	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
+		input.scale_internal_decode_bytes()
 	}
 }
 
@@ -1472,6 +1546,30 @@ mod tests {
 			bytes::Bytes::decode(&mut &encoded[..]).unwrap(),
 		);
 	}
+
+	#[cfg(feature = "bytes")]
+	#[test]
+	fn bytes_deserialized_from_bytes_is_zero_copy() {
+		let encoded = bytes::Bytes::from(Encode::encode(&b"hello".to_vec()));
+		let decoded = decode_from_bytes::<bytes::Bytes>(encoded.clone()).unwrap();
+		assert_eq!(decoded, &b"hello"[..]);
+
+		// The `slice_ref` will panic if the `decoded` is not a subslice of `encoded`.
+		assert_eq!(encoded.slice_ref(&decoded), &b"hello"[..]);
+	}
+
+	#[cfg(feature = "bytes")]
+	#[test]
+	fn nested_bytes_deserialized_from_bytes_is_zero_copy() {
+		let encoded = bytes::Bytes::from(Encode::encode(&Some(b"hello".to_vec())));
+		let decoded = decode_from_bytes::<Option<bytes::Bytes>>(encoded.clone()).unwrap();
+		let decoded = decoded.as_ref().unwrap();
+		assert_eq!(decoded, &b"hello"[..]);
+
+		// The `slice_ref` will panic if the `decoded` is not a subslice of `encoded`.
+		assert_eq!(encoded.slice_ref(&decoded), &b"hello"[..]);
+	}
+
 	fn test_encode_length<T: Encode + Decode + DecodeLength>(thing: &T, len: usize) {
 		assert_eq!(<T as DecodeLength>::len(&thing.encode()[..]).unwrap(), len);
 	}
