@@ -37,6 +37,7 @@ mod trait_bounds;
 fn wrap_with_dummy_const(input: DeriveInput, impl_block: proc_macro2::TokenStream) -> proc_macro::TokenStream {
 	let attrs = input.attrs.into_iter().filter(is_lint_attribute);
 	let generated = quote! {
+		#[allow(deprecated)]
 		const _: () = {
 			#(#attrs)*
 			#impl_block
@@ -156,10 +157,12 @@ pub fn encode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 	let encode_impl = encode::quote(&input.data, name, &crate_path);
 
 	let impl_block = quote! {
+		#[automatically_derived]
 		impl #impl_generics #crate_path::Encode for #name #ty_generics #where_clause {
 			#encode_impl
 		}
 
+		#[automatically_derived]
 		impl #impl_generics #crate_path::EncodeLike for #name #ty_generics #where_clause {}
 	};
 
@@ -209,6 +212,7 @@ pub fn decode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 	let decoding = decode::quote(&input.data, name, &quote!(#ty_gen_turbofish), &input_, &crate_path);
 
 	let impl_block = quote! {
+		#[automatically_derived]
 		impl #impl_generics #crate_path::Decode for #name #ty_generics #where_clause {
 			fn decode<__CodecInputEdqy: #crate_path::Input>(
 				#input_: &mut __CodecInputEdqy
@@ -316,6 +320,7 @@ pub fn compact_as_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStr
 	};
 
 	let impl_block = quote! {
+		#[automatically_derived]
 		impl #impl_generics #crate_path::CompactAs for #name #ty_generics #where_clause {
 			type As = #inner_ty;
 			fn encode_as(&self) -> &#inner_ty {
@@ -328,6 +333,7 @@ pub fn compact_as_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStr
 			}
 		}
 
+		#[automatically_derived]
 		impl #impl_generics From<#crate_path::Compact<#name #ty_generics>>
 			for #name #ty_generics #where_clause
 		{
