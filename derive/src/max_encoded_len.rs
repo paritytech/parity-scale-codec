@@ -17,7 +17,7 @@
 
 use crate::{
 	trait_bounds,
-	utils::{codec_crate_path, custom_mel_trait_bound},
+	utils::{codec_crate_path, custom_mel_trait_bound, has_dumb_trait_bound},
 };
 use quote::{quote, quote_spanned};
 use syn::{parse_quote, spanned::Spanned, Data, DeriveInput, Fields, Type};
@@ -42,7 +42,7 @@ pub fn derive_max_encoded_len(input: proc_macro::TokenStream) -> proc_macro::Tok
 		custom_mel_trait_bound(&input.attrs),
 		parse_quote!(#crate_path::MaxEncodedLen),
 		None,
-		utils::has_dumb_trait_bound(&input.attrs),
+		has_dumb_trait_bound(&input.attrs),
 		&crate_path
 	) {
 		return e.to_compile_error().into()
