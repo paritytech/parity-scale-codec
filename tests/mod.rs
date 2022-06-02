@@ -15,7 +15,7 @@
 #[cfg(not(feature="derive"))]
 use parity_scale_codec_derive::{Encode, Decode};
 use parity_scale_codec::{
-	Encode, Decode, HasCompact, Compact, EncodeAsRef, CompactAs, Error, Output, DecodeAll
+	Encode, Decode, HasCompact, Compact, EncodeAsRef, CompactAs, Error, Output,
 };
 use serde_derive::{Serialize, Deserialize};
 
@@ -591,6 +591,7 @@ fn custom_trait_bound() {
 #[cfg(feature = "bit-vec")]
 fn bit_vec_works() {
 	use bitvec::prelude::*;
+	use parity_scale_codec::DecodeAll;
 
 	// Try some fancy stuff
 	let original_vec = bitvec![u8, Msb0; 1; 8];

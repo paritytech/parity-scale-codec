@@ -16,7 +16,7 @@
 //! Tests for MaxEncodedLen derive macro
 #![cfg(all(feature = "derive", feature = "max-encoded-len"))]
 
-use parity_scale_codec::{MaxEncodedLen, Compact, Encode};
+use parity_scale_codec::{MaxEncodedLen, Compact, Decode, Encode};
 
 #[derive(Encode, MaxEncodedLen)]
 struct Primitives {
@@ -179,4 +179,22 @@ enum EnumMaxNotSum {
 #[test]
 fn enum_max_not_sum_max_length() {
 	assert_eq!(EnumMaxNotSum::max_encoded_len(), 1 + u32::max_encoded_len());
+}
+
+#[test]
+fn skip_type_params() {
+	#[derive(Encode, Decode, MaxEncodedLen)]
+	#[codec(mel_bound(skip_type_params(N)))]
+	struct SomeData<T, N: SomeTrait> {
+		element: T,
+		size: std::marker::PhantomData<N>,
+	}
+
+	trait SomeTrait {}
+
+	struct SomeStruct;
+
+	impl SomeTrait for SomeStruct {}
+
+	assert_eq!(SomeData::<u32, SomeStruct>::max_encoded_len(), 4);
 }
