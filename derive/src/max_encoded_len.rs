@@ -42,7 +42,7 @@ pub fn derive_max_encoded_len(input: proc_macro::TokenStream) -> proc_macro::Tok
 		custom_mel_trait_bound(&input.attrs),
 		parse_quote!(#crate_path::MaxEncodedLen),
 		None,
-		true,
+		utils::has_dumb_trait_bound(&input.attrs),
 		&crate_path
 	) {
 		return e.to_compile_error().into()
