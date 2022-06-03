@@ -50,6 +50,8 @@ workflow:
 check-rust-stable-no_derive_no_std_full:
   stage:                           check
   <<:                              *docker-env
+  variables:
+    RUSTFLAGS:                     "-Cdebug-assertions=y -Dwarnings"
   script:
     - time cargo +stable check --verbose --no-default-features --features bit-vec,bytes,generic-array,full
     - sccache -s
@@ -57,6 +59,8 @@ check-rust-stable-no_derive_no_std_full:
 check-rust-stable-no_derive_no_std:
   stage:                           check
   <<:                              *docker-env
+  variables:
+    RUSTFLAGS:                     "-Cdebug-assertions=y -Dwarnings"
   script:
     - time cargo +stable check --verbose --no-default-features --features bit-vec,bytes,generic-array
     - sccache -s
@@ -64,6 +68,8 @@ check-rust-stable-no_derive_no_std:
 check-rust-stable-no_std-chain-error:
   stage:                           check
   <<:                              *docker-env
+  variables:
+    RUSTFLAGS:                     "-Cdebug-assertions=y -Dwarnings"
   script:
     - time cargo +stable check --verbose --no-default-features --features chain-error
     - sccache -s
@@ -71,6 +77,8 @@ check-rust-stable-no_std-chain-error:
 check-rust-stable-no_derive_full:
   stage:                           check
   <<:                              *docker-env
+  variables:
+    RUSTFLAGS:                     "-Cdebug-assertions=y -Dwarnings"
   script:
     - time cargo +stable check --verbose --features bit-vec,bytes,generic-array,full
     - sccache -s
@@ -80,6 +88,8 @@ check-rust-stable-no_derive_full:
 test-rust-stable:
   stage:                           test
   <<:                              *docker-env
+  variables:
+    RUSTFLAGS:                     "-Cdebug-assertions=y -Dwarnings"
   script:
     - time cargo +stable test --verbose --all --features bit-vec,bytes,generic-array,derive,max-encoded-len
     - sccache -s
@@ -87,6 +97,8 @@ test-rust-stable:
 test-rust-stable-no_derive:
   stage:                           test
   <<:                              *docker-env
+  variables:
+    RUSTFLAGS:                     "-Cdebug-assertions=y -Dwarnings"
   script:
     - time cargo +stable test --verbose --features bit-vec,bytes,generic-array
     - sccache -s
