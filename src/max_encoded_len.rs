@@ -85,6 +85,12 @@ impl<T: MaxEncodedLen, const N: usize> MaxEncodedLen for [T; N] {
 	}
 }
 
+impl<T: MaxEncodedLen> MaxEncodedLen for Box<T> {
+	fn max_encoded_len() -> usize {
+	    T::max_encoded_len()
+	}
+}
+
 impl<T: MaxEncodedLen> MaxEncodedLen for Option<T> {
 	fn max_encoded_len() -> usize {
 		T::max_encoded_len().saturating_add(1)
