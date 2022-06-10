@@ -17,7 +17,7 @@
 
 use crate::{
 	trait_bounds,
-	utils::{codec_crate_path, custom_mel_trait_bound, has_dumb_trait_bound},
+	utils::{codec_crate_path, custom_mel_trait_bound, has_dumb_trait_bound, should_skip},
 };
 use quote::{quote, quote_spanned};
 use syn::{parse_quote, spanned::Spanned, Data, DeriveInput, Fields, Type};
@@ -66,8 +66,20 @@ pub fn derive_max_encoded_len(input: proc_macro::TokenStream) -> proc_macro::Tok
 /// generate an expression to sum up the max encoded length from several fields
 fn fields_length_expr(fields: &Fields) -> proc_macro2::TokenStream {
 	let type_iter: Box<dyn Iterator<Item = &Type>> = match fields {
-		Fields::Named(ref fields) => Box::new(fields.named.iter().map(|field| &field.ty)),
-		Fields::Unnamed(ref fields) => Box::new(fields.unnamed.iter().map(|field| &field.ty)),
+		Fields::Named(ref fields) => Box::new(
+			fields.named.iter().filter_map(|field| if should_skip(&field.attrs) {
+				None
+			} else {
+				Some(&field.ty)
+			})
+		),
+		Fields::Unnamed(ref fields) => Box::new(
+			fields.unnamed.iter().filter_map(|field| if should_skip(&field.attrs) {
+				None
+			} else {
+				Some(&field.ty)
+			})
+		),
 		Fields::Unit => Box::new(std::iter::empty()),
 	};
 	// expands to an expression like
