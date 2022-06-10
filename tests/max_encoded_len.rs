@@ -30,6 +30,18 @@ fn primitives_max_length() {
 }
 
 #[derive(Encode, MaxEncodedLen)]
+struct SkippedField {
+	bool: bool,
+	#[codec(skip)]
+	_skipped: u64,
+}
+
+#[test]
+fn skipped_field_max_length() {
+	assert_eq!(SkippedField::max_encoded_len(), 1);
+}
+
+#[derive(Encode, MaxEncodedLen)]
 struct Composites {
 	fixed_size_array: [u8; 128],
 	tuple: (u128, u128),
