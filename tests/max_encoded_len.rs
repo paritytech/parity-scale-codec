@@ -33,7 +33,7 @@ fn primitives_max_length() {
 struct SkippedField {
 	bool: bool,
 	#[codec(skip)]
-	skipped: u64,
+	_skipped: u64,
 }
 
 #[test]
