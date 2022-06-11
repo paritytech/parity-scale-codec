@@ -18,6 +18,7 @@
 use crate::{Compact, Encode};
 use impl_trait_for_tuples::impl_for_tuples;
 use core::{mem, marker::PhantomData};
+use std::ops::RangeInclusive;
 use crate::alloc::boxed::Box;
 
 /// Items implementing `MaxEncodedLen` have a statically known maximum encoded size.
@@ -44,6 +45,11 @@ macro_rules! impl_primitives {
 }
 
 impl_primitives!(u8, u16, u32, u64, u128, i8, i16, i32, i64, i128, bool);
+
+impl_primitives!(
+	NonZeroU8, NonZeroU16, NonZeroU32, NonZeroU64, NonZeroU128, NonZeroI8, NonZeroI16, NonZeroI32,
+	NonZeroI64, NonZeroI128
+);
 
 macro_rules! impl_compact {
 	($( $t:ty => $e:expr; )*) => {
@@ -111,6 +117,24 @@ where
 impl<T> MaxEncodedLen for PhantomData<T> {
 	fn max_encoded_len() -> usize {
 		0
+	}
+}
+
+impl MaxEncodedLen for Duration {
+	fn max_encoded_len() -> usize {
+	    u64::max_encoded_len() + u32::max_encoded_len()
+	}
+}
+
+impl<T: MaxEncodedLen> MaxEncodedLen for Range<T> {
+	fn max_encoded_len() -> usize {
+	    T::max_encoded_len().saturating_mul(2)
+	}
+}
+
+impl<T: MaxEncodedLen> MaxEncodedLen for RangeInclusive<T> {
+	fn max_encoded_len() -> usize {
+	    T::max_encoded_len().saturating_mul(2)
 	}
 }
 
