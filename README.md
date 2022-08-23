@@ -13,7 +13,7 @@ The encoded data does not include this contextual information.
 
 To get a better understanding of how the encoding is done for different types,
 take a look at the
-[low-level data formats overview page at the Substrate docs site](https://docs.substrate.io/v3/advanced/scale-codec/).
+[low-level data formats overview page at the Substrate docs site](https://docs.substrate.io/reference/scale-codec/).
 
 ## Implementation
 
