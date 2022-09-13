@@ -202,6 +202,7 @@ mod tests {
 			(bitvec![u8, Lsb0; 1, 1, 1, 1].encode(), (Compact(4u32), 0b00001111u8).encode()),
 			(bitvec![u8, Lsb0; 1, 1, 1, 1, 1].encode(), (Compact(5u32), 0b00011111u8).encode()),
 			(bitvec![u8, Lsb0; 1, 1, 1, 1, 1, 0].encode(), (Compact(6u32), 0b00011111u8).encode()),
+			(bitvec![u8, Lsb0; 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 0, 1].encode(), (Compact(12u32), 0b00011111u8, 0b00001011u8).encode()),
 		];
 
 		for (idx, (actual, expected)) in cases.into_iter().enumerate() {
