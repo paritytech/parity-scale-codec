@@ -9,5 +9,5 @@ publish = false
 [dependencies]
 parity-scale-codec = { path = "..", features = ["derive", "bit-vec", "fuzz"] }
 honggfuzz = "0.5.54"
-arbitrary = { version = "1.0.1", features = ["derive"] }
+arbitrary = { version = "1.1.6", features = ["derive"] }
 bitvec = { version = "1", features = ["alloc"] }
