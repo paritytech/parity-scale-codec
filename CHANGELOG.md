@@ -5,6 +5,46 @@ All notable changes to this crate are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this crate adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.2.0] - 2022-09-13
+
+This release (specifically [#375](https://github.com/paritytech/parity-scale-codec/pull/375)) bumps the MSRV to 1.60.0 as it depends on the Cargo.toml weak dependency feature.
+
+## Changed
+
+- Don't include bitvec with std feature unless asked for explicitly. [#375](https://github.com/paritytech/parity-scale-codec/pull/375)
+- Implement `MaxEncodedLen` on more core lib types. [#350](https://github.com/paritytech/parity-scale-codec/pull/350)
+
+## [3.1.5] - 2022-06-11
+
+A quick release to fix an issue introduced in 3.1.4 that broke compiling on no-std.
+
+## Changed
+
+- Fix compiling on no-std. (see https://github.com/paritytech/parity-scale-codec/commit/c25f14a46546c75e4208363ced9d89aa81c85e7f)
+
+## [3.1.3] - 2022-06-10
+
+## Changed
+
+- Impl `MaxEncodedLen` for `Box<T>`. [#349](https://github.com/paritytech/parity-scale-codec/pull/349)
+- Add `decode_from_bytes`. [#342](https://github.com/paritytech/parity-scale-codec/pull/342)
+
+## [3.1.2] - 2022-03-22
+
+Be aware that version 3.0.0. up to 3.1.1 contained some bugs in the `BitVec` encoder that could lead to an invalid encoding. Thus, we yanked these crate version and it is advised to upgrade to 3.1.2. Any release before 3.0.0 wasn't affected by this bug.
+
+## Changed
+
+- Optimised the `Decode::decode` for `[T; N]` by @xgreenx. [#299](https://github.com/paritytech/parity-scale-codec/pull/299)
+- Add some doc for the derive macro by @thiolliere. [#301](https://github.com/paritytech/parity-scale-codec/pull/301)
+- Add bytes::Bytes implementation by @vorot93. [#309](https://github.com/paritytech/parity-scale-codec/pull/309)
+- Upgrade to BitVec 1.0 by @bkchr. [#311](https://github.com/paritytech/parity-scale-codec/pull/311)
+- BREAKING CHANGE: DecodeLimit and DecodeAll extensions now advance input by @wigy-opensource-developer. [#314](https://github.com/paritytech/parity-scale-codec/pull/314)
+- Make `CompactRef` public by @andrenth. [#321](https://github.com/paritytech/parity-scale-codec/pull/321)
+- Add ability to re-export parity-scale-codec crate by @gshep. [#325](https://github.com/paritytech/parity-scale-codec/pull/325)
+- BitVec: Improve the encoding and consolidate the implementations by @bkchr. [#327](https://github.com/paritytech/parity-scale-codec/pull/327)
+- Fix crate access by putting a leading `::` by @bkchr. [#328](https://github.com/paritytech/parity-scale-codec/pull/328)
+
 ## [3.0.0] - 2022-02-02
 
 ### Fix
