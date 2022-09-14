@@ -5,6 +5,14 @@ All notable changes to this crate are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this crate adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.2.1] - 2022-09-14
+
+This release fixes compilation on no-std envs.
+
+## Changed
+
+ - Use core RangeInclusive instead of std [#378](https://github.com/paritytech/parity-scale-codec/pull/378)
+
 ## [3.2.0] - 2022-09-13
 
 This release (specifically [#375](https://github.com/paritytech/parity-scale-codec/pull/375)) bumps the MSRV to 1.60.0 as it depends on the Cargo.toml weak dependency feature.
