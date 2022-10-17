@@ -237,9 +237,12 @@
 //!   first variant.
 //! - `codec(encode_bound)`, `codec(decode_bound)` and `codec(mel_bound)`: All 3 attributes take
 //!   in a `where` clause for the `Encode`, `Decode` and `MaxEncodedLen` trait implementation for
-//!   the derived type respectively. In addition, there is a `codec(*_bound(skip_type_params))`
-//!   attribute where it takes in a list of type names to act as a blacklist of what types to _not_
-//!   include in the `where` clause of the corresponding trait implementation.
+//!   the annotated type respectively.
+//! - `codec(encode_bound(skip_type_params))`, `codec(decode_bound(skip_type_params))` and
+//!   `codec(mel_bound(skip_type_params))`: All 3 sub-attributes take in types as arguments to skip
+//!   trait derivation of the corresponding trait, e.g. T in
+//!   `codec(encode_bound(skip_type_params(T)))` will not contain a `Encode` trait bound while
+//!   `Encode` is being derived for the annotated type.
 
 #![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
