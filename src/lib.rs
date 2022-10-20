@@ -235,6 +235,14 @@
 //! - `codec(index = 0)`: Needs to be placed above an enum variant to make the variant use the given
 //!   index when encoded. By default the index is determined by counting from `0` beginning wth the
 //!   first variant.
+//! - `codec(encode_bound)`, `codec(decode_bound)` and `codec(mel_bound)`: All 3 attributes take
+//!   in a `where` clause for the `Encode`, `Decode` and `MaxEncodedLen` trait implementation for
+//!   the annotated type respectively.
+//! - `codec(encode_bound(skip_type_params))`, `codec(decode_bound(skip_type_params))` and
+//!   `codec(mel_bound(skip_type_params))`: All 3 sub-attributes take in types as arguments to skip
+//!   trait derivation of the corresponding trait, e.g. T in
+//!   `codec(encode_bound(skip_type_params(T)))` will not contain a `Encode` trait bound while
+//!   `Encode` is being derived for the annotated type.
 
 #![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
