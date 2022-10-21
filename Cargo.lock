@@ -13,9 +13,9 @@ dependencies = [
 
 [[package]]
 name = "arbitrary"
-version = "1.0.3"
+version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "510c76ecefdceada737ea728f4f9a84bd2e1ef29f1ba555e560940fe279954de"
+checksum = "29d47fbf90d5149a107494b15a7dc8d69b351be2db3bb9691740e88ec17fd880"
 dependencies = [
  "derive_arbitrary",
 ]
@@ -231,9 +231,9 @@ dependencies = [
 
 [[package]]
 name = "derive_arbitrary"
-version = "1.0.2"
+version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b24629208e87a2d8b396ff43b15c4afb0a69cea3fbbaa9ed9b92b7c02f0aed73"
+checksum = "4903dff04948f22033ca30232ab8eca2c3fc4c913a8b6a34ee5199699814817f"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -429,7 +429,7 @@ checksum = "0ab1bc2a289d34bd04a330323ac98a1b4bc82c9d9fcb1e66b63caa84da26b575"
 
 [[package]]
 name = "parity-scale-codec"
-version = "3.2.0"
+version = "3.2.1"
 dependencies = [
  "arbitrary",
  "arrayvec",
