@@ -2,34 +2,26 @@ error[E0599]: the function or associated item `max_encoded_len` exists for struc
   --> tests/max_encoded_len_ui/not_mel.rs:12:29
    |
 4  | struct NotMel;
-   | -------------- doesn't satisfy `NotMel: MaxEncodedLen`
+   | ------------- doesn't satisfy `NotMel: MaxEncodedLen`
 ...
 7  | struct Generic<T> {
    | -----------------
    | |
-   | function or associated item `max_encoded_len` not found for this
+   | function or associated item `max_encoded_len` not found for this struct
    | doesn't satisfy `Generic<NotMel>: MaxEncodedLen`
 ...
 12 |     let _ = Generic::<NotMel>::max_encoded_len();
    |                                ^^^^^^^^^^^^^^^ function or associated item cannot be called on `Generic<NotMel>` due to unsatisfied trait bounds
    |
-note: the following trait bounds were not satisfied because of the requirements of the implementation of `MaxEncodedLen` for `_`:
-      `NotMel: MaxEncodedLen`
-  --> tests/max_encoded_len_ui/not_mel.rs:6:18
-   |
-6  | #[derive(Encode, MaxEncodedLen)]
-   |                  ^^^^^^^^^^^^^
-7  | struct Generic<T> {
-   |        ^^^^^^^^^^
+   = note: trait bound `NotMel: MaxEncodedLen` was not satisfied
+   = note: the following trait bounds were not satisfied:
+           `NotMel: MaxEncodedLen`
+           which is required by `Generic<NotMel>: MaxEncodedLen`
 note: the following trait must be implemented
   --> src/max_encoded_len.rs
    |
-   | / pub trait MaxEncodedLen: Encode {
-   | |     /// Upper bound, in bytes, of the maximum encoded size of this item.
-   | |     fn max_encoded_len() -> usize;
-   | | }
-   | |_^
+   | pub trait MaxEncodedLen: Encode {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    = help: items from traits can only be used if the trait is implemented and in scope
    = note: the following trait defines an item `max_encoded_len`, perhaps you need to implement it:
            candidate #1: `MaxEncodedLen`
-   = note: this error originates in the derive macro `MaxEncodedLen` (in Nightly builds, run with -Z macro-backtrace for more info)

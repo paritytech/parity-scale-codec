@@ -10,6 +10,16 @@ error[E0277]: the trait bound `Example: WrapperTypeEncode` is not satisfied
 3  | #[derive(Encode, MaxEncodedLen)]
    |                  ^^^^^^^^^^^^^ the trait `WrapperTypeEncode` is not implemented for `Example`
    |
+   = help: the following other types implement trait `WrapperTypeEncode`:
+             &T
+             &mut T
+             Arc<T>
+             Box<T>
+             Cow<'a, T>
+             Rc<T>
+             String
+             Vec<T>
+             parity_scale_codec::Ref<'a, T, U>
    = note: required because of the requirements on the impl of `Encode` for `Example`
 note: required by a bound in `MaxEncodedLen`
   --> src/max_encoded_len.rs
