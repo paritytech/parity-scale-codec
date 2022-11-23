@@ -123,7 +123,7 @@ nono:
     RUST_BACKTRACE:                1
   script:
     - cargo install cargo-nono
-    - time cargo nono check
+    - time cargo nono check --no-default-features
 
 #### stage:                        build
 
