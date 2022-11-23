@@ -25,8 +25,7 @@ workflow:
     - rustc -vV
     - rustup show
     - bash --version
-    - ./scripts/ci/pre_cache.sh
-    - sccache -s
+
   rules:
     - if: $CI_PIPELINE_SOURCE == "trigger"
     - if: $CI_PIPELINE_SOURCE == "web"
@@ -54,7 +53,7 @@ check-rust-stable-no_derive_no_std_full:
     RUSTFLAGS:                     "-Cdebug-assertions=y -Dwarnings"
   script:
     - time cargo +stable check --verbose --no-default-features --features bit-vec,bytes,generic-array,full
-    - sccache -s
+
 
 check-rust-stable-no_derive_no_std:
   stage:                           check
@@ -63,7 +62,7 @@ check-rust-stable-no_derive_no_std:
     RUSTFLAGS:                     "-Cdebug-assertions=y -Dwarnings"
   script:
     - time cargo +stable check --verbose --no-default-features --features bit-vec,bytes,generic-array
-    - sccache -s
+
 
 check-rust-stable-no_std-chain-error:
   stage:                           check
@@ -72,7 +71,7 @@ check-rust-stable-no_std-chain-error:
     RUSTFLAGS:                     "-Cdebug-assertions=y -Dwarnings"
   script:
     - time cargo +stable check --verbose --no-default-features --features chain-error
-    - sccache -s
+
 
 check-rust-stable-no_derive_full:
   stage:                           check
@@ -81,7 +80,7 @@ check-rust-stable-no_derive_full:
     RUSTFLAGS:                     "-Cdebug-assertions=y -Dwarnings"
   script:
     - time cargo +stable check --verbose --features bit-vec,bytes,generic-array,full
-    - sccache -s
+
 
 #### stage:                        test
 
@@ -92,7 +91,7 @@ test-rust-stable:
     RUSTFLAGS:                     "-Cdebug-assertions=y -Dwarnings"
   script:
     - time cargo +stable test --verbose --all --features bit-vec,bytes,generic-array,derive,max-encoded-len
-    - sccache -s
+
 
 test-rust-stable-no_derive:
   stage:                           test
@@ -101,14 +100,12 @@ test-rust-stable-no_derive:
     RUSTFLAGS:                     "-Cdebug-assertions=y -Dwarnings"
   script:
     - time cargo +stable test --verbose --features bit-vec,bytes,generic-array
-    - sccache -s
 
 bench-rust-nightly:
   stage:                           test
   <<:                              *docker-env
   script:
     - time cargo +nightly bench --features bit-vec,bytes,generic-array,derive
-    - sccache -s
 
 miri:
   stage:                           test
@@ -118,6 +115,15 @@ miri:
     MIRIFLAGS:                     "-Zmiri-disable-isolation"
   script:
     - time cargo +nightly miri test --features bit-vec,bytes,generic-array,arbitrary --release
+
+nono:
+  stage:                           test
+  <<:                              *docker-env
+  variables:
+    RUST_BACKTRACE:                1
+  script:
+    - cargo install cargo-nono
+    - time cargo nono check
 
 #### stage:                        build
 
@@ -131,4 +137,4 @@ build-linux-ubuntu-amd64:
     - if: $CI_COMMIT_REF_NAME == "tags"
   script:
     - cargo build --verbose --release --features bit-vec,bytes,generic-array,derive
-    - sccache -s
+
