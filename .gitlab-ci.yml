@@ -116,14 +116,14 @@ miri:
   script:
     - time cargo +nightly miri test --features bit-vec,bytes,generic-array,arbitrary --release
 
-nono:
+build-no-std:
   stage:                           test
   <<:                              *docker-env
   variables:
     RUST_BACKTRACE:                1
   script:
-    - cargo install cargo-nono
-    - time cargo nono check --no-default-features
+    - rustup target add thumbv6m-none-eabi
+    - time cargo build --target thumbv6m-none-eabi --no-default-features
 
 #### stage:                        build
 
