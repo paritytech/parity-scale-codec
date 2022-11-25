@@ -116,12 +116,15 @@ miri:
   script:
     - time cargo +nightly miri test --features bit-vec,bytes,generic-array,arbitrary --release
 
+# check that build is no_std compatible
+# more info: https://github.com/paritytech/parity-scale-codec/pull/389
 build-no-std:
   stage:                           test
   <<:                              *docker-env
   variables:
     RUST_BACKTRACE:                1
   script:
+    # this target doesn't support std envs; it should flag any unexpected uses of std
     - rustup target add thumbv6m-none-eabi
     - time cargo build --target thumbv6m-none-eabi --no-default-features
 
