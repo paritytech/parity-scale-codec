@@ -826,11 +826,11 @@ pub(crate) fn decode_array<I: Input, T: Decode, const N: usize>(input: &mut I) -
 	}
 }
 
-/// Decode the vec (without prepended the len).
+/// Decode the vec (without a prepended len).
 ///
 /// This is equivalent to decode all elements one by one, but it is optimized in some
 /// situation.
-pub(crate) fn decode_vec_with_len<T: Decode, I: Input>(
+pub fn decode_vec_with_len<T: Decode, I: Input>(
 	input: &mut I,
 	len: usize,
 ) -> Result<Vec<T>, Error> {
