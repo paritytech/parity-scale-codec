@@ -5,11 +5,19 @@ All notable changes to this crate are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this crate adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.3.0]
+
+This release exports `decode_vec_with_len` to support custom decoding of `Vec`s.
+
+### Added
+
+- Export `decode_vec_with_len`.
+
 ## [3.2.1] - 2022-09-14
 
 This release fixes compilation on no-std envs.
 
-## Changed
+### Changed
 
  - Use core RangeInclusive instead of std [#378](https://github.com/paritytech/parity-scale-codec/pull/378)
 
@@ -17,7 +25,7 @@ This release fixes compilation on no-std envs.
 
 This release (specifically [#375](https://github.com/paritytech/parity-scale-codec/pull/375)) bumps the MSRV to 1.60.0 as it depends on the Cargo.toml weak dependency feature.
 
-## Changed
+### Changed
 
 - Don't include bitvec with std feature unless asked for explicitly. [#375](https://github.com/paritytech/parity-scale-codec/pull/375)
 - Implement `MaxEncodedLen` on more core lib types. [#350](https://github.com/paritytech/parity-scale-codec/pull/350)
@@ -26,13 +34,13 @@ This release (specifically [#375](https://github.com/paritytech/parity-scale-cod
 
 A quick release to fix an issue introduced in 3.1.4 that broke compiling on no-std.
 
-## Changed
+### Changed
 
 - Fix compiling on no-std. (see https://github.com/paritytech/parity-scale-codec/commit/c25f14a46546c75e4208363ced9d89aa81c85e7f)
 
 ## [3.1.3] - 2022-06-10
 
-## Changed
+### Changed
 
 - Impl `MaxEncodedLen` for `Box<T>`. [#349](https://github.com/paritytech/parity-scale-codec/pull/349)
 - Add `decode_from_bytes`. [#342](https://github.com/paritytech/parity-scale-codec/pull/342)
@@ -41,7 +49,7 @@ A quick release to fix an issue introduced in 3.1.4 that broke compiling on no-s
 
 Be aware that version 3.0.0. up to 3.1.1 contained some bugs in the `BitVec` encoder that could lead to an invalid encoding. Thus, we yanked these crate version and it is advised to upgrade to 3.1.2. Any release before 3.0.0 wasn't affected by this bug.
 
-## Changed
+### Changed
 
 - Optimised the `Decode::decode` for `[T; N]` by @xgreenx. [#299](https://github.com/paritytech/parity-scale-codec/pull/299)
 - Add some doc for the derive macro by @thiolliere. [#301](https://github.com/paritytech/parity-scale-codec/pull/301)
