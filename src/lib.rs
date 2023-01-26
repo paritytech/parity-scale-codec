@@ -295,7 +295,7 @@ mod max_encoded_len;
 pub use self::error::Error;
 pub use self::codec::{
 	Input, Output, Decode, Encode, Codec, EncodeAsRef, WrapperTypeEncode, WrapperTypeDecode,
-	OptionBool, DecodeLength, FullCodec, FullEncode,
+	OptionBool, DecodeLength, FullCodec, FullEncode, decode_vec_with_len
 };
 #[cfg(feature = "std")]
 pub use self::codec::IoReader;
