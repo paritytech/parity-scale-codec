@@ -43,9 +43,10 @@ use core::num::{
 
 use byte_slice_cast::{AsByteSlice, AsMutByteSlice, ToMutByteSlice};
 
+#[cfg(any(feature = "std", feature = "string"))]
+use crate::alloc::string::String;
 #[cfg(any(feature = "std", feature = "full"))]
 use crate::alloc::{
-	string::String,
 	sync::Arc,
 	rc::Rc,
 };
@@ -365,6 +366,16 @@ impl<'a, T: ToOwned + Encode + ?Sized> EncodeLike for Cow<'a, T> {}
 impl<'a, T: ToOwned + Encode> EncodeLike<T> for Cow<'a, T> {}
 impl<'a, T: ToOwned + Encode> EncodeLike<Cow<'a, T>> for T {}
 
+#[cfg(any(feature = "std", feature = "string"))]
+mod feature_string_wrapper_type_encode {
+	use super::*;
+
+	impl WrapperTypeEncode for String {}
+	impl EncodeLike for String {}
+	impl EncodeLike<&str> for String {}
+	impl EncodeLike<String> for &str {}
+}
+
 #[cfg(any(feature = "std", feature = "full"))]
 mod feature_full_wrapper_type_encode {
 	use super::*;
@@ -378,11 +389,6 @@ mod feature_full_wrapper_type_encode {
 	impl<T: ?Sized + Encode> EncodeLike for Rc<T> {}
 	impl<T: Encode> EncodeLike<T> for Rc<T> {}
 	impl<T: Encode> EncodeLike<Rc<T>> for T {}
-
-	impl WrapperTypeEncode for String {}
-	impl EncodeLike for String {}
-	impl EncodeLike<&str> for String {}
-	impl EncodeLike<String> for &str {}
 }
 
 #[cfg(feature = "bytes")]
@@ -941,7 +947,7 @@ impl<T> Decode for PhantomData<T> {
 	}
 }
 
-#[cfg(any(feature = "std", feature = "full"))]
+#[cfg(any(feature = "std", feature = "string"))]
 impl Decode for String {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		Self::from_utf8(Vec::decode(input)?).map_err(|_| "Invalid utf8 sequence".into())
