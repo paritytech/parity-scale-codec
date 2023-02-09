@@ -42,15 +42,6 @@ default:
 
 #### stage:                        check
 
-check-rust-stable-no_derive_no_std_full:
-  stage:                           check
-  <<:                              *docker-env
-  variables:
-    RUSTFLAGS:                     "-Cdebug-assertions=y -Dwarnings"
-  script:
-    - time cargo +stable check --verbose --no-default-features --features bit-vec,bytes,generic-array,full
-
-
 check-rust-stable-no_derive_no_std:
   stage:                           check
   <<:                              *docker-env
@@ -69,13 +60,13 @@ check-rust-stable-no_std-chain-error:
     - time cargo +stable check --verbose --no-default-features --features chain-error
 
 
-check-rust-stable-no_derive_full:
+check-rust-stable-no_derive:
   stage:                           check
   <<:                              *docker-env
   variables:
     RUSTFLAGS:                     "-Cdebug-assertions=y -Dwarnings"
   script:
-    - time cargo +stable check --verbose --features bit-vec,bytes,generic-array,full
+    - time cargo +stable check --verbose --features bit-vec,bytes,generic-array
 
 
 #### stage:                        test
@@ -123,6 +114,16 @@ build-no-std:
     # this target doesn't support std envs; it should flag any unexpected uses of std
     - rustup target add thumbv6m-none-eabi
     - time cargo build --target thumbv6m-none-eabi --no-default-features
+
+build-no-atomic-ptrs:
+  stage:                           test
+  <<:                              *docker-env
+  variables:
+    RUST_BACKTRACE:                1
+  script:
+    # this target doesn't have atomic ptrs. Some parts of alloc are not available there
+    # we want to make sure that this crate still works on those targets
+    - cargo +nightly check --target bpfel-unknown-none -Zbuild-std="core,alloc" --no-default-features --features generic-array,derive,max-encoded-len,chain-error
 
 #### stage:                        build
 
