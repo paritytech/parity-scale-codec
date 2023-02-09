@@ -51,15 +51,12 @@ max-encoded-len = ["parity-scale-codec-derive/max-encoded-len"]
 # Should not be used in a constrained environment.
 chain-error = []
 
-# Provide implementations for `String`.
-string = []
-
 # WARNING: DO _NOT_ USE THIS FEATURE IF YOU ARE WORKING ON CONSENSUS CODE!*
 #
 # Provides implementations for more data structures than just Vec and Box.
 # Concretely it will provide parity-scale-codec implementations for many types
 # that can be found in std and/or alloc.
-full = ["string"]
+full = []
 
 [workspace]
 members = ["derive", "fuzzer"]
