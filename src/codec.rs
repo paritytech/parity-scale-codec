@@ -43,19 +43,17 @@ use core::num::{
 
 use byte_slice_cast::{AsByteSlice, AsMutByteSlice, ToMutByteSlice};
 
-#[cfg(any(feature = "std", feature = "full"))]
+#[cfg(target_has_atomic = "ptr")]
+use crate::alloc::sync::Arc;
 use crate::alloc::{
-	string::String,
-	sync::Arc,
-	rc::Rc,
-};
-use crate::alloc::{
-	vec::Vec,
 	boxed::Box,
 	borrow::{Cow, ToOwned},
 	collections::{
 		BTreeMap, BTreeSet, VecDeque, LinkedList, BinaryHeap
-	}
+	},
+	rc::Rc,
+	string::String,
+	vec::Vec,
 };
 use crate::compact::Compact;
 use crate::encode_like::EncodeLike;
@@ -212,10 +210,7 @@ pub enum TypeInfo {
 	I64,
 	U128,
 	I128,
-
-	#[cfg(feature = "full")]
 	F32,
-	#[cfg(feature = "full")]
 	F64,
 }
 
@@ -365,24 +360,23 @@ impl<'a, T: ToOwned + Encode + ?Sized> EncodeLike for Cow<'a, T> {}
 impl<'a, T: ToOwned + Encode> EncodeLike<T> for Cow<'a, T> {}
 impl<'a, T: ToOwned + Encode> EncodeLike<Cow<'a, T>> for T {}
 
-#[cfg(any(feature = "std", feature = "full"))]
-mod feature_full_wrapper_type_encode {
-	use super::*;
+impl<T: ?Sized> WrapperTypeEncode for Rc<T> {}
+impl<T: ?Sized + Encode> EncodeLike for Rc<T> {}
+impl<T: Encode> EncodeLike<T> for Rc<T> {}
+impl<T: Encode> EncodeLike<Rc<T>> for T {}
 
+impl WrapperTypeEncode for String {}
+impl EncodeLike for String {}
+impl EncodeLike<&str> for String {}
+impl EncodeLike<String> for &str {}
+
+#[cfg(target_has_atomic = "ptr")]
+mod atomic_ptr_targets  {
+	use super::*;
 	impl<T: ?Sized> WrapperTypeEncode for Arc<T> {}
 	impl<T: ?Sized + Encode> EncodeLike for Arc<T> {}
 	impl<T: Encode> EncodeLike<T> for Arc<T> {}
 	impl<T: Encode> EncodeLike<Arc<T>> for T {}
-
-	impl<T: ?Sized> WrapperTypeEncode for Rc<T> {}
-	impl<T: ?Sized + Encode> EncodeLike for Rc<T> {}
-	impl<T: Encode> EncodeLike<T> for Rc<T> {}
-	impl<T: Encode> EncodeLike<Rc<T>> for T {}
-
-	impl WrapperTypeEncode for String {}
-	impl EncodeLike for String {}
-	impl EncodeLike<&str> for String {}
-	impl EncodeLike<String> for &str {}
 }
 
 #[cfg(feature = "bytes")]
@@ -498,12 +492,11 @@ pub trait WrapperTypeDecode: Sized {
 impl<T> WrapperTypeDecode for Box<T> {
 	type Wrapped = T;
 }
-#[cfg(any(feature = "std", feature = "full"))]
-impl<T> WrapperTypeDecode for Arc<T> {
+impl<T> WrapperTypeDecode for Rc<T> {
 	type Wrapped = T;
 }
-#[cfg(any(feature = "std", feature = "full"))]
-impl<T> WrapperTypeDecode for Rc<T> {
+#[cfg(target_has_atomic = "ptr")]
+impl<T> WrapperTypeDecode for Arc<T> {
 	type Wrapped = T;
 }
 
@@ -540,10 +533,7 @@ macro_rules! with_type_info {
 			TypeInfo::U128 => { $macro!(u128 $( $( , $params )* )? ) },
 			TypeInfo::I128 => { $macro!(i128 $( $( , $params )* )? ) },
 			TypeInfo::Unknown => { $( $unknown_variant )* },
-
-			#[cfg(feature = "full")]
 			TypeInfo::F32 => { $macro!(f32 $( $( , $params )* )? ) },
-			#[cfg(feature = "full")]
 			TypeInfo::F64 => { $macro!(f64 $( $( , $params )* )? ) },
 		}
 	};
@@ -941,7 +931,6 @@ impl<T> Decode for PhantomData<T> {
 	}
 }
 
-#[cfg(any(feature = "std", feature = "full"))]
 impl Decode for String {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		Self::from_utf8(Vec::decode(input)?).map_err(|_| "Invalid utf8 sequence".into())
@@ -1345,7 +1334,6 @@ macro_rules! impl_one_byte {
 impl_endians!(u16; U16, u32; U32, u64; U64, u128; U128, i16; I16, i32; I32, i64; I64, i128; I128);
 impl_one_byte!(u8; U8, i8; I8);
 
-#[cfg(feature = "full")]
 impl_endians!(f32; F32, f64; F64);
 
 impl EncodeLike for bool {}
@@ -1888,7 +1876,6 @@ mod tests {
 
 	test_array_encode_and_decode!(u8, i8, u16, i16, u32, i32, u64, i64, u128, i128);
 
-	#[cfg(feature = "full")]
 	test_array_encode_and_decode!(f32, f64);
 
 	fn test_encoded_size(val: impl Encode) {
