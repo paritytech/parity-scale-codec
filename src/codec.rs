@@ -891,13 +891,13 @@ impl<T: Decode, const N: usize> Decode for [T; N] {
 	}
 
 	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
-		if let Some(_) = Self::encoded_fixed_size() {
-		// Should skip the bytes, but Input does not support skip.
+		if Self::encoded_fixed_size().is_some() {
+			// Should skip the bytes, but Input does not support skip.
 			for _ in 0..N {
-				T::skip(input) ?;
+				T::skip(input)?;
 			}
 		} else {
-		    Self::decode(input) ?;
+		    Self::decode(input)?;
 		}
 		Ok(())
 	}
@@ -1379,7 +1379,7 @@ impl Decode for bool {
 	}
 
 	fn encoded_fixed_size() -> Option<usize> {
-		Some(mem::size_of::<bool>())
+		Some(1)
 	}
 }
 
