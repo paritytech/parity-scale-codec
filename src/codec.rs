@@ -889,6 +889,22 @@ impl<T: Decode, const N: usize> Decode for [T; N] {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		decode_array(input)
 	}
+
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		if let Some(_) = Self::encoded_fixed_size() {
+		// Should skip the bytes, but Input does not support skip.
+			for _ in 0..N {
+				T::skip(input) ?;
+			}
+		} else {
+		    Self::decode(input) ?;
+		}
+		Ok(())
+	}
+
+	fn encoded_fixed_size() -> Option<usize> {
+		Some(<T as Decode>::encoded_fixed_size()? * N)
+	}
 }
 
 impl<T: EncodeLike<U>, U: Encode, const N: usize> EncodeLike<[U; N]> for [T; N] {}
