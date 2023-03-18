@@ -1318,6 +1318,10 @@ macro_rules! impl_endians {
 				input.read(&mut buf)?;
 				Ok(<$t>::from_le_bytes(buf))
 			}
+
+			fn encoded_fixed_size() -> Option<usize> {
+				Some(mem::size_of::<$t>())
+			}
 		}
 	)* }
 }
@@ -1372,6 +1376,10 @@ impl Decode for bool {
 			1 => Ok(true),
 			_ => Err("Invalid boolean representation".into())
 		}
+	}
+
+	fn encoded_fixed_size() -> Option<usize> {
+		Some(mem::size_of::<bool>())
 	}
 }
 
