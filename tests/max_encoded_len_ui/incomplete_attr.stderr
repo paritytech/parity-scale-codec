@@ -5,15 +5,24 @@ error: Invalid attribute: only `#[codec(dumb_trait_bound)]`, `#[codec(crate = pa
   |         ^^^^^
 
 error[E0277]: the trait bound `Example: WrapperTypeEncode` is not satisfied
-  --> tests/max_encoded_len_ui/incomplete_attr.rs:3:18
+  --> tests/max_encoded_len_ui/incomplete_attr.rs:5:8
    |
-3  | #[derive(Encode, MaxEncodedLen)]
-   |                  ^^^^^^^^^^^^^ the trait `WrapperTypeEncode` is not implemented for `Example`
+5  | struct Example;
+   |        ^^^^^^^ the trait `WrapperTypeEncode` is not implemented for `Example`
    |
-   = note: required because of the requirements on the impl of `Encode` for `Example`
+   = help: the following other types implement trait `WrapperTypeEncode`:
+             &T
+             &mut T
+             Arc<T>
+             Box<T>
+             Cow<'a, T>
+             Rc<T>
+             String
+             Vec<T>
+             parity_scale_codec::Ref<'a, T, U>
+   = note: required for `Example` to implement `Encode`
 note: required by a bound in `MaxEncodedLen`
   --> src/max_encoded_len.rs
    |
    | pub trait MaxEncodedLen: Encode {
    |                          ^^^^^^ required by this bound in `MaxEncodedLen`
-   = note: this error originates in the derive macro `MaxEncodedLen` (in Nightly builds, run with -Z macro-backtrace for more info)
