@@ -1,8 +1,8 @@
 error[E0599]: no function or associated item named `max_encoded_len` found for struct `NotMel` in the current scope
- --> $DIR/unsupported_variant.rs:8:9
+ --> tests/max_encoded_len_ui/unsupported_variant.rs:8:9
   |
 4 | struct NotMel;
-  | -------------- function or associated item `max_encoded_len` not found for this
+  | ------------- function or associated item `max_encoded_len` not found for this struct
 ...
 8 |     NotMel(NotMel),
   |            ^^^^^^ function or associated item not found in `NotMel`
