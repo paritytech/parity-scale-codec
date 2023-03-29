@@ -10,7 +10,7 @@ variables:
   GIT_STRATEGY:                    fetch
   GIT_DEPTH:                       "100"
   CARGO_INCREMENTAL:               0
-  CI_IMAGE:                        "paritytech/parity-scale-codec@sha256:ed3d5632087237511cb5c7a6177167d01822bd9b6d8d31789080e014c4491bae" # staging 2023-03-28
+  CI_IMAGE:                        "paritytech/parity-scale-codec:production"
 
 default:
   cache:                           {}
