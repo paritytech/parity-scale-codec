@@ -323,7 +323,7 @@ impl DecodeContext {
 	/// Assert that the decoding has finished.
 	///
 	/// Should be used in [`Decode::decode_into`] to signify that
-	/// the `MaybeUninit` passed into tha function was properly initialized.
+	/// the `MaybeUninit` passed into that function was properly initialized.
 	#[inline]
 	pub unsafe fn assert_decoding_finished(self) -> DecodeFinished {
 		DecodeFinished(PhantomData)
