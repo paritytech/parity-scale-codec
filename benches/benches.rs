@@ -115,7 +115,7 @@ fn vec_append_with_encode_append(b: &mut Bencher) {
 fn encode_decode_vec<T: TryFrom<u8> + Codec>(c: &mut Criterion) where T::Error: std::fmt::Debug {
 	let mut g = c.benchmark_group("vec_encode");
 	for vec_size in [1, 2, 5, 32, 1024, 2048, 16384] {
-		g.bench_with_input(&format!("{}", type_name::<T>()), &vec_size, |b, &vec_size| {
+		g.bench_with_input(&format!("{}/{}", type_name::<T>(), vec_size), &vec_size, |b, &vec_size| {
 			let vec: Vec<T> = (0..=127u8)
 				.cycle()
 				.take(vec_size)
@@ -130,7 +130,7 @@ fn encode_decode_vec<T: TryFrom<u8> + Codec>(c: &mut Criterion) where T::Error: 
 	core::mem::drop(g);
 	let mut g = c.benchmark_group("vec_decode");
 	for vec_size in [1, 2, 5, 32, 1024, 2048, 16384] {
-		g.bench_with_input(&format!("{}", type_name::<T>()), &vec_size, |b, &vec_size| {
+		g.bench_with_input(&format!("{}/{}", type_name::<T>(), vec_size), &vec_size, |b, &vec_size| {
 			let vec: Vec<T> = (0..=127u8)
 				.cycle()
 				.take(vec_size)
@@ -149,7 +149,7 @@ fn encode_decode_vec<T: TryFrom<u8> + Codec>(c: &mut Criterion) where T::Error: 
 	core::mem::drop(g);
 	let mut g = c.benchmark_group("vec_decode_no_limit");
 	for vec_size in [16384, 131072] {
-		g.bench_with_input(&format!("vec_decode_no_limit_{}", type_name::<T>()), &vec_size, |b, &vec_size| {
+		g.bench_with_input(&format!("vec_decode_no_limit_{}/{}", type_name::<T>(), vec_size), &vec_size, |b, &vec_size| {
 			let vec: Vec<T> = (0..=127u8)
 				.cycle()
 				.take(vec_size)
@@ -183,7 +183,7 @@ fn encode_decode_complex_type(c: &mut Criterion) {
 	let mut g = c.benchmark_group("vec_encode_complex_type");
 	for vec_size in [1, 2, 5, 32, 1024, 2048, 16384] {
 		let complex_types = complex_types.clone();
-		g.bench_with_input("vec_encode_complex_type", &vec_size, move |b, &vec_size| {
+		g.bench_with_input(format!("vec_encode_complex_type/{}", vec_size), &vec_size, move |b, &vec_size| {
 			let vec: Vec<ComplexType> = complex_types.clone().into_iter().cycle().take(vec_size).collect();
 
 			let vec = black_box(vec);
@@ -195,7 +195,7 @@ fn encode_decode_complex_type(c: &mut Criterion) {
 	let mut g = c.benchmark_group("vec_decode_complex_type");
 	for vec_size in [1, 2, 5, 32, 1024, 2048, 16384] {
 		let complex_types = complex_types.clone();
-		g.bench_with_input("vec_decode_complex_type", &vec_size, move |b, &vec_size| {
+		g.bench_with_input(format!("vec_decode_complex_type/{}", vec_size), &vec_size, move |b, &vec_size| {
 			let vec: Vec<ComplexType> = complex_types.clone().into_iter().cycle().take(vec_size).collect();
 
 			let vec = vec.encode();
@@ -224,7 +224,7 @@ fn encode_decode_bitvec_u8(c: &mut Criterion) {
 	{
 		let mut g = c.benchmark_group("bitvec_u8_encode");
 		for size in [1, 2, 5, 32, 1024] {
-			g.bench_with_input("BitVec<u8>", &size, |b, &size| {
+			g.bench_with_input(size.to_string(), &size, |b, &size| {
 				let vec: BitVec<u8, Lsb0> = [true, false]
 					.iter()
 					.cloned()
@@ -242,7 +242,7 @@ fn encode_decode_bitvec_u8(c: &mut Criterion) {
 	{
 		let mut g = c.benchmark_group("bitvec_u8_decode");
 		for size in [1, 2, 5, 32, 1024] {
-			g.bench_with_input("BitVec<u8>", &size, |b, &size| {
+			g.bench_with_input(size.to_string(), &size, |b, &size| {
 				let vec: BitVec<u8, Lsb0> = [true, false]
 					.iter()
 					.cloned()
