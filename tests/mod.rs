@@ -665,8 +665,14 @@ fn decoding_a_huge_array_inside_of_arc_does_not_overflow_the_stack() {
 
 #[test]
 fn decoding_an_array_of_boxed_zero_sized_types_works() {
+	#[cfg(not(miri))]
+	const SIZE: usize = 100 * 1024 * 1024;
+
+	#[cfg(miri)]
+	const SIZE: usize = 1024;
+
 	let data = &[];
-	assert!(Box::<[(); 100 * 1024 * 1024]>::decode(&mut data.as_slice()).is_ok());
+	assert!(Box::<[(); SIZE]>::decode(&mut data.as_slice()).is_ok());
 }
 
 #[test]
