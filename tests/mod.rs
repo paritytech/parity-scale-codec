@@ -644,3 +644,88 @@ fn no_warning_for_deprecated() {
 		VariantB,
 	}
 }
+
+#[test]
+fn decoding_a_huge_array_inside_of_box_does_not_overflow_the_stack() {
+	let data = &[];
+	let _ = Box::<[u8; 100 * 1024 * 1024]>::decode(&mut data.as_slice());
+}
+
+#[test]
+fn decoding_a_huge_array_inside_of_rc_does_not_overflow_the_stack() {
+	let data = &[];
+	let _ = std::rc::Rc::<[u8; 100 * 1024 * 1024]>::decode(&mut data.as_slice());
+}
+
+#[test]
+fn decoding_a_huge_array_inside_of_arc_does_not_overflow_the_stack() {
+	let data = &[];
+	let _ = std::sync::Arc::<[u8; 100 * 1024 * 1024]>::decode(&mut data.as_slice());
+}
+
+#[test]
+fn decoding_an_array_of_boxed_zero_sized_types_works() {
+	let data = &[];
+	assert!(Box::<[(); 100 * 1024 * 1024]>::decode(&mut data.as_slice()).is_ok());
+}
+
+#[test]
+fn incomplete_decoding_of_an_array_drops_partially_read_elements_if_reading_fails() {
+	thread_local! {
+		pub static COUNTER: core::cell::Cell<usize> = core::cell::Cell::new(0);
+	}
+
+	#[derive(Decode)]
+	struct Foobar(u8);
+
+	impl Drop for Foobar {
+		fn drop(&mut self) {
+			COUNTER.with(|counter| {
+				counter.set(counter.get() + 1);
+			});
+		}
+	}
+
+	let data = &[1, 2, 3];
+	assert!(<[Foobar; 4]>::decode(&mut data.as_slice()).is_err());
+
+	COUNTER.with(|counter| {
+		assert_eq!(counter.get(), 3);
+	});
+}
+
+#[test]
+fn incomplete_decoding_of_an_array_drops_partially_read_elements_if_reading_panics() {
+	thread_local! {
+		pub static COUNTER: core::cell::Cell<usize> = core::cell::Cell::new(0);
+	}
+
+	struct Foobar(u8);
+
+	impl Decode for Foobar {
+		fn decode<I: parity_scale_codec::Input>(input: &mut I) -> Result<Self, Error> {
+			let mut buffer = [0; 1];
+			input.read(&mut buffer).unwrap();
+			Ok(Self(buffer[0]))
+		}
+	}
+
+	impl Drop for Foobar {
+		fn drop(&mut self) {
+			COUNTER.with(|counter| {
+				counter.set(counter.get() + 1);
+			});
+		}
+	}
+
+	let data = &[1, 2, 3];
+	let result = std::panic::catch_unwind(|| {
+		let _ = <[Foobar; 4]>::decode(&mut data.as_slice());
+	});
+
+	assert!(result.is_err());
+
+	COUNTER.with(|counter| {
+		assert_eq!(counter.get(), 3);
+	});
+}

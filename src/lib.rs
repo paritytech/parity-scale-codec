@@ -274,6 +274,7 @@ pub mod alloc {
 	pub use std::collections;
 	pub use std::sync;
 	pub use std::rc;
+	pub use std::alloc;
 }
 
 mod codec;
@@ -295,7 +296,8 @@ mod max_encoded_len;
 pub use self::error::Error;
 pub use self::codec::{
 	Input, Output, Decode, Encode, Codec, EncodeAsRef, WrapperTypeEncode, WrapperTypeDecode,
-	OptionBool, DecodeLength, FullCodec, FullEncode, decode_vec_with_len
+	OptionBool, DecodeLength, FullCodec, FullEncode, decode_vec_with_len,
+	DecodeContext, DecodeFinished,
 };
 #[cfg(feature = "std")]
 pub use self::codec::IoReader;
