@@ -221,34 +221,44 @@ fn encode_decode_bitvec_u8(c: &mut Criterion) {
 	let _ = c;
 
 	#[cfg(feature = "bit-vec")]
-	c.bench_function_over_inputs("bitvec_u8_encode - BitVec<u8>", |b, &size| {
-		let vec: BitVec<u8, Lsb0> = [true, false]
-			.iter()
-			.cloned()
-			.cycle()
-			.take(size)
-			.collect();
+	{
+		let mut g = c.benchmark_group("bitvec_u8_encode");
+		for size in [1, 2, 5, 32, 1024] {
+			g.bench_with_input("BitVec<u8>", &size, |b, &size| {
+				let vec: BitVec<u8, Lsb0> = [true, false]
+					.iter()
+					.cloned()
+					.cycle()
+					.take(size)
+					.collect();
 
-		let vec = black_box(vec);
-		b.iter(|| vec.encode())
-	}, vec![1, 2, 5, 32, 1024]);
+				let vec = black_box(vec);
+				b.iter(|| vec.encode())
+			});
+		}
+	}
 
 	#[cfg(feature = "bit-vec")]
-	c.bench_function_over_inputs("bitvec_u8_decode - BitVec<u8>", |b, &size| {
-		let vec: BitVec<u8, Lsb0> = [true, false]
-			.iter()
-			.cloned()
-			.cycle()
-			.take(size)
-			.collect();
+	{
+		let mut g = c.benchmark_group("bitvec_u8_decode");
+		for size in [1, 2, 5, 32, 1024] {
+			g.bench_with_input("BitVec<u8>", &size, |b, &size| {
+				let vec: BitVec<u8, Lsb0> = [true, false]
+					.iter()
+					.cloned()
+					.cycle()
+					.take(size)
+					.collect();
 
-		let vec = vec.encode();
+				let vec = vec.encode();
 
-		let vec = black_box(vec);
-		b.iter(|| {
-			let _: BitVec<u8, Lsb0> = Decode::decode(&mut &vec[..]).unwrap();
-		})
-	}, vec![1, 2, 5, 32, 1024]);
+				let vec = black_box(vec);
+				b.iter(|| {
+					let _: BitVec<u8, Lsb0> = Decode::decode(&mut &vec[..]).unwrap();
+				})
+			});
+		}
+	}
 }
 
 criterion_group!{
