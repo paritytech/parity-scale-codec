@@ -574,10 +574,7 @@ impl<T> WrapperTypeDecode for Box<T> {
 		// The explicit types here are written out for clarity.
 		//
 		// TODO: Use `Box::new_uninit` once that's stable.
-		let layout = core::alloc::Layout::from_size_align(
-			core::mem::size_of::<MaybeUninit<T>>(),
-			core::mem::align_of::<MaybeUninit<T>>()
-		).expect("layout is always valid");
+		let layout = core::alloc::Layout::new::<MaybeUninit<T>>();
 
 		let ptr: *mut MaybeUninit<T> = if layout.size() == 0 {
 			core::ptr::NonNull::dangling().as_ptr()
