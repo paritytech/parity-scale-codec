@@ -21,7 +21,7 @@ arbitrary = { version = "1.0.1", features = ["derive"], optional = true }
 impl-trait-for-tuples = "0.2.2"
 
 [dev-dependencies]
-criterion = "0.3.0"
+criterion = "0.4.0"
 serde_derive = { version = "1.0" }
 parity-scale-codec-derive = { path = "derive", default-features = false }
 quickcheck = "1.0"
