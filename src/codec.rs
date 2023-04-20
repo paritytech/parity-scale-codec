@@ -975,7 +975,6 @@ impl<T: Decode, const N: usize> Decode for [T; N] {
 			| TypeInfo::U8
 			| TypeInfo::I8
 				=> true,
-			#[cfg(target_endian = "little")]
 			| TypeInfo::U16
 			| TypeInfo::I16
 			| TypeInfo::U32
@@ -986,8 +985,8 @@ impl<T: Decode, const N: usize> Decode for [T; N] {
 			| TypeInfo::I128
 			| TypeInfo::F32
 			| TypeInfo::F64
-				=> true,
-			_ => false
+				=> cfg!(target_endian = "little"),
+			TypeInfo::Unknown => false
 		};
 
 		if is_primitive {
