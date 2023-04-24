@@ -229,4 +229,12 @@ The derive implementation supports the following attributes:
   `codec(encode_bound(skip_type_params(T)))` will not contain a `Encode` trait bound while
   `Encode` is being derived for the annotated type.
 
+## Known issues
+
+Even though this crate supports deserialization of arbitrarily sized array (e.g. `[T; 1024 * 1024 * 1024]`)
+using such types is not recommended and will most likely result in a stack overflow. If you have a big
+array inside of your structure which you want to decode you should wrap it in a `Box`, e.g. `Box<[T; 1024 * 1024 * 1024]>`.
+
+-------------------------
+
 License: Apache-2.0
