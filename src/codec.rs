@@ -968,7 +968,6 @@ impl<T: Decode, const N: usize> Decode for [T; N] {
 			// faster than just reading each element one-by-one.
 
 			let ptr: *mut [T; N] = dst.as_mut_ptr();
-			let ptr: *mut [u8; N] = ptr.cast();
 			let ptr: *mut u8 = ptr.cast();
 			let bytesize = core::mem::size_of::<T>().checked_mul(N).expect("array lengths are sane");
 
