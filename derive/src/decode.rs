@@ -72,7 +72,12 @@ pub fn quote(
 
 				quote_spanned! { v.span() =>
 					__codec_x_edqy if __codec_x_edqy == #index as ::core::primitive::u8 => {
-						#create
+						// NOTE: This lambda is necessary to work around an upstream bug
+						// where each extra branch results in excessive stack usage:
+						//   https://github.com/rust-lang/rust/issues/34283
+						return (move || {
+							#create
+						})();
 					},
 				}
 			});
@@ -90,9 +95,13 @@ pub fn quote(
 					.map_err(|e| e.chain(#read_byte_err_msg))?
 				{
 					#( #recurse )*
-					_ => ::core::result::Result::Err(
-						<_ as ::core::convert::Into<_>>::into(#invalid_variant_err_msg)
-					),
+					_ => {
+						return (move || {
+							return ::core::result::Result::Err(
+								<_ as ::core::convert::Into<_>>::into(#invalid_variant_err_msg)
+							);
+						})();
+					},
 				}
 			}
 

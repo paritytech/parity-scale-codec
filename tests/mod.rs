@@ -735,3 +735,77 @@ fn incomplete_decoding_of_an_array_drops_partially_read_elements_if_reading_pani
 		assert_eq!(counter.get(), 3);
 	});
 }
+
+#[test]
+fn deserializing_of_big_recursively_nested_enum_works() {
+	#[derive(PartialEq, Eq, Decode, Encode)]
+	struct Data([u8; 1472]);
+
+	#[derive(PartialEq, Eq, Decode, Encode)]
+	enum Enum {
+		Nested(Vec<Enum>),
+		Data(Data),
+		Variant1,
+		Variant2,
+		Variant3,
+		Variant4,
+		Variant5,
+		Variant6,
+		Variant7,
+		Variant8,
+		Variant9,
+		Variant10,
+		Variant11,
+		Variant12,
+		Variant13,
+		Variant14,
+		Variant15,
+		Variant16,
+		Variant17,
+		Variant18,
+		Variant19,
+		Variant20,
+		Variant21,
+		Variant22,
+		Variant23,
+		Variant24,
+		Variant25,
+		Variant26,
+		Variant27,
+		Variant28,
+		Variant29,
+		Variant30,
+		Variant31,
+		Variant32,
+		Variant33,
+		Variant34,
+		Variant35,
+		Variant36,
+		Variant37,
+		Variant38,
+		Variant39,
+		Variant40,
+		Variant41,
+	}
+
+	fn gen_dummy_data(depth_remaining: usize) -> Enum {
+		let mut vec = vec![Enum::Data(Data([0; 1472]))];
+		if depth_remaining > 0 {
+			vec.push(gen_dummy_data(depth_remaining - 1));
+		}
+		Enum::Nested(vec)
+	}
+
+	let obj = gen_dummy_data(32);
+	let data = obj.encode();
+
+	// This should not overflow the stack.
+	let obj_d = Enum::decode(&mut &data[..]).unwrap();
+
+	// NOTE: Not using `assert_eq` since we don't want to print out such a big object if this fails.
+	assert!(obj == obj_d);
+
+	use parity_scale_codec::DecodeLimit;
+	let obj_d2 = Enum::decode_with_depth_limit(40, &mut &data[..]).unwrap();
+	assert!(obj == obj_d2);
+}
