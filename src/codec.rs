@@ -554,19 +554,20 @@ pub trait WrapperTypeDecode: Sized {
 	// !INTERNAL USE ONLY!
 	// This is a used to specialize `decode` for the wrapped type.
 	#[doc(hidden)]
-	fn decode_wrapped<I: Input>(_input: &mut I) -> Option<Result<Self, Error>> where Self::Wrapped: Decode {
-		// Not implemented by default, so `Wrapped::decode` will be called instead.
-		None
+	#[inline]
+	fn decode_wrapped<I: Input>(input: &mut I) -> Result<Self, Error> where Self::Wrapped: Decode {
+		input.descend_ref()?;
+		let result = Ok(Self::Wrapped::decode(input)?.into());
+		input.ascend_ref();
+		result
 	}
 }
 
 impl<T> WrapperTypeDecode for Box<T> {
 	type Wrapped = T;
 
-	fn decode_wrapped<I: Input>(input: &mut I) -> Option<Result<Self, Error>> where Self::Wrapped: Decode {
-		if let Err(error) = input.descend_ref() {
-			return Some(Err(error));
-		}
+	fn decode_wrapped<I: Input>(input: &mut I) -> Result<Self, Error> where Self::Wrapped: Decode {
+		input.descend_ref()?;
 
 		// Placement new is not yet stable, but we can just manually allocate a chunk of memory
 		// and convert it to a `Box` ourselves.
@@ -600,9 +601,7 @@ impl<T> WrapperTypeDecode for Box<T> {
 		//         as the underlying type is zero-sized.
 		let mut boxed: Box<MaybeUninit<T>> = unsafe { Box::from_raw(ptr) };
 
-		if let Err(error) = T::decode_into(DecodeContext::new(), input, &mut boxed) {
-			return Some(Err(error));
-		}
+		T::decode_into(DecodeContext::new(), input, &mut boxed)?;
 
 		// Decoding succeeded, so let's get rid of `MaybeUninit`.
 		let ptr: *mut MaybeUninit<T> = Box::into_raw(boxed);
@@ -613,16 +612,16 @@ impl<T> WrapperTypeDecode for Box<T> {
 		let boxed: Box<T> = unsafe { Box::from_raw(ptr) };
 
 		input.ascend_ref();
-		Some(Ok(boxed))
+		Ok(boxed)
 	}
 }
 
 impl<T> WrapperTypeDecode for Rc<T> {
 	type Wrapped = T;
 
-	fn decode_wrapped<I: Input>(input: &mut I) -> Option<Result<Self, Error>> where Self::Wrapped: Decode {
+	fn decode_wrapped<I: Input>(input: &mut I) -> Result<Self, Error> where Self::Wrapped: Decode {
 		// TODO: This is inefficient; use `Rc::new_uninit` once that's stable.
-		Some(Box::<T>::decode(input).map(|output| output.into()))
+		Box::<T>::decode(input).map(|output| output.into())
 	}
 }
 
@@ -630,9 +629,9 @@ impl<T> WrapperTypeDecode for Rc<T> {
 impl<T> WrapperTypeDecode for Arc<T> {
 	type Wrapped = T;
 
-	fn decode_wrapped<I: Input>(input: &mut I) -> Option<Result<Self, Error>> where Self::Wrapped: Decode {
+	fn decode_wrapped<I: Input>(input: &mut I) -> Result<Self, Error> where Self::Wrapped: Decode {
 		// TODO: This is inefficient; use `Arc::new_uninit` once that's stable.
-		Some(Box::<T>::decode(input).map(|output| output.into()))
+		Box::<T>::decode(input).map(|output| output.into())
 	}
 }
 
@@ -642,29 +641,7 @@ impl<T, X> Decode for X where
 {
 	#[inline]
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
-		// First try to see if a specialized implementation exists.
-		if let Some(result) = Self::decode_wrapped(input) {
-			return result;
-		}
-
-		#[inline(never)]
-		fn decode_inner<T, X, I>(input: &mut I) -> Result<X, Error>
-			where T: Decode + Into<X>,
-			      X: WrapperTypeDecode<Wrapped = T>,
-			      I: Input
-		{
-			input.descend_ref()?;
-			let result = Ok(T::decode(input)?.into());
-			input.ascend_ref();
-			result
-		}
-
-		// No specialization exists, so just decode `T` and then `into()` it.
-		//
-		// This must be done through an `#[inline(never)]` function to prevent
-		// the compiler from eagerly preallocating the stack space for the return
-		// value even if `decode_wrapped` is implemented.
-		decode_inner(input)
+		Self::decode_wrapped(input)
 	}
 }
 
