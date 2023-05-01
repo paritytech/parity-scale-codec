@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Contains the [`ConstEncodedLen`] trait and compliance tests.
+//! Contains the [`ConstEncodedLen`] trait. 
 
 use crate::MaxEncodedLen;
 use core::{
