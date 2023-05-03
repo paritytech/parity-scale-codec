@@ -74,7 +74,7 @@ check-rust-stable-only_mel:
   variables:
     RUSTFLAGS:                     "-Cdebug-assertions=y -Dwarnings"
   script:
-    - time cargo +stable check --features max-encoded-len
+    - time cargo +stable check --verbose --features max-encoded-len
 
 #### stage:                        test
 
