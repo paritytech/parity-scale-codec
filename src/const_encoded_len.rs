@@ -22,6 +22,7 @@ use core::{
 	ops::{Range, RangeInclusive},
 	time::Duration,
 };
+use crate::alloc::boxed::Box;
 use impl_trait_for_tuples::impl_for_tuples;
 
 /// Types that have a constant encoded length. This implies [`MaxEncodedLen`].
