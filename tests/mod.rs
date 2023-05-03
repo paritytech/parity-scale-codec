@@ -619,7 +619,7 @@ fn bit_vec_works() {
 
 	assert_eq!(original_vec, original_vec_clone);
 
-	#[derive(Decode, Encode, PartialEq, Debug)]
+	#[derive(DeriveDecode, DeriveEncode, PartialEq, Debug)]
 	struct MyStruct {
 		v: BitVec<u8, Msb0>,
 		x: u8,
