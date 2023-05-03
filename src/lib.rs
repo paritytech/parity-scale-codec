@@ -93,11 +93,9 @@
 //!
 #![cfg_attr(feature = "derive", doc = "```rust")]
 #![cfg_attr(not(feature = "derive"), doc = "*(Only compiled with feature `derive`)*\n```ignore")]
-//! # use parity_scale_codec_derive::{Encode as DeriveEncode, Decode as DeriveDecode};
-//!
 //! use parity_scale_codec::{Encode, Decode};
 //!
-//! #[derive(Debug, PartialEq, DeriveEncode, DeriveDecode)]
+//! #[derive(Debug, PartialEq, Encode, Decode)]
 //! enum EnumType {
 //! 	#[codec(index = 15)]
 //! 	A,
@@ -143,17 +141,15 @@
 //!
 #![cfg_attr(feature = "derive", doc = "```rust")]
 #![cfg_attr(not(feature = "derive"), doc = "*(Only compiled with feature `derive`)*\n```ignore")]
-//! # use parity_scale_codec_derive::{Encode as DeriveEncode, Decode as DeriveDecode};
-//!
 //! use parity_scale_codec::{Encode, Decode, Compact, HasCompact};
 //!
-//! #[derive(Debug, PartialEq, DeriveEncode, DeriveDecode)]
+//! #[derive(Debug, PartialEq, Encode, Decode)]
 //! struct Test1CompactHasCompact<T: HasCompact> {
 //!     #[codec(compact)]
 //!     bar: T,
 //! }
 //!
-//! #[derive(Debug, PartialEq, DeriveEncode, DeriveDecode)]
+//! #[derive(Debug, PartialEq, Encode, Decode)]
 //! struct Test1HasCompact<T: HasCompact> {
 //!     #[codec(encoded_as = "<T as HasCompact>::Type")]
 //!     bar: T,
@@ -171,7 +167,6 @@
 //!
 #![cfg_attr(feature = "derive", doc = "```rust")]
 #![cfg_attr(not(feature = "derive"), doc = "*(Only compiled with feature `derive`)*\n```ignore")]
-//! # use parity_scale_codec_derive::{Encode as DeriveEncode, Decode as DeriveDecode};
 //! use serde_derive::{Serialize, Deserialize};
 //! use parity_scale_codec::{Encode, Decode, Compact, HasCompact, CompactAs, Error};
 //!
@@ -197,7 +192,7 @@
 //!     }
 //! }
 //!
-//! #[derive(Debug, PartialEq, DeriveEncode, DeriveDecode)]
+//! #[derive(Debug, PartialEq, Encode, Decode)]
 //! enum TestGenericHasCompact<T> {
 //!     A {
 //!         #[codec(compact)] a: T
