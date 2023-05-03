@@ -5,6 +5,12 @@ All notable changes to this crate are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this crate adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.5.0]
+
+### Added
+
+- `ConstEncodedLen` marker trait for types that implement `MaxEncodedLen`. [#428](https://github.com/paritytech/parity-scale-codec/pull/428)
+
 ## [3.4.0]
 
 This release renders the `full` feature defunct. The implementations guarded behind
