@@ -95,6 +95,22 @@ test-rust-stable-no_derive:
   script:
     - time cargo +stable test --verbose --features bit-vec,bytes,generic-array
 
+test-rust-stable-only_mel:
+  stage:                           test
+  <<:                              *docker-env
+  variables:
+    RUSTFLAGS:                     "-Cdebug-assertions=y -Dwarnings"
+  script:
+    - time cargo +stable test --verbose --features max-encoded-len
+
+test-rust-stable-only_mel-no_default_std:
+  stage:                           test
+  <<:                              *docker-env
+  variables:
+    RUSTFLAGS:                     "-Cdebug-assertions=y -Dwarnings"
+  script:
+    - time cargo +stable test --verbose --features max-encoded-len,std --no-default-features
+
 bench-rust-nightly:
   stage:                           test
   <<:                              *docker-env
