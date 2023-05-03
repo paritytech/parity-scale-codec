@@ -91,11 +91,8 @@
 //!
 //! ### Simple types
 //!
-//! ```
-//! # // Import macros if derive feature is not used.
-//! # #[cfg(not(feature="derive"))]
-//! # use parity_scale_codec_derive::{Encode, Decode};
-//!
+#![cfg_attr(feature = "derive", doc = "```rust")]
+#![cfg_attr(not(feature = "derive"), doc = "*(Only compiled with feature `derive`)*\n```ignore")]
 //! use parity_scale_codec::{Encode, Decode};
 //!
 //! #[derive(Debug, PartialEq, Encode, Decode)]
@@ -142,11 +139,8 @@
 //!
 //! ### Compact type with HasCompact
 //!
-//! ```
-//! # // Import macros if derive feature is not used.
-//! # #[cfg(not(feature="derive"))]
-//! # use parity_scale_codec_derive::{Encode, Decode};
-//!
+#![cfg_attr(feature = "derive", doc = "```rust")]
+#![cfg_attr(not(feature = "derive"), doc = "*(Only compiled with feature `derive`)*\n```ignore")]
 //! use parity_scale_codec::{Encode, Decode, Compact, HasCompact};
 //!
 //! #[derive(Debug, PartialEq, Encode, Decode)]
@@ -171,11 +165,8 @@
 //! ```
 //! ### Type with CompactAs
 //!
-//! ```rust
-//! # // Import macros if derive feature is not used.
-//! # #[cfg(not(feature="derive"))]
-//! # use parity_scale_codec_derive::{Encode, Decode};
-//!
+#![cfg_attr(feature = "derive", doc = "```rust")]
+#![cfg_attr(not(feature = "derive"), doc = "*(Only compiled with feature `derive`)*\n```ignore")]
 //! use serde_derive::{Serialize, Deserialize};
 //! use parity_scale_codec::{Encode, Decode, Compact, HasCompact, CompactAs, Error};
 //!
