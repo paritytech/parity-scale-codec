@@ -91,7 +91,8 @@
 //!
 //! ### Simple types
 //!
-//! ```
+#![cfg_attr(feature = "derive", doc = "```rust")]
+#![cfg_attr(not(feature = "derive"), doc = "*(Only compiled with feature `derive`)*\n```ignore")]
 //! # use parity_scale_codec_derive::{Encode as DeriveEncode, Decode as DeriveDecode};
 //!
 //! use parity_scale_codec::{Encode, Decode};
@@ -140,7 +141,8 @@
 //!
 //! ### Compact type with HasCompact
 //!
-//! ```
+#![cfg_attr(feature = "derive", doc = "```rust")]
+#![cfg_attr(not(feature = "derive"), doc = "*(Only compiled with feature `derive`)*\n```ignore")]
 //! # use parity_scale_codec_derive::{Encode as DeriveEncode, Decode as DeriveDecode};
 //!
 //! use parity_scale_codec::{Encode, Decode, Compact, HasCompact};
@@ -167,7 +169,8 @@
 //! ```
 //! ### Type with CompactAs
 //!
-//! ```rust
+#![cfg_attr(feature = "derive", doc = "```rust")]
+#![cfg_attr(not(feature = "derive"), doc = "*(Only compiled with feature `derive`)*\n```ignore")]
 //! # use parity_scale_codec_derive::{Encode as DeriveEncode, Decode as DeriveDecode};
 //! use serde_derive::{Serialize, Deserialize};
 //! use parity_scale_codec::{Encode, Decode, Compact, HasCompact, CompactAs, Error};
