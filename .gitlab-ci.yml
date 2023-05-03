@@ -68,6 +68,13 @@ check-rust-stable-no_derive:
   script:
     - time cargo +stable check --verbose --features bit-vec,bytes,generic-array
 
+check-rust-stable-only_mel:
+  stage:                           check
+  <<:                              *docker-env
+  variables:
+    RUSTFLAGS:                     "-Cdebug-assertions=y -Dwarnings"
+  script:
+    - time cargo +stable check --features max-encoded-len
 
 #### stage:                        test
 
@@ -137,4 +144,3 @@ build-linux-ubuntu-amd64:
     - if: $CI_COMMIT_REF_NAME == "tags"
   script:
     - cargo build --verbose --release --features bit-vec,bytes,generic-array,derive
-
