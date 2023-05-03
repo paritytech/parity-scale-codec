@@ -12,22 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#[cfg(not(feature="derive"))]
-use parity_scale_codec_derive::Decode;
+use parity_scale_codec_derive::Decode as DeriveDecode;
 use parity_scale_codec::Decode;
 
-#[derive(Decode, Debug)]
+#[derive(DeriveDecode, Debug)]
 struct Wrapper<T>(T);
 
-#[derive(Decode, Debug)]
+#[derive(DeriveDecode, Debug)]
 struct StructNamed {
 	_foo: u16
 }
 
-#[derive(Decode, Debug)]
+#[derive(DeriveDecode, Debug)]
 struct StructUnnamed(u16);
 
-#[derive(Decode, Debug)]
+#[derive(DeriveDecode, Debug)]
 enum E {
 	VariantNamed { _foo: u16, },
 	VariantUnnamed(u16),

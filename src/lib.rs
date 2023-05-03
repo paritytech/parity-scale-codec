@@ -92,13 +92,11 @@
 //! ### Simple types
 //!
 //! ```
-//! # // Import macros if derive feature is not used.
-//! # #[cfg(not(feature="derive"))]
-//! # use parity_scale_codec_derive::{Encode, Decode};
+//! # use parity_scale_codec_derive::{Encode as DeriveEncode, Decode as DeriveDecode};
 //!
 //! use parity_scale_codec::{Encode, Decode};
 //!
-//! #[derive(Debug, PartialEq, Encode, Decode)]
+//! #[derive(Debug, PartialEq, DeriveEncode, DeriveDecode)]
 //! enum EnumType {
 //! 	#[codec(index = 15)]
 //! 	A,
@@ -143,19 +141,17 @@
 //! ### Compact type with HasCompact
 //!
 //! ```
-//! # // Import macros if derive feature is not used.
-//! # #[cfg(not(feature="derive"))]
-//! # use parity_scale_codec_derive::{Encode, Decode};
+//! # use parity_scale_codec_derive::{Encode as DeriveEncode, Decode as DeriveDecode};
 //!
 //! use parity_scale_codec::{Encode, Decode, Compact, HasCompact};
 //!
-//! #[derive(Debug, PartialEq, Encode, Decode)]
+//! #[derive(Debug, PartialEq, DeriveEncode, DeriveDecode)]
 //! struct Test1CompactHasCompact<T: HasCompact> {
 //!     #[codec(compact)]
 //!     bar: T,
 //! }
 //!
-//! #[derive(Debug, PartialEq, Encode, Decode)]
+//! #[derive(Debug, PartialEq, DeriveEncode, DeriveDecode)]
 //! struct Test1HasCompact<T: HasCompact> {
 //!     #[codec(encoded_as = "<T as HasCompact>::Type")]
 //!     bar: T,
@@ -172,10 +168,7 @@
 //! ### Type with CompactAs
 //!
 //! ```rust
-//! # // Import macros if derive feature is not used.
-//! # #[cfg(not(feature="derive"))]
-//! # use parity_scale_codec_derive::{Encode, Decode};
-//!
+//! # use parity_scale_codec_derive::{Encode as DeriveEncode, Decode as DeriveDecode};
 //! use serde_derive::{Serialize, Deserialize};
 //! use parity_scale_codec::{Encode, Decode, Compact, HasCompact, CompactAs, Error};
 //!
@@ -201,7 +194,7 @@
 //!     }
 //! }
 //!
-//! #[derive(Debug, PartialEq, Encode, Decode)]
+//! #[derive(Debug, PartialEq, DeriveEncode, DeriveDecode)]
 //! enum TestGenericHasCompact<T> {
 //!     A {
 //!         #[codec(compact)] a: T

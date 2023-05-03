@@ -15,24 +15,23 @@
 use parity_scale_codec::{
 	Compact, CompactAs, Decode, Encode, EncodeAsRef, Error, HasCompact, Output,
 };
-#[cfg(not(feature = "derive"))]
-use parity_scale_codec_derive::{Decode, Encode};
+use parity_scale_codec_derive::{Decode as DeriveDecode, Encode as DeriveEncode};
 use serde_derive::{Deserialize, Serialize};
 
-#[derive(Debug, PartialEq, Encode, Decode)]
+#[derive(Debug, PartialEq, DeriveEncode, DeriveDecode)]
 struct Unit;
 
-#[derive(Debug, PartialEq, Encode, Decode)]
+#[derive(Debug, PartialEq, DeriveEncode, DeriveDecode)]
 struct Indexed(u32, u64);
 
-#[derive(Debug, PartialEq, Encode, Decode, Default)]
+#[derive(Debug, PartialEq, DeriveEncode, DeriveDecode, Default)]
 struct Struct<A, B, C> {
 	pub a: A,
 	pub b: B,
 	pub c: C,
 }
 
-#[derive(Debug, PartialEq, Encode, Decode)]
+#[derive(Debug, PartialEq, DeriveEncode, DeriveDecode)]
 struct StructWithPhantom {
 	pub a: u32,
 	pub b: u64,
@@ -47,7 +46,7 @@ impl<A, B, C> Struct<A, B, C> {
 	}
 }
 
-#[derive(Debug, PartialEq, Encode, Decode)]
+#[derive(Debug, PartialEq, DeriveEncode, DeriveDecode)]
 enum EnumType {
 	#[codec(index = 15)]
 	A,
@@ -58,26 +57,26 @@ enum EnumType {
 	},
 }
 
-#[derive(Debug, PartialEq, Encode, Decode)]
+#[derive(Debug, PartialEq, DeriveEncode, DeriveDecode)]
 enum EnumWithDiscriminant {
 	A = 1,
 	B = 15,
 	C = 255,
 }
 
-#[derive(Debug, PartialEq, Encode, Decode)]
+#[derive(Debug, PartialEq, DeriveEncode, DeriveDecode)]
 struct TestHasCompact<T: HasCompact> {
 	#[codec(encoded_as = "<T as HasCompact>::Type")]
 	bar: T,
 }
 
-#[derive(Debug, PartialEq, Encode, Decode)]
+#[derive(Debug, PartialEq, DeriveEncode, DeriveDecode)]
 struct TestCompactHasCompact<T: HasCompact> {
 	#[codec(compact)]
 	bar: T,
 }
 
-#[derive(Debug, PartialEq, Encode, Decode)]
+#[derive(Debug, PartialEq, DeriveEncode, DeriveDecode)]
 enum TestHasCompactEnum<T: HasCompact> {
 	Unnamed(#[codec(encoded_as = "<T as HasCompact>::Type")] T),
 	Named {
@@ -91,13 +90,13 @@ enum TestHasCompactEnum<T: HasCompact> {
 	},
 }
 
-#[derive(Debug, PartialEq, Encode, Decode)]
+#[derive(Debug, PartialEq, DeriveEncode, DeriveDecode)]
 struct TestCompactAttribute {
 	#[codec(compact)]
 	bar: u64,
 }
 
-#[derive(Debug, PartialEq, Encode, Decode)]
+#[derive(Debug, PartialEq, DeriveEncode, DeriveDecode)]
 enum TestCompactAttributeEnum {
 	Unnamed(#[codec(compact)] u64),
 	Named {
@@ -330,7 +329,7 @@ fn associated_type_bounds() {
 		type NonEncodableType;
 	}
 
-	#[derive(Encode, Decode, Debug, PartialEq)]
+	#[derive(DeriveEncode, DeriveDecode, Debug, PartialEq)]
 	struct Struct<T: Trait, Type> {
 		field: (Vec<T::EncodableType>, Type),
 	}
@@ -372,7 +371,7 @@ fn generic_bound_encoded_as() {
 		type RefType = &'a u32;
 	}
 
-	#[derive(Debug, PartialEq, Encode, Decode)]
+	#[derive(Debug, PartialEq, DeriveEncode, DeriveDecode)]
 	struct TestGeneric<A: From<u32>>
 	where
 		u32: for<'a> EncodeAsRef<'a, A>,
@@ -408,7 +407,7 @@ fn generic_bound_hascompact() {
 		}
 	}
 
-	#[derive(Debug, PartialEq, Encode, Decode)]
+	#[derive(Debug, PartialEq, DeriveEncode, DeriveDecode)]
 	enum TestGenericHasCompact<T> {
 		A {
 			#[codec(compact)]
@@ -429,14 +428,14 @@ fn generic_trait() {
 
 	struct StructNoCodec;
 
-	#[derive(Debug, PartialEq, Encode, Decode)]
+	#[derive(Debug, PartialEq, DeriveEncode, DeriveDecode)]
 	struct StructCodec;
 
 	impl TraitNoCodec for StructNoCodec {
 		type Type = StructCodec;
 	}
 
-	#[derive(Debug, PartialEq, Encode, Decode)]
+	#[derive(Debug, PartialEq, DeriveEncode, DeriveDecode)]
 	struct TestGenericTrait<T: TraitNoCodec> {
 		t: T::Type,
 	}
@@ -448,7 +447,7 @@ fn generic_trait() {
 
 #[test]
 fn recursive_variant_1_encode_works() {
-	#[derive(Debug, PartialEq, Encode, Decode, Default)]
+	#[derive(Debug, PartialEq, DeriveEncode, DeriveDecode, Default)]
 	struct Recursive<N> {
 		data: N,
 		other: Vec<Recursive<N>>,
@@ -460,7 +459,7 @@ fn recursive_variant_1_encode_works() {
 
 #[test]
 fn recursive_variant_2_encode_works() {
-	#[derive(Debug, PartialEq, Encode, Decode, Default)]
+	#[derive(Debug, PartialEq, DeriveEncode, DeriveDecode, Default)]
 	struct Recursive<A, B, N> {
 		data: N,
 		other: Vec<Struct<A, B, Recursive<A, B, N>>>,
@@ -476,10 +475,10 @@ fn private_type_in_where_bound() {
 	// an error.
 	#![deny(warnings)]
 
-	#[derive(Debug, PartialEq, Encode, Decode, Default)]
+	#[derive(Debug, PartialEq, DeriveEncode, DeriveDecode, Default)]
 	struct Private;
 
-	#[derive(Debug, PartialEq, Encode, Decode, Default)]
+	#[derive(Debug, PartialEq, DeriveEncode, DeriveDecode, Default)]
 	#[codec(dumb_trait_bound)]
 	pub struct Test<N> {
 		data: Vec<(N, Private)>,
@@ -491,7 +490,7 @@ fn private_type_in_where_bound() {
 
 #[test]
 fn encode_decode_empty_enum() {
-	#[derive(Encode, Decode, PartialEq, Debug)]
+	#[derive(DeriveEncode, DeriveDecode, PartialEq, Debug)]
 	enum EmptyEnumDerive {}
 
 	fn impls_encode_decode<T: Encode + Decode>() {}
@@ -513,13 +512,13 @@ fn codec_vec_u8() {
 
 #[test]
 fn recursive_type() {
-	#[derive(Encode, Decode)]
+	#[derive(DeriveEncode, DeriveDecode)]
 	pub enum Foo {
 		T(Box<Bar>),
 		A,
 	}
 
-	#[derive(Encode, Decode)]
+	#[derive(DeriveEncode, DeriveDecode)]
 	pub struct Bar {
 		field: Foo,
 	}
@@ -567,7 +566,7 @@ fn weird_derive() {
 		};
 	}
 
-	make_struct!(#[derive(Encode, Decode)]);
+	make_struct!(#[derive(DeriveEncode, DeriveDecode)]);
 }
 
 #[test]
@@ -577,7 +576,7 @@ fn output_trait_object() {
 
 #[test]
 fn custom_trait_bound() {
-	#[derive(Encode, Decode)]
+	#[derive(DeriveEncode, DeriveDecode)]
 	#[codec(encode_bound(N: Encode, T: Default))]
 	#[codec(decode_bound(N: Decode, T: Default))]
 	struct Something<T, N> {
@@ -585,7 +584,7 @@ fn custom_trait_bound() {
 		val: N,
 	}
 
-	#[derive(Encode, Decode)]
+	#[derive(DeriveEncode, DeriveDecode)]
 	#[codec(encode_bound())]
 	#[codec(decode_bound())]
 	struct Hello<T> {
@@ -637,7 +636,7 @@ fn bit_vec_works() {
 
 #[test]
 fn no_warning_for_deprecated() {
-	#[derive(Encode, Decode)]
+	#[derive(DeriveEncode, DeriveDecode)]
 	pub enum MyEnum {
 		VariantA,
 		#[deprecated]
