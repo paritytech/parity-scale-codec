@@ -28,12 +28,7 @@ use impl_trait_for_tuples::impl_for_tuples;
 /// Types that have a constant encoded length. This implies [`MaxEncodedLen`].
 ///
 /// No derive macros is provided; instead use an empty implementation like for a marker trait.
-pub trait ConstEncodedLen: MaxEncodedLen {
-	/// Encoded size of any possible `Self` instance.
-	fn const_encoded_len() -> usize {
-		Self::max_encoded_len()
-	}
-}
+pub trait ConstEncodedLen: MaxEncodedLen {}
 
 #[impl_for_tuples(18)]
 impl ConstEncodedLen for Tuple { }
@@ -70,7 +65,7 @@ mod tests {
 	use crate::Encode;
 	use proptest::prelude::*;
 
-	/// Test that some random instances of `T` have encoded len `T::const_encoded_len()`.
+	/// Test that some random instances of `T` have encoded len `T::max_encoded_len()`.
 	macro_rules! test_cel_compliance {
 		( $( $t:ty ),+ ) => {
 			$(
@@ -78,8 +73,7 @@ mod tests {
 					proptest::proptest! {
 						#[test]
 						fn [< cel_compliance_ $t:snake >](x: $t) {
-							prop_assert_eq!(x.encode().len(), <$t as ConstEncodedLen>::const_encoded_len());
-							prop_assert_eq!(<$t as MaxEncodedLen>::max_encoded_len(), <$t as ConstEncodedLen>::const_encoded_len());
+							prop_assert_eq!(x.encode().len(), $t::max_encoded_len());
 						}
 					}
 				}
