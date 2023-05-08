@@ -12,8 +12,7 @@ structures look) needs to be known separately at both encoding and decoding ends
 The encoded data does not include this contextual information.
 
 To get a better understanding of how the encoding is done for different types,
-take a look at the
-[SCALE Code page at the Substrate Knowledge Base](https://docs.substrate.io/v3/advanced/scale-codec/).
+take a look at the ["Type encoding (SCALE)" page in Substrate docs](https://docs.substrate.io/reference/scale-codec/).
 
 ## Implementation
 
@@ -25,16 +24,15 @@ The `Encode` trait is used for encoding of data into the SCALE format. The `Enco
 contains the following functions:
 
 * `size_hint(&self) -> usize`: Gets the capacity (in bytes) required for the encoded data.
-This is to avoid double-allocation of memory needed for the encoding.
-It can be an estimate and does not need to be an exact number.
-If the size is not known, even no good maximum, then we can skip this function from the trait
-implementation. This is required to be a cheap operation, so should not involve iterations etc.
+  This is to avoid double-allocation of memory needed for the encoding. It can be an estimate
+  and does not need to be an exact number. If the size is not known, even no good maximum, then
+  we can skip this function from the trait implementation. This is required to be a cheap operation,
+  so should not involve iterations etc.
 * `encode_to<T: Output>(&self, dest: &mut T)`: Encodes the value and appends it to a destination
   buffer.
 * `encode(&self) -> Vec<u8>`: Encodes the type data and returns a slice.
 * `using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R`: Encodes the type data and
-  executes a closure on the encoded value.
-Returns the result from the executed closure.
+  executes a closure on the encoded value. Returns the result from the executed closure.
 
 **Note:** Implementations should override `using_encoded` for value types and `encode_to` for
 allocating types. `size_hint` should be implemented for all types, wherever possible. Wrapper
@@ -46,16 +44,15 @@ The `Decode` trait is used for deserialization/decoding of encoded data into the
 types.
 
 * `fn decode<I: Input>(value: &mut I) -> Result<Self, Error>`: Tries to decode the value from
-  SCALE format to the type it is called on.
-Returns an `Err` if the decoding fails.
+  SCALE format to the type it is called on. Returns an `Err` if the decoding fails.
 
 ### CompactAs
 
 The `CompactAs` trait is used for wrapping custom types/structs as compact types, which makes
-them even more space/memory efficient. The compact encoding is described [here](https://docs.substrate.io/v3/advanced/scale-codec/#compactgeneral-integers).
+them even more space/memory efficient. The compact encoding is described [here](https://docs.substrate.io/reference/scale-codec/#fn-1).
 
 * `encode_as(&self) -> &Self::As`: Encodes the type (self) as a compact type.
-The type `As` is defined in the same trait and its implementation should be compact encode-able.
+  The type `As` is defined in the same trait and its implementation should be compact encode-able.
 * `decode_from(_: Self::As) -> Result<Self, Error>`: Decodes the type (self) from a compact
   encode-able type.
 
