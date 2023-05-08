@@ -73,7 +73,7 @@ Following are some examples to demonstrate usage of the codec.
 
 ### Simple types
 
-```
+```rust
 # // Import macros if derive feature is not used.
 # #[cfg(not(feature="derive"))]
 # use parity_scale_codec_derive::{Encode, Decode};
@@ -82,13 +82,13 @@ use parity_scale_codec::{Encode, Decode};
 
 #[derive(Debug, PartialEq, Encode, Decode)]
 enum EnumType {
-	#[codec(index = 15)]
-	A,
-	B(u32, u64),
-	C {
-		a: u32,
-		b: u64,
-	},
+    #[codec(index = 15)]
+    A,
+    B(u32, u64),
+    C {
+        a: u32,
+        b: u64,
+    },
 }
 
 let a = EnumType::A;
@@ -124,7 +124,7 @@ assert_eq!(EnumType::decode(&mut dz).ok(), None);
 
 ### Compact type with HasCompact
 
-```
+```rust
 # // Import macros if derive feature is not used.
 # #[cfg(not(feature="derive"))]
 # use parity_scale_codec_derive::{Encode, Decode};
@@ -151,6 +151,7 @@ assert_eq!(<Test1CompactHasCompact<u64>>::decode(&mut &encoded[..]).unwrap().bar
 
 # fn main() { }
 ```
+
 ### Type with CompactAs
 
 ```rust
