@@ -46,7 +46,7 @@ fuzz = ["std", "arbitrary"]
 # Enables the new `MaxEncodedLen` trait.
 # NOTE: This is still considered experimental and is exempt from the usual
 # SemVer guarantees. We do not guarantee no code breakage when using this.
-max-encoded-len = ["parity-scale-codec-derive/max-encoded-len"]
+max-encoded-len = ["parity-scale-codec-derive?/max-encoded-len"]
 
 # Make error fully descriptive with chaining error message.
 # Should not be used in a constrained environment.
