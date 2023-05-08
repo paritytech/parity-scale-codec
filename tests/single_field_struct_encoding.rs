@@ -1,17 +1,14 @@
-#[cfg(not(feature="derive"))]
-use parity_scale_codec_derive::{Encode, Decode, CompactAs};
-#[cfg(feature="derive")]
-use parity_scale_codec::CompactAs;
+use parity_scale_codec_derive::{Encode as DeriveEncode, Decode as DeriveDecode, CompactAs as DeriveCompactAs};
 use parity_scale_codec::{Compact, Decode, Encode, HasCompact};
 use serde_derive::{Serialize, Deserialize};
 
-#[derive(Debug, PartialEq, Encode, Decode)]
+#[derive(Debug, PartialEq, DeriveEncode, DeriveDecode)]
 struct S {
 	x: u32,
 }
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Encode, Decode, CompactAs)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, DeriveEncode, DeriveDecode, DeriveCompactAs)]
 struct SSkip {
 	#[codec(skip)]
 	s1: u32,
@@ -20,43 +17,43 @@ struct SSkip {
 	s2: u32,
 }
 
-#[derive(Debug, PartialEq, Encode, Decode)]
+#[derive(Debug, PartialEq, DeriveEncode, DeriveDecode)]
 struct Sc {
 	#[codec(compact)]
 	x: u32,
 }
 
-#[derive(Debug, PartialEq, Encode, Decode)]
+#[derive(Debug, PartialEq, DeriveEncode, DeriveDecode)]
 struct Sh<T: HasCompact> {
 	#[codec(encoded_as = "<T as HasCompact>::Type")]
 	x: T,
 }
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Encode, Decode, CompactAs)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, DeriveEncode, DeriveDecode, DeriveCompactAs)]
 struct U(u32);
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Encode, Decode, CompactAs)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, DeriveEncode, DeriveDecode, DeriveCompactAs)]
 struct U2 { a: u64 }
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Encode, Decode, CompactAs)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, DeriveEncode, DeriveDecode, DeriveCompactAs)]
 struct USkip(#[codec(skip)] u32, u32, #[codec(skip)] u32);
 
-#[derive(Debug, PartialEq, Encode, Decode)]
+#[derive(Debug, PartialEq, DeriveEncode, DeriveDecode)]
 struct Uc(#[codec(compact)] u32);
 
-#[derive(Debug, PartialEq, Clone, Encode, Decode)]
+#[derive(Debug, PartialEq, Clone, DeriveEncode, DeriveDecode)]
 struct Ucas(#[codec(compact)] U);
 
-#[derive(Debug, PartialEq, Clone, Encode, Decode)]
+#[derive(Debug, PartialEq, Clone, DeriveEncode, DeriveDecode)]
 struct USkipcas(#[codec(compact)] USkip);
 
-#[derive(Debug, PartialEq, Clone, Encode, Decode)]
+#[derive(Debug, PartialEq, Clone, DeriveEncode, DeriveDecode)]
 struct SSkipcas(#[codec(compact)] SSkip);
 
-#[derive(Debug, PartialEq, Encode, Decode)]
+#[derive(Debug, PartialEq, DeriveEncode, DeriveDecode)]
 struct Uh<T: HasCompact>(#[codec(encoded_as = "<T as HasCompact>::Type")] T);
 
 #[test]

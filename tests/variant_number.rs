@@ -1,10 +1,9 @@
-#[cfg(not(feature="derive"))]
-use parity_scale_codec_derive::Encode;
+use parity_scale_codec_derive::Encode as DeriveEncode;
 use parity_scale_codec::Encode;
 
 #[test]
 fn discriminant_variant_counted_in_default_index() {
-	#[derive(Encode)]
+	#[derive(DeriveEncode)]
 	enum T {
 		A = 1,
 		B,
@@ -16,7 +15,7 @@ fn discriminant_variant_counted_in_default_index() {
 
 #[test]
 fn skipped_variant_not_counted_in_default_index() {
-	#[derive(Encode)]
+	#[derive(DeriveEncode)]
 	enum T {
 		#[codec(skip)]
 		A,
@@ -29,7 +28,7 @@ fn skipped_variant_not_counted_in_default_index() {
 
 #[test]
 fn index_attr_variant_counted_and_reused_in_default_index() {
-	#[derive(Encode)]
+	#[derive(DeriveEncode)]
 	enum T {
 		#[codec(index = 1)]
 		A,

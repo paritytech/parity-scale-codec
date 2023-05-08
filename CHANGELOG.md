@@ -5,7 +5,7 @@ All notable changes to this crate are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this crate adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [3.5.0]
+## [3.6.0]
 
 ### Added
 
@@ -17,6 +17,12 @@ and this crate adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 - Trying to deserialize a big boxed array (e.g. `Box<[u8; 1024 * 1024 * 1024]>`) won't overflow the stack anymore.
 - Trying to deserialize big nested enums with many variants won't overflow the stack anymore.
 - Elements of partially read arrays will now be properly dropped if the whole array wasn't decoded.
+
+## [3.5.0]
+
+### Added
+
+- `ConstEncodedLen` marker trait for types that implement `MaxEncodedLen`. [#428](https://github.com/paritytech/parity-scale-codec/pull/428)
 
 ## [3.4.0]
 

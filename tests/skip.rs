@@ -1,5 +1,4 @@
-#[cfg(not(feature="derive"))]
-use parity_scale_codec_derive::{Encode, Decode};
+use parity_scale_codec_derive::{Encode as DeriveEncode, Decode as DeriveDecode};
 use parity_scale_codec::{Encode, Decode};
 
 #[test]
@@ -10,7 +9,8 @@ fn enum_struct_test() {
 	#[derive(PartialEq, Debug)]
 	struct UncodecUndefaultType;
 
-	#[derive(PartialEq, Debug, Encode, Decode)]
+use parity_scale_codec_derive::{Encode as DeriveEncode, Decode as DeriveDecode};
+	#[derive(PartialEq, Debug, DeriveEncode, DeriveDecode)]
 	enum Enum<T=UncodecType, S=UncodecUndefaultType> {
 		#[codec(skip)]
 		A(S),
@@ -26,14 +26,14 @@ fn enum_struct_test() {
 		),
 	}
 
-	#[derive(PartialEq, Debug, Encode, Decode)]
+	#[derive(PartialEq, Debug, DeriveEncode, DeriveDecode)]
 	struct StructNamed<T=UncodecType> {
 		#[codec(skip)]
 		a: T,
 		b: u32,
 	}
 
-	#[derive(PartialEq, Debug, Encode, Decode)]
+	#[derive(PartialEq, Debug, DeriveEncode, DeriveDecode)]
 	struct StructUnnamed<T=UncodecType>(
 		#[codec(skip)]
 		T,
@@ -64,7 +64,7 @@ fn skip_enum_struct_inner_variant() {
 	// Make sure the skipping does not generates a warning.
 	#![deny(warnings)]
 
-	#[derive(Encode, Decode)]
+	#[derive(DeriveEncode, DeriveDecode)]
 	enum Enum {
 		Data {
 			some_named: u32,
