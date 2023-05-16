@@ -19,6 +19,7 @@ use crate::{Compact, Encode};
 use impl_trait_for_tuples::impl_for_tuples;
 use core::{mem, marker::PhantomData, num::*, ops::{Range, RangeInclusive}, time::Duration};
 use crate::alloc::boxed::Box;
+use crate::alloc::sync::Arc;
 
 /// Items implementing `MaxEncodedLen` have a statically known maximum encoded size.
 ///
@@ -94,6 +95,12 @@ impl<T: MaxEncodedLen, const N: usize> MaxEncodedLen for [T; N] {
 impl<T: MaxEncodedLen> MaxEncodedLen for Box<T> {
 	fn max_encoded_len() -> usize {
 	    T::max_encoded_len()
+	}
+}
+
+impl<T: MaxEncodedLen> MaxEncodedLen for Arc<T> {
+	fn max_encoded_len() -> usize {
+		T::max_encoded_len()
 	}
 }
 
