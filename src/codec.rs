@@ -986,6 +986,8 @@ impl<T: Decode, const N: usize> Decode for [T; N] {
 					return;
 				}
 
+				// TODO: Use `MaybeUninit::slice_assume_init_mut` + `core::ptr::drop_in_place`
+				//       once `slice_assume_init_mut` is stable.
 				for item in &mut self.slice[..self.count] {
 					// SAFETY: Each time we've read a new element we incremented `count`,
 					//         and we only drop at most `count` elements here,
