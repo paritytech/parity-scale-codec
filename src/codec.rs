@@ -340,7 +340,7 @@ pub trait Decode: Sized {
 	/// Attempt to deserialise the value from input.
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error>;
 
-	/// Attempt to deserialise the value from input into a preallocated piece of memory.
+	/// Attempt to deserialize the value from input into a pre-allocated piece of memory.
 	///
 	/// The default implementation will just call [`Decode::decode`].
 	///
