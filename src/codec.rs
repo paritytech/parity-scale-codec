@@ -890,7 +890,7 @@ impl<T: Encode, const N: usize> Encode for [T; N] {
 }
 
 const fn calculate_array_bytesize<T, const N: usize>() -> usize {
-	struct AssertNotOverflow<T, const N: usize>(std::marker::PhantomData<T>);
+	struct AssertNotOverflow<T, const N: usize>(core::marker::PhantomData<T>);
 
 	impl<T, const N: usize> AssertNotOverflow<T, N> {
 		const OK: () = assert!(core::mem::size_of::<T>().checked_mul(N).is_some(), "array size overflow");
