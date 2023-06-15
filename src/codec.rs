@@ -284,48 +284,19 @@ pub trait DecodeLength {
 	fn len(self_encoded: &[u8]) -> Result<usize, Error>;
 }
 
-/// A decoding context.
+/// A zero-sized type signifying that the decoding finished.
 ///
-/// Used in [`Decode::decode_into`] to allow the implementation to explicitly
+/// To be used in [`Decode::decode_into`] to allow the implementation to explicitly
 /// assert that the `MaybeUninit` passed into that function was properly initialized.
-pub struct DecodeContext(PhantomData<*const ()>);
-
-/// A marker type signifying that the decoding finished.
 pub struct DecodeFinished(PhantomData<*const ()>);
 
-// Source: https://users.rust-lang.org/t/a-macro-to-assert-that-a-type-does-not-implement-trait-bounds/31179
-macro_rules! assert_not_impl {
-	($x:ty, $($t:path),+ $(,)*) => {
-		const _: fn() -> () = || {
-			struct Check<T: ?Sized>(T);
-			trait AmbiguousIfImpl<A> { fn some_item() {} }
-
-			impl<T: ?Sized> AmbiguousIfImpl<()> for Check<T> {}
-			impl<T: ?Sized $(+ $t)*> AmbiguousIfImpl<u8> for Check<T> {}
-
-			<Check::<$x> as AmbiguousIfImpl<_>>::some_item()
-		};
-	};
-}
-
-// We don't want the user to be able to stash these anywhere, for obvious reasons.
-assert_not_impl!(DecodeContext, Send);
-assert_not_impl!(DecodeContext, Sync);
-assert_not_impl!(DecodeFinished, Send);
-assert_not_impl!(DecodeFinished, Sync);
-
-impl DecodeContext {
-	#[inline]
-	fn new() -> Self {
-		DecodeContext(PhantomData)
-	}
-
+impl DecodeFinished {
 	/// Assert that the decoding has finished.
 	///
 	/// Should be used in [`Decode::decode_into`] to signify that
 	/// the `MaybeUninit` passed into that function was properly initialized.
 	#[inline]
-	pub unsafe fn assert_decoding_finished(self) -> DecodeFinished {
+	pub unsafe fn assert_decoding_finished() -> DecodeFinished {
 		DecodeFinished(PhantomData)
 	}
 }
@@ -349,13 +320,13 @@ pub trait Decode: Sized {
 	/// If this function returns `Ok` then `dst` **must** be properly initialized.
 	///
 	/// This is enforced by requiring the implementation to return a [`DecodeFinished`]
-	/// which can only be created by calling [`DecodeContext::assert_decoding_finished`] which is `unsafe`.
-	fn decode_into<I: Input>(ctx: DecodeContext, input: &mut I, dst: &mut MaybeUninit<Self>) -> Result<DecodeFinished, Error> {
+	/// which can only be created by calling [`DecodeFinished::assert_decoding_finished`] which is `unsafe`.
+	fn decode_into<I: Input>(input: &mut I, dst: &mut MaybeUninit<Self>) -> Result<DecodeFinished, Error> {
 		let value = Self::decode(input)?;
 		dst.write(value);
 
 		// SAFETY: We've written the decoded value to `dst` so calling this is safe.
-		unsafe { Ok(ctx.assert_decoding_finished()) }
+		unsafe { Ok(DecodeFinished::assert_decoding_finished()) }
 	}
 
 	/// Attempt to skip the encoded value from input.
@@ -601,7 +572,7 @@ impl<T> WrapperTypeDecode for Box<T> {
 		//         as the underlying type is zero-sized.
 		let mut boxed: Box<MaybeUninit<T>> = unsafe { Box::from_raw(ptr) };
 
-		T::decode_into(DecodeContext::new(), input, &mut boxed)?;
+		T::decode_into(input, &mut boxed)?;
 
 		// Decoding succeeded, so let's get rid of `MaybeUninit`.
 		let ptr: *mut MaybeUninit<T> = Box::into_raw(boxed);
@@ -936,7 +907,7 @@ impl<T: Decode, const N: usize> Decode for [T; N] {
 	#[inline(always)]
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		let mut array = MaybeUninit::uninit();
-		Self::decode_into(DecodeContext::new(), input, &mut array)?;
+		Self::decode_into(input, &mut array)?;
 
 		// SAFETY: `decode_into` succeeded, so the array is initialized.
 		unsafe {
@@ -944,7 +915,7 @@ impl<T: Decode, const N: usize> Decode for [T; N] {
 		}
 	}
 
-    fn decode_into<I: Input>(ctx: DecodeContext, input: &mut I, dst: &mut MaybeUninit<Self>) -> Result<DecodeFinished, Error> {
+    fn decode_into<I: Input>(input: &mut I, dst: &mut MaybeUninit<Self>) -> Result<DecodeFinished, Error> {
 		let is_primitive = match <T as Decode>::TYPE_INFO {
 			| TypeInfo::U8
 			| TypeInfo::I8
@@ -988,7 +959,7 @@ impl<T: Decode, const N: usize> Decode for [T; N] {
 
 			// SAFETY: We've initialized the whole slice so calling this is safe.
 			unsafe {
-				return Ok(ctx.assert_decoding_finished());
+				return Ok(DecodeFinished::assert_decoding_finished());
 			}
 		}
 
@@ -1034,7 +1005,7 @@ impl<T: Decode, const N: usize> Decode for [T; N] {
 		};
 
 		while state.count < state.slice.len() {
-			T::decode_into(DecodeContext::new(), input, &mut state.slice[state.count])?;
+			T::decode_into(input, &mut state.slice[state.count])?;
 			state.count += 1;
 		}
 
@@ -1043,7 +1014,7 @@ impl<T: Decode, const N: usize> Decode for [T; N] {
 
 		// SAFETY: We've initialized the whole slice so calling this is safe.
 		unsafe {
-			return Ok(ctx.assert_decoding_finished());
+			return Ok(DecodeFinished::assert_decoding_finished());
 		}
 	}
 

@@ -68,7 +68,7 @@ pub use self::error::Error;
 pub use self::codec::{
 	Input, Output, Decode, Encode, Codec, EncodeAsRef, WrapperTypeEncode, WrapperTypeDecode,
 	OptionBool, DecodeLength, FullCodec, FullEncode, decode_vec_with_len,
-	DecodeContext, DecodeFinished,
+	DecodeFinished,
 };
 #[cfg(feature = "std")]
 pub use self::codec::IoReader;
