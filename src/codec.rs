@@ -22,11 +22,9 @@ use core::{
 	mem,
 	mem::{
 		MaybeUninit,
-		forget,
 	},
 	ops::{Deref, Range, RangeInclusive},
 	time::Duration,
-	ptr,
 };
 use core::num::{
 	NonZeroI8,
@@ -56,6 +54,7 @@ use crate::alloc::{
 	vec::Vec,
 };
 use crate::compact::Compact;
+use crate::DecodeFinished;
 use crate::encode_like::EncodeLike;
 use crate::Error;
 
@@ -296,6 +295,24 @@ pub trait Decode: Sized {
 	/// Attempt to deserialise the value from input.
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error>;
 
+	/// Attempt to deserialize the value from input into a pre-allocated piece of memory.
+	///
+	/// The default implementation will just call [`Decode::decode`].
+	///
+	/// # Safety
+	///
+	/// If this function returns `Ok` then `dst` **must** be properly initialized.
+	///
+	/// This is enforced by requiring the implementation to return a [`DecodeFinished`]
+	/// which can only be created by calling [`DecodeFinished::assert_decoding_finished`] which is `unsafe`.
+	fn decode_into<I: Input>(input: &mut I, dst: &mut MaybeUninit<Self>) -> Result<DecodeFinished, Error> {
+		let value = Self::decode(input)?;
+		dst.write(value);
+
+		// SAFETY: We've written the decoded value to `dst` so calling this is safe.
+		unsafe { Ok(DecodeFinished::assert_decoding_finished()) }
+	}
+
 	/// Attempt to skip the encoded value from input.
 	///
 	/// The default implementation of this function is just calling [`Decode::decode`].
@@ -488,29 +505,101 @@ impl<T, X> Encode for X where
 pub trait WrapperTypeDecode: Sized {
 	/// A wrapped type.
 	type Wrapped: Into<Self>;
+
+	// !INTERNAL USE ONLY!
+	// This is a used to specialize `decode` for the wrapped type.
+	#[doc(hidden)]
+	#[inline]
+	fn decode_wrapped<I: Input>(input: &mut I) -> Result<Self, Error> where Self::Wrapped: Decode {
+		input.descend_ref()?;
+		let result = Ok(Self::Wrapped::decode(input)?.into());
+		input.ascend_ref();
+		result
+	}
 }
+
 impl<T> WrapperTypeDecode for Box<T> {
 	type Wrapped = T;
+
+	fn decode_wrapped<I: Input>(input: &mut I) -> Result<Self, Error> where Self::Wrapped: Decode {
+		input.descend_ref()?;
+
+		// Placement new is not yet stable, but we can just manually allocate a chunk of memory
+		// and convert it to a `Box` ourselves.
+		//
+		// The explicit types here are written out for clarity.
+		//
+		// TODO: Use `Box::new_uninit` once that's stable.
+		let layout = core::alloc::Layout::new::<MaybeUninit<T>>();
+
+		let ptr: *mut MaybeUninit<T> = if layout.size() == 0 {
+			core::ptr::NonNull::dangling().as_ptr()
+		} else {
+
+			// SAFETY: Layout has a non-zero size so calling this is safe.
+			let ptr: *mut u8 = unsafe {
+				crate::alloc::alloc::alloc(layout)
+			};
+
+			if ptr.is_null() {
+				crate::alloc::alloc::handle_alloc_error(layout);
+			}
+
+			ptr.cast()
+		};
+
+		// SAFETY: Constructing a `Box` from a piece of memory allocated with `std::alloc::alloc`
+		//         is explicitly allowed as long as it was allocated with the global allocator
+		//         and the memory layout matches.
+		//
+		//         Constructing a `Box` from `NonNull::dangling` is also always safe as long
+		//         as the underlying type is zero-sized.
+		let mut boxed: Box<MaybeUninit<T>> = unsafe { Box::from_raw(ptr) };
+
+		T::decode_into(input, &mut boxed)?;
+
+		// Decoding succeeded, so let's get rid of `MaybeUninit`.
+		//
+		// TODO: Use `Box::assume_init` once that's stable.
+		let ptr: *mut MaybeUninit<T> = Box::into_raw(boxed);
+		let ptr: *mut T = ptr.cast();
+
+		// SAFETY: `MaybeUninit` doesn't affect the memory layout, so casting the pointer back
+		//         into a `Box` is safe.
+		let boxed: Box<T> = unsafe { Box::from_raw(ptr) };
+
+		input.ascend_ref();
+		Ok(boxed)
+	}
 }
+
 impl<T> WrapperTypeDecode for Rc<T> {
 	type Wrapped = T;
+
+	fn decode_wrapped<I: Input>(input: &mut I) -> Result<Self, Error> where Self::Wrapped: Decode {
+		// TODO: This is inefficient; use `Rc::new_uninit` once that's stable.
+		Box::<T>::decode(input).map(|output| output.into())
+	}
 }
+
 #[cfg(target_has_atomic = "ptr")]
 impl<T> WrapperTypeDecode for Arc<T> {
 	type Wrapped = T;
+
+	fn decode_wrapped<I: Input>(input: &mut I) -> Result<Self, Error> where Self::Wrapped: Decode {
+		// TODO: This is inefficient; use `Arc::new_uninit` once that's stable.
+		Box::<T>::decode(input).map(|output| output.into())
+	}
 }
 
 impl<T, X> Decode for X where
 	T: Decode + Into<X>,
 	X: WrapperTypeDecode<Wrapped=T>,
 {
+	#[inline]
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
-		input.descend_ref()?;
-		let result = Ok(T::decode(input)?.into());
-		input.ascend_ref();
-		result
+		Self::decode_wrapped(input)
 	}
-
 }
 
 /// A macro that matches on a [`TypeInfo`] and expands a given macro per variant.
@@ -732,90 +821,6 @@ pub(crate) fn encode_slice_no_len<T: Encode, W: Output + ?Sized>(slice: &[T], de
 	}
 }
 
-/// Decode the array.
-///
-/// This is equivalent to decoding all the element one by one, but it is optimized for some types.
-#[inline]
-pub(crate) fn decode_array<I: Input, T: Decode, const N: usize>(input: &mut I) -> Result<[T; N], Error> {
-	#[inline]
-	fn general_array_decode<I: Input, T: Decode, const N: usize>(input: &mut I) -> Result<[T; N], Error> {
-		let mut uninit = <MaybeUninit<[T; N]>>::uninit();
-		// The following line coerces the pointer to the array to a pointer
-		// to the first array element which is equivalent.
-		let mut ptr = uninit.as_mut_ptr() as *mut T;
-		for _ in 0..N {
-			let decoded = T::decode(input)?;
-			// SAFETY: We do not read uninitialized array contents
-			//		 while initializing them.
-			unsafe {
-				ptr::write(ptr, decoded);
-			}
-			// SAFETY: Point to the next element after every iteration.
-			//		 We do this N times therefore this is safe.
-			ptr = unsafe { ptr.add(1) };
-		}
-		// SAFETY: All array elements have been initialized above.
-		let init = unsafe { uninit.assume_init() };
-		Ok(init)
-	}
-
-	// Description for the code below.
-	// It is not possible to transmute `[u8; N]` into `[T; N]` due to this issue:
-	// 		https://github.com/rust-lang/rust/issues/61956
-	//
-	// Workaround: Transmute `&[u8; N]` into `&[T; N]` and interpret that reference as value.
-	// ```
-	// let mut array: [u8; N] = [0; N];
-	// let ref_typed: &[T; N] = unsafe { mem::transmute(&array) };
-	// let typed: [T; N] = unsafe { ptr::read(ref_typed) };
-	// forget(array);
-	// Here `array` and `typed` points on the same memory.
-	// Function returns `typed` -> it is not dropped, but `array` will be dropped.
-	// To avoid that `array` should be forgotten.
-	// ```
-	macro_rules! decode {
-		( u8 ) => {{
-			let mut array: [u8; N] = [0; N];
-			input.read(&mut array[..])?;
-			let ref_typed: &[T; N] = unsafe { mem::transmute(&array) };
-			let typed: [T; N] = unsafe { ptr::read(ref_typed) };
-			forget(array);
-			Ok(typed)
-		}};
-		( i8 ) => {{
-			let mut array: [i8; N] = [0; N];
-			let bytes = unsafe { mem::transmute::<&mut [i8], &mut [u8]>(&mut array[..]) };
-			input.read(bytes)?;
-
-			let ref_typed: &[T; N] = unsafe { mem::transmute(&array) };
-			let typed: [T; N] = unsafe { ptr::read(ref_typed) };
-			forget(array);
-			Ok(typed)
-		}};
-		( $ty:ty ) => {{
-			if cfg!(target_endian = "little") {
-				let mut array: [$ty; N] = [0 as $ty; N];
-				let bytes = <[$ty] as AsMutByteSlice<$ty>>::as_mut_byte_slice(&mut array[..]);
-				input.read(bytes)?;
-				let ref_typed: &[T; N] = unsafe { mem::transmute(&array) };
-				let typed: [T; N] = unsafe { ptr::read(ref_typed) };
-				forget(array);
-				Ok(typed)
-			} else {
-				general_array_decode(input)
-			}
-		}};
-	}
-
-	with_type_info! {
-		<T as Decode>::TYPE_INFO,
-		decode,
-		{
-			general_array_decode(input)
-		},
-	}
-}
-
 /// Decode the vec (without a prepended len).
 ///
 /// This is equivalent to decode all elements one by one, but it is optimized in some
@@ -884,10 +889,133 @@ impl<T: Encode, const N: usize> Encode for [T; N] {
 	}
 }
 
+const fn calculate_array_bytesize<T, const N: usize>() -> usize {
+	struct AssertNotOverflow<T, const N: usize>(core::marker::PhantomData<T>);
+
+	impl<T, const N: usize> AssertNotOverflow<T, N> {
+		const OK: () = assert!(core::mem::size_of::<T>().checked_mul(N).is_some(), "array size overflow");
+	}
+
+	let () = AssertNotOverflow::<T, N>::OK;
+	core::mem::size_of::<T>() * N
+}
+
 impl<T: Decode, const N: usize> Decode for [T; N] {
-	#[inline]
+	#[inline(always)]
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
-		decode_array(input)
+		let mut array = MaybeUninit::uninit();
+		Self::decode_into(input, &mut array)?;
+
+		// SAFETY: `decode_into` succeeded, so the array is initialized.
+		unsafe {
+			Ok(array.assume_init())
+		}
+	}
+
+    fn decode_into<I: Input>(input: &mut I, dst: &mut MaybeUninit<Self>) -> Result<DecodeFinished, Error> {
+		let is_primitive = match <T as Decode>::TYPE_INFO {
+			| TypeInfo::U8
+			| TypeInfo::I8
+				=> true,
+			| TypeInfo::U16
+			| TypeInfo::I16
+			| TypeInfo::U32
+			| TypeInfo::I32
+			| TypeInfo::U64
+			| TypeInfo::I64
+			| TypeInfo::U128
+			| TypeInfo::I128
+			| TypeInfo::F32
+			| TypeInfo::F64
+				=> cfg!(target_endian = "little"),
+			TypeInfo::Unknown => false
+		};
+
+		if is_primitive {
+			// Let's read the array in bulk as that's going to be a lot
+			// faster than just reading each element one-by-one.
+
+			let ptr: *mut [T; N] = dst.as_mut_ptr();
+			let ptr: *mut u8 = ptr.cast();
+
+			let bytesize = calculate_array_bytesize::<T, N>();
+
+			// TODO: This is potentially slow; it'd be better if `Input` supported
+			//       reading directly into uninitialized memory.
+			//
+			// SAFETY: The pointer is valid and points to a memory `bytesize` bytes big.
+			unsafe {
+				ptr.write_bytes(0, bytesize);
+			}
+
+			// SAFETY: We've zero-initialized everything so creating a slice here is safe.
+			let slice: &mut [u8] = unsafe {
+				core::slice::from_raw_parts_mut(ptr, bytesize)
+			};
+
+			input.read(slice)?;
+
+			// SAFETY: We've initialized the whole slice so calling this is safe.
+			unsafe {
+				return Ok(DecodeFinished::assert_decoding_finished());
+			}
+		}
+
+		let slice: &mut [MaybeUninit<T>; N] = {
+			let ptr: *mut [T; N] = dst.as_mut_ptr();
+			let ptr: *mut [MaybeUninit<T>; N] = ptr.cast();
+			// SAFETY: Casting `&mut MaybeUninit<[T; N]>` into `&mut [MaybeUninit<T>; N]` is safe.
+			unsafe { &mut *ptr }
+		};
+
+		/// A wrapper type to make sure the partially read elements are always
+		/// dropped in case an error occurs or the underlying `decode` implementation panics.
+		struct State<'a, T, const N: usize> {
+			count: usize,
+			slice: &'a mut [MaybeUninit<T>; N]
+		}
+
+		impl<'a, T, const N: usize> Drop for State<'a, T, N> {
+			fn drop(&mut self) {
+				if !core::mem::needs_drop::<T>() {
+					// If the types don't actually need to be dropped then don't even
+					// try to run the loop below.
+					//
+					// Most likely won't make a difference in release mode, but will
+					// make a difference in debug mode.
+					return;
+				}
+
+				// TODO: Use `MaybeUninit::slice_assume_init_mut` + `core::ptr::drop_in_place`
+				//       once `slice_assume_init_mut` is stable.
+				for item in &mut self.slice[..self.count] {
+					// SAFETY: Each time we've read a new element we incremented `count`,
+					//         and we only drop at most `count` elements here,
+					//         so all of the elements we drop here are valid.
+					unsafe {
+						item.assume_init_drop();
+					}
+				}
+			}
+		}
+
+		let mut state = State {
+			count: 0,
+			slice
+		};
+
+		while state.count < state.slice.len() {
+			T::decode_into(input, &mut state.slice[state.count])?;
+			state.count += 1;
+		}
+
+		// We've successfully read everything, so disarm the `Drop` impl.
+		core::mem::forget(state);
+
+		// SAFETY: We've initialized the whole slice so calling this is safe.
+		unsafe {
+			return Ok(DecodeFinished::assert_decoding_finished());
+		}
 	}
 
 	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
