@@ -55,6 +55,7 @@ mod bit_vec;
 #[cfg(feature = "generic-array")]
 mod generic_array;
 mod decode_all;
+mod decode_finished;
 mod depth_limit;
 mod encode_append;
 mod encode_like;
@@ -68,7 +69,6 @@ pub use self::error::Error;
 pub use self::codec::{
 	Input, Output, Decode, Encode, Codec, EncodeAsRef, WrapperTypeEncode, WrapperTypeDecode,
 	OptionBool, DecodeLength, FullCodec, FullEncode, decode_vec_with_len,
-	DecodeFinished,
 };
 #[cfg(feature = "std")]
 pub use self::codec::IoReader;
@@ -76,6 +76,7 @@ pub use self::compact::{Compact, HasCompact, CompactAs, CompactLen, CompactRef};
 pub use self::joiner::Joiner;
 pub use self::keyedvec::KeyedVec;
 pub use self::decode_all::DecodeAll;
+pub use self::decode_finished::DecodeFinished;
 pub use self::depth_limit::DecodeLimit;
 pub use self::encode_append::EncodeAppend;
 pub use self::encode_like::{EncodeLike, Ref};

@@ -54,6 +54,7 @@ use crate::alloc::{
 	vec::Vec,
 };
 use crate::compact::Compact;
+use crate::DecodeFinished;
 use crate::encode_like::EncodeLike;
 use crate::Error;
 
@@ -282,23 +283,6 @@ impl Output for SizeTracker {
 pub trait DecodeLength {
 	/// Return the number of elements in `self_encoded`.
 	fn len(self_encoded: &[u8]) -> Result<usize, Error>;
-}
-
-/// A zero-sized type signifying that the decoding finished.
-///
-/// To be used in [`Decode::decode_into`] to allow the implementation to explicitly
-/// assert that the `MaybeUninit` passed into that function was properly initialized.
-pub struct DecodeFinished(PhantomData<*const ()>);
-
-impl DecodeFinished {
-	/// Assert that the decoding has finished.
-	///
-	/// Should be used in [`Decode::decode_into`] to signify that
-	/// the `MaybeUninit` passed into that function was properly initialized.
-	#[inline]
-	pub unsafe fn assert_decoding_finished() -> DecodeFinished {
-		DecodeFinished(PhantomData)
-	}
 }
 
 /// Trait that allows zero-copy read of value-references from slices in LE format.
