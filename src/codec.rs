@@ -903,6 +903,17 @@ impl<T: Encode, const N: usize> Encode for [T; N] {
 	}
 }
 
+const fn calculate_array_bytesize<T, const N: usize>() -> usize {
+	struct AssertNotOverflow<T, const N: usize>(std::marker::PhantomData<T>);
+
+	impl<T, const N: usize> AssertNotOverflow<T, N> {
+		const OK: () = assert!(core::mem::size_of::<T>().checked_mul(N).is_some(), "array size overflow");
+	}
+
+	let () = AssertNotOverflow::<T, N>::OK;
+	core::mem::size_of::<T>() * N
+}
+
 impl<T: Decode, const N: usize> Decode for [T; N] {
 	#[inline(always)]
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
@@ -940,7 +951,8 @@ impl<T: Decode, const N: usize> Decode for [T; N] {
 
 			let ptr: *mut [T; N] = dst.as_mut_ptr();
 			let ptr: *mut u8 = ptr.cast();
-			let bytesize = core::mem::size_of::<T>().checked_mul(N).expect("array lengths are sane");
+
+			let bytesize = calculate_array_bytesize::<T, N>();
 
 			// TODO: This is potentially slow; it'd be better if `Input` supported
 			//       reading directly into uninitialized memory.
