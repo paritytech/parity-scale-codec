@@ -575,6 +575,8 @@ impl<T> WrapperTypeDecode for Box<T> {
 		T::decode_into(input, &mut boxed)?;
 
 		// Decoding succeeded, so let's get rid of `MaybeUninit`.
+		//
+		// TODO: Use `Box::assume_init` once that's stable.
 		let ptr: *mut MaybeUninit<T> = Box::into_raw(boxed);
 		let ptr: *mut T = ptr.cast();
 
