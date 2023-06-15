@@ -972,7 +972,7 @@ impl<T: Decode, const N: usize> Decode for [T; N] {
 			let bytesize = core::mem::size_of::<T>().checked_mul(N).expect("array lengths are sane");
 
 			// TODO: This is potentially slow; it'd be better if `Input` supported
-			//       reading directly into uninitialized memoy.
+			//       reading directly into uninitialized memory.
 			//
 			// SAFETY: The pointer is valid and points to a memory `bytesize` bytes big.
 			unsafe {
