@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use core::{iter::ExactSizeIterator, mem};
+use core::iter::ExactSizeIterator;
 
 use crate::alloc::vec::Vec;
 use crate::{Encode, Decode, Error};
