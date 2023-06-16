@@ -42,6 +42,12 @@ default:
 
 #### stage:                        check
 
+check-clippy:
+  stage:                           check
+  <<:                              *docker-env
+  script:
+    - time cargo +stable clippy --locked
+
 check-rust-stable-no_derive_no_std:
   stage:                           check
   <<:                              *docker-env
