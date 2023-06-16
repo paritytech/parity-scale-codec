@@ -99,9 +99,9 @@ pub fn quote(
 					_ => {
 						#[allow(clippy::redundant_closure_call)]
 						return (move || {
-							return ::core::result::Result::Err(
+							::core::result::Result::Err(
 								<_ as ::core::convert::Into<_>>::into(#invalid_variant_err_msg)
-							);
+							)
 						})();
 					},
 				}
