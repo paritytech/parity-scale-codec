@@ -46,6 +46,7 @@ check-clippy:
   stage:                           check
   <<:                              *docker-env
   script:
+    - rustup component add clippy --toolchain stable-x86_64-unknown-linux-gnu
     - time cargo +stable clippy --locked
 
 check-rust-stable-no_derive_no_std:
