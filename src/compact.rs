@@ -493,7 +493,7 @@ impl Decode for Compact<u32> {
 					return Err(U32_OUT_OF_RANGE.into());
 				}
 			},
-			3 => {	// |_. yeah, i know.
+			3 => {
 				if prefix >> 2 == 0 {
 					// just 4 bytes. ok.
 					let x = u32::decode(input)?;
