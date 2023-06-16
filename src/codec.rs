@@ -483,19 +483,19 @@ impl<T, X> Encode for X where
 	X: WrapperTypeEncode<Target = T>,
 {
 	fn size_hint(&self) -> usize {
-		(&**self).size_hint()
+		(**self).size_hint()
 	}
 
 	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
-		(&**self).using_encoded(f)
+		(**self).using_encoded(f)
 	}
 
 	fn encode(&self) -> Vec<u8> {
-		(&**self).encode()
+		(**self).encode()
 	}
 
 	fn encode_to<W: Output + ?Sized>(&self, dest: &mut W) {
-		(&**self).encode_to(dest)
+		(**self).encode_to(dest)
 	}
 }
 
@@ -896,6 +896,7 @@ const fn calculate_array_bytesize<T, const N: usize>() -> usize {
 		const OK: () = assert!(core::mem::size_of::<T>().checked_mul(N).is_some(), "array size overflow");
 	}
 
+	#[allow(clippy::let_unit_value)]
 	let () = AssertNotOverflow::<T, N>::OK;
 	core::mem::size_of::<T>() * N
 }
@@ -1014,7 +1015,7 @@ impl<T: Decode, const N: usize> Decode for [T; N] {
 
 		// SAFETY: We've initialized the whole slice so calling this is safe.
 		unsafe {
-			return Ok(DecodeFinished::assert_decoding_finished());
+			Ok(DecodeFinished::assert_decoding_finished())
 		}
 	}
 
@@ -1093,7 +1094,7 @@ pub(crate) fn compact_encode_len_to<W: Output + ?Sized>(dest: &mut W, len: usize
 
 impl<T: Encode> Encode for [T] {
 	fn size_hint(&self) -> usize {
-		mem::size_of::<u32>() + mem::size_of::<T>() * self.len()
+		mem::size_of::<u32>() + core::mem::size_of_val(self)
 	}
 
 	fn encode_to<W: Output + ?Sized>(&self, dest: &mut W) {
@@ -1115,7 +1116,7 @@ where
 	debug_assert!(MAX_PREALLOCATION >= mem::size_of::<T>(), "Invalid precondition");
 
 	let byte_len = items_len.checked_mul(mem::size_of::<T>())
-		.ok_or_else(|| "Item is too big and cannot be allocated")?;
+		.ok_or("Item is too big and cannot be allocated")?;
 
 	let input_len = input.remaining_len()?;
 
@@ -1131,8 +1132,8 @@ where
 	let r = if input_len.is_some() || byte_len < MAX_PREALLOCATION {
 		// Here we pre-allocate the whole buffer.
 		let mut items: Vec<T> = vec![Default::default(); items_len];
-		let mut bytes_slice = items.as_mut_byte_slice();
-		input.read(&mut bytes_slice)?;
+		let bytes_slice = items.as_mut_byte_slice();
+		input.read(bytes_slice)?;
 
 		items
 	} else {
