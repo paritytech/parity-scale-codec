@@ -75,6 +75,7 @@ pub fn quote(
 						// NOTE: This lambda is necessary to work around an upstream bug
 						// where each extra branch results in excessive stack usage:
 						//   https://github.com/rust-lang/rust/issues/34283
+						#[allow(clippy::redundant_closure_call)]
 						return (move || {
 							#create
 						})();
@@ -96,6 +97,7 @@ pub fn quote(
 				{
 					#( #recurse )*
 					_ => {
+						#[allow(clippy::redundant_closure_call)]
 						return (move || {
 							return ::core::result::Result::Err(
 								<_ as ::core::convert::Into<_>>::into(#invalid_variant_err_msg)
