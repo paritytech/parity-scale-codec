@@ -119,9 +119,7 @@ where
 		} else {
 			// We can't update the length as the new length prefix will take up more
 			// space when encoded, so we need to move our data to make space for it.
-			let mut new_vec = Vec::with_capacity(
-				new_item_count_encoded_bytesize + new_item_count as usize * mem::size_of::<Item>()
-			);
+			let mut new_vec = Vec::with_capacity(vec.len() * 2);
 
 			crate::codec::compact_encode_len_to(&mut new_vec, new_item_count as usize)?;
 			new_vec.extend_from_slice(&vec[old_item_count_encoded_bytesize..]);
