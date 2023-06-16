@@ -64,7 +64,7 @@ impl<T: Encode> EncodeAppend for Vec<T> {
 		EncodeLikeItem: EncodeLike<Self::Item>,
 		I::IntoIter: ExactSizeIterator,
 	{
-		extend_encoded_vec(self_encoded, iter)
+		append_or_new_impl(self_encoded, iter)
 	}
 }
 
@@ -80,14 +80,14 @@ impl<T: Encode> EncodeAppend for crate::alloc::collections::VecDeque<T> {
 		EncodeLikeItem: EncodeLike<Self::Item>,
 		I::IntoIter: ExactSizeIterator,
 	{
-		extend_encoded_vec(self_encoded, iter)
+		append_or_new_impl(self_encoded, iter)
 	}
 }
 
 /// Extends a SCALE-encoded vector with elements from the given `iter`.
 ///
 /// `vec` must either be empty, or contain a valid SCALE-encoded `Vec<Item>` payload.
-fn extend_encoded_vec<Item, I>(
+fn append_or_new_impl<Item, I>(
 	mut vec: Vec<u8>,
 	iter: I,
 ) -> Result<Vec<u8>, Error>
