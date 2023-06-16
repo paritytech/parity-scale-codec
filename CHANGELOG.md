@@ -9,7 +9,7 @@ and this crate adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 
 ### Fixed
 
-- Deriving `Decode` will not trigger `redundant_closure_call` clippy warnings anymore
+- Deriving `Decode` will not trigger clippy warnings anymore
 
 ## [3.6.0] - 2023-06-15
 
