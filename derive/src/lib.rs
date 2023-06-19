@@ -78,12 +78,12 @@ fn wrap_with_dummy_const(
 /// # use parity_scale_codec::{Encode as _, HasCompact};
 /// #[derive(Encode)]
 /// struct StructType {
-/// 		#[codec(skip)]
-/// 		a: u32,
-/// 		#[codec(compact)]
-/// 		b: u32,
-/// 		#[codec(encoded_as = "<u32 as HasCompact>::Type")]
-/// 		c: u32,
+///     #[codec(skip)]
+///     a: u32,
+///     #[codec(compact)]
+///     b: u32,
+///     #[codec(encoded_as = "<u32 as HasCompact>::Type")]
+///     c: u32,
 /// }
 /// ```
 ///
@@ -108,12 +108,12 @@ fn wrap_with_dummy_const(
 /// # use parity_scale_codec::Encode as _;
 /// #[derive(Encode)]
 /// enum EnumType {
-/// 	#[codec(index = 15)]
-/// 	A,
-/// 	#[codec(skip)]
-/// 	B,
-/// 	C = 3,
-/// 	D,
+///     #[codec(index = 15)]
+///     A,
+///     #[codec(skip)]
+///     B,
+///     C = 3,
+///     D,
 /// }
 ///
 /// assert_eq!(EnumType::A.encode(), vec![15]);
@@ -282,7 +282,7 @@ pub fn compact_as_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStr
 			Fields::Named(ref fields) if utils::filter_skip_named(fields).count() == 1 => {
 				let recurse = fields.named.iter().map(|f| {
 					let name_ident = &f.ident;
-					let val_or_default = val_or_default(&f);
+					let val_or_default = val_or_default(f);
 					quote_spanned!(f.span()=> #name_ident: #val_or_default)
 				});
 				let field = utils::filter_skip_named(fields).next().expect("Exactly one field");
@@ -292,7 +292,7 @@ pub fn compact_as_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStr
 			},
 			Fields::Unnamed(ref fields) if utils::filter_skip_unnamed(fields).count() == 1 => {
 				let recurse = fields.unnamed.iter().enumerate().map(|(_, f)| {
-					let val_or_default = val_or_default(&f);
+					let val_or_default = val_or_default(f);
 					quote_spanned!(f.span()=> #val_or_default)
 				});
 				let (id, field) =

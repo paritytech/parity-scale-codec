@@ -60,7 +60,7 @@ pub fn variant_index(v: &Variant, i: usize) -> TokenStream {
 	index.map(|i| quote! { #i }).unwrap_or_else(|| {
 		v.discriminant
 			.as_ref()
-			.map(|&(_, ref expr)| quote! { #expr })
+			.map(|(_, expr)| quote! { #expr })
 			.unwrap_or_else(|| quote! { #i })
 	})
 }
@@ -133,7 +133,7 @@ fn crate_access() -> syn::Result<proc_macro2::Ident> {
 	const DEF_CRATE: &str = "parity-scale-codec";
 	match crate_name(DEF_CRATE) {
 		Ok(FoundCrate::Itself) => {
-			let name = DEF_CRATE.to_string().replace("-", "_");
+			let name = DEF_CRATE.to_string().replace('-', "_");
 			Ok(syn::Ident::new(&name, Span::call_site()))
 		},
 		Ok(FoundCrate::Name(name)) => Ok(Ident::new(&name, Span::call_site())),
@@ -256,15 +256,15 @@ pub fn custom_mel_trait_bound(attrs: &[Attribute]) -> Option<CustomTraitBound<me
 
 /// Given a set of named fields, return an iterator of `Field` where all fields
 /// marked `#[codec(skip)]` are filtered out.
-pub fn filter_skip_named<'a>(fields: &'a syn::FieldsNamed) -> impl Iterator<Item = &Field> + 'a {
+pub fn filter_skip_named(fields: &syn::FieldsNamed) -> impl Iterator<Item = &Field> {
 	fields.named.iter().filter(|f| !should_skip(&f.attrs))
 }
 
 /// Given a set of unnamed fields, return an iterator of `(index, Field)` where all fields
 /// marked `#[codec(skip)]` are filtered out.
-pub fn filter_skip_unnamed<'a>(
-	fields: &'a syn::FieldsUnnamed,
-) -> impl Iterator<Item = (usize, &Field)> + 'a {
+pub fn filter_skip_unnamed(
+	fields: &syn::FieldsUnnamed,
+) -> impl Iterator<Item = (usize, &Field)> {
 	fields.unnamed.iter().enumerate().filter(|(_, f)| !should_skip(&f.attrs))
 }
 
@@ -359,10 +359,10 @@ fn check_field_attribute(attr: &Attribute) -> syn::Result<()> {
 							.map(|_| ())
 							.map_err(|_e| syn::Error::new(lit_str.span(), "Invalid token stream")),
 
-					elt @ _ => Err(syn::Error::new(elt.span(), field_error)),
+					elt => Err(syn::Error::new(elt.span(), field_error)),
 				}
 			},
-			meta @ _ => Err(syn::Error::new(meta.span(), field_error)),
+			meta => Err(syn::Error::new(meta.span(), field_error)),
 		}
 	} else {
 		Ok(())
@@ -393,10 +393,10 @@ fn check_variant_attribute(attr: &Attribute) -> syn::Result<()> {
 						.map(|_| ())
 						.map_err(|_| syn::Error::new(lit_int.span(), "Index must be in 0..255")),
 
-					elt @ _ => Err(syn::Error::new(elt.span(), variant_error)),
+					elt => Err(syn::Error::new(elt.span(), variant_error)),
 				}
 			},
-			meta @ _ => Err(syn::Error::new(meta.span(), variant_error)),
+			meta => Err(syn::Error::new(meta.span(), variant_error)),
 		}
 	} else {
 		Ok(())
@@ -422,7 +422,7 @@ fn check_top_attribute(attr: &Attribute) -> syn::Result<()> {
 						if path.get_ident().map_or(false, |i| i == "dumb_trait_bound") =>
 						Ok(()),
 
-					elt @ _ => Err(syn::Error::new(elt.span(), top_error)),
+					elt => Err(syn::Error::new(elt.span(), top_error)),
 				}
 			},
 			_ => Err(syn::Error::new(attr.span(), top_error)),
