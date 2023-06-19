@@ -181,7 +181,7 @@ fn create_instance(
 				let name_ident = &f.ident;
 				let field_name = match name_ident {
 					Some(a) => format!("{}::{}", name_str, a),
-					None => format!("{}", name_str), // Should never happen, fields are named.
+					None => name_str.to_string(), // Should never happen, fields are named.
 				};
 				let decode = create_decode_expr(f, &field_name, input, crate_path);
 
