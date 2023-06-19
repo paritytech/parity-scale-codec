@@ -107,8 +107,8 @@ pub use const_encoded_len::ConstEncodedLen;
 /// # use parity_scale_codec::{Encode, MaxEncodedLen};
 /// #[derive(Encode, MaxEncodedLen)]
 /// enum GenericEnum<T> {
-/// 	A,
-/// 	B(T),
+///     A,
+///     B(T),
 /// }
 ///
 /// assert_eq!(GenericEnum::<u8>::max_encoded_len(), u8::max_encoded_len() + u8::max_encoded_len());

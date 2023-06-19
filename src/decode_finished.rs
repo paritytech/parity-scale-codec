@@ -27,6 +27,8 @@ pub struct DecodeFinished(PhantomData<*const ()>);
 impl DecodeFinished {
 	/// Assert that the decoding has finished.
 	///
+	/// # Safety
+	///
 	/// Should be used in [`Decode::decode_into`] to signify that
 	/// the `MaybeUninit` passed into that function was properly initialized.
 	#[inline]

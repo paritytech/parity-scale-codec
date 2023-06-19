@@ -87,7 +87,7 @@ struct FindTypePathsNotStartOrContainIdent<'a> {
 
 impl<'a, 'ast> Visit<'ast> for FindTypePathsNotStartOrContainIdent<'a> {
 	fn visit_type_path(&mut self, i: &'ast TypePath) {
-		if type_path_or_sub_starts_with_ident(i, &self.ident) {
+		if type_path_or_sub_starts_with_ident(i, self.ident) {
 			visit::visit_type_path(self, i);
 		} else {
 			self.result.push(i.clone());
@@ -104,6 +104,7 @@ fn find_type_paths_not_start_or_contain_ident(ty: &Type, ident: &Ident) -> Vec<T
 	visitor.result
 }
 
+#[allow(clippy::too_many_arguments)]
 /// Add required trait bounds to all generic types.
 pub fn add<N>(
 	input_ident: &Ident,
@@ -138,7 +139,7 @@ pub fn add<N>(
 	let codec_types =
 		get_types_to_add_trait_bound(input_ident, data, &ty_params, dumb_trait_bounds)?;
 
-	let compact_types = collect_types(&data, utils::is_compact)?
+	let compact_types = collect_types(data, utils::is_compact)?
 		.into_iter()
 		// Only add a bound if the type uses a generic
 		.filter(|ty| type_contain_idents(ty, &ty_params))
@@ -146,7 +147,7 @@ pub fn add<N>(
 
 	let skip_types = if codec_skip_bound.is_some() {
 		let needs_default_bound = |f: &syn::Field| utils::should_skip(&f.attrs);
-		collect_types(&data, needs_default_bound)?
+		collect_types(data, needs_default_bound)?
 			.into_iter()
 			// Only add a bound if the type uses a generic
 			.filter(|ty| type_contain_idents(ty, &ty_params))
@@ -191,18 +192,18 @@ fn get_types_to_add_trait_bound(
 				utils::get_encoded_as_type(f).is_none() &&
 				!utils::should_skip(&f.attrs)
 		};
-		let res = collect_types(&data, needs_codec_bound)?
+		let res = collect_types(data, needs_codec_bound)?
 			.into_iter()
 			// Only add a bound if the type uses a generic
-			.filter(|ty| type_contain_idents(ty, &ty_params))
+			.filter(|ty| type_contain_idents(ty, ty_params))
 			// If a struct contains itself as field type, we can not add this type into the where
 			// clause. This is required to work a round the following compiler bug: https://github.com/rust-lang/rust/issues/47032
 			.flat_map(|ty| {
 				find_type_paths_not_start_or_contain_ident(&ty, input_ident)
 					.into_iter()
-					.map(|ty| Type::Path(ty.clone()))
+					.map(Type::Path)
 					// Remove again types that do not contain any of our generic parameters
-					.filter(|ty| type_contain_idents(ty, &ty_params))
+					.filter(|ty| type_contain_idents(ty, ty_params))
 					// Add back the original type, as we don't want to loose it.
 					.chain(iter::once(ty))
 			})

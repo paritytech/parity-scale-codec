@@ -71,10 +71,12 @@ pub fn quote(
 				);
 
 				quote_spanned! { v.span() =>
+					#[allow(clippy::unnecessary_cast)]
 					__codec_x_edqy if __codec_x_edqy == #index as ::core::primitive::u8 => {
 						// NOTE: This lambda is necessary to work around an upstream bug
 						// where each extra branch results in excessive stack usage:
 						//   https://github.com/rust-lang/rust/issues/34283
+						#[allow(clippy::redundant_closure_call)]
 						return (move || {
 							#create
 						})();
@@ -96,10 +98,11 @@ pub fn quote(
 				{
 					#( #recurse )*
 					_ => {
+						#[allow(clippy::redundant_closure_call)]
 						return (move || {
-							return ::core::result::Result::Err(
+							::core::result::Result::Err(
 								<_ as ::core::convert::Into<_>>::into(#invalid_variant_err_msg)
-							);
+							)
 						})();
 					},
 				}
@@ -178,7 +181,7 @@ fn create_instance(
 				let name_ident = &f.ident;
 				let field_name = match name_ident {
 					Some(a) => format!("{}::{}", name_str, a),
-					None => format!("{}", name_str), // Should never happen, fields are named.
+					None => name_str.to_string(), // Should never happen, fields are named.
 				};
 				let decode = create_decode_expr(f, &field_name, input, crate_path);
 

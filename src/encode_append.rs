@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use core::{iter::ExactSizeIterator, mem};
+use core::iter::ExactSizeIterator;
 
 use crate::alloc::vec::Vec;
 use crate::{Encode, Decode, Error};
@@ -64,7 +64,7 @@ impl<T: Encode> EncodeAppend for Vec<T> {
 		EncodeLikeItem: EncodeLike<Self::Item>,
 		I::IntoIter: ExactSizeIterator,
 	{
-		append_or_new_vec_with_any_item(self_encoded, iter)
+		append_or_new_impl(self_encoded, iter)
 	}
 }
 
@@ -80,25 +80,15 @@ impl<T: Encode> EncodeAppend for crate::alloc::collections::VecDeque<T> {
 		EncodeLikeItem: EncodeLike<Self::Item>,
 		I::IntoIter: ExactSizeIterator,
 	{
-		append_or_new_vec_with_any_item(self_encoded, iter)
+		append_or_new_impl(self_encoded, iter)
 	}
 }
 
-fn extract_length_data(data: &[u8], input_len: usize) -> Result<(u32, usize, usize), Error> {
-	let len = u32::from(Compact::<u32>::decode(&mut &data[..])?);
-	let new_len = len
-		.checked_add(input_len as u32)
-		.ok_or_else(|| "New vec length greater than `u32::TEST_VALUE()`.")?;
-
-	let encoded_len = Compact::<u32>::compact_len(&len);
-	let encoded_new_len = Compact::<u32>::compact_len(&new_len);
-
-	Ok((new_len, encoded_len, encoded_new_len))
-}
-
-// Item must have same encoding as encoded value in the encoded vec.
-fn append_or_new_vec_with_any_item<Item, I>(
-	mut self_encoded: Vec<u8>,
+/// Extends a SCALE-encoded vector with elements from the given `iter`.
+///
+/// `vec` must either be empty, or contain a valid SCALE-encoded `Vec<Item>` payload.
+fn append_or_new_impl<Item, I>(
+	mut vec: Vec<u8>,
 	iter: I,
 ) -> Result<Vec<u8>, Error>
 where
@@ -107,46 +97,47 @@ where
 	I::IntoIter: ExactSizeIterator,
 {
 	let iter = iter.into_iter();
-	let input_len = iter.len();
+	let items_to_append = iter.len();
 
-	// No data present, just encode the given input data.
-	if self_encoded.is_empty() {
-		crate::codec::compact_encode_len_to(&mut self_encoded, iter.len())?;
-		iter.for_each(|e| e.encode_to(&mut self_encoded));
-		return Ok(self_encoded);
-	}
-
-	let (new_len, encoded_len, encoded_new_len) = extract_length_data(&self_encoded, input_len)?;
-
-	let replace_len = |dest: &mut Vec<u8>| {
-		Compact(new_len).using_encoded(|e| {
-			dest[..encoded_new_len].copy_from_slice(e);
-		})
-	};
-
-	let append_new_elems = |dest: &mut Vec<u8>| iter.for_each(|a| a.encode_to(dest));
-
-	// If old and new encoded len is equal, we don't need to copy the
-	// already encoded data.
-	if encoded_len == encoded_new_len {
-		replace_len(&mut self_encoded);
-		append_new_elems(&mut self_encoded);
-
-		Ok(self_encoded)
+	if vec.is_empty() {
+		crate::codec::compact_encode_len_to(&mut vec, items_to_append)?;
 	} else {
-		let size = encoded_new_len + self_encoded.len() - encoded_len;
+		let old_item_count = u32::from(Compact::<u32>::decode(&mut &vec[..])?);
+		let new_item_count = old_item_count
+			.checked_add(items_to_append as u32)
+			.ok_or("cannot append new items into a SCALE-encoded vector: length overflow due to too many items")?;
 
-		let mut res = Vec::with_capacity(size + input_len * mem::size_of::<Item>());
-		unsafe { res.set_len(size); }
+		let old_item_count_encoded_bytesize = Compact::<u32>::compact_len(&old_item_count);
+		let new_item_count_encoded_bytesize = Compact::<u32>::compact_len(&new_item_count);
 
-		// Insert the new encoded len, copy the already encoded data and
-		// add the new element.
-		replace_len(&mut res);
-		res[encoded_new_len..size].copy_from_slice(&self_encoded[encoded_len..]);
-		append_new_elems(&mut res);
+		if old_item_count_encoded_bytesize == new_item_count_encoded_bytesize {
+			// The size of the length as encoded by SCALE didn't change, so we can just
+			// keep the old buffer as-is. We just need to update the length prefix.
+			Compact(new_item_count).using_encoded(|length_encoded|
+				vec[..old_item_count_encoded_bytesize].copy_from_slice(length_encoded)
+			);
+		} else {
+			// We can't update the length as the new length prefix will take up more
+			// space when encoded, so we need to move our data to make space for it.
 
-		Ok(res)
+			// If this overflows then it means that `vec` is bigger that half of the
+			// total address space, which means that it will be impossible to allocate
+			// enough memory for another vector of at least the same size.
+			//
+			// So let's just immediately bail with an error if this happens.
+			let new_capacity = vec.len().checked_mul(2)
+				.ok_or("cannot append new items into a SCALE-encoded vector: new vector won't fit in memory")?;
+			let mut new_vec = Vec::with_capacity(new_capacity);
+
+			crate::codec::compact_encode_len_to(&mut new_vec, new_item_count as usize)?;
+			new_vec.extend_from_slice(&vec[old_item_count_encoded_bytesize..]);
+			vec = new_vec;
+		}
 	}
+
+	// And now we just need to append the new items.
+	iter.for_each(|e| e.encode_to(&mut vec));
+	Ok(vec)
 }
 
 #[cfg(test)]

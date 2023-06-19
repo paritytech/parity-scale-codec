@@ -493,7 +493,7 @@ impl Decode for Compact<u32> {
 					return Err(U32_OUT_OF_RANGE.into());
 				}
 			},
-			3|_ => {	// |_. yeah, i know.
+			3 => {
 				if prefix >> 2 == 0 {
 					// just 4 bytes. ok.
 					let x = u32::decode(input)?;
@@ -506,7 +506,8 @@ impl Decode for Compact<u32> {
 					// Out of range for a 32-bit quantity.
 					return Err(U32_OUT_OF_RANGE.into());
 				}
-			}
+			},
+			_ => unreachable!(),
 		}))
 	}
 }
@@ -532,7 +533,7 @@ impl Decode for Compact<u64> {
 					return Err(U64_OUT_OF_RANGE.into());
 				}
 			},
-			3|_ => match (prefix >> 2) + 4 {
+			3 => match (prefix >> 2) + 4 {
 				4 => {
 					let x = u32::decode(input)?;
 					if x > u32::max_value() >> 2 {
@@ -562,6 +563,7 @@ impl Decode for Compact<u64> {
 					}
 				},
 			},
+			_ => unreachable!(),
 		}))
 	}
 }
@@ -587,7 +589,7 @@ impl Decode for Compact<u128> {
 					return Err(U128_OUT_OF_RANGE.into());
 				}
 			},
-			3|_ => match (prefix >> 2) + 4 {
+			3 => match (prefix >> 2) + 4 {
 				4 => {
 					let x = u32::decode(input)?;
 					if x > u32::max_value() >> 2 {
@@ -625,6 +627,7 @@ impl Decode for Compact<u128> {
 					}
 				},
 			},
+			_ => unreachable!(),
 		}))
 	}
 }

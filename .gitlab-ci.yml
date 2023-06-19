@@ -42,6 +42,15 @@ default:
 
 #### stage:                        check
 
+check-clippy:
+  stage:                           check
+  <<:                              *docker-env
+  script:
+    - rustup component add clippy --toolchain stable-x86_64-unknown-linux-gnu
+    - time cargo +stable clippy --locked -- -Dwarnings
+    - time cargo +stable clippy --locked -p parity-scale-codec-derive -- -Dwarnings
+    - time cargo +stable clippy --locked --test clippy -- -Dwarnings
+
 check-rust-stable-no_derive_no_std:
   stage:                           check
   <<:                              *docker-env
