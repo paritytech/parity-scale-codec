@@ -281,6 +281,7 @@ fn impl_encode(data: &Data, type_name: &Ident, crate_path: &syn::Path) -> TokenS
 					Fields::Unit => {
 						quote_spanned! { f.span() =>
 							#type_name :: #name => {
+								#[allow(clippy::unnecessary_cast)]
 								#dest.push_byte(#index as ::core::primitive::u8);
 							}
 						}
