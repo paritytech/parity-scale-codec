@@ -119,7 +119,15 @@ where
 		} else {
 			// We can't update the length as the new length prefix will take up more
 			// space when encoded, so we need to move our data to make space for it.
-			let mut new_vec = Vec::with_capacity(vec.len() * 2);
+
+			// If this overflows then it means that `vec` is bigger that half of the
+			// total address space, which means that it will be impossible to allocate
+			// enough memory for another vector of at least the same size.
+			//
+			// So let's just immediately bail with an error if this happens.
+			let new_capacity = vec.len().checked_mul(2)
+				.ok_or("cannot append new items into a SCALE-encoded vector: new vector won't fit in memory")?;
+			let mut new_vec = Vec::with_capacity(new_capacity);
 
 			crate::codec::compact_encode_len_to(&mut new_vec, new_item_count as usize)?;
 			new_vec.extend_from_slice(&vec[old_item_count_encoded_bytesize..]);
