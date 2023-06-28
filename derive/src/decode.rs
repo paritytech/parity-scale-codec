@@ -159,6 +159,7 @@ pub fn quote_decode_into(
 	// should actually do something, and the rest should just be dummy calls that do nothing.
 	let mut decode_fields = Vec::new();
 	let mut sizes = Vec::new();
+	let mut non_zst_field_count = Vec::new();
 	for field in fields {
 		let field_type = &field.ty;
 		decode_fields.push(quote! {{
@@ -178,11 +179,17 @@ pub fn quote_decode_into(
 			sizes.push(quote! { + });
 		}
 		sizes.push(quote! { ::core::mem::size_of::<#field_type>() });
+
+		if !non_zst_field_count.is_empty() {
+			non_zst_field_count.push(quote! { + });
+		}
+		non_zst_field_count.push(quote! { if ::core::mem::size_of::<#field_type>() > 0 { 1 } else { 0 } });
 	}
 
 	Some(quote!{
-		// Just a sanity check. This should always be true and be optimized-out.
-		assert_eq!(::core::mem::size_of::<Self>(), #(#sizes)*);
+		// Just a sanity check. These should always be true and will be optimized-out.
+		assert_eq!(#(#sizes)*, ::core::mem::size_of::<Self>());
+		assert!(#(#non_zst_field_count)* <= 1);
 
 		#(#decode_fields)*
 
