@@ -663,6 +663,42 @@ fn decoding_a_huge_array_inside_of_arc_does_not_overflow_the_stack() {
 }
 
 #[test]
+fn decoding_a_huge_boxed_newtype_array_does_not_overflow_the_stack() {
+	#[derive(DeriveDecode)]
+	#[repr(transparent)]
+	struct HugeArrayNewtype([u8; 100 * 1024 * 1024]);
+
+	#[derive(DeriveDecode)]
+	struct HugeArrayNewtypeBox(Box<HugeArrayNewtype>);
+
+	let data = &[];
+	assert!(HugeArrayNewtypeBox::decode(&mut data.as_slice()).is_err());
+}
+
+#[test]
+fn zero_sized_types_are_not_ignored_when_decoding() {
+	struct Zst;
+
+	#[derive(DeriveDecode)]
+	#[repr(transparent)]
+	struct NewtypeWithZst(Zst, [u8; 1], Zst);
+
+	#[derive(DeriveDecode)]
+	struct NewtypeWithZstBox(Box<NewtypeWithZst>);
+
+	impl Decode for Zst {
+		fn decode<I: parity_scale_codec::Input>(input: &mut I) -> Result<Self, Error> {
+			let mut buffer = [0; 1];
+			input.read(&mut buffer).unwrap();
+			Ok(Self)
+		}
+	}
+
+	let data = &[1, 2, 3];
+	assert_eq!(NewtypeWithZst::decode(&mut data.as_slice()).unwrap().1, [2]);
+}
+
+#[test]
 fn decoding_an_array_of_boxed_zero_sized_types_works() {
 	#[cfg(not(miri))]
 	const SIZE: usize = 100 * 1024 * 1024;

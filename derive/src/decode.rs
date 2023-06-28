@@ -113,6 +113,84 @@ pub fn quote(
 	}
 }
 
+pub fn quote_decode_into(
+	data: &Data,
+	crate_path: &syn::Path,
+	input: &TokenStream,
+	attrs: &[syn::Attribute]
+) -> Option<TokenStream> {
+	// Make sure the type is `#[repr(transparent)]`, as this guarantees that
+	// there can be only one field that is not zero-sized.
+	if !crate::utils::is_transparent(attrs) {
+		return None;
+	}
+
+	let fields = match data {
+		Data::Struct(
+			syn::DataStruct {
+				fields: Fields::Named(syn::FieldsNamed { named: fields, .. }) |
+				        Fields::Unnamed(syn::FieldsUnnamed { unnamed: fields, .. }),
+				..
+			}
+		) => {
+			fields
+		},
+		_ => return None
+	};
+
+	if fields.is_empty() {
+		return None;
+	}
+
+	// Bail if there are any extra attributes which could influence how the type is decoded.
+	if fields.iter().any(|field|
+		utils::get_encoded_as_type(field).is_some() ||
+		utils::is_compact(field) ||
+		utils::should_skip(&field.attrs)
+	) {
+		return None;
+	}
+
+	// Go through each field and call `decode_into` on it.
+	//
+	// Normally if there's more than one field in the struct this would be incorrect,
+	// however since the struct's marked as `#[repr(transparent)]` we're guaranteed that
+	// there's at most one non zero-sized field, so only one of these `decode_into` calls
+	// should actually do something, and the rest should just be dummy calls that do nothing.
+	let mut decode_fields = Vec::new();
+	let mut sizes = Vec::new();
+	for field in fields {
+	let field_type = &field.ty;
+		decode_fields.push(quote! {{
+			let dst_: &mut ::core::mem::MaybeUninit<Self> = dst_; // To make sure the type is what we expect.
+
+			// Here we cast `&mut MaybeUninit<Self>` into a `&mut MaybeUninit<#field_type>`.
+			//
+			// SAFETY: The struct is marked as `#[repr(transparent)]` so the address of every field will
+			//         be the same as the address of the struct itself.
+			let dst_: &mut ::core::mem::MaybeUninit<#field_type> = unsafe {
+				&mut *dst_.as_mut_ptr().cast::<::core::mem::MaybeUninit<#field_type>>()
+			};
+			<#field_type as #crate_path::Decode>::decode_into(#input, dst_)?;
+		}});
+
+		if !sizes.is_empty() {
+			sizes.push(quote! { + });
+		}
+		sizes.push(quote! { ::core::mem::size_of::<#field_type>() });
+	}
+
+	Some(quote!{
+		// Just a sanity check. This should always be true and be optimized-out.
+		assert_eq!(::core::mem::size_of::<Self>(), #(#sizes)*);
+
+		#(#decode_fields)*
+
+		// SAFETY: We've successfully called `decode_into` for all of the fields.
+		unsafe { Ok(#crate_path::DecodeFinished::assert_decoding_finished()) }
+	})
+}
+
 fn create_decode_expr(field: &Field, name: &str, input: &TokenStream, crate_path: &syn::Path) -> TokenStream {
 	let encoded_as = utils::get_encoded_as_type(field);
 	let compact = utils::is_compact(field);
