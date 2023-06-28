@@ -160,7 +160,7 @@ pub fn quote_decode_into(
 	let mut decode_fields = Vec::new();
 	let mut sizes = Vec::new();
 	for field in fields {
-	let field_type = &field.ty;
+		let field_type = &field.ty;
 		decode_fields.push(quote! {{
 			let dst_: &mut ::core::mem::MaybeUninit<Self> = dst_; // To make sure the type is what we expect.
 
