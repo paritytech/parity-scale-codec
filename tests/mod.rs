@@ -676,17 +676,45 @@ fn decoding_a_huge_boxed_newtype_array_does_not_overflow_the_stack() {
 }
 
 #[test]
-fn zero_sized_types_are_not_ignored_when_decoding() {
-	struct Zst;
+fn decoding_two_indirectly_boxed_arrays_works() {
+	// This test will fail if the check for `#[repr(transparent)]` in the derive crate
+	// doesn't work when implementing `Decode::decode_into`.
+	#[derive(DeriveDecode)]
+	#[derive(PartialEq, Eq, Debug)]
+	struct SmallArrays([u8; 2], [u8; 2]);
+
+	#[derive(DeriveDecode)]
+	struct SmallArraysBox(Box<SmallArrays>);
+
+	let data = &[1, 2, 3, 4];
+	assert_eq!(*SmallArraysBox::decode(&mut data.as_slice()).unwrap().0, SmallArrays([1, 2], [3, 4]));
+}
+
+#[test]
+fn zero_sized_types_are_properly_decoded_in_a_transparent_boxed_struct() {
+	#[derive(DeriveDecode)]
+	#[repr(transparent)]
+	struct ZstTransparent;
+
+	#[derive(DeriveDecode)]
+	struct ZstNonTransparent;
+
+	struct ConsumeByte;
 
 	#[derive(DeriveDecode)]
 	#[repr(transparent)]
-	struct NewtypeWithZst(Zst, [u8; 1], Zst);
+	struct NewtypeWithZst {
+		_zst_1: ConsumeByte,
+		_zst_2: ZstTransparent,
+		_zst_3: ZstNonTransparent,
+		field: [u8; 1],
+		_zst_4: ConsumeByte
+	}
 
 	#[derive(DeriveDecode)]
 	struct NewtypeWithZstBox(Box<NewtypeWithZst>);
 
-	impl Decode for Zst {
+	impl Decode for ConsumeByte {
 		fn decode<I: parity_scale_codec::Input>(input: &mut I) -> Result<Self, Error> {
 			let mut buffer = [0; 1];
 			input.read(&mut buffer).unwrap();
@@ -695,7 +723,25 @@ fn zero_sized_types_are_not_ignored_when_decoding() {
 	}
 
 	let data = &[1, 2, 3];
-	assert_eq!(NewtypeWithZst::decode(&mut data.as_slice()).unwrap().1, [2]);
+	assert_eq!(NewtypeWithZst::decode(&mut data.as_slice()).unwrap().field, [2]);
+}
+
+#[test]
+fn boxed_zero_sized_newtype_with_everything_being_transparent_is_decoded_correctly() {
+	#[derive(DeriveDecode)]
+	#[repr(transparent)]
+	struct Zst;
+
+	#[derive(DeriveDecode)]
+	#[repr(transparent)]
+	struct NewtypeWithZst(Zst);
+
+	#[derive(DeriveDecode)]
+	#[repr(transparent)]
+	struct NewtypeWithZstBox(Box<NewtypeWithZst>);
+
+	let data = &[];
+	assert!(NewtypeWithZst::decode(&mut data.as_slice()).is_ok());
 }
 
 #[test]
