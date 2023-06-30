@@ -20,7 +20,7 @@
 use std::str::FromStr;
 
 use proc_macro2::TokenStream;
-use quote::quote;
+use quote::{ToTokens, quote};
 use syn::{
 	parse::Parse, punctuated::Punctuated, spanned::Spanned, token, Attribute, Data, DeriveInput,
 	Field, Fields, FieldsNamed, FieldsUnnamed, Lit, Meta, MetaNameValue, NestedMeta, Path, Variant,
@@ -430,4 +430,24 @@ fn check_top_attribute(attr: &Attribute) -> syn::Result<()> {
 	} else {
 		Ok(())
 	}
+}
+
+fn check_repr(attrs: &[syn::Attribute], value: &str) -> bool {
+	let mut result = false;
+	for raw_attr in attrs {
+		let path = raw_attr.path.clone().into_token_stream().to_string();
+		if path != "repr" {
+			continue;
+		}
+
+		result = raw_attr.tokens.clone().into_token_stream().to_string() == value;
+	}
+
+	result
+}
+
+/// Checks whether the given attributes contain a `#[repr(transparent)]`.
+pub fn is_transparent(attrs: &[syn::Attribute]) -> bool {
+	// TODO: When migrating to syn 2 the `"(transparent)"` needs to be changed into `"transparent"`.
+	check_repr(attrs, "(transparent)")
 }

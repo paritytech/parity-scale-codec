@@ -208,6 +208,26 @@ pub fn decode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 	let decoding =
 		decode::quote(&input.data, name, &quote!(#ty_gen_turbofish), &input_, &crate_path);
 
+	let decode_into_body = decode::quote_decode_into(
+		&input.data,
+		&crate_path,
+		&input_,
+		&input.attrs
+	);
+
+	let impl_decode_into = if let Some(body) = decode_into_body {
+		quote! {
+			fn decode_into<__CodecInputEdqy: #crate_path::Input>(
+				#input_: &mut __CodecInputEdqy,
+				dst_: &mut ::core::mem::MaybeUninit<Self>,
+			) -> ::core::result::Result<#crate_path::DecodeFinished, #crate_path::Error> {
+				#body
+			}
+		}
+	} else {
+		quote! {}
+	};
+
 	let impl_block = quote! {
 		#[automatically_derived]
 		impl #impl_generics #crate_path::Decode for #name #ty_generics #where_clause {
@@ -216,6 +236,8 @@ pub fn decode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 			) -> ::core::result::Result<Self, #crate_path::Error> {
 				#decoding
 			}
+
+			#impl_decode_into
 		}
 	};
 
