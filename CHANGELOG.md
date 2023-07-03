@@ -5,6 +5,13 @@ All notable changes to this crate are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this crate adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.6.3] - 2023-07-03
+
+### Fixed
+
+- Provide full path to elements from `::core` in `Decode` derivation (caused compilation error when 
+  `no-implicit-prelude` was used).
+
 ## [3.6.2] - 2023-06-30
 
 ### Fixed

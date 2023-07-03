@@ -188,13 +188,13 @@ pub fn quote_decode_into(
 
 	Some(quote!{
 		// Just a sanity check. These should always be true and will be optimized-out.
-		assert_eq!(#(#sizes)*, ::core::mem::size_of::<Self>());
-		assert!(#(#non_zst_field_count)* <= 1);
+		::core::assert_eq!(#(#sizes)*, ::core::mem::size_of::<Self>());
+		::core::assert!(#(#non_zst_field_count)* <= 1);
 
 		#(#decode_fields)*
 
 		// SAFETY: We've successfully called `decode_into` for all of the fields.
-		unsafe { Ok(#crate_path::DecodeFinished::assert_decoding_finished()) }
+		unsafe { ::core::result::Result::Ok(#crate_path::DecodeFinished::assert_decoding_finished()) }
 	})
 }
 

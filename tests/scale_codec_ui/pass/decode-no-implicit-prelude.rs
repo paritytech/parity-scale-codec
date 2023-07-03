@@ -10,6 +10,12 @@ pub struct Struct {
 }
 
 #[derive(::parity_scale_codec::Decode)]
+#[repr(transparent)]
+struct Transparent {
+    a: u8
+}
+
+#[derive(::parity_scale_codec::Decode)]
 #[codec(crate = ::parity_scale_codec)]
 pub enum Enum {
     Variant1,
