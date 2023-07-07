@@ -127,7 +127,7 @@ fn encode_decode_vec<T: TryFrom<u8> + Codec>(c: &mut Criterion) where T::Error: 
 		});
 	}
 
-	core::mem::drop(g);
+	drop(g);
 	let mut g = c.benchmark_group("vec_decode");
 	for vec_size in [1, 2, 5, 32, 1024, 2048, 16384] {
 		g.bench_with_input(&format!("{}/{}", type_name::<T>(), vec_size), &vec_size, |b, &vec_size| {
@@ -146,7 +146,7 @@ fn encode_decode_vec<T: TryFrom<u8> + Codec>(c: &mut Criterion) where T::Error: 
 		});
 	}
 
-	core::mem::drop(g);
+	drop(g);
 	let mut g = c.benchmark_group("vec_decode_no_limit");
 	for vec_size in [16384, 131072] {
 		g.bench_with_input(&format!("vec_decode_no_limit_{}/{}", type_name::<T>(), vec_size), &vec_size, |b, &vec_size| {
@@ -191,7 +191,7 @@ fn encode_decode_complex_type(c: &mut Criterion) {
 		});
 	}
 
-	core::mem::drop(g);
+	drop(g);
 	let mut g = c.benchmark_group("vec_decode_complex_type");
 	for vec_size in [1, 2, 5, 32, 1024, 2048, 16384] {
 		let complex_types = complex_types.clone();
