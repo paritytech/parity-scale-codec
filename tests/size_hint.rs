@@ -12,7 +12,7 @@ fn size_hint_for_struct() {
 	}
 
 	let v = Struct::<String, Vec<i32>, u32> { a: String::from("foo"), b: vec![1, 2, 3], c: 0 };
-	assert_eq!(v.size_hint(), Encode::size_hint(&v.a) + Encode::size_hint(&v.b));
+	assert_eq!(v.size_hint(), 23);
 }
 
 #[test]
@@ -21,7 +21,7 @@ fn size_hint_for_tuple_struct() {
 	struct Tuple(String, Vec<i32>, #[codec(skip)] u32);
 
 	let v = Tuple(String::from("foo"), vec![1, 2, 3], 0);
-	assert_eq!(v.size_hint(), Encode::size_hint(&v.0) + Encode::size_hint(&v.1));
+	assert_eq!(v.size_hint(), 23);
 }
 
 #[test]
@@ -46,22 +46,14 @@ fn size_hint_for_simple_enum() {
 		},
 	}
 
-	let discriminant = core::mem::size_of::<u8>();
-
 	let v = EnumType::A;
-	assert_eq!(v.size_hint(), discriminant);
+	assert_eq!(v.size_hint(), 1);
 
 	let v = EnumType::B(1, 2);
-	assert_eq!(
-		v.size_hint(),
-		discriminant + Encode::size_hint(&u32::MIN) + Encode::size_hint(&u64::MIN)
-	);
+	assert_eq!(v.size_hint(), 13);
 
 	let v = EnumType::C { a: 0, b: 0 };
-	assert_eq!(
-		v.size_hint(),
-		discriminant + Encode::size_hint(&u32::MIN) + Encode::size_hint(&u64::MIN)
-	);
+	assert_eq!(v.size_hint(), 13);
 }
 
 #[test]
