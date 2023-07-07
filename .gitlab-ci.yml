@@ -10,7 +10,7 @@ variables:
   GIT_STRATEGY:                    fetch
   GIT_DEPTH:                       "100"
   CARGO_INCREMENTAL:               0
-  CI_IMAGE:                        "paritytech/parity-scale-codec:production"
+  CI_IMAGE:                        "paritytech/ci-unified:bullseye-1.70.0-2023-05-23"
 
 default:
   cache:                           {}
