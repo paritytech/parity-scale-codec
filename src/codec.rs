@@ -890,15 +890,15 @@ impl<T: Encode, const N: usize> Encode for [T; N] {
 }
 
 const fn calculate_array_bytesize<T, const N: usize>() -> usize {
-	struct AssertNotOverflow<T, const N: usize>(core::marker::PhantomData<T>);
+	struct AssertNotOverflow<T, const N: usize>(PhantomData<T>);
 
 	impl<T, const N: usize> AssertNotOverflow<T, N> {
-		const OK: () = assert!(core::mem::size_of::<T>().checked_mul(N).is_some(), "array size overflow");
+		const OK: () = assert!(mem::size_of::<T>().checked_mul(N).is_some(), "array size overflow");
 	}
 
 	#[allow(clippy::let_unit_value)]
 	let () = AssertNotOverflow::<T, N>::OK;
-	core::mem::size_of::<T>() * N
+	mem::size_of::<T>() * N
 }
 
 impl<T: Decode, const N: usize> Decode for [T; N] {
@@ -978,7 +978,7 @@ impl<T: Decode, const N: usize> Decode for [T; N] {
 
 		impl<'a, T, const N: usize> Drop for State<'a, T, N> {
 			fn drop(&mut self) {
-				if !core::mem::needs_drop::<T>() {
+				if !mem::needs_drop::<T>() {
 					// If the types don't actually need to be dropped then don't even
 					// try to run the loop below.
 					//
@@ -1011,7 +1011,7 @@ impl<T: Decode, const N: usize> Decode for [T; N] {
 		}
 
 		// We've successfully read everything, so disarm the `Drop` impl.
-		core::mem::forget(state);
+		mem::forget(state);
 
 		// SAFETY: We've initialized the whole slice so calling this is safe.
 		unsafe {
@@ -1084,7 +1084,7 @@ impl Decode for String {
 
 /// Writes the compact encoding of `len` do `dest`.
 pub(crate) fn compact_encode_len_to<W: Output + ?Sized>(dest: &mut W, len: usize) -> Result<(), Error> {
-	if len > u32::max_value() as usize {
+	if len > u32::MAX as usize {
 		return Err("Attempted to serialize a collection with too many elements.".into());
 	}
 
@@ -1094,7 +1094,7 @@ pub(crate) fn compact_encode_len_to<W: Output + ?Sized>(dest: &mut W, len: usize
 
 impl<T: Encode> Encode for [T] {
 	fn size_hint(&self) -> usize {
-		mem::size_of::<u32>() + core::mem::size_of_val(self)
+		mem::size_of::<u32>() + mem::size_of_val(self)
 	}
 
 	fn encode_to<W: Output + ?Sized>(&self, dest: &mut W) {
@@ -1853,8 +1853,8 @@ mod tests {
 
 	#[test]
 	fn shared_references_implement_encode() {
-		std::sync::Arc::new(10u32).encode();
-		std::rc::Rc::new(10u32).encode();
+		Arc::new(10u32).encode();
+		Rc::new(10u32).encode();
 	}
 
 	#[test]
@@ -1973,7 +1973,7 @@ mod tests {
 
 	#[test]
 	fn u64_max() {
-		let num_secs = u64::max_value();
+		let num_secs = u64::MAX;
 		let num_nanos = 0;
 		let duration = Duration::new(num_secs, num_nanos);
 		let expected = (num_secs, num_nanos).encode();
@@ -1984,7 +1984,7 @@ mod tests {
 
 	#[test]
 	fn decoding_does_not_overflow() {
-		let num_secs = u64::max_value();
+		let num_secs = u64::MAX;
 		let num_nanos = A_BILLION;
 
 		// `num_nanos`' carry should make `num_secs` overflow if we were to call `Duration::new()`.

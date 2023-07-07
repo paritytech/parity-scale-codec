@@ -17,7 +17,7 @@ use crate::{Decode, Error};
 /// The error message returned when `decode_all` fails.
 pub(crate) const DECODE_ALL_ERR_MSG: &str = "Input buffer has still data left after decoding!";
 
-/// Extension trait to [`Decode`] that ensures that the given input data is consumed completly while
+/// Extension trait to [`Decode`] that ensures that the given input data is consumed completely while
 /// decoding.
 pub trait DecodeAll: Sized {
 	/// Decode `Self` and consume all of the given input data.

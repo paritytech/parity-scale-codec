@@ -92,9 +92,9 @@ fn wrap_with_dummy_const(
 /// The variable is encoded with one byte for the variant and then the variant struct encoding.
 /// The variant number is:
 /// * if variant has attribute: `#[codec(index = "$n")]` then n
-/// * else if variant has discrimant (like 3 in `enum T { A = 3 }`) then the discrimant.
+/// * else if variant has discriminant (like 3 in `enum T { A = 3 }`) then the discriminant.
 /// * else its position in the variant set, excluding skipped variants, but including variant with
-/// discrimant or attribute. Warning this position does collision with discrimant or attribute
+/// discriminant or attribute. Warning this position does collision with discriminant or attribute
 /// index.
 ///
 /// variant attributes:

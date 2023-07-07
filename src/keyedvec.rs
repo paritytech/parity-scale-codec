@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Serialiser and prepender.
+//! Serializer and prepender.
 
 use core::iter::Extend;
 

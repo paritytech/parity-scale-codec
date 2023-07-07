@@ -35,7 +35,7 @@ struct Struct<A, B, C> {
 struct StructWithPhantom {
 	pub a: u32,
 	pub b: u64,
-	_c: ::std::marker::PhantomData<u8>,
+	_c: std::marker::PhantomData<u8>,
 }
 
 type TestType = Struct<u32, u64, Vec<u8>>;
@@ -240,7 +240,7 @@ const U64_TEST_COMPACT_VALUES: &[(u64, usize)] = &[
 	(1 << 48, 8),
 	(1 << 56 - 1, 8),
 	(1 << 56, 9),
-	(u64::max_value(), 9),
+	(u64::MAX, 9),
 ];
 
 const U64_TEST_COMPACT_VALUES_FOR_ENUM: &[(u64, usize)] = &[
@@ -257,7 +257,7 @@ const U64_TEST_COMPACT_VALUES_FOR_ENUM: &[(u64, usize)] = &[
 	(1 << 48, 9),
 	(1 << 56 - 1, 9),
 	(1 << 56, 10),
-	(u64::max_value(), 10),
+	(u64::MAX, 10),
 ];
 
 #[test]
@@ -527,7 +527,7 @@ fn recursive_type() {
 #[test]
 fn crafted_input_for_vec_u8() {
 	assert_eq!(
-		Vec::<u8>::decode(&mut &Compact(u32::max_value()).encode()[..])
+		Vec::<u8>::decode(&mut &Compact(u32::MAX).encode()[..])
 			.err()
 			.unwrap()
 			.to_string(),
@@ -545,7 +545,7 @@ fn crafted_input_for_vec_t() {
 	};
 
 	assert_eq!(
-		Vec::<u32>::decode(&mut &Compact(u32::max_value()).encode()[..])
+		Vec::<u32>::decode(&mut &Compact(u32::MAX).encode()[..])
 			.err()
 			.unwrap()
 			.to_string(),

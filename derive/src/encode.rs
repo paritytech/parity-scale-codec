@@ -26,7 +26,7 @@ use crate::utils;
 
 type FieldsList = Punctuated<Field, Comma>;
 
-// Encode a signle field by using using_encoded, must not have skip attribute
+// Encode a single field by using using_encoded, must not have skip attribute
 fn encode_single_field(
 	field: &Field,
 	field_name: TokenStream,
