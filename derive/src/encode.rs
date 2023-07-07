@@ -322,14 +322,14 @@ fn impl_encode(data: &Data, type_name: &Ident, crate_path: &syn::Path) -> TokenS
 						let size_hint_fields = size_hint_fields(fields, field_name, crate_path);
 						let encode_fields = encode_fields(dest, fields, field_name, crate_path);
 
-						let (hinting_names, encoding_names) = (names.clone(), names.clone());
-
+						let hinting_names = names.clone();
 						let hinting = quote_spanned! { f.span() =>
 							#type_name :: #name { #( ref #hinting_names, )* } => {
 								#size_hint_fields
 							}
 						};
 
+						let encoding_names = names.clone();
 						let encoding = quote_spanned! { f.span() =>
 							#type_name :: #name { #( ref #encoding_names, )* } => {
 								#dest.push_byte(#index as ::core::primitive::u8);
@@ -358,14 +358,14 @@ fn impl_encode(data: &Data, type_name: &Ident, crate_path: &syn::Path) -> TokenS
 						let size_hint_fields = size_hint_fields(fields, field_name, crate_path);
 						let encode_fields = encode_fields(dest, fields, field_name, crate_path);
 
-						let (hinting_names, encoding_names) = (names.clone(), names.clone());
-
+						let hinting_names = names.clone();
 						let hinting = quote_spanned! { f.span() =>
 							#type_name :: #name ( #( ref #hinting_names, )* ) => {
 								#size_hint_fields
 							}
 						};
 
+						let encoding_names = names.clone();
 						let encoding = quote_spanned! { f.span() =>
 							#type_name :: #name ( #( ref #encoding_names, )* ) => {
 								#dest.push_byte(#index as ::core::primitive::u8);
@@ -398,6 +398,7 @@ fn impl_encode(data: &Data, type_name: &Ident, crate_path: &syn::Path) -> TokenS
 			let recurse_encoding = recurse.clone().map(|[_, encoding]| encoding);
 
 			let hinting = quote! {
+				// The variant index uses 1 byte.
 				1_usize + match *#self_ {
 					#( #recurse_hinting )*,
 					_ => 0_usize,
