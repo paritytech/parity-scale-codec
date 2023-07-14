@@ -75,6 +75,10 @@ fn encode_single_field(
 	let i_self = quote! { self };
 
 	quote_spanned! { field.span() =>
+			fn size_hint(&#i_self) -> usize {
+				#crate_path::Encode::size_hint(&#final_field_variable)
+			}
+
 			fn encode_to<__CodecOutputEdqy: #crate_path::Output + ?::core::marker::Sized>(
 				&#i_self,
 				__codec_dest_edqy: &mut __CodecOutputEdqy
@@ -92,15 +96,25 @@ fn encode_single_field(
 	}
 }
 
-fn encode_fields<F>(
-	dest: &TokenStream,
+enum FieldAttribute<'a> {
+	None(&'a Field),
+	Compact(&'a Field),
+	EncodedAs { field: &'a Field, encoded_as: &'a TokenStream },
+	Skip(&'a Field),
+}
+
+fn iterate_over_fields<F, H, J>(
 	fields: &FieldsList,
 	field_name: F,
-	crate_path: &syn::Path,
-) -> TokenStream where
+	field_handler: H,
+	field_joiner: J,
+) -> TokenStream
+where
 	F: Fn(usize, &Option<Ident>) -> TokenStream,
+	H: Fn(TokenStream, FieldAttribute) -> TokenStream,
+	J: Fn(&mut dyn Iterator<Item = TokenStream>) -> TokenStream,
 {
-	let recurse = fields.iter().enumerate().map(|(i, f)| {
+	let mut recurse = fields.iter().enumerate().map(|(i, f)| {
 		let field = field_name(i, &f.ident);
 		let encoded_as = utils::get_encoded_as_type(f);
 		let compact = utils::is_compact(f);
@@ -113,9 +127,36 @@ fn encode_fields<F>(
 			).to_compile_error();
 		}
 
-		// Based on the seen attribute, we generate the code that encodes the field.
-		// We call `push` from the `Output` trait on `dest`.
+		// Based on the seen attribute, we call a handler that generates code for a specific
+		// attribute type.
 		if compact {
+			field_handler(field, FieldAttribute::Compact(f))
+		} else if let Some(ref encoded_as) = encoded_as {
+			field_handler(field, FieldAttribute::EncodedAs { field: f, encoded_as })
+		} else if skip {
+			field_handler(field, FieldAttribute::Skip(f))
+		} else {
+			field_handler(field, FieldAttribute::None(f))
+		}
+	});
+
+	field_joiner(&mut recurse)
+}
+
+fn encode_fields<F>(
+	dest: &TokenStream,
+	fields: &FieldsList,
+	field_name: F,
+	crate_path: &syn::Path,
+) -> TokenStream
+where
+	F: Fn(usize, &Option<Ident>) -> TokenStream,
+{
+	iterate_over_fields(fields, field_name, |field, field_attribute| match field_attribute {
+		FieldAttribute::None(f) => quote_spanned! { f.span() =>
+			#crate_path::Encode::encode_to(#field, #dest);
+		},
+		FieldAttribute::Compact(f) => {
 			let field_type = &f.ty;
 			quote_spanned! {
 				f.span() => {
@@ -128,7 +169,8 @@ fn encode_fields<F>(
 					);
 				}
 			}
-		} else if let Some(encoded_as) = encoded_as {
+		},
+		FieldAttribute::EncodedAs { field: f, encoded_as } => {
 			let field_type = &f.ty;
 			quote_spanned! {
 				f.span() => {
@@ -141,20 +183,49 @@ fn encode_fields<F>(
 					);
 				}
 			}
-		} else if skip {
-			quote! {
-				let _ = #field;
-			}
-		} else {
-			quote_spanned! { f.span() =>
-				#crate_path::Encode::encode_to(#field, #dest);
-			}
-		}
-	});
-
-	quote! {
+		},
+		FieldAttribute::Skip(_) => quote! {
+			let _ = #field;
+		},
+	}, |recurse| quote! {
 		#( #recurse )*
-	}
+	})
+}
+
+fn size_hint_fields<F>(fields: &FieldsList, field_name: F, crate_path: &syn::Path) -> TokenStream
+where
+	F: Fn(usize, &Option<Ident>) -> TokenStream,
+{
+	iterate_over_fields(fields, field_name, |field, field_attribute| match field_attribute {
+		FieldAttribute::None(f) => quote_spanned! { f.span() =>
+			.saturating_add(#crate_path::Encode::size_hint(#field))
+		},
+		FieldAttribute::Compact(f) => {
+			let field_type = &f.ty;
+			quote_spanned! {
+				f.span() => .saturating_add(#crate_path::Encode::size_hint(
+					&<
+						<#field_type as #crate_path::HasCompact>::Type as
+						#crate_path::EncodeAsRef<'_, #field_type>
+					>::RefType::from(#field),
+				))
+			}
+		},
+		FieldAttribute::EncodedAs { field: f, encoded_as } => {
+			let field_type = &f.ty;
+			quote_spanned! {
+				f.span() => .saturating_add(#crate_path::Encode::size_hint(
+					&<
+						#encoded_as as
+						#crate_path::EncodeAsRef<'_, #field_type>
+					>::RefType::from(#field),
+				))
+			}
+		},
+		FieldAttribute::Skip(_) => quote!(),
+	}, |recurse| quote! {
+		0_usize #( #recurse )*
+	})
 }
 
 fn try_impl_encode_single_field_optimisation(data: &Data, crate_path: &syn::Path) -> Option<TokenStream> {
@@ -190,25 +261,31 @@ fn try_impl_encode_single_field_optimisation(data: &Data, crate_path: &syn::Path
 fn impl_encode(data: &Data, type_name: &Ident, crate_path: &syn::Path) -> TokenStream {
 	let self_ = quote!(self);
 	let dest = &quote!(__codec_dest_edqy);
-	let encoding = match *data {
+	let [hinting, encoding] = match *data {
 		Data::Struct(ref data) => {
 			match data.fields {
-				Fields::Named(ref fields) => encode_fields(
-					dest,
-					&fields.named,
-					|_, name| quote!(&#self_.#name),
-					crate_path,
-				),
-				Fields::Unnamed(ref fields) => encode_fields(
-					dest,
-					&fields.unnamed,
-					|i, _| {
+				Fields::Named(ref fields) => {
+					let fields = &fields.named;
+					let field_name = |_, name: &Option<Ident>| quote!(&#self_.#name);
+
+					let hinting = size_hint_fields(fields, field_name, crate_path);
+					let encoding = encode_fields(dest, fields, field_name, crate_path);
+
+					[hinting, encoding]
+				},
+				Fields::Unnamed(ref fields) => {
+					let fields = &fields.unnamed;
+					let field_name = |i, _: &Option<Ident>| {
 						let i = syn::Index::from(i);
 						quote!(&#self_.#i)
-					},
-					crate_path,
-				),
-				Fields::Unit => quote!(),
+					};
+
+					let hinting = size_hint_fields(fields, field_name, crate_path);
+					let encoding = encode_fields(dest, fields, field_name, crate_path);
+
+					[hinting, encoding]
+				},
+				Fields::Unit => [quote! { 0_usize }, quote!()],
 			}
 		},
 		Data::Enum(ref data) => {
@@ -232,76 +309,121 @@ fn impl_encode(data: &Data, type_name: &Ident, crate_path: &syn::Path) -> TokenS
 
 				match f.fields {
 					Fields::Named(ref fields) => {
+						let fields = &fields.named;
 						let field_name = |_, ident: &Option<Ident>| quote!(#ident);
-						let names = fields.named
+
+						let names = fields
 							.iter()
 							.enumerate()
 							.map(|(i, f)| field_name(i, &f.ident));
 
-						let encode_fields = encode_fields(
-							dest,
-							&fields.named,
-							|a, b| field_name(a, b),
-							crate_path,
-						);
+						let field_name = |a, b: &Option<Ident>| field_name(a, b);
 
-						quote_spanned! { f.span() =>
-							#type_name :: #name { #( ref #names, )* } => {
+						let size_hint_fields = size_hint_fields(fields, field_name, crate_path);
+						let encode_fields = encode_fields(dest, fields, field_name, crate_path);
+
+						let hinting_names = names.clone();
+						let hinting = quote_spanned! { f.span() =>
+							#type_name :: #name { #( ref #hinting_names, )* } => {
+								#size_hint_fields
+							}
+						};
+
+						let encoding_names = names.clone();
+						let encoding = quote_spanned! { f.span() =>
+							#type_name :: #name { #( ref #encoding_names, )* } => {
 								#dest.push_byte(#index as ::core::primitive::u8);
 								#encode_fields
 							}
-						}
+						};
+
+						[hinting, encoding]
 					},
 					Fields::Unnamed(ref fields) => {
+						let fields = &fields.unnamed;
 						let field_name = |i, _: &Option<Ident>| {
 							let data = stringify(i as u8);
 							let ident = from_utf8(&data).expect("We never go beyond ASCII");
 							let ident = Ident::new(ident, Span::call_site());
 							quote!(#ident)
 						};
-						let names = fields.unnamed
+
+						let names = fields
 							.iter()
 							.enumerate()
 							.map(|(i, f)| field_name(i, &f.ident));
 
-						let encode_fields = encode_fields(
-							dest,
-							&fields.unnamed,
-							|a, b| field_name(a, b),
-							crate_path,
-						);
+						let field_name = |a, b: &Option<Ident>| field_name(a, b);
 
-						quote_spanned! { f.span() =>
-							#type_name :: #name ( #( ref #names, )* ) => {
+						let size_hint_fields = size_hint_fields(fields, field_name, crate_path);
+						let encode_fields = encode_fields(dest, fields, field_name, crate_path);
+
+						let hinting_names = names.clone();
+						let hinting = quote_spanned! { f.span() =>
+							#type_name :: #name ( #( ref #hinting_names, )* ) => {
+								#size_hint_fields
+							}
+						};
+
+						let encoding_names = names.clone();
+						let encoding = quote_spanned! { f.span() =>
+							#type_name :: #name ( #( ref #encoding_names, )* ) => {
 								#dest.push_byte(#index as ::core::primitive::u8);
 								#encode_fields
 							}
-						}
+						};
+
+						[hinting, encoding]
 					},
 					Fields::Unit => {
-						quote_spanned! { f.span() =>
+						let hinting = quote_spanned! { f.span() =>
+							#type_name :: #name => {
+								0_usize
+							}
+						};
+
+						let encoding = quote_spanned! { f.span() =>
 							#type_name :: #name => {
 								#[allow(clippy::unnecessary_cast)]
 								#dest.push_byte(#index as ::core::primitive::u8);
 							}
-						}
+						};
+
+						[hinting, encoding]
 					},
 				}
 			});
 
-			quote! {
+			let recurse_hinting = recurse.clone().map(|[hinting, _]| hinting);
+			let recurse_encoding = recurse.clone().map(|[_, encoding]| encoding);
+
+			let hinting = quote! {
+				// The variant index uses 1 byte.
+				1_usize + match *#self_ {
+					#( #recurse_hinting )*,
+					_ => 0_usize,
+				}
+			};
+
+			let encoding = quote! {
 				match *#self_ {
-					#( #recurse )*,
+					#( #recurse_encoding )*,
 					_ => (),
 				}
-			}
+			};
+
+			[hinting, encoding]
 		},
-		Data::Union(ref data) => Error::new(
+		Data::Union(ref data) => return Error::new(
 			data.union_token.span(),
 			"Union types are not supported."
 		).to_compile_error(),
 	};
 	quote! {
+		fn size_hint(&#self_) -> usize {
+			#hinting
+		}
+
 		fn encode_to<__CodecOutputEdqy: #crate_path::Output + ?::core::marker::Sized>(
 			&#self_,
 			#dest: &mut __CodecOutputEdqy
