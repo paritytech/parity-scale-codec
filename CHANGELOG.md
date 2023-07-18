@@ -5,6 +5,13 @@ All notable changes to this crate are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this crate adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.6.4] - 2023-07-14
+
+### Added
+
+- Now `#[derive(Encode)]` implements the `size_hint()` method for structures and enumerations.
+  This improves the performance of the `encode()` method by pre-allocating memory.
+
 ## [3.6.3] - 2023-07-03
 
 ### Fixed
