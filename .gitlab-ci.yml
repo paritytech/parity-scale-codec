@@ -1,6 +1,12 @@
 # .gitlab-ci.yml
 #
 
+include:
+  - project: parity/infrastructure/ci_cd/shared
+    ref: main
+    file: /common/ci-unified.yml  
+
+
 stages:
   - check
   - test
@@ -10,7 +16,7 @@ variables:
   GIT_STRATEGY:                    fetch
   GIT_DEPTH:                       "100"
   CARGO_INCREMENTAL:               0
-  CI_IMAGE:                        "paritytech/ci-unified:bullseye-1.70.0-2023-05-23"
+  CI_IMAGE:                        !reference [.ci-unified, variables, CI_IMAGE]
 
 default:
   cache:                           {}
