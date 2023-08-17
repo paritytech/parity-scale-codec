@@ -26,7 +26,7 @@ serde_derive = { version = "1.0" }
 parity-scale-codec-derive = { path = "derive", default-features = false }
 quickcheck = "1.0"
 proptest = "1.2.0"
-trybuild = "1.0.82"
+trybuild = "1.0.83"
 paste = "1"
 
 [[bench]]
