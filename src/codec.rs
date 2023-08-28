@@ -1906,6 +1906,7 @@ mod tests {
 		fn t<B: EncodeLike>() {}
 		t::<&[u8]>();
 		t::<&str>();
+		t::<NonZeroU32>();
 	}
 
 	#[test]
