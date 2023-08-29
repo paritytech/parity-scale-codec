@@ -254,8 +254,8 @@ pub trait Encode {
 	///
 	/// # Note
 	///
-	/// This works by using a special [`Output`] that only tracks the size. So, there are no allocations inside the 
-	/// output. However, this can not prevent allocations that some types are doing inside their own encoding. 
+	/// This works by using a special [`Output`] that only tracks the size. So, there are no allocations inside the
+	/// output. However, this can not prevent allocations that some types are doing inside their own encoding.
 	fn encoded_size(&self) -> usize {
 		let mut size_tracker = SizeTracker { written: 0 };
 		self.encode_to(&mut size_tracker);
@@ -772,6 +772,8 @@ macro_rules! impl_for_non_zero {
 					self.get().using_encoded(f)
 				}
 			}
+
+			impl EncodeLike for $name {}
 
 			impl Decode for $name {
 				fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
@@ -1904,6 +1906,7 @@ mod tests {
 		fn t<B: EncodeLike>() {}
 		t::<&[u8]>();
 		t::<&str>();
+		t::<NonZeroU32>();
 	}
 
 	#[test]
