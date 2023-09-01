@@ -70,16 +70,14 @@ fn fields_length_expr(fields: &Fields, crate_path: &syn::Path) -> proc_macro2::T
 			if should_skip(&field.attrs) {
 				None
 			} else {
-				let is_compact = utils::is_compact(&field);
-
-				Some((&field.ty, is_compact))
+				Some((&field.ty, utils::is_compact(&field)))
 			}
 		})),
 		Fields::Unnamed(ref fields) => Box::new(fields.unnamed.iter().filter_map(|field| {
 			if should_skip(&field.attrs) {
 				None
 			} else {
-				Some((&field.ty, false))
+				Some((&field.ty, utils::is_compact(&field)))
 			}
 		})),
 		Fields::Unit => Box::new(std::iter::empty()),
