@@ -20,7 +20,7 @@ use crate::{
 	utils::{self, codec_crate_path, custom_mel_trait_bound, has_dumb_trait_bound, should_skip},
 };
 use quote::{quote, quote_spanned};
-use syn::{parse_quote, spanned::Spanned, Data, DeriveInput, Fields, Type};
+use syn::{parse_quote, spanned::Spanned, Data, DeriveInput, Field, Fields};
 
 /// impl for `#[derive(MaxEncodedLen)]`
 pub fn derive_max_encoded_len(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
@@ -65,19 +65,19 @@ pub fn derive_max_encoded_len(input: proc_macro::TokenStream) -> proc_macro::Tok
 
 /// generate an expression to sum up the max encoded length from several fields
 fn fields_length_expr(fields: &Fields, crate_path: &syn::Path) -> proc_macro2::TokenStream {
-	let type_iter: Box<dyn Iterator<Item = (&Type, bool)>> = match fields {
+	let fields_iter: Box<dyn Iterator<Item = &Field>> = match fields {
 		Fields::Named(ref fields) => Box::new(fields.named.iter().filter_map(|field| {
 			if should_skip(&field.attrs) {
 				None
 			} else {
-				Some((&field.ty, utils::is_compact(&field)))
+				Some(field)
 			}
 		})),
 		Fields::Unnamed(ref fields) => Box::new(fields.unnamed.iter().filter_map(|field| {
 			if should_skip(&field.attrs) {
 				None
 			} else {
-				Some((&field.ty, utils::is_compact(&field)))
+				Some(field)
 			}
 		})),
 		Fields::Unit => Box::new(std::iter::empty()),
@@ -92,8 +92,9 @@ fn fields_length_expr(fields: &Fields, crate_path: &syn::Path) -> proc_macro2::T
 	// `max_encoded_len` call. This way, if one field's type doesn't implement
 	// `MaxEncodedLen`, the compiler's error message will underline which field
 	// caused the issue.
-	let expansion = type_iter.map(|(ty, is_compact)| {
-		if is_compact {
+	let expansion = fields_iter.map(|field| {
+		let ty = &field.ty;
+		if utils::is_compact(&field) {
 			quote_spanned! {
 				ty.span() => .saturating_add(#crate_path::Compact::<#ty>::max_encoded_len())
 			}
