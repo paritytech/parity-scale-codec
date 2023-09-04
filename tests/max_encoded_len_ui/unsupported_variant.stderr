@@ -1,12 +1,16 @@
-error[E0599]: no function or associated item named `max_encoded_len` found for struct `NotMel` in the current scope
+error[E0277]: the trait bound `NotMel: MaxEncodedLen` is not satisfied
  --> tests/max_encoded_len_ui/unsupported_variant.rs:8:9
   |
-4 | struct NotMel;
-  | ------------- function or associated item `max_encoded_len` not found for this struct
-...
 8 |     NotMel(NotMel),
-  |            ^^^^^^ function or associated item not found in `NotMel`
+  |            ^^^^^^ the trait `MaxEncodedLen` is not implemented for `NotMel`
   |
-  = help: items from traits can only be used if the trait is implemented and in scope
-  = note: the following trait defines an item `max_encoded_len`, perhaps you need to implement it:
-          candidate #1: `MaxEncodedLen`
+  = help: the following other types implement trait `MaxEncodedLen`:
+            ()
+            (TupleElement0, TupleElement1)
+            (TupleElement0, TupleElement1, TupleElement2)
+            (TupleElement0, TupleElement1, TupleElement2, TupleElement3)
+            (TupleElement0, TupleElement1, TupleElement2, TupleElement3, TupleElement4)
+            (TupleElement0, TupleElement1, TupleElement2, TupleElement3, TupleElement4, TupleElement5)
+            (TupleElement0, TupleElement1, TupleElement2, TupleElement3, TupleElement4, TupleElement5, TupleElement6)
+            (TupleElement0, TupleElement1, TupleElement2, TupleElement3, TupleElement4, TupleElement5, TupleElement6, TupleElement7)
+          and $N others
