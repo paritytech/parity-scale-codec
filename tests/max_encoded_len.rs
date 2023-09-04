@@ -75,7 +75,7 @@ struct CompactField {
 fn compact_field_max_length() {
 	assert_eq!(
 		CompactField::max_encoded_len(),
-		Compact::<u64>::max_encoded_len() + <u64>::max_encoded_len()
+		Compact::<u64>::max_encoded_len() + u64::max_encoded_len()
 	);
 }
 
