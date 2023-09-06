@@ -34,6 +34,10 @@ pub trait MaxEncodedLen: Encode {
 	fn max_encoded_len() -> usize;
 }
 
+/// Similar to [`MaxEncodedLen`], but will return the maximum encoded length of the compact encoding
+pub trait MaxCompactEncodedLen {
+	fn max_compact_encoded_len() -> usize;
+}
 macro_rules! impl_primitives {
 	( $($t:ty),+ ) => {
 		$(
@@ -58,6 +62,12 @@ macro_rules! impl_compact {
 		$(
 			impl MaxEncodedLen for Compact<$t> {
 				fn max_encoded_len() -> usize {
+					$e
+				}
+			}
+
+			impl MaxCompactEncodedLen for $t {
+				fn max_compact_encoded_len() -> usize {
 					$e
 				}
 			}
