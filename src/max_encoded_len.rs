@@ -47,7 +47,7 @@ macro_rules! impl_primitives {
 }
 
 impl_primitives!(
-	i8, i16, i32, i64, i128, bool,
+	u8, i8, u16, i16, u32, i32, u64, i64, u128, i128, bool,
 	NonZeroU8, NonZeroU16, NonZeroU32, NonZeroU64, NonZeroU128, NonZeroI8, NonZeroI16, NonZeroI32,
 	NonZeroI64, NonZeroI128
 );
@@ -55,12 +55,6 @@ impl_primitives!(
 macro_rules! impl_compact {
 	($( $t:ty => $e:expr; )*) => {
 		$(
-			impl MaxEncodedLen for $t {
-				fn max_encoded_len() -> usize {
-					mem::size_of::<$t>()
-				}
-			}
-
 			impl MaxEncodedLen for Compact<$t> {
 				fn max_encoded_len() -> usize {
 					$e
