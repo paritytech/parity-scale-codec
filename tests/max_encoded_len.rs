@@ -65,17 +65,35 @@ fn generic_max_length() {
 }
 
 #[derive(Encode, MaxEncodedLen)]
-struct CompactField<T: MaxEncodedLen> {
+struct CompactField {
+	#[codec(compact)]
+	t: u64,
+	v: u64,
+}
+
+#[test]
+fn compact_field_max_length() {
+	assert_eq!(CompactField::max_encoded_len(), 17);
+	assert_eq!(
+		CompactField::max_encoded_len(),
+		Compact::<u64>::max_encoded_len() + u64::max_encoded_len()
+	);
+}
+
+
+#[derive(Encode, MaxEncodedLen)]
+struct CompactFieldGenerics<T: MaxEncodedLen> {
 	#[codec(compact)]
 	t: T,
 	v: u64,
 }
 
 #[test]
-fn compact_field_max_length() {
-	let max_len = CompactField::<u64>::max_encoded_len();
-	assert_eq!(max_len, Compact::<u64>::max_encoded_len() + u64::max_encoded_len());
-	assert_eq!(max_len, 17);
+fn compact_field_generics_max_length() {
+	assert_eq!(
+		CompactFieldGenerics::<u64>::max_encoded_len(),
+		CompactField::max_encoded_len()
+	);
 }
 
 #[derive(Encode, MaxEncodedLen)]
