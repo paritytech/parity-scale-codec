@@ -19,7 +19,9 @@ use arrayvec::ArrayVec;
 use crate::alloc::vec::Vec;
 use crate::codec::{Encode, Decode, Input, Output, EncodeAsRef};
 use crate::encode_like::EncodeLike;
-use crate::{Error, MaxEncodedLen};
+use crate::Error;
+#[cfg(feature = "max-encoded-len")]
+use crate::MaxEncodedLen;
 #[cfg(feature = "fuzz")]
 use arbitrary::Arbitrary;
 
