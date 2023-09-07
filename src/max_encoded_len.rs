@@ -32,15 +32,6 @@ use crate::alloc::sync::Arc;
 pub trait MaxEncodedLen: Encode {
 	/// Upper bound, in bytes, of the maximum encoded size of this item.
 	fn max_encoded_len() -> usize;
-	#[doc(hidden)]
-	/// Upper bound, in bytes, of the maximum encoded size of the compact encoding of this item.
-	///
-	/// # Note
-	///
-	/// Internal API. This is used by the `MaxEncodedLen` derive macro to implement `max_encoded_len`.
-	fn max_compact_encoded_len() -> usize {
-		Self::max_encoded_len()
-	}
 }
 
 macro_rules! impl_primitives {
@@ -67,10 +58,6 @@ macro_rules! impl_compact {
 			impl MaxEncodedLen for $t {
 				fn max_encoded_len() -> usize {
 					mem::size_of::<$t>()
-				}
-
-				fn max_compact_encoded_len() -> usize {
-					$e
 				}
 			}
 
