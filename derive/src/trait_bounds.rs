@@ -161,7 +161,6 @@ pub fn add<N>(
 
 		codec_types
 			.into_iter()
-			// .take(1)
 			.for_each(|ty| where_clause.predicates.push(parse_quote!(#ty : #codec_bound)));
 
 		let has_compact_bound: syn::Path = parse_quote!(#crate_path::HasCompact);
