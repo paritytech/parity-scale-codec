@@ -218,9 +218,9 @@ impl<T: MaxEncodedLen> MaybeMaxEncodedLen for T {}
 /// Requires the presence of `MaxEncodedLen` when the `max-encoded-len` feature is active.
 // Remove this trait when the feature is removed.
 #[cfg(not(feature = "max-encoded-len"))]
-pub trait MaybeMaxEncodedLen: MaxEncodedLen {}
+pub trait MaybeMaxEncodedLen {}
 #[cfg(not(feature = "max-encoded-len"))]
-impl<T: MaxEncodedLen> MaybeMaxEncodedLen for T {}
+impl<T> MaybeMaxEncodedLen for T {}
 
 /// Trait that tells you if a given type can be encoded/decoded in a compact way.
 pub trait HasCompact: Sized {
