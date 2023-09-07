@@ -32,12 +32,12 @@ use crate::alloc::sync::Arc;
 pub trait MaxEncodedLen: Encode {
 	/// Upper bound, in bytes, of the maximum encoded size of this item.
 	fn max_encoded_len() -> usize;
+	/// Upper bound, in bytes, of the maximum encoded size of the compact encoding of this item.
+	fn max_compact_encoded_len() -> usize {
+		Self::max_encoded_len()
+	}
 }
 
-/// Similar to [`MaxEncodedLen`], but will return the maximum encoded length of the compact encoding
-pub trait MaxCompactEncodedLen {
-	fn max_compact_encoded_len() -> usize;
-}
 macro_rules! impl_primitives {
 	( $($t:ty),+ ) => {
 		$(
@@ -50,9 +50,8 @@ macro_rules! impl_primitives {
 	};
 }
 
-impl_primitives!(u8, u16, u32, u64, u128, i8, i16, i32, i64, i128, bool);
-
 impl_primitives!(
+	i8, i16, i32, i64, i128, bool,
 	NonZeroU8, NonZeroU16, NonZeroU32, NonZeroU64, NonZeroU128, NonZeroI8, NonZeroI16, NonZeroI32,
 	NonZeroI64, NonZeroI128
 );
@@ -60,14 +59,18 @@ impl_primitives!(
 macro_rules! impl_compact {
 	($( $t:ty => $e:expr; )*) => {
 		$(
-			impl MaxEncodedLen for Compact<$t> {
+			impl MaxEncodedLen for $t {
 				fn max_encoded_len() -> usize {
+					mem::size_of::<$t>()
+				}
+
+				fn max_compact_encoded_len() -> usize {
 					$e
 				}
 			}
 
-			impl MaxCompactEncodedLen for $t {
-				fn max_compact_encoded_len() -> usize {
+			impl MaxEncodedLen for Compact<$t> {
+				fn max_encoded_len() -> usize {
 					$e
 				}
 			}

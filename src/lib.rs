@@ -81,7 +81,7 @@ pub use self::depth_limit::DecodeLimit;
 pub use self::encode_append::EncodeAppend;
 pub use self::encode_like::{EncodeLike, Ref};
 #[cfg(feature = "max-encoded-len")]
-pub use max_encoded_len::{MaxEncodedLen, MaxCompactEncodedLen};
+pub use max_encoded_len::MaxEncodedLen;
 #[cfg(feature = "max-encoded-len")]
 pub use const_encoded_len::ConstEncodedLen;
 
