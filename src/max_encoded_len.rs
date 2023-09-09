@@ -65,6 +65,7 @@ macro_rules! impl_compact {
 }
 
 impl_compact!(
+	() => 0;
 	// github.com/paritytech/parity-scale-codec/blob/f0341dabb01aa9ff0548558abb6dcc5c31c669a1/src/compact.rs#L261
 	u8 => 2;
 	// github.com/paritytech/parity-scale-codec/blob/f0341dabb01aa9ff0548558abb6dcc5c31c669a1/src/compact.rs#L291
