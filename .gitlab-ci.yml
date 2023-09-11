@@ -191,3 +191,11 @@ publish-dry-run:
     - if: $CI_COMMIT_REF_NAME =~ /^[0-9]+$/ # PRs
   script:
     - cargo publish -p parity-scale-codec --dry-run
+
+publish-crate:
+  stage: publish
+  extends: .kubernetes-env
+  rules:
+    - if: $CI_COMMIT_REF_NAME =~ /^v.[0-9]+\.[0-9]+.*$/ # i.e. v.1.0, v.2.1rc1
+  script:
+    - cargo publish -p parity-scale-codec
