@@ -1,25 +1,22 @@
-error[E0432]: unresolved import `parity_scale_codec::MaxEncodedLen`
- --> tests/max_encoded_len_ui/not_encode.rs:1:26
+error[E0277]: the trait bound `NotEncode: WrapperTypeEncode` is not satisfied
+ --> tests/max_encoded_len_ui/not_encode.rs:4:8
   |
-1 | use parity_scale_codec::{MaxEncodedLen};
-  |                          ^^^^^^^^^^^^^ no `MaxEncodedLen` in the root
+4 | struct NotEncode;
+  |        ^^^^^^^^^ the trait `WrapperTypeEncode` is not implemented for `NotEncode`
   |
-note: found an item that was configured out
- --> src/lib.rs
+  = help: the following other types implement trait `WrapperTypeEncode`:
+            Box<T>
+            Cow<'a, T>
+            parity_scale_codec::Ref<'a, T, U>
+            Rc<T>
+            Arc<T>
+            Vec<T>
+            String
+            &T
+            &mut T
+  = note: required for `NotEncode` to implement `Encode`
+note: required by a bound in `MaxEncodedLen`
+ --> src/max_encoded_len.rs
   |
-  | pub use max_encoded_len::MaxEncodedLen;
-  |                          ^^^^^^^^^^^^^
-  = note: the item is gated behind the `max-encoded-len` feature
-note: found an item that was configured out
- --> src/lib.rs
-  |
-  | pub use parity_scale_codec_derive::MaxEncodedLen;
-  |                                    ^^^^^^^^^^^^^
-
-error: cannot determine resolution for the derive macro `MaxEncodedLen`
- --> tests/max_encoded_len_ui/not_encode.rs:3:10
-  |
-3 | #[derive(MaxEncodedLen)]
-  |          ^^^^^^^^^^^^^
-  |
-  = note: import resolution is stuck, try simplifying macro imports
+  | pub trait MaxEncodedLen: Encode {
+  |                          ^^^^^^ required by this bound in `MaxEncodedLen`

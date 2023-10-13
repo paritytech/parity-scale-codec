@@ -1,34 +1,24 @@
-error[E0432]: unresolved import `parity_scale_codec::MaxEncodedLen`
- --> tests/max_encoded_len_ui/not_mel.rs:1:34
-  |
-1 | use parity_scale_codec::{Encode, MaxEncodedLen};
-  |                                  ^^^^^^^^^^^^^ no `MaxEncodedLen` in the root
-  |
-note: found an item that was configured out
- --> src/lib.rs
-  |
-  | pub use max_encoded_len::MaxEncodedLen;
-  |                          ^^^^^^^^^^^^^
-  = note: the item is gated behind the `max-encoded-len` feature
-note: found an item that was configured out
- --> src/lib.rs
-  |
-  | pub use parity_scale_codec_derive::MaxEncodedLen;
-  |                                    ^^^^^^^^^^^^^
-
-error: cannot determine resolution for the derive macro `MaxEncodedLen`
- --> tests/max_encoded_len_ui/not_mel.rs:6:18
-  |
-6 | #[derive(Encode, MaxEncodedLen)]
-  |                  ^^^^^^^^^^^^^
-  |
-  = note: import resolution is stuck, try simplifying macro imports
-
-error[E0599]: no function or associated item named `max_encoded_len` found for struct `Generic` in the current scope
+error[E0599]: the function or associated item `max_encoded_len` exists for struct `Generic<NotMel>`, but its trait bounds were not satisfied
   --> tests/max_encoded_len_ui/not_mel.rs:12:29
    |
+4  | struct NotMel;
+   | ------------- doesn't satisfy `NotMel: MaxEncodedLen`
+...
 7  | struct Generic<T> {
-   | ----------------- function or associated item `max_encoded_len` not found for this struct
+   | -----------------
+   | |
+   | function or associated item `max_encoded_len` not found for this struct
+   | doesn't satisfy `Generic<NotMel>: MaxEncodedLen`
 ...
 12 |     let _ = Generic::<NotMel>::max_encoded_len();
-   |                                ^^^^^^^^^^^^^^^ function or associated item not found in `Generic<NotMel>`
+   |                                ^^^^^^^^^^^^^^^ function or associated item cannot be called on `Generic<NotMel>` due to unsatisfied trait bounds
+   |
+   = note: trait bound `NotMel: MaxEncodedLen` was not satisfied
+note: the trait `MaxEncodedLen` must be implemented
+  --> src/max_encoded_len.rs
+   |
+   | pub trait MaxEncodedLen: Encode {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   = help: items from traits can only be used if the trait is implemented and in scope
+   = note: the following trait defines an item `max_encoded_len`, perhaps you need to implement it:
+           candidate #1: `MaxEncodedLen`

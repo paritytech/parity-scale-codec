@@ -3,29 +3,3 @@ error: Union types are not supported.
   |
 4 | union Union {
   | ^^^^^
-
-error[E0432]: unresolved import `parity_scale_codec::MaxEncodedLen`
- --> tests/max_encoded_len_ui/union.rs:1:34
-  |
-1 | use parity_scale_codec::{Encode, MaxEncodedLen};
-  |                                  ^^^^^^^^^^^^^ no `MaxEncodedLen` in the root
-  |
-note: found an item that was configured out
- --> src/lib.rs
-  |
-  | pub use max_encoded_len::MaxEncodedLen;
-  |                          ^^^^^^^^^^^^^
-  = note: the item is gated behind the `max-encoded-len` feature
-note: found an item that was configured out
- --> src/lib.rs
-  |
-  | pub use parity_scale_codec_derive::MaxEncodedLen;
-  |                                    ^^^^^^^^^^^^^
-
-error: cannot determine resolution for the derive macro `MaxEncodedLen`
- --> tests/max_encoded_len_ui/union.rs:3:18
-  |
-3 | #[derive(Encode, MaxEncodedLen)]
-  |                  ^^^^^^^^^^^^^
-  |
-  = note: import resolution is stuck, try simplifying macro imports
