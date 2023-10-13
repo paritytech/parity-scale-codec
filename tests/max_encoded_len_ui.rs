@@ -16,9 +16,6 @@
 #[test]
 #[cfg(feature = "derive")]
 fn derive_no_bound_ui() {
-	// As trybuild is using `cargo check`, we don't need the real WASM binaries.
-	std::env::set_var("SKIP_WASM_BUILD", "1");
-
 	let t = trybuild::TestCases::new();
 	t.compile_fail("tests/max_encoded_len_ui/*.rs");
 	t.pass("tests/max_encoded_len_ui/pass/*.rs");
