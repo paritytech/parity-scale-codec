@@ -1,5 +1,5 @@
 error: Union types are not supported.
- --> $DIR/union.rs:4:1
+ --> tests/max_encoded_len_ui/union.rs:4:1
   |
 4 | union Union {
   | ^^^^^

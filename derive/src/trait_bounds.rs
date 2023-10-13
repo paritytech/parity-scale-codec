@@ -128,7 +128,7 @@ pub fn add<N>(
 
 	let ty_params = generics
 		.type_params()
-		.filter(|&tp| skip_type_params.iter().all(|skip| skip != &tp.ident))
+		.filter(|tp| skip_type_params.iter().all(|skip| skip != &tp.ident))
 		.map(|tp| tp.ident.clone())
 		.collect::<Vec<_>>();
 	if ty_params.is_empty() {
