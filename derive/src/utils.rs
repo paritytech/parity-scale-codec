@@ -20,7 +20,7 @@
 use std::str::FromStr;
 
 use proc_macro2::TokenStream;
-use quote::{ToTokens, quote};
+use quote::{quote, ToTokens};
 use syn::{
 	parse::Parse, punctuated::Punctuated, spanned::Spanned, token, Attribute, Data, DeriveInput,
 	Field, Fields, FieldsNamed, FieldsUnnamed, Lit, Meta, MetaNameValue, NestedMeta, Path, Variant,
@@ -262,9 +262,7 @@ pub fn filter_skip_named(fields: &syn::FieldsNamed) -> impl Iterator<Item = &Fie
 
 /// Given a set of unnamed fields, return an iterator of `(index, Field)` where all fields
 /// marked `#[codec(skip)]` are filtered out.
-pub fn filter_skip_unnamed(
-	fields: &syn::FieldsUnnamed,
-) -> impl Iterator<Item = (usize, &Field)> {
+pub fn filter_skip_unnamed(fields: &syn::FieldsUnnamed) -> impl Iterator<Item = (usize, &Field)> {
 	fields.unnamed.iter().enumerate().filter(|(_, f)| !should_skip(&f.attrs))
 }
 
@@ -437,7 +435,7 @@ fn check_repr(attrs: &[syn::Attribute], value: &str) -> bool {
 	for raw_attr in attrs {
 		let path = raw_attr.path.clone().into_token_stream().to_string();
 		if path != "repr" {
-			continue;
+			continue
 		}
 
 		result = raw_attr.tokens.clone().into_token_stream().to_string() == value;

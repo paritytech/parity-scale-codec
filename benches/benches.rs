@@ -12,21 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::{time::Duration, any::type_name, convert::{TryFrom, TryInto}};
+use std::{
+	any::type_name,
+	convert::{TryFrom, TryInto},
+	time::Duration,
+};
 
 #[cfg(feature = "bit-vec")]
-use bitvec::{vec::BitVec, order::Lsb0};
-use criterion::{Criterion, black_box, Bencher, criterion_group, criterion_main};
+use bitvec::{order::Lsb0, vec::BitVec};
+use criterion::{black_box, criterion_group, criterion_main, Bencher, Criterion};
 use parity_scale_codec::*;
-use parity_scale_codec_derive::{Encode, Decode};
+use parity_scale_codec_derive::{Decode, Encode};
 
 fn array_vec_write_u128(b: &mut Bencher) {
 	b.iter(|| {
 		for b in 0..black_box(1_000_000) {
 			let a = 0xffff_ffff_ffff_ffff_ffff_u128;
-			Compact(a ^ b).using_encoded(|x| {
-				black_box(x).len()
-			});
+			Compact(a ^ b).using_encoded(|x| black_box(x).len());
 		}
 	});
 }
@@ -84,8 +86,7 @@ fn vec_append_with_decode_and_encode(b: &mut Bencher) {
 	b.iter(|| {
 		let mut encoded_events_vec = Vec::new();
 		for _ in 0..1000 {
-			let mut events = Vec::<Event>::decode(&mut &encoded_events_vec[..])
-				.unwrap_or_default();
+			let mut events = Vec::<Event>::decode(&mut &encoded_events_vec[..]).unwrap_or_default();
 
 			events.push(Event::ComplexEvent(data.to_vec(), 4, 5, 6, 9));
 
@@ -107,62 +108,69 @@ fn vec_append_with_encode_append(b: &mut Bencher) {
 			encoded_events_vec = <Vec<Event> as EncodeAppend>::append_or_new(
 				encoded_events_vec,
 				&[Event::ComplexEvent(data.to_vec(), 4, 5, 6, 9)],
-			).unwrap();
+			)
+			.unwrap();
 		}
 	});
 }
 
-fn encode_decode_vec<T: TryFrom<u8> + Codec>(c: &mut Criterion) where T::Error: std::fmt::Debug {
+fn encode_decode_vec<T: TryFrom<u8> + Codec>(c: &mut Criterion)
+where
+	T::Error: std::fmt::Debug,
+{
 	let mut g = c.benchmark_group("vec_encode");
 	for vec_size in [1, 2, 5, 32, 1024, 2048, 16384] {
-		g.bench_with_input(&format!("{}/{}", type_name::<T>(), vec_size), &vec_size, |b, &vec_size| {
-			let vec: Vec<T> = (0..=127u8)
-				.cycle()
-				.take(vec_size)
-				.map(|v| v.try_into().unwrap())
-				.collect();
+		g.bench_with_input(
+			&format!("{}/{}", type_name::<T>(), vec_size),
+			&vec_size,
+			|b, &vec_size| {
+				let vec: Vec<T> =
+					(0..=127u8).cycle().take(vec_size).map(|v| v.try_into().unwrap()).collect();
 
-			let vec = black_box(vec);
-			b.iter(|| vec.encode())
-		});
+				let vec = black_box(vec);
+				b.iter(|| vec.encode())
+			},
+		);
 	}
 
 	drop(g);
 	let mut g = c.benchmark_group("vec_decode");
 	for vec_size in [1, 2, 5, 32, 1024, 2048, 16384] {
-		g.bench_with_input(&format!("{}/{}", type_name::<T>(), vec_size), &vec_size, |b, &vec_size| {
-			let vec: Vec<T> = (0..=127u8)
-				.cycle()
-				.take(vec_size)
-				.map(|v| v.try_into().unwrap())
-				.collect();
+		g.bench_with_input(
+			&format!("{}/{}", type_name::<T>(), vec_size),
+			&vec_size,
+			|b, &vec_size| {
+				let vec: Vec<T> =
+					(0..=127u8).cycle().take(vec_size).map(|v| v.try_into().unwrap()).collect();
 
-			let vec = vec.encode();
+				let vec = vec.encode();
 
-			let vec = black_box(vec);
-			b.iter(|| {
-				let _: Vec<T> = Decode::decode(&mut &vec[..]).unwrap();
-			})
-		});
+				let vec = black_box(vec);
+				b.iter(|| {
+					let _: Vec<T> = Decode::decode(&mut &vec[..]).unwrap();
+				})
+			},
+		);
 	}
 
 	drop(g);
 	let mut g = c.benchmark_group("vec_decode_no_limit");
 	for vec_size in [16384, 131072] {
-		g.bench_with_input(&format!("vec_decode_no_limit_{}/{}", type_name::<T>(), vec_size), &vec_size, |b, &vec_size| {
-			let vec: Vec<T> = (0..=127u8)
-				.cycle()
-				.take(vec_size)
-				.map(|v| v.try_into().unwrap())
-				.collect();
+		g.bench_with_input(
+			&format!("vec_decode_no_limit_{}/{}", type_name::<T>(), vec_size),
+			&vec_size,
+			|b, &vec_size| {
+				let vec: Vec<T> =
+					(0..=127u8).cycle().take(vec_size).map(|v| v.try_into().unwrap()).collect();
 
-			let vec = vec.encode();
+				let vec = vec.encode();
 
-			let vec = black_box(vec);
-			b.iter(|| {
-				let _: Vec<T> = Decode::decode(&mut NoLimitInput(&vec[..])).unwrap();
-			})
-		});
+				let vec = black_box(vec);
+				b.iter(|| {
+					let _: Vec<T> = Decode::decode(&mut NoLimitInput(&vec[..])).unwrap();
+				})
+			},
+		);
 	}
 }
 
@@ -183,28 +191,38 @@ fn encode_decode_complex_type(c: &mut Criterion) {
 	let mut g = c.benchmark_group("vec_encode_complex_type");
 	for vec_size in [1, 2, 5, 32, 1024, 2048, 16384] {
 		let complex_types = complex_types.clone();
-		g.bench_with_input(format!("vec_encode_complex_type/{}", vec_size), &vec_size, move |b, &vec_size| {
-			let vec: Vec<ComplexType> = complex_types.clone().into_iter().cycle().take(vec_size).collect();
+		g.bench_with_input(
+			format!("vec_encode_complex_type/{}", vec_size),
+			&vec_size,
+			move |b, &vec_size| {
+				let vec: Vec<ComplexType> =
+					complex_types.clone().into_iter().cycle().take(vec_size).collect();
 
-			let vec = black_box(vec);
-			b.iter(|| vec.encode())
-		});
+				let vec = black_box(vec);
+				b.iter(|| vec.encode())
+			},
+		);
 	}
 
 	drop(g);
 	let mut g = c.benchmark_group("vec_decode_complex_type");
 	for vec_size in [1, 2, 5, 32, 1024, 2048, 16384] {
 		let complex_types = complex_types.clone();
-		g.bench_with_input(format!("vec_decode_complex_type/{}", vec_size), &vec_size, move |b, &vec_size| {
-			let vec: Vec<ComplexType> = complex_types.clone().into_iter().cycle().take(vec_size).collect();
+		g.bench_with_input(
+			format!("vec_decode_complex_type/{}", vec_size),
+			&vec_size,
+			move |b, &vec_size| {
+				let vec: Vec<ComplexType> =
+					complex_types.clone().into_iter().cycle().take(vec_size).collect();
 
-			let vec = vec.encode();
+				let vec = vec.encode();
 
-			let vec = black_box(vec);
-			b.iter(|| {
-				let _: Vec<ComplexType> = Decode::decode(&mut &vec[..]).unwrap();
-			})
-		});
+				let vec = black_box(vec);
+				b.iter(|| {
+					let _: Vec<ComplexType> = Decode::decode(&mut &vec[..]).unwrap();
+				})
+			},
+		);
 	}
 }
 
@@ -225,12 +243,8 @@ fn encode_decode_bitvec_u8(c: &mut Criterion) {
 		let mut g = c.benchmark_group("bitvec_u8_encode");
 		for size in [1, 2, 5, 32, 1024] {
 			g.bench_with_input(size.to_string(), &size, |b, &size| {
-				let vec: BitVec<u8, Lsb0> = [true, false]
-					.iter()
-					.cloned()
-					.cycle()
-					.take(size)
-					.collect();
+				let vec: BitVec<u8, Lsb0> =
+					[true, false].iter().cloned().cycle().take(size).collect();
 
 				let vec = black_box(vec);
 				b.iter(|| vec.encode())
@@ -243,12 +257,8 @@ fn encode_decode_bitvec_u8(c: &mut Criterion) {
 		let mut g = c.benchmark_group("bitvec_u8_decode");
 		for size in [1, 2, 5, 32, 1024] {
 			g.bench_with_input(size.to_string(), &size, |b, &size| {
-				let vec: BitVec<u8, Lsb0> = [true, false]
-					.iter()
-					.cloned()
-					.cycle()
-					.take(size)
-					.collect();
+				let vec: BitVec<u8, Lsb0> =
+					[true, false].iter().cloned().cycle().take(size).collect();
 
 				let vec = vec.encode();
 
@@ -261,7 +271,7 @@ fn encode_decode_bitvec_u8(c: &mut Criterion) {
 	}
 }
 
-criterion_group!{
+criterion_group! {
 	name = benches;
 	config = Criterion::default().warm_up_time(Duration::from_millis(500)).without_plots();
 	targets = encode_decode_vec::<u8>, encode_decode_vec::<u16>, encode_decode_vec::<u32>, encode_decode_vec::<u64>,

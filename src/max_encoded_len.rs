@@ -15,10 +15,15 @@
 
 //! `trait MaxEncodedLen` bounds the maximum encoded length of items.
 
-use crate::{Compact, Encode};
+use crate::{alloc::boxed::Box, Compact, Encode};
+use core::{
+	marker::PhantomData,
+	mem,
+	num::*,
+	ops::{Range, RangeInclusive},
+	time::Duration,
+};
 use impl_trait_for_tuples::impl_for_tuples;
-use core::{mem, marker::PhantomData, num::*, ops::{Range, RangeInclusive}, time::Duration};
-use crate::alloc::boxed::Box;
 
 #[cfg(target_has_atomic = "ptr")]
 use crate::alloc::sync::Arc;
@@ -47,9 +52,27 @@ macro_rules! impl_primitives {
 }
 
 impl_primitives!(
-	u8, i8, u16, i16, u32, i32, u64, i64, u128, i128, bool,
-	NonZeroU8, NonZeroU16, NonZeroU32, NonZeroU64, NonZeroU128, NonZeroI8, NonZeroI16, NonZeroI32,
-	NonZeroI64, NonZeroI128
+	u8,
+	i8,
+	u16,
+	i16,
+	u32,
+	i32,
+	u64,
+	i64,
+	u128,
+	i128,
+	bool,
+	NonZeroU8,
+	NonZeroU16,
+	NonZeroU32,
+	NonZeroU64,
+	NonZeroU128,
+	NonZeroI8,
+	NonZeroI16,
+	NonZeroI32,
+	NonZeroI64,
+	NonZeroI128
 );
 
 macro_rules! impl_compact {
@@ -78,7 +101,8 @@ impl_compact!(
 	u128 => 17;
 );
 
-// impl_for_tuples for values 19 and higher fails because that's where the WrapperTypeEncode impl stops.
+// impl_for_tuples for values 19 and higher fails because that's where the WrapperTypeEncode impl
+// stops.
 #[impl_for_tuples(18)]
 impl MaxEncodedLen for Tuple {
 	fn max_encoded_len() -> usize {
@@ -96,7 +120,7 @@ impl<T: MaxEncodedLen, const N: usize> MaxEncodedLen for [T; N] {
 
 impl<T: MaxEncodedLen> MaxEncodedLen for Box<T> {
 	fn max_encoded_len() -> usize {
-	    T::max_encoded_len()
+		T::max_encoded_len()
 	}
 }
 
@@ -131,19 +155,19 @@ impl<T> MaxEncodedLen for PhantomData<T> {
 
 impl MaxEncodedLen for Duration {
 	fn max_encoded_len() -> usize {
-	    u64::max_encoded_len() + u32::max_encoded_len()
+		u64::max_encoded_len() + u32::max_encoded_len()
 	}
 }
 
 impl<T: MaxEncodedLen> MaxEncodedLen for Range<T> {
 	fn max_encoded_len() -> usize {
-	    T::max_encoded_len().saturating_mul(2)
+		T::max_encoded_len().saturating_mul(2)
 	}
 }
 
 impl<T: MaxEncodedLen> MaxEncodedLen for RangeInclusive<T> {
 	fn max_encoded_len() -> usize {
-	    T::max_encoded_len().saturating_mul(2)
+		T::max_encoded_len().saturating_mul(2)
 	}
 }
 

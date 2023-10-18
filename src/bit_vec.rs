@@ -14,11 +14,11 @@
 
 //! `BitVec` specific serialization.
 
-use bitvec::{
-	vec::BitVec, store::BitStore, order::BitOrder, slice::BitSlice, boxed::BitBox, view::BitView,
-};
 use crate::{
-	EncodeLike, Encode, Decode, Input, Output, Error, Compact, codec::decode_vec_with_len,
+	codec::decode_vec_with_len, Compact, Decode, Encode, EncodeLike, Error, Input, Output,
+};
+use bitvec::{
+	boxed::BitBox, order::BitOrder, slice::BitSlice, store::BitStore, vec::BitVec, view::BitView,
 };
 
 impl<O: BitOrder, T: BitStore + Encode> Encode for BitSlice<T, O> {
@@ -55,16 +55,17 @@ impl<O: BitOrder, T: BitStore + Decode> Decode for BitVec<T, O> {
 		<Compact<u32>>::decode(input).and_then(move |Compact(bits)| {
 			// Otherwise it is impossible to store it on 32bit machine.
 			if bits as usize > ARCH32BIT_BITSLICE_MAX_BITS {
-				return Err("Attempt to decode a BitVec with too many bits".into());
+				return Err("Attempt to decode a BitVec with too many bits".into())
 			}
 			let vec = decode_vec_with_len(input, bitvec::mem::elts::<T>(bits as usize))?;
 
-			let mut result = Self::try_from_vec(vec)
-				.map_err(|_| {
-					Error::from("UNEXPECTED ERROR: `bits` is less or equal to
+			let mut result = Self::try_from_vec(vec).map_err(|_| {
+				Error::from(
+					"UNEXPECTED ERROR: `bits` is less or equal to
 					`ARCH32BIT_BITSLICE_MAX_BITS`; So BitVec must be able to handle the number of
-					segment needed for `bits` to be represented; qed")
-				})?;
+					segment needed for `bits` to be represented; qed",
+				)
+			})?;
 
 			assert!(bits as usize <= result.len());
 			result.truncate(bits as usize);
@@ -90,8 +91,11 @@ impl<O: BitOrder, T: BitStore + Decode> Decode for BitBox<T, O> {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use bitvec::{bitvec, order::{Msb0, Lsb0}};
 	use crate::{codec::MAX_PREALLOCATION, CompactLen};
+	use bitvec::{
+		bitvec,
+		order::{Lsb0, Msb0},
+	};
 
 	macro_rules! test_data {
 		($inner_type:ident) => (
@@ -202,7 +206,10 @@ mod tests {
 			(bitvec![u8, Lsb0; 1, 1, 1, 1].encode(), (Compact(4u32), 0b00001111u8).encode()),
 			(bitvec![u8, Lsb0; 1, 1, 1, 1, 1].encode(), (Compact(5u32), 0b00011111u8).encode()),
 			(bitvec![u8, Lsb0; 1, 1, 1, 1, 1, 0].encode(), (Compact(6u32), 0b00011111u8).encode()),
-			(bitvec![u8, Lsb0; 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 0, 1].encode(), (Compact(12u32), 0b00011111u8, 0b00001011u8).encode()),
+			(
+				bitvec![u8, Lsb0; 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 0, 1].encode(),
+				(Compact(12u32), 0b00011111u8, 0b00001011u8).encode(),
+			),
 		];
 
 		for (idx, (actual, expected)) in cases.into_iter().enumerate() {

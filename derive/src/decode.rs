@@ -12,11 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use proc_macro2::{Span, TokenStream, Ident};
-use syn::{
-	spanned::Spanned,
-	Data, Fields, Field, Error,
-};
+use proc_macro2::{Ident, Span, TokenStream};
+use syn::{spanned::Spanned, Data, Error, Field, Fields};
 
 use crate::utils;
 
@@ -49,13 +46,15 @@ pub fn quote(
 			},
 		},
 		Data::Enum(ref data) => {
-			let data_variants = || data.variants.iter().filter(|variant| !utils::should_skip(&variant.attrs));
+			let data_variants =
+				|| data.variants.iter().filter(|variant| !utils::should_skip(&variant.attrs));
 
 			if data_variants().count() > 256 {
 				return Error::new(
 					data.variants.span(),
-					"Currently only enums with at most 256 variants are encodable."
-				).to_compile_error();
+					"Currently only enums with at most 256 variants are encodable.",
+				)
+				.to_compile_error()
 			}
 
 			let recurse = data_variants().enumerate().map(|(i, v)| {
@@ -84,14 +83,10 @@ pub fn quote(
 				}
 			});
 
-			let read_byte_err_msg = format!(
-				"Could not decode `{}`, failed to read variant byte",
-				type_name,
-			);
-			let invalid_variant_err_msg = format!(
-				"Could not decode `{}`, variant doesn't exist",
-				type_name,
-			);
+			let read_byte_err_msg =
+				format!("Could not decode `{}`, failed to read variant byte", type_name,);
+			let invalid_variant_err_msg =
+				format!("Could not decode `{}`, variant doesn't exist", type_name,);
 			quote! {
 				match #input.read_byte()
 					.map_err(|e| e.chain(#read_byte_err_msg))?
@@ -107,9 +102,9 @@ pub fn quote(
 					},
 				}
 			}
-
 		},
-		Data::Union(_) => Error::new(Span::call_site(), "Union types are not supported.").to_compile_error(),
+		Data::Union(_) =>
+			Error::new(Span::call_site(), "Union types are not supported.").to_compile_error(),
 	}
 }
 
@@ -117,38 +112,35 @@ pub fn quote_decode_into(
 	data: &Data,
 	crate_path: &syn::Path,
 	input: &TokenStream,
-	attrs: &[syn::Attribute]
+	attrs: &[syn::Attribute],
 ) -> Option<TokenStream> {
 	// Make sure the type is `#[repr(transparent)]`, as this guarantees that
 	// there can be only one field that is not zero-sized.
 	if !crate::utils::is_transparent(attrs) {
-		return None;
+		return None
 	}
 
 	let fields = match data {
-		Data::Struct(
-			syn::DataStruct {
-				fields: Fields::Named(syn::FieldsNamed { named: fields, .. }) |
-				        Fields::Unnamed(syn::FieldsUnnamed { unnamed: fields, .. }),
-				..
-			}
-		) => {
-			fields
-		},
-		_ => return None
+		Data::Struct(syn::DataStruct {
+			fields:
+				Fields::Named(syn::FieldsNamed { named: fields, .. }) |
+				Fields::Unnamed(syn::FieldsUnnamed { unnamed: fields, .. }),
+			..
+		}) => fields,
+		_ => return None,
 	};
 
 	if fields.is_empty() {
-		return None;
+		return None
 	}
 
 	// Bail if there are any extra attributes which could influence how the type is decoded.
-	if fields.iter().any(|field|
+	if fields.iter().any(|field| {
 		utils::get_encoded_as_type(field).is_some() ||
-		utils::is_compact(field) ||
-		utils::should_skip(&field.attrs)
-	) {
-		return None;
+			utils::is_compact(field) ||
+			utils::should_skip(&field.attrs)
+	}) {
+		return None
 	}
 
 	// Go through each field and call `decode_into` on it.
@@ -183,10 +175,11 @@ pub fn quote_decode_into(
 		if !non_zst_field_count.is_empty() {
 			non_zst_field_count.push(quote! { + });
 		}
-		non_zst_field_count.push(quote! { if ::core::mem::size_of::<#field_type>() > 0 { 1 } else { 0 } });
+		non_zst_field_count
+			.push(quote! { if ::core::mem::size_of::<#field_type>() > 0 { 1 } else { 0 } });
 	}
 
-	Some(quote!{
+	Some(quote! {
 		// Just a sanity check. These should always be true and will be optimized-out.
 		::core::assert_eq!(#(#sizes)*, ::core::mem::size_of::<Self>());
 		::core::assert!(#(#non_zst_field_count)* <= 1);
@@ -198,7 +191,12 @@ pub fn quote_decode_into(
 	})
 }
 
-fn create_decode_expr(field: &Field, name: &str, input: &TokenStream, crate_path: &syn::Path) -> TokenStream {
+fn create_decode_expr(
+	field: &Field,
+	name: &str,
+	input: &TokenStream,
+	crate_path: &syn::Path,
+) -> TokenStream {
 	let encoded_as = utils::get_encoded_as_type(field);
 	let compact = utils::is_compact(field);
 	let skip = utils::should_skip(&field.attrs);
@@ -208,8 +206,9 @@ fn create_decode_expr(field: &Field, name: &str, input: &TokenStream, crate_path
 	if encoded_as.is_some() as u8 + compact as u8 + skip as u8 > 1 {
 		return Error::new(
 			field.span(),
-			"`encoded_as`, `compact` and `skip` can only be used one at a time!"
-		).to_compile_error();
+			"`encoded_as`, `compact` and `skip` can only be used one at a time!",
+		)
+		.to_compile_error()
 	}
 
 	let err_msg = format!("Could not decode `{}`", name);
@@ -282,7 +281,7 @@ fn create_instance(
 			}
 		},
 		Fields::Unnamed(ref fields) => {
-			let recurse = fields.unnamed.iter().enumerate().map(|(i, f) | {
+			let recurse = fields.unnamed.iter().enumerate().map(|(i, f)| {
 				let field_name = format!("{}.{}", name_str, i);
 
 				create_decode_expr(f, &field_name, input, crate_path)
