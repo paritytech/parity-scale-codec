@@ -679,17 +679,15 @@ fn decoding_a_huge_boxed_newtype_array_does_not_overflow_the_stack() {
 fn decoding_two_indirectly_boxed_arrays_works() {
 	// This test will fail if the check for `#[repr(transparent)]` in the derive crate
 	// doesn't work when implementing `Decode::decode_into`.
-	#[derive(DeriveDecode, PartialEq, Eq, Debug)]
+	#[derive(DeriveDecode)]
+	#[derive(PartialEq, Eq, Debug)]
 	struct SmallArrays([u8; 2], [u8; 2]);
 
 	#[derive(DeriveDecode)]
 	struct SmallArraysBox(Box<SmallArrays>);
 
 	let data = &[1, 2, 3, 4];
-	assert_eq!(
-		*SmallArraysBox::decode(&mut data.as_slice()).unwrap().0,
-		SmallArrays([1, 2], [3, 4])
-	);
+	assert_eq!(*SmallArraysBox::decode(&mut data.as_slice()).unwrap().0, SmallArrays([1, 2], [3, 4]));
 }
 
 #[test]
@@ -710,7 +708,7 @@ fn zero_sized_types_are_properly_decoded_in_a_transparent_boxed_struct() {
 		_zst_2: ZstTransparent,
 		_zst_3: ZstNonTransparent,
 		field: [u8; 1],
-		_zst_4: ConsumeByte,
+		_zst_4: ConsumeByte
 	}
 
 	#[derive(DeriveDecode)]

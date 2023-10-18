@@ -1,36 +1,27 @@
-use std::{
-	collections::{BTreeMap, BTreeSet, BinaryHeap, LinkedList, VecDeque},
-	time::Duration,
-};
+use std::collections::{BTreeMap, BTreeSet, VecDeque, LinkedList, BinaryHeap};
+use std::time::Duration;
 
-use bitvec::{
-	order::{BitOrder, Msb0},
-	store::BitStore,
-	vec::BitVec,
-};
-use honggfuzz::{
-	arbitrary::{Arbitrary, Result as ArbResult, Unstructured},
-	fuzz,
-};
-use parity_scale_codec::{Compact, Decode, Encode};
+use bitvec::{vec::BitVec, order::Msb0, order::BitOrder, store::BitStore};
+use honggfuzz::fuzz;
+use parity_scale_codec::{Encode, Decode, Compact};
+use honggfuzz::arbitrary::{Arbitrary, Unstructured, Result as ArbResult};
 
 #[derive(Encode, Decode, Clone, PartialEq, Debug, Arbitrary)]
-pub struct MockStruct {
-	vec_u: Vec<u8>,
+pub struct MockStruct{
+	vec_u: Vec<u8>
 }
 
 /// Used for implementing the Arbitrary trait for a BitVec.
 #[derive(Encode, Decode, Clone, PartialEq, Debug)]
 pub struct BitVecWrapper<T: BitStore, O: BitOrder>(BitVec<T, O>);
 
-impl<'a, O: 'static + BitOrder, T: 'static + BitStore + Arbitrary<'a>> Arbitrary<'a>
-	for BitVecWrapper<T, O>
-{
+impl<'a, O: 'static + BitOrder, T: 'static + BitStore + Arbitrary<'a>> Arbitrary<'a> for BitVecWrapper<T, O> {
 	fn arbitrary(u: &mut Unstructured<'a>) -> ArbResult<Self> {
 		let v = Vec::<T>::arbitrary(u)?;
 		Ok(BitVecWrapper(BitVec::<T, O>::from_vec(v)))
 	}
 }
+
 
 /// Used for implementing the PartialEq trait for a BinaryHeap.
 #[derive(Encode, Decode, Debug, Clone, Arbitrary)]
@@ -47,16 +38,19 @@ pub enum MockEnum {
 	Empty,
 	Unit(u32),
 	UnitVec(Vec<u8>),
-	Complex { data: Vec<u32>, bitvec: BitVecWrapper<u8, Msb0>, string: String },
+	Complex {
+		data: Vec<u32>,
+		bitvec: BitVecWrapper<u8, Msb0>,
+		string: String,
+	},
 	Mock(MockStruct),
 	NestedVec(Vec<Vec<Vec<Vec<Vec<Vec<Vec<Vec<Option<u8>>>>>>>>>),
 }
 
 /// `fuzz_flow` parameter can either be `round_trip` or `only_decode`.
-/// `round_trip` will decode -> encode and compare the obtained encoded bytes with the original
-/// data. `only_decode` will only decode, without trying to encode the decoded object.
-/// `round_trip_sort` will decode -> encode and compare the obtained encoded SORTED bytes with the
-/// original SORTED data.
+/// `round_trip` will decode -> encode and compare the obtained encoded bytes with the original data.
+/// `only_decode` will only decode, without trying to encode the decoded object.
+/// `round_trip_sort` will decode -> encode and compare the obtained encoded SORTED bytes with the original SORTED data.
 macro_rules! fuzz_decoder {
 	(
 		$fuzz_flow:ident;
@@ -259,22 +253,23 @@ macro_rules! fuzz_encoder {
 	};
 }
 
-fn fuzz_encode<T: Encode + Decode + Clone + PartialEq + std::fmt::Debug>(data: T) {
+fn fuzz_encode<T: Encode + Decode + Clone + PartialEq + std::fmt::Debug> (data: T) {
 	let original = data.clone();
 	let mut obj: &[u8] = &data.encode();
 	let decoded = <T>::decode(&mut obj);
 	match decoded {
-		Ok(object) =>
+		Ok(object) => {
 			if object != original {
 				println!("original object: {:?}", original);
 				println!("decoded object: {:?}", object);
 				panic!("Original object differs from decoded object")
-			},
+			}
+		}
 		Err(e) => {
 			println!("original object: {:?}", original);
 			println!("decoding error: {:?}", e);
 			panic!("Failed to decode the encoded object");
-		},
+		}
 	}
 }
 
@@ -313,9 +308,7 @@ macro_rules! fuzz_encoding {
 
 fn main() {
 	loop {
-		fuzz!(|data: &[u8]| {
-			fuzz_decode(data);
-		});
+		fuzz!(|data: &[u8]| { fuzz_decode(data); });
 		fuzz_encoding!();
 	}
 }

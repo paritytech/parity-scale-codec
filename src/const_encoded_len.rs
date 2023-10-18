@@ -13,15 +13,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Contains the [`ConstEncodedLen`] trait.
+//! Contains the [`ConstEncodedLen`] trait. 
 
-use crate::{alloc::boxed::Box, MaxEncodedLen};
+use crate::MaxEncodedLen;
 use core::{
 	marker::PhantomData,
 	num::*,
 	ops::{Range, RangeInclusive},
 	time::Duration,
 };
+use crate::alloc::boxed::Box;
 use impl_trait_for_tuples::impl_for_tuples;
 
 /// Types that have a constant encoded length. This implies [`MaxEncodedLen`].
@@ -30,9 +31,9 @@ use impl_trait_for_tuples::impl_for_tuples;
 pub trait ConstEncodedLen: MaxEncodedLen {}
 
 #[impl_for_tuples(18)]
-impl ConstEncodedLen for Tuple {}
+impl ConstEncodedLen for Tuple { }
 
-impl<T: ConstEncodedLen, const N: usize> ConstEncodedLen for [T; N] {}
+impl<T: ConstEncodedLen, const N: usize> ConstEncodedLen for [T; N] { }
 
 /// Mark `T` or `T<S>` as `CEL`.
 macro_rules! mark_cel {
@@ -49,18 +50,7 @@ macro_rules! mark_cel {
 }
 
 mark_cel!(u8, u16, u32, u64, u128, i8, i16, i32, i64, i128, bool);
-mark_cel!(
-	NonZeroU8,
-	NonZeroU16,
-	NonZeroU32,
-	NonZeroU64,
-	NonZeroU128,
-	NonZeroI8,
-	NonZeroI16,
-	NonZeroI32,
-	NonZeroI64,
-	NonZeroI128
-);
+mark_cel!(NonZeroU8, NonZeroU16, NonZeroU32, NonZeroU64, NonZeroU128, NonZeroI8, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI128);
 
 mark_cel!(Duration);
 mark_cel!(PhantomData<T>);
@@ -95,7 +85,7 @@ mod tests {
 	test_cel_compliance!(Void);
 
 	test_cel_compliance!(u8, u16, u32, u64, u128, i8, i16, i32, i64, i128, bool);
-
+	
 	type TupleArithmetic = (u8, u16, u32, u64, u128, i8, i16, i32, i64, i128);
 	test_cel_compliance!(TupleArithmetic);
 

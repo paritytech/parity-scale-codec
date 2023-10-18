@@ -208,8 +208,12 @@ pub fn decode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 	let decoding =
 		decode::quote(&input.data, name, &quote!(#ty_gen_turbofish), &input_, &crate_path);
 
-	let decode_into_body =
-		decode::quote_decode_into(&input.data, &crate_path, &input_, &input.attrs);
+	let decode_into_body = decode::quote_decode_into(
+		&input.data,
+		&crate_path,
+		&input_,
+		&input.attrs
+	);
 
 	let impl_decode_into = if let Some(body) = decode_into_body {
 		quote! {

@@ -12,15 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use parity_scale_codec::Decode;
 use parity_scale_codec_derive::Decode as DeriveDecode;
+use parity_scale_codec::Decode;
 
 #[derive(DeriveDecode, Debug)]
 struct Wrapper<T>(T);
 
 #[derive(DeriveDecode, Debug)]
 struct StructNamed {
-	_foo: u16,
+	_foo: u16
 }
 
 #[derive(DeriveDecode, Debug)]
@@ -28,7 +28,7 @@ struct StructUnnamed(u16);
 
 #[derive(DeriveDecode, Debug)]
 enum E {
-	VariantNamed { _foo: u16 },
+	VariantNamed { _foo: u16, },
 	VariantUnnamed(u16),
 }
 
@@ -65,7 +65,10 @@ fn full_error_enum_unknown_variant() {
 	let encoded = vec![2];
 	let err = r#"Could not decode `E`, variant doesn't exist"#;
 
-	assert_eq!(E::decode(&mut &encoded[..]).unwrap_err().to_string(), String::from(err),);
+	assert_eq!(
+		E::decode(&mut &encoded[..]).unwrap_err().to_string(),
+		String::from(err),
+	);
 }
 
 #[test]
@@ -75,7 +78,10 @@ fn full_error_enum_named_field() {
 	Not enough data to fill buffer
 "#;
 
-	assert_eq!(E::decode(&mut &encoded[..]).unwrap_err().to_string(), String::from(err),);
+	assert_eq!(
+		E::decode(&mut &encoded[..]).unwrap_err().to_string(),
+		String::from(err),
+	);
 }
 
 #[test]
@@ -85,5 +91,8 @@ fn full_error_enum_unnamed_field() {
 	Not enough data to fill buffer
 "#;
 
-	assert_eq!(E::decode(&mut &encoded[..]).unwrap_err().to_string(), String::from(err),);
+	assert_eq!(
+		E::decode(&mut &encoded[..]).unwrap_err().to_string(),
+		String::from(err),
+	);
 }

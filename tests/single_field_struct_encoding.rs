@@ -1,8 +1,6 @@
+use parity_scale_codec_derive::{Encode as DeriveEncode, Decode as DeriveDecode, CompactAs as DeriveCompactAs};
 use parity_scale_codec::{Compact, Decode, Encode, HasCompact};
-use parity_scale_codec_derive::{
-	CompactAs as DeriveCompactAs, Decode as DeriveDecode, Encode as DeriveEncode,
-};
-use serde_derive::{Deserialize, Serialize};
+use serde_derive::{Serialize, Deserialize};
 
 #[derive(Debug, PartialEq, DeriveEncode, DeriveDecode)]
 struct S {
@@ -37,9 +35,7 @@ struct U(u32);
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Debug, PartialEq, Eq, Clone, Copy, DeriveEncode, DeriveDecode, DeriveCompactAs)]
-struct U2 {
-	a: u64,
-}
+struct U2 { a: u64 }
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Debug, PartialEq, Eq, Clone, Copy, DeriveEncode, DeriveDecode, DeriveCompactAs)]

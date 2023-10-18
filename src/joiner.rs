@@ -25,10 +25,7 @@ pub trait Joiner {
 	fn and<V: Codec + Sized>(self, value: &V) -> Self;
 }
 
-impl<T> Joiner for T
-where
-	T: for<'a> Extend<&'a u8>,
-{
+impl<T> Joiner for T where T: for<'a> Extend<&'a u8> {
 	fn and<V: Codec + Sized>(mut self, value: &V) -> Self {
 		value.using_encoded(|s| self.extend(s));
 		self

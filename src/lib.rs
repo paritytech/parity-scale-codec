@@ -36,49 +36,54 @@ pub use parity_scale_codec_derive::*;
 #[cfg(feature = "std")]
 #[doc(hidden)]
 pub mod alloc {
-	pub use std::{alloc, borrow, boxed, collections, rc, string, sync, vec};
+	pub use std::boxed;
+	pub use std::vec;
+	pub use std::string;
+	pub use std::borrow;
+	pub use std::collections;
+	pub use std::sync;
+	pub use std::rc;
+	pub use std::alloc;
 }
 
-#[cfg(feature = "bit-vec")]
-mod bit_vec;
 mod codec;
 mod compact;
-#[cfg(feature = "max-encoded-len")]
-mod const_encoded_len;
+mod joiner;
+mod keyedvec;
+#[cfg(feature = "bit-vec")]
+mod bit_vec;
+#[cfg(feature = "generic-array")]
+mod generic_array;
 mod decode_all;
 mod decode_finished;
 mod depth_limit;
 mod encode_append;
 mod encode_like;
 mod error;
-#[cfg(feature = "generic-array")]
-mod generic_array;
-mod joiner;
-mod keyedvec;
 #[cfg(feature = "max-encoded-len")]
 mod max_encoded_len;
+#[cfg(feature = "max-encoded-len")]
+mod const_encoded_len;
 
+pub use self::error::Error;
+pub use self::codec::{
+	Input, Output, Decode, Encode, Codec, EncodeAsRef, WrapperTypeEncode, WrapperTypeDecode,
+	OptionBool, DecodeLength, FullCodec, FullEncode, decode_vec_with_len,
+};
 #[cfg(feature = "std")]
 pub use self::codec::IoReader;
-pub use self::{
-	codec::{
-		decode_vec_with_len, Codec, Decode, DecodeLength, Encode, EncodeAsRef, FullCodec,
-		FullEncode, Input, OptionBool, Output, WrapperTypeDecode, WrapperTypeEncode,
-	},
-	compact::{Compact, CompactAs, CompactLen, CompactRef, HasCompact},
-	decode_all::DecodeAll,
-	decode_finished::DecodeFinished,
-	depth_limit::DecodeLimit,
-	encode_append::EncodeAppend,
-	encode_like::{EncodeLike, Ref},
-	error::Error,
-	joiner::Joiner,
-	keyedvec::KeyedVec,
-};
-#[cfg(feature = "max-encoded-len")]
-pub use const_encoded_len::ConstEncodedLen;
+pub use self::compact::{Compact, HasCompact, CompactAs, CompactLen, CompactRef};
+pub use self::joiner::Joiner;
+pub use self::keyedvec::KeyedVec;
+pub use self::decode_all::DecodeAll;
+pub use self::decode_finished::DecodeFinished;
+pub use self::depth_limit::DecodeLimit;
+pub use self::encode_append::EncodeAppend;
+pub use self::encode_like::{EncodeLike, Ref};
 #[cfg(feature = "max-encoded-len")]
 pub use max_encoded_len::MaxEncodedLen;
+#[cfg(feature = "max-encoded-len")]
+pub use const_encoded_len::ConstEncodedLen;
 
 /// Derive macro for [`MaxEncodedLen`][max_encoded_len::MaxEncodedLen].
 ///
@@ -112,10 +117,9 @@ pub use max_encoded_len::MaxEncodedLen;
 ///
 /// # Within other macros
 ///
-/// Sometimes the `MaxEncodedLen` trait and macro are used within another macro, and it can't
-/// be guaranteed that the `parity_scale_codec` module is available at the call site. In that
-/// case, the macro should reexport the `parity_scale_codec` module and specify the path to the
-/// reexport:
+/// Sometimes the `MaxEncodedLen` trait and macro are used within another macro, and it can't be
+/// guaranteed that the `parity_scale_codec` module is available at the call site. In that case, the
+/// macro should reexport the `parity_scale_codec` module and specify the path to the reexport:
 ///
 /// ```ignore
 /// pub use parity_scale_codec as codec;

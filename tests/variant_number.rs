@@ -1,5 +1,5 @@
-use parity_scale_codec::Encode;
 use parity_scale_codec_derive::Encode as DeriveEncode;
+use parity_scale_codec::Encode;
 
 #[test]
 fn discriminant_variant_counted_in_default_index() {
