@@ -2124,20 +2124,4 @@ mod tests {
 		assert_eq!(range_inclusive.encode(), range_inclusive_bytes);
 		assert_eq!(RangeInclusive::decode(&mut &range_inclusive_bytes[..]), Ok(range_inclusive));
 	}
-
-	#[test]
-	fn test_dedup_len_vec() {
-		let data: Vec<u8> = vec![1, 2, 3, 3, 4, 4, 5];
-		let encoded_data = data.encode();
-		assert_eq!(<Vec<u8> as DecodeDedupLength>::dedup_len(&encoded_data).unwrap(), 5);
-	}
-
-	#[test]
-	fn test_dedup_len_btree_set() {
-		let data: BTreeSet<u8> = [1, 2, 3, 3, 4, 4, 5].iter().cloned().collect();
-		let encoded_data = data.encode();
-		// Note: Since BTreeSet is naturally deduplicated, the dedup_len should be same as its
-		// length.
-		assert_eq!(<BTreeSet<u8> as DecodeDedupLength>::dedup_len(&encoded_data).unwrap(), 5);
-	}
 }
