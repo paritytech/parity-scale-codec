@@ -1,0 +1,14 @@
+baseURL = 'https://paritytech.github.io/parity-scale-codec/'
+languageCode = 'en-us'
+title = 'SCALE'
+theme = 'hugo-book-master'
+enableGitInfo = true
+[params]
+  BookLogo = 'parity-logo-square.png'
+  BookSection = '*'
+[markup]
+  [markup.tableOfContents]
+    endLevel = 3
+    startLevel = 1
+[markup.goldmark.renderer]
+  unsafe = true
