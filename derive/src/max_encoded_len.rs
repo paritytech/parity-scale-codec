@@ -96,9 +96,7 @@ fn fields_length_expr(fields: &Fields, crate_path: &syn::Path) -> proc_macro2::T
 		let ty = &field.ty;
 		if utils::is_compact(&field) {
 			quote_spanned! {
-				ty.span() => .saturating_add(
-					<<#ty as #crate_path::HasCompact>::Type as #crate_path::MaxEncodedLen>::max_encoded_len()
-				)
+				ty.span() => .saturating_add(<#crate_path::Compact::<#ty> as #crate_path::MaxEncodedLen>::max_encoded_len())
 			}
 		} else {
 			quote_spanned! {
