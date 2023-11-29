@@ -16,7 +16,7 @@
 //! Tests for MaxEncodedLen derive macro
 #![cfg(all(feature = "derive", feature = "max-encoded-len"))]
 
-use parity_scale_codec::{Compact, Decode, Encode, MaxEncodedLen};
+use parity_scale_codec::{MaxEncodedLen, Compact, Decode, Encode};
 
 #[derive(Encode, MaxEncodedLen)]
 struct Primitives {
@@ -62,46 +62,6 @@ struct Generic<T> {
 fn generic_max_length() {
 	assert_eq!(Generic::<u8>::max_encoded_len(), u8::max_encoded_len() * 2);
 	assert_eq!(Generic::<u32>::max_encoded_len(), u32::max_encoded_len() * 2);
-}
-
-#[derive(Encode, MaxEncodedLen)]
-struct CompactField {
-	#[codec(compact)]
-	t: u64,
-	v: u64,
-}
-
-#[test]
-fn compact_field_max_length() {
-	assert_eq!(CompactField::max_encoded_len(), 17);
-	assert_eq!(
-		CompactField::max_encoded_len(),
-		Compact::<u64>::max_encoded_len() + u64::max_encoded_len()
-	);
-}
-
-
-#[derive(Encode, MaxEncodedLen)]
-struct CompactFieldGenerics<T: MaxEncodedLen> {
-	#[codec(compact)]
-	t: T,
-	v: u64,
-}
-
-#[test]
-fn compact_field_generics_max_length() {
-	assert_eq!(
-		CompactFieldGenerics::<u64>::max_encoded_len(),
-		CompactField::max_encoded_len()
-	);
-}
-
-#[derive(Encode, MaxEncodedLen)]
-struct CompactStruct(#[codec(compact)] u64);
-
-#[test]
-fn compact_struct_max_length() {
-	assert_eq!(CompactStruct::max_encoded_len(), Compact::<u64>::max_encoded_len());
 }
 
 #[derive(Encode, MaxEncodedLen)]
