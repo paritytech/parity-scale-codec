@@ -95,6 +95,8 @@ jobs:
 
       - name: Test Rust Stable (no_derive)
         run: |
+          rustup show
+          cargo --version
           export RUSTFLAGS='-Cdebug-assertions=y -Dwarnings'
           time cargo +stable test --verbose --no-default-features --features bit-vec,bytes,generic-array
 
