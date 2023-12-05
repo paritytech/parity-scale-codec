@@ -83,15 +83,15 @@ jobs:
       #     toolchain: stable
       #     profile: minimal
 
-      # - name: Cache Rust dependencies
-      #   uses: swatinem/rust-cache@v2
-      #   with:
-      #     key: ${{ runner.os }}-rust-${{ hashFiles('**/Cargo.lock') }}
+      - name: Cache Rust dependencies
+        uses: swatinem/rust-cache@v2
+        with:
+          key: ${{ runner.os }}-rust-${{ hashFiles('**/Cargo.lock') }}
 
-      # - name: Test Rust Stable
-      #   run: |
-      #     export RUSTFLAGS='-Cdebug-assertions=y -Dwarnings'
-      #     time cargo +stable test --verbose --all --features bit-vec,bytes,generic-array,derive,max-encoded-len
+      - name: Test Rust Stable
+        run: |
+          export RUSTFLAGS='-Cdebug-assertions=y -Dwarnings'
+          time cargo +stable test --verbose --all --features bit-vec,bytes,generic-array,derive,max-encoded-len
 
       - name: Test Rust Stable (no_derive)
         run: |
@@ -99,7 +99,7 @@ jobs:
           rustc -vV
           rustup show
           export RUSTFLAGS='-Cdebug-assertions=y -Dwarnings'
-          time cargo +stable test --verbose --no-default-features --features bit-vec,bytes,generic-array
+          time cargo +stable test --verbose --features bit-vec,bytes,generic-array
 
       - name: Test Rust Stable (only_mel)
         run: |
@@ -109,11 +109,11 @@ jobs:
       - name: Test Rust Stable (only_mel-no_default_std)
         run: |
           export RUSTFLAGS='-Cdebug-assertions=y -Dwarnings'
-          time cargo +stable test --verbose --no-default-features --features max-encoded-len
+          time cargo +stable test --verbose --features max-encoded-len,std --no-default-features
 
 # Benches
   bench-rust-nightly:
-    runs-on: ubuntu-latest-16-cores
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -135,7 +135,7 @@ jobs:
           time cargo +nightly bench --features bit-vec,bytes,generic-array,derive,max-encoded-len
 
   miri:
-    runs-on: ubuntu-latest-16-cores
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
