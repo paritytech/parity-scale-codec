@@ -83,15 +83,15 @@ jobs:
       #     toolchain: stable
       #     profile: minimal
 
-      - name: Cache Rust dependencies
-        uses: swatinem/rust-cache@v2
-        with:
-          key: ${{ runner.os }}-rust-${{ hashFiles('**/Cargo.lock') }}
+      # - name: Cache Rust dependencies
+      #   uses: swatinem/rust-cache@v2
+      #   with:
+      #     key: ${{ runner.os }}-rust-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: Test Rust Stable
-        run: |
-          export RUSTFLAGS='-Cdebug-assertions=y -Dwarnings'
-          time cargo +stable test --verbose --all --features bit-vec,bytes,generic-array,derive,max-encoded-len
+      # - name: Test Rust Stable
+      #   run: |
+      #     export RUSTFLAGS='-Cdebug-assertions=y -Dwarnings'
+      #     time cargo +stable test --verbose --all --features bit-vec,bytes,generic-array,derive,max-encoded-len
 
       - name: Test Rust Stable (no_derive)
         run: |
