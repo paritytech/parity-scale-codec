@@ -127,6 +127,9 @@ jobs:
   bench-rust-nightly:
     runs-on: ubuntu-latest
     needs: [set-image]
+    strategy:
+      matrix:
+        feature: [bit-vec,bytes,generic-array,derive,max-encoded-len]
     container: ${{ needs.set-image.outputs.IMAGE }}
     steps:
       - name: Checkout code
@@ -140,11 +143,14 @@ jobs:
       - name: Bench Rust Nightly
         run: |
           export RUSTFLAGS='-Cdebug-assertions=y -Dwarnings'
-          time cargo +nightly bench --features bit-vec,bytes,generic-array,derive,max-encoded-len
+          time cargo +nightly bench --features ${{ matrix.feature }}
 
   miri:
     runs-on: ubuntu-latest
     needs: [set-image]
+    strategy:
+      matrix:
+        feature: [bit-vec,bytes,generic-array,arbitrary]
     container: ${{ needs.set-image.outputs.IMAGE }}
     steps:
       - name: Checkout code
@@ -160,7 +166,7 @@ jobs:
           export RUST_BACKTRACE=1
           export RUSTFLAGS='-Cdebug-assertions=y -Dwarnings'
           export MIRIFLAGS='-Zmiri-disable-isolation'
-          time cargo +nightly miri test --features bit-vec,bytes,generic-array,arbitrary --release
+          time cargo +nightly miri test --features ${{ matrix.feature }} --release
 
 # Build
 
