@@ -218,5 +218,5 @@ jobs:
         with:
           key: ${{ runner.os }}-rust-${{ hashFiles('**/Cargo.lock') }}
 
-      # - name: Publish Crate
-      #   run: cargo publish -p parity-scale-codec
+      - name: Publish Crate
+        run: cargo publish -p parity-scale-codec
