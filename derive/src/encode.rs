@@ -314,9 +314,11 @@ fn impl_encode(data: &Data, type_name: &Ident, crate_path: &syn::Path) -> TokenS
 				return quote!()
 			}
 
-			let recurse = data_variants().enumerate().map(|(i, f)| {
+			let mut collected_const_indices: Vec<TokenStream> = Vec::new();
+
+			let recurse: Vec<[TokenStream; 2]> = data_variants().enumerate().map(|(i, f)| {
 				let name = &f.ident;
-				let index = utils::variant_index(f, i);
+				let index = utils::variant_index(f, i, &mut collected_const_indices);
 
 				match f.fields {
 					Fields::Named(ref fields) => {
@@ -397,10 +399,34 @@ fn impl_encode(data: &Data, type_name: &Ident, crate_path: &syn::Path) -> TokenS
 						[hinting, encoding]
 					},
 				}
-			});
+			}).collect();
 
-			let recurse_hinting = recurse.clone().map(|[hinting, _]| hinting);
-			let recurse_encoding = recurse.clone().map(|[_, encoding]| encoding);
+			if let Some((duplicate, token_str)) =
+				utils::find_const_duplicate(&collected_const_indices)
+			{
+				let error_message =
+					format!("index value `{}` is assigned more than once", token_str);
+				return syn::Error::new_spanned(&duplicate, error_message).to_compile_error();
+			}
+
+			let recurse_hinting = recurse.iter().map(|[hinting, _]| hinting.clone());
+			let recurse_encoding = recurse.iter().map(|[_, encoding]| encoding.clone());
+
+			// Runtime check to ensure index attribute variant is within u8 range.
+			let runtime_checks: Vec<_> = collected_const_indices
+				.iter()
+				.enumerate()
+				.map(|(idx, expr)| {
+					let check_const =
+						syn::Ident::new(&format!("CHECK_{}", idx), proc_macro2::Span::call_site());
+					quote! {
+						const #check_const: u8 = #expr;
+						if #check_const as u32 > 255 {
+							panic!("Index attribute variant must be in 0..255, found {}", #check_const);
+						}
+					}
+				})
+				.collect();
 
 			let hinting = quote! {
 				// The variant index uses 1 byte.
@@ -411,6 +437,8 @@ fn impl_encode(data: &Data, type_name: &Ident, crate_path: &syn::Path) -> TokenS
 			};
 
 			let encoding = quote! {
+				#( #runtime_checks )*
+
 				match *#self_ {
 					#( #recurse_encoding )*,
 					_ => (),

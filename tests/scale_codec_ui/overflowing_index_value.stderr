@@ -1,0 +1,5 @@
+error: Error checking variant attribute: Index attribute variant must be in 0..255
+ --> tests/scale_codec_ui/overflowing_index_value.rs:4:5
+  |
+4 |     #[codec(index = 256)]
+  |     ^^^^^^^^^^^^^^^^^^^^^
