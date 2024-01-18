@@ -14,7 +14,7 @@ proc-macro = true
 syn = { version = "1.0.98", features = ["full", "visit"] }
 quote = "1.0.35"
 proc-macro2 = "1.0.76"
-proc-macro-crate = "3.0.0"
+proc-macro-crate = "3.1.0"
 
 [dev-dependencies]
 parity-scale-codec = { path = "..", features = ["derive", "max-encoded-len"] }
