@@ -23,7 +23,7 @@ use proc_macro2::TokenStream;
 use quote::{ToTokens, quote};
 use syn::{
 	parse::Parse, punctuated::Punctuated, spanned::Spanned, token, Attribute, Data, DeriveInput,
-	Field, Fields, FieldsNamed, FieldsUnnamed, Lit, Meta, MetaNameValue, NestedMeta, Path, Variant,
+	Field, Fields, FieldsNamed, FieldsUnnamed, Lit, Meta, MetaNameValue, NestedMeta, Path, Variant, Expr,
 };
 
 fn find_meta_item<'a, F, R, I, M>(mut itr: I, mut pred: F) -> Option<R>
@@ -37,32 +37,41 @@ where
 	})
 }
 
-/// Look for a `#[scale(index = $int)]` attribute on a variant. If no attribute
+/// Look for a `#[codec(index = $int)]` attribute on a variant. If no attribute
 /// is found, fall back to the discriminant or just the variant index.
-pub fn variant_index(v: &Variant, i: usize) -> TokenStream {
-	// first look for an attribute
-	let index = find_meta_item(v.attrs.iter(), |meta| {
-		if let NestedMeta::Meta(Meta::NameValue(ref nv)) = meta {
-			if nv.path.is_ident("index") {
-				if let Lit::Int(ref v) = nv.lit {
-					let byte = v
-						.base10_parse::<u8>()
-						.expect("Internal error, index attribute must have been checked");
-					return Some(byte)
-				}
-			}
-		}
+pub fn variant_index(
+    variant: &Variant,
+    i: usize,
+    collected_const_indices: &mut Vec<TokenStream>,
+) -> TokenStream {
+    let mut index_option: Option<TokenStream> = None;
 
-		None
-	});
+    for attr in variant.attrs.iter().filter(|attr| attr.path.is_ident("codec")) {
+        if let Ok(codec_variants) = attr.parse_args::<CodecVariants>() {
+            if let Some(codec_index) = codec_variants.index {
+                match codec_index {
+                    CodecIndex::U8(value) => {
+                        index_option = Some(quote! { #value });
+                        break;
+                    },
+                    CodecIndex::ExprConst(expr) => {
+                        collected_const_indices.push(quote! { #expr });
+                        index_option = Some(quote! { #expr });
+                        break;
+                    }
+                }
+            }
+        }
+    }
 
-	// then fallback to discriminant or just index
-	index.map(|i| quote! { #i }).unwrap_or_else(|| {
-		v.discriminant
-			.as_ref()
-			.map(|(_, expr)| quote! { #expr })
-			.unwrap_or_else(|| quote! { #i })
-	})
+    // Fallback to discriminant or index
+    index_option.unwrap_or_else(|| {
+        variant
+            .discriminant
+            .as_ref()
+            .map(|(_, expr)| quote! { #expr })
+            .unwrap_or_else(|| quote! { #i })
+    })
 }
 
 /// Look for a `#[codec(encoded_as = "SomeType")]` outer attribute on the given
@@ -369,34 +378,75 @@ fn check_field_attribute(attr: &Attribute) -> syn::Result<()> {
 	}
 }
 
+pub enum CodecIndex {
+    U8(u8),
+    ExprConst(Expr),
+}
+
+struct CodecVariants {
+	skip: bool,
+    index: Option<CodecIndex>,
+}
+
+const INDEX_RANGE_ERROR: &str = "Index attribute variant must be in 0..255";
+const INDEX_TYPE_ERROR: &str =
+	"Only u8 indices are accepted for attribute variant `#[codec(index = $u8)]`";
+const ATTRIBUTE_ERROR: &str =
+	"Invalid attribute on variant, only `#[codec(skip)]` and `#[codec(index = $u8)]` are accepted.";
+
+impl Parse for CodecVariants {
+	fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+		let mut skip = false;
+		let mut index = None;
+
+		while !input.is_empty() {
+			let lookahead = input.lookahead1();
+			if lookahead.peek(syn::Ident) {
+				let ident: syn::Ident = input.parse()?;
+				if ident == "skip" {
+					skip = true;
+				} else if ident == "index" {
+					input.parse::<Token![=]>()?;
+					if let Ok(lit) = input.parse::<syn::LitInt>() {
+						let parsed_index = lit
+							.base10_parse::<u8>()
+							.map_err(|_| syn::Error::new(lit.span(), INDEX_RANGE_ERROR));
+						index = Some(CodecIndex::U8(parsed_index?));
+					} else {
+						let expr = input
+							.parse::<syn::Expr>()
+							.map_err(|_| syn::Error::new_spanned(ident, INDEX_TYPE_ERROR))?;
+						index = Some(CodecIndex::ExprConst(expr));
+					}
+				} else {
+					return Err(syn::Error::new_spanned(ident, ATTRIBUTE_ERROR));
+				}
+			} else {
+				return Err(lookahead.error());
+			}
+		}
+
+		Ok(CodecVariants { skip, index })
+	}
+}
+
 // Ensure a field is decorated only with the following attributes:
 // * `#[codec(skip)]`
 // * `#[codec(index = $int)]`
 fn check_variant_attribute(attr: &Attribute) -> syn::Result<()> {
-	let variant_error = "Invalid attribute on variant, only `#[codec(skip)]` and \
-		`#[codec(index = $u8)]` are accepted.";
-
 	if attr.path.is_ident("codec") {
-		match attr.parse_meta()? {
-			Meta::List(ref meta_list) if meta_list.nested.len() == 1 => {
-				match meta_list.nested.first().expect("Just checked that there is one item; qed") {
-					NestedMeta::Meta(Meta::Path(path))
-						if path.get_ident().map_or(false, |i| i == "skip") =>
-						Ok(()),
-
-					NestedMeta::Meta(Meta::NameValue(MetaNameValue {
-						path,
-						lit: Lit::Int(lit_int),
-						..
-					})) if path.get_ident().map_or(false, |i| i == "index") => lit_int
-						.base10_parse::<u8>()
-						.map(|_| ())
-						.map_err(|_| syn::Error::new(lit_int.span(), "Index must be in 0..255")),
-
-					elt => Err(syn::Error::new(elt.span(), variant_error)),
+		match attr.parse_args::<CodecVariants>() {
+			Ok(codec_variants) => {
+				if codec_variants.skip || codec_variants.index.is_some() {
+					Ok(())
+				} else {
+					Err(syn::Error::new_spanned(attr, ATTRIBUTE_ERROR))
 				}
 			},
-			meta => Err(syn::Error::new(meta.span(), variant_error)),
+			Err(e) => Err(syn::Error::new_spanned(
+				attr,
+				format!("Error checking variant attribute: {}", e),
+			)),
 		}
 	} else {
 		Ok(())
@@ -450,4 +500,17 @@ fn check_repr(attrs: &[syn::Attribute], value: &str) -> bool {
 pub fn is_transparent(attrs: &[syn::Attribute]) -> bool {
 	// TODO: When migrating to syn 2 the `"(transparent)"` needs to be changed into `"transparent"`.
 	check_repr(attrs, "(transparent)")
+}
+
+/// Find a duplicate `TokenStream` in a list of indices.
+/// Each `TokenStream` is a constant expression expected to represent an u8 index for an enum variant.
+pub fn find_const_duplicate(indices: &[TokenStream]) -> Option<(TokenStream, String)> {
+    let mut seen = std::collections::HashSet::new();
+    for index in indices {
+        let token_str = index.to_token_stream().to_string();
+        if !seen.insert(token_str.clone()) {
+            return Some((index.clone(), token_str));
+        }
+    }
+    None
 }

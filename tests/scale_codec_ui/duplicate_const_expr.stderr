@@ -1,0 +1,5 @@
+error: index value `MY_CONST_INDEX` is assigned more than once
+ --> tests/scale_codec_ui/duplicate_const_expr.rs:6:21
+  |
+6 |     #[codec(index = MY_CONST_INDEX)]
+  |                     ^^^^^^^^^^^^^^
