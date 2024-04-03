@@ -226,6 +226,9 @@ The derive implementation supports the following attributes:
   trait derivation of the corresponding trait, e.g. T in
   `codec(encode_bound(skip_type_params(T)))` will not contain a `Encode` trait bound while
   `Encode` is being derived for the annotated type.
+- `codec(crate = path::to::crate)`: Specify a path to the parity-scale-codec crate instance to use
+  when referring to Codec APIs from generated code. This is normally only applicable when invoking
+  re-exported Codec derives from a public macro in a different crate.
 
 ## Known issues
 
