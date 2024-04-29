@@ -60,7 +60,7 @@ pub fn quote(
 
 			let recurse = data_variants().enumerate().map(|(i, v)| {
 				let name = &v.ident;
-				let index = utils::variant_index(v, i);
+				let index = utils::variant_index(v, i, &mut Vec::new());
 
 				let create = create_instance(
 					quote! { #type_name #type_generics :: #name },

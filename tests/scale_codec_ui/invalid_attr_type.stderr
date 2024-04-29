@@ -1,0 +1,5 @@
+error: Error checking variant attribute: Only u8 indices are accepted for attribute variant `#[codec(index = $u8)]`
+ --> tests/scale_codec_ui/invalid_attr_type.rs:4:5
+  |
+4 |     #[codec(index = "invalid")]
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^

@@ -1,0 +1,5 @@
+error: Error checking variant attribute: Invalid attribute on variant, only `#[codec(skip)]` and `#[codec(index = $u8)]` are accepted.
+ --> tests/scale_codec_ui/invalid_attr_name.rs:4:5
+  |
+4 |     #[codec(scale = 1)]
+  |     ^^^^^^^^^^^^^^^^^^^
