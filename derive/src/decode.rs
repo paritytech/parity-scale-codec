@@ -84,9 +84,9 @@ pub fn quote(
 			});
 
 			let read_byte_err_msg =
-				format!("Could not decode `{}`, failed to read variant byte", type_name,);
+				format!("Could not decode `{type_name}`, failed to read variant byte");
 			let invalid_variant_err_msg =
-				format!("Could not decode `{}`, variant doesn't exist", type_name,);
+				format!("Could not decode `{type_name}`, variant doesn't exist");
 			quote! {
 				match #input.read_byte()
 					.map_err(|e| e.chain(#read_byte_err_msg))?
