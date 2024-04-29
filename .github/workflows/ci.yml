@@ -23,6 +23,20 @@ jobs:
         run: echo "IMAGE=${{ env.IMAGE }}" >> $GITHUB_OUTPUT
 
 # Checks
+  fmt:
+    runs-on: ubuntu-latest
+    needs: [set-image]
+    container: ${{ needs.set-image.outputs.IMAGE }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Show Cargo version
+        run: cargo +nightly -vV
+
+      - name: Cargo fmt
+        run: cargo +nightly fmt --all -- --check
+
   clippy:
     runs-on: ubuntu-latest
     needs: [set-image]
