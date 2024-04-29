@@ -14,8 +14,8 @@
 
 //! Test for type inference issue in decode.
 
-use parity_scale_codec_derive::Decode as DeriveDecode;
 use parity_scale_codec::Decode;
+use parity_scale_codec_derive::Decode as DeriveDecode;
 
 pub trait Trait {
 	type Value;
@@ -24,10 +24,7 @@ pub trait Trait {
 
 #[derive(DeriveDecode)]
 pub enum A<T: Trait> {
-	_C(
-		(T::AccountId, T::AccountId),
-		Vec<(T::Value, T::Value)>,
-	),
+	_C((T::AccountId, T::AccountId), Vec<(T::Value, T::Value)>),
 }
 
 #[derive(DeriveDecode)]

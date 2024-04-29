@@ -45,7 +45,7 @@ pub fn derive_max_encoded_len(input: proc_macro::TokenStream) -> proc_macro::Tok
 		has_dumb_trait_bound(&input.attrs),
 		&crate_path,
 	) {
-		return e.to_compile_error().into()
+		return e.to_compile_error().into();
 	}
 	let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
