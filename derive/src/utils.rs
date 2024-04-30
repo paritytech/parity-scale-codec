@@ -20,7 +20,7 @@
 use std::str::FromStr;
 
 use proc_macro2::TokenStream;
-use quote::{ToTokens, quote};
+use quote::{quote, ToTokens};
 use syn::{
 	parse::Parse, punctuated::Punctuated, spanned::Spanned, token, Attribute, Data, DeriveInput,
 	Field, Fields, FieldsNamed, FieldsUnnamed, Lit, Meta, MetaNameValue, NestedMeta, Path, Variant,
@@ -48,7 +48,7 @@ pub fn variant_index(v: &Variant, i: usize) -> TokenStream {
 					let byte = v
 						.base10_parse::<u8>()
 						.expect("Internal error, index attribute must have been checked");
-					return Some(byte)
+					return Some(byte);
 				}
 			}
 		}
@@ -75,7 +75,7 @@ pub fn get_encoded_as_type(field: &Field) -> Option<TokenStream> {
 					return Some(
 						TokenStream::from_str(&s.value())
 							.expect("Internal error, encoded_as attribute must have been checked"),
-					)
+					);
 				}
 			}
 		}
@@ -89,7 +89,7 @@ pub fn is_compact(field: &Field) -> bool {
 	find_meta_item(field.attrs.iter(), |meta| {
 		if let NestedMeta::Meta(Meta::Path(ref path)) = meta {
 			if path.is_ident("compact") {
-				return Some(())
+				return Some(());
 			}
 		}
 
@@ -103,7 +103,7 @@ pub fn should_skip(attrs: &[Attribute]) -> bool {
 	find_meta_item(attrs.iter(), |meta| {
 		if let NestedMeta::Meta(Meta::Path(ref path)) = meta {
 			if path.is_ident("skip") {
-				return Some(path.span())
+				return Some(path.span());
 			}
 		}
 
@@ -117,7 +117,7 @@ pub fn has_dumb_trait_bound(attrs: &[Attribute]) -> bool {
 	find_meta_item(attrs.iter(), |meta| {
 		if let NestedMeta::Meta(Meta::Path(ref path)) = meta {
 			if path.is_ident("dumb_trait_bound") {
-				return Some(())
+				return Some(());
 			}
 		}
 
@@ -262,9 +262,7 @@ pub fn filter_skip_named(fields: &syn::FieldsNamed) -> impl Iterator<Item = &Fie
 
 /// Given a set of unnamed fields, return an iterator of `(index, Field)` where all fields
 /// marked `#[codec(skip)]` are filtered out.
-pub fn filter_skip_unnamed(
-	fields: &syn::FieldsUnnamed,
-) -> impl Iterator<Item = (usize, &Field)> {
+pub fn filter_skip_unnamed(fields: &syn::FieldsUnnamed) -> impl Iterator<Item = (usize, &Field)> {
 	fields.unnamed.iter().enumerate().filter(|(_, f)| !should_skip(&f.attrs))
 }
 

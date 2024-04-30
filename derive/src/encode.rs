@@ -35,7 +35,7 @@ fn encode_single_field(
 			Span::call_site(),
 			"Internal error: cannot encode single field optimisation if skipped",
 		)
-		.to_compile_error()
+		.to_compile_error();
 	}
 
 	if encoded_as.is_some() && compact {
@@ -43,7 +43,7 @@ fn encode_single_field(
 			Span::call_site(),
 			"`encoded_as` and `compact` can not be used at the same time!",
 		)
-		.to_compile_error()
+		.to_compile_error();
 	}
 
 	let final_field_variable = if compact {
@@ -128,7 +128,7 @@ where
 				f.span(),
 				"`encoded_as`, `compact` and `skip` can only be used one at a time!",
 			)
-			.to_compile_error()
+			.to_compile_error();
 		}
 
 		// Based on the seen attribute, we call a handler that generates code for a specific
@@ -306,12 +306,12 @@ fn impl_encode(data: &Data, type_name: &Ident, crate_path: &syn::Path) -> TokenS
 					data.variants.span(),
 					"Currently only enums with at most 256 variants are encodable.",
 				)
-				.to_compile_error()
+				.to_compile_error();
 			}
 
 			// If the enum has no variants, we don't need to encode anything.
 			if data_variants().count() == 0 {
-				return quote!()
+				return quote!();
 			}
 
 			let recurse = data_variants().enumerate().map(|(i, f)| {

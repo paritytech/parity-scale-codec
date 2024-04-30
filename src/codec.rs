@@ -14,49 +14,38 @@
 
 //! Serialization.
 
-use core::fmt;
 use core::{
 	convert::TryFrom,
+	fmt,
 	iter::FromIterator,
 	marker::PhantomData,
 	mem,
-	mem::{
-		MaybeUninit,
+	mem::MaybeUninit,
+	num::{
+		NonZeroI128, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI8, NonZeroU128, NonZeroU16,
+		NonZeroU32, NonZeroU64, NonZeroU8,
 	},
 	ops::{Deref, Range, RangeInclusive},
 	time::Duration,
-};
-use core::num::{
-	NonZeroI8,
-	NonZeroI16,
-	NonZeroI32,
-	NonZeroI64,
-	NonZeroI128,
-	NonZeroU8,
-	NonZeroU16,
-	NonZeroU32,
-	NonZeroU64,
-	NonZeroU128,
 };
 
 use byte_slice_cast::{AsByteSlice, AsMutByteSlice, ToMutByteSlice};
 
 #[cfg(target_has_atomic = "ptr")]
 use crate::alloc::sync::Arc;
-use crate::alloc::{
-	boxed::Box,
-	borrow::{Cow, ToOwned},
-	collections::{
-		BTreeMap, BTreeSet, VecDeque, LinkedList, BinaryHeap
+use crate::{
+	alloc::{
+		borrow::{Cow, ToOwned},
+		boxed::Box,
+		collections::{BTreeMap, BTreeSet, BinaryHeap, LinkedList, VecDeque},
+		rc::Rc,
+		string::String,
+		vec::Vec,
 	},
-	rc::Rc,
-	string::String,
-	vec::Vec,
+	compact::Compact,
+	encode_like::EncodeLike,
+	DecodeFinished, Error,
 };
-use crate::compact::Compact;
-use crate::DecodeFinished;
-use crate::encode_like::EncodeLike;
-use crate::Error;
 
 pub(crate) const MAX_PREALLOCATION: usize = 4 * 1024;
 const A_BILLION: u32 = 1_000_000_000;
@@ -101,7 +90,10 @@ pub trait Input {
 	/// Decodes a `bytes::Bytes`.
 	#[cfg(feature = "bytes")]
 	#[doc(hidden)]
-	fn scale_internal_decode_bytes(&mut self) -> Result<bytes::Bytes, Error> where Self: Sized {
+	fn scale_internal_decode_bytes(&mut self) -> Result<bytes::Bytes, Error>
+	where
+		Self: Sized,
+	{
 		Vec::<u8>::decode(self).map(bytes::Bytes::from)
 	}
 }
@@ -186,10 +178,11 @@ impl Output for Vec<u8> {
 #[cfg(feature = "std")]
 impl<W: std::io::Write> Output for W {
 	fn write(&mut self, bytes: &[u8]) {
-		(self as &mut dyn std::io::Write).write_all(bytes).expect("Codec outputs are infallible");
+		(self as &mut dyn std::io::Write)
+			.write_all(bytes)
+			.expect("Codec outputs are infallible");
 	}
 }
-
 
 /// !INTERNAL USE ONLY!
 ///
@@ -197,7 +190,8 @@ impl<W: std::io::Write> Output for W {
 #[doc(hidden)]
 #[non_exhaustive]
 pub enum TypeInfo {
-	/// Default value of [`Encode::TYPE_INFO`] to not require implementors to set this value in the trait.
+	/// Default value of [`Encode::TYPE_INFO`] to not require implementors to set this value in the
+	/// trait.
 	Unknown,
 	U8,
 	I8,
@@ -215,8 +209,8 @@ pub enum TypeInfo {
 
 /// Trait that allows zero-copy write of value-references to slices in LE format.
 ///
-/// Implementations should override `using_encoded` for value types and `encode_to` and `size_hint` for allocating types.
-/// Wrapper types should override all methods.
+/// Implementations should override `using_encoded` for value types and `encode_to` and `size_hint`
+/// for allocating types. Wrapper types should override all methods.
 pub trait Encode {
 	// !INTERNAL USE ONLY!
 	// This const helps SCALE to optimize the encoding/decoding by doing fake specialization.
@@ -254,8 +248,9 @@ pub trait Encode {
 	///
 	/// # Note
 	///
-	/// This works by using a special [`Output`] that only tracks the size. So, there are no allocations inside the
-	/// output. However, this can not prevent allocations that some types are doing inside their own encoding.
+	/// This works by using a special [`Output`] that only tracks the size. So, there are no
+	/// allocations inside the output. However, this can not prevent allocations that some types are
+	/// doing inside their own encoding.
 	fn encoded_size(&self) -> usize {
 		let mut size_tracker = SizeTracker { written: 0 };
 		self.encode_to(&mut size_tracker);
@@ -304,8 +299,12 @@ pub trait Decode: Sized {
 	/// If this function returns `Ok` then `dst` **must** be properly initialized.
 	///
 	/// This is enforced by requiring the implementation to return a [`DecodeFinished`]
-	/// which can only be created by calling [`DecodeFinished::assert_decoding_finished`] which is `unsafe`.
-	fn decode_into<I: Input>(input: &mut I, dst: &mut MaybeUninit<Self>) -> Result<DecodeFinished, Error> {
+	/// which can only be created by calling [`DecodeFinished::assert_decoding_finished`] which is
+	/// `unsafe`.
+	fn decode_into<I: Input>(
+		input: &mut I,
+		dst: &mut MaybeUninit<Self>,
+	) -> Result<DecodeFinished, Error> {
 		let value = Self::decode(input)?;
 		dst.write(value);
 
@@ -388,7 +387,7 @@ impl EncodeLike<&str> for String {}
 impl EncodeLike<String> for &str {}
 
 #[cfg(target_has_atomic = "ptr")]
-mod atomic_ptr_targets  {
+mod atomic_ptr_targets {
 	use super::*;
 	impl<T: ?Sized> WrapperTypeEncode for Arc<T> {}
 	impl<T: ?Sized + Encode> EncodeLike for Arc<T> {}
@@ -412,7 +411,7 @@ mod feature_wrapper_bytes {
 #[cfg(feature = "bytes")]
 struct BytesCursor {
 	bytes: bytes::Bytes,
-	position: usize
+	position: usize,
 }
 
 #[cfg(feature = "bytes")]
@@ -423,7 +422,7 @@ impl Input for BytesCursor {
 
 	fn read(&mut self, into: &mut [u8]) -> Result<(), Error> {
 		if into.len() > self.bytes.len() - self.position {
-			return Err("Not enough data to fill buffer".into())
+			return Err("Not enough data to fill buffer".into());
 		}
 
 		into.copy_from_slice(&self.bytes[self.position..self.position + into.len()]);
@@ -447,7 +446,10 @@ impl Input for BytesCursor {
 
 /// Decodes a given `T` from `Bytes`.
 #[cfg(feature = "bytes")]
-pub fn decode_from_bytes<T>(bytes: bytes::Bytes) -> Result<T, Error> where T: Decode {
+pub fn decode_from_bytes<T>(bytes: bytes::Bytes) -> Result<T, Error>
+where
+	T: Decode,
+{
 	// We could just use implement `Input` for `Bytes` and use `Bytes::split_to`
 	// to move the cursor, however doing it this way allows us to prevent an
 	// unnecessary allocation when the `T` which is being deserialized doesn't
@@ -464,10 +466,7 @@ pub fn decode_from_bytes<T>(bytes: bytes::Bytes) -> Result<T, Error> where T: De
 	// However, if `T` doesn't contain any `Bytes` then this extra allocation is
 	// technically unnecessary, and we can avoid it by tracking the position ourselves
 	// and treating the underlying `Bytes` as a fancy `&[u8]`.
-	let mut input = BytesCursor {
-		bytes,
-		position: 0
-	};
+	let mut input = BytesCursor { bytes, position: 0 };
 	T::decode(&mut input)
 }
 
@@ -478,7 +477,8 @@ impl Decode for bytes::Bytes {
 	}
 }
 
-impl<T, X> Encode for X where
+impl<T, X> Encode for X
+where
 	T: Encode + ?Sized,
 	X: WrapperTypeEncode<Target = T>,
 {
@@ -510,7 +510,10 @@ pub trait WrapperTypeDecode: Sized {
 	// This is a used to specialize `decode` for the wrapped type.
 	#[doc(hidden)]
 	#[inline]
-	fn decode_wrapped<I: Input>(input: &mut I) -> Result<Self, Error> where Self::Wrapped: Decode {
+	fn decode_wrapped<I: Input>(input: &mut I) -> Result<Self, Error>
+	where
+		Self::Wrapped: Decode,
+	{
 		input.descend_ref()?;
 		let result = Ok(Self::Wrapped::decode(input)?.into());
 		input.ascend_ref();
@@ -521,7 +524,10 @@ pub trait WrapperTypeDecode: Sized {
 impl<T> WrapperTypeDecode for Box<T> {
 	type Wrapped = T;
 
-	fn decode_wrapped<I: Input>(input: &mut I) -> Result<Self, Error> where Self::Wrapped: Decode {
+	fn decode_wrapped<I: Input>(input: &mut I) -> Result<Self, Error>
+	where
+		Self::Wrapped: Decode,
+	{
 		input.descend_ref()?;
 
 		// Placement new is not yet stable, but we can just manually allocate a chunk of memory
@@ -535,11 +541,8 @@ impl<T> WrapperTypeDecode for Box<T> {
 		let ptr: *mut MaybeUninit<T> = if layout.size() == 0 {
 			core::ptr::NonNull::dangling().as_ptr()
 		} else {
-
 			// SAFETY: Layout has a non-zero size so calling this is safe.
-			let ptr: *mut u8 = unsafe {
-				crate::alloc::alloc::alloc(layout)
-			};
+			let ptr: *mut u8 = unsafe { crate::alloc::alloc::alloc(layout) };
 
 			if ptr.is_null() {
 				crate::alloc::alloc::handle_alloc_error(layout);
@@ -576,7 +579,10 @@ impl<T> WrapperTypeDecode for Box<T> {
 impl<T> WrapperTypeDecode for Rc<T> {
 	type Wrapped = T;
 
-	fn decode_wrapped<I: Input>(input: &mut I) -> Result<Self, Error> where Self::Wrapped: Decode {
+	fn decode_wrapped<I: Input>(input: &mut I) -> Result<Self, Error>
+	where
+		Self::Wrapped: Decode,
+	{
 		// TODO: This is inefficient; use `Rc::new_uninit` once that's stable.
 		Box::<T>::decode(input).map(|output| output.into())
 	}
@@ -586,15 +592,19 @@ impl<T> WrapperTypeDecode for Rc<T> {
 impl<T> WrapperTypeDecode for Arc<T> {
 	type Wrapped = T;
 
-	fn decode_wrapped<I: Input>(input: &mut I) -> Result<Self, Error> where Self::Wrapped: Decode {
+	fn decode_wrapped<I: Input>(input: &mut I) -> Result<Self, Error>
+	where
+		Self::Wrapped: Decode,
+	{
 		// TODO: This is inefficient; use `Arc::new_uninit` once that's stable.
 		Box::<T>::decode(input).map(|output| output.into())
 	}
 }
 
-impl<T, X> Decode for X where
+impl<T, X> Decode for X
+where
 	T: Decode + Into<X>,
-	X: WrapperTypeDecode<Wrapped=T>,
+	X: WrapperTypeDecode<Wrapped = T>,
 {
 	#[inline]
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
@@ -604,8 +614,8 @@ impl<T, X> Decode for X where
 
 /// A macro that matches on a [`TypeInfo`] and expands a given macro per variant.
 ///
-/// The first parameter to the given macro will be the type of variant (e.g. `u8`, `u32`, etc.) and other parameters
-/// given to this macro.
+/// The first parameter to the given macro will be the type of variant (e.g. `u8`, `u32`, etc.) and
+/// other parameters given to this macro.
 ///
 /// The last parameter is the code that should be executed for the `Unknown` type info.
 macro_rules! with_type_info {
@@ -647,11 +657,11 @@ impl<T: Encode, E: Encode> Encode for Result<T, E> {
 			Ok(ref t) => {
 				dest.push_byte(0);
 				t.encode_to(dest);
-			}
+			},
 			Err(ref e) => {
 				dest.push_byte(1);
 				e.encode_to(dest);
-			}
+			},
 		}
 	}
 }
@@ -662,19 +672,19 @@ where
 	LikeT: Encode,
 	E: EncodeLike<LikeE>,
 	LikeE: Encode,
-{}
+{
+}
 
 impl<T: Decode, E: Decode> Decode for Result<T, E> {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
-		match input.read_byte()
+		match input
+			.read_byte()
 			.map_err(|e| e.chain("Could not result variant byte for `Result`"))?
 		{
-			0 => Ok(
-				Ok(T::decode(input).map_err(|e| e.chain("Could not Decode `Result::Ok(T)`"))?)
-			),
-			1 => Ok(
-				Err(E::decode(input).map_err(|e| e.chain("Could not decode `Result::Error(E)`"))?)
-			),
+			0 => Ok(Ok(T::decode(input).map_err(|e| e.chain("Could not Decode `Result::Ok(T)`"))?)),
+			1 => Ok(Err(
+				E::decode(input).map_err(|e| e.chain("Could not decode `Result::Error(E)`"))?
+			)),
 			_ => Err("unexpected first byte decoding Result".into()),
 		}
 	}
@@ -732,7 +742,7 @@ impl<T: Encode> Encode for Option<T> {
 			Some(ref t) => {
 				dest.push_byte(1);
 				t.encode_to(dest);
-			}
+			},
 			None => dest.push_byte(0),
 		}
 	}
@@ -740,13 +750,14 @@ impl<T: Encode> Encode for Option<T> {
 
 impl<T: Decode> Decode for Option<T> {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
-		match input.read_byte()
+		match input
+			.read_byte()
 			.map_err(|e| e.chain("Could not decode variant byte for `Option`"))?
 		{
 			0 => Ok(None),
-			1 => Ok(
-				Some(T::decode(input).map_err(|e| e.chain("Could not decode `Option::Some(T)`"))?)
-			),
+			1 => Ok(Some(
+				T::decode(input).map_err(|e| e.chain("Could not decode `Option::Some(T)`"))?,
+			)),
 			_ => Err("unexpected first byte decoding Option".into()),
 		}
 	}
@@ -835,7 +846,8 @@ pub fn decode_vec_with_len<T: Decode, I: Input>(
 		input: &mut I,
 		items_len: usize,
 	) -> Result<Vec<T>, Error> {
-		let input_capacity = input.remaining_len()?
+		let input_capacity = input
+			.remaining_len()?
 			.unwrap_or(MAX_PREALLOCATION)
 			.checked_div(mem::size_of::<T>())
 			.unwrap_or(0);
@@ -910,28 +922,26 @@ impl<T: Decode, const N: usize> Decode for [T; N] {
 		Self::decode_into(input, &mut array)?;
 
 		// SAFETY: `decode_into` succeeded, so the array is initialized.
-		unsafe {
-			Ok(array.assume_init())
-		}
+		unsafe { Ok(array.assume_init()) }
 	}
 
-    fn decode_into<I: Input>(input: &mut I, dst: &mut MaybeUninit<Self>) -> Result<DecodeFinished, Error> {
+	fn decode_into<I: Input>(
+		input: &mut I,
+		dst: &mut MaybeUninit<Self>,
+	) -> Result<DecodeFinished, Error> {
 		let is_primitive = match <T as Decode>::TYPE_INFO {
-			| TypeInfo::U8
-			| TypeInfo::I8
-				=> true,
-			| TypeInfo::U16
-			| TypeInfo::I16
-			| TypeInfo::U32
-			| TypeInfo::I32
-			| TypeInfo::U64
-			| TypeInfo::I64
-			| TypeInfo::U128
-			| TypeInfo::I128
-			| TypeInfo::F32
-			| TypeInfo::F64
-				=> cfg!(target_endian = "little"),
-			TypeInfo::Unknown => false
+			| TypeInfo::U8 | TypeInfo::I8 => true,
+			| TypeInfo::U16 |
+			TypeInfo::I16 |
+			TypeInfo::U32 |
+			TypeInfo::I32 |
+			TypeInfo::U64 |
+			TypeInfo::I64 |
+			TypeInfo::U128 |
+			TypeInfo::I128 |
+			TypeInfo::F32 |
+			TypeInfo::F64 => cfg!(target_endian = "little"),
+			TypeInfo::Unknown => false,
 		};
 
 		if is_primitive {
@@ -952,9 +962,7 @@ impl<T: Decode, const N: usize> Decode for [T; N] {
 			}
 
 			// SAFETY: We've zero-initialized everything so creating a slice here is safe.
-			let slice: &mut [u8] = unsafe {
-				core::slice::from_raw_parts_mut(ptr, bytesize)
-			};
+			let slice: &mut [u8] = unsafe { core::slice::from_raw_parts_mut(ptr, bytesize) };
 
 			input.read(slice)?;
 
@@ -975,7 +983,7 @@ impl<T: Decode, const N: usize> Decode for [T; N] {
 		/// dropped in case an error occurs or the underlying `decode` implementation panics.
 		struct State<'a, T, const N: usize> {
 			count: usize,
-			slice: &'a mut [MaybeUninit<T>; N]
+			slice: &'a mut [MaybeUninit<T>; N],
 		}
 
 		impl<'a, T, const N: usize> Drop for State<'a, T, N> {
@@ -1002,10 +1010,7 @@ impl<T: Decode, const N: usize> Decode for [T; N] {
 			}
 		}
 
-		let mut state = State {
-			count: 0,
-			slice
-		};
+		let mut state = State { count: 0, slice };
 
 		while state.count < state.slice.len() {
 			T::decode_into(input, &mut state.slice[state.count])?;
@@ -1016,9 +1021,7 @@ impl<T: Decode, const N: usize> Decode for [T; N] {
 		mem::forget(state);
 
 		// SAFETY: We've initialized the whole slice so calling this is safe.
-		unsafe {
-			Ok(DecodeFinished::assert_decoding_finished())
-		}
+		unsafe { Ok(DecodeFinished::assert_decoding_finished()) }
 	}
 
 	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
@@ -1028,7 +1031,7 @@ impl<T: Decode, const N: usize> Decode for [T; N] {
 				T::skip(input)?;
 			}
 		} else {
-		    Self::decode(input)?;
+			Self::decode(input)?;
 		}
 		Ok(())
 	}
@@ -1059,7 +1062,8 @@ impl Encode for str {
 }
 
 impl<'a, T: ToOwned + ?Sized> Decode for Cow<'a, T>
-	where <T as ToOwned>::Owned: Decode,
+where
+	<T as ToOwned>::Owned: Decode,
 {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		Ok(Cow::Owned(Decode::decode(input)?))
@@ -1085,7 +1089,10 @@ impl Decode for String {
 }
 
 /// Writes the compact encoding of `len` do `dest`.
-pub(crate) fn compact_encode_len_to<W: Output + ?Sized>(dest: &mut W, len: usize) -> Result<(), Error> {
+pub(crate) fn compact_encode_len_to<W: Output + ?Sized>(
+	dest: &mut W,
+	len: usize,
+) -> Result<(), Error> {
 	if len > u32::MAX as usize {
 		return Err("Attempted to serialize a collection with too many elements.".into());
 	}
@@ -1117,14 +1124,15 @@ where
 {
 	debug_assert!(MAX_PREALLOCATION >= mem::size_of::<T>(), "Invalid precondition");
 
-	let byte_len = items_len.checked_mul(mem::size_of::<T>())
+	let byte_len = items_len
+		.checked_mul(mem::size_of::<T>())
 		.ok_or("Item is too big and cannot be allocated")?;
 
 	let input_len = input.remaining_len()?;
 
 	// If there is input len and it cannot be pre-allocated then return directly.
 	if input_len.map(|l| l < byte_len).unwrap_or(false) {
-		return Err("Not enough data to decode vector".into())
+		return Err("Not enough data to decode vector".into());
 	}
 
 	// In both these branches we're going to be creating and resizing a Vec<T>,
@@ -1179,9 +1187,8 @@ impl<T: EncodeLike<U>, U: Encode> EncodeLike<Vec<U>> for &[T] {}
 
 impl<T: Decode> Decode for Vec<T> {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
-		<Compact<u32>>::decode(input).and_then(move |Compact(len)| {
-			decode_vec_with_len(input, len as usize)
-		})
+		<Compact<u32>>::decode(input)
+			.and_then(move |Compact(len)| decode_vec_with_len(input, len as usize))
 	}
 }
 
@@ -1257,9 +1264,8 @@ impl<T: Encode> Encode for VecDeque<T> {
 			( $ty:ty, $self:ident, $dest:ident ) => {{
 				if cfg!(target_endian = "little") || mem::size_of::<T>() == 1 {
 					let slices = $self.as_slices();
-					let typed = unsafe {
-						core::mem::transmute::<(&[T], &[T]), (&[$ty], &[$ty])>(slices)
-					};
+					let typed =
+						unsafe { core::mem::transmute::<(&[T], &[T]), (&[$ty], &[$ty])>(slices) };
 
 					$dest.write(<[$ty] as AsByteSlice<$ty>>::as_byte_slice(typed.0));
 					$dest.write(<[$ty] as AsByteSlice<$ty>>::as_byte_slice(typed.1));
@@ -1292,8 +1298,7 @@ impl<T: Decode> Decode for VecDeque<T> {
 impl EncodeLike for () {}
 
 impl Encode for () {
-	fn encode_to<W: Output + ?Sized>(&self, _dest: &mut W) {
-	}
+	fn encode_to<W: Output + ?Sized>(&self, _dest: &mut W) {}
 
 	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
 		f(&[])
@@ -1419,8 +1424,24 @@ mod inner_tuple_impl {
 	use super::*;
 
 	tuple_impl!(
-		(A0, A1), (B0, B1), (C0, C1), (D0, D1), (E0, E1), (F0, F1), (G0, G1), (H0, H1), (I0, I1),
-		(J0, J1), (K0, K1), (L0, L1), (M0, M1), (N0, N1), (O0, O1), (P0, P1), (Q0, Q1), (R0, R1),
+		(A0, A1),
+		(B0, B1),
+		(C0, C1),
+		(D0, D1),
+		(E0, E1),
+		(F0, F1),
+		(G0, G1),
+		(H0, H1),
+		(I0, I1),
+		(J0, J1),
+		(K0, K1),
+		(L0, L1),
+		(M0, M1),
+		(N0, N1),
+		(O0, O1),
+		(P0, P1),
+		(Q0, Q1),
+		(R0, R1),
 	);
 }
 
@@ -1505,7 +1526,7 @@ impl Decode for bool {
 		match byte {
 			0 => Ok(false),
 			1 => Ok(true),
-			_ => Err("Invalid boolean representation".into())
+			_ => Err("Invalid boolean representation".into()),
 		}
 	}
 
@@ -1542,7 +1563,7 @@ impl EncodeLike for Duration {}
 
 impl<T> Encode for Range<T>
 where
-	T: Encode
+	T: Encode,
 {
 	fn size_hint(&self) -> usize {
 		2 * mem::size_of::<T>()
@@ -1555,18 +1576,18 @@ where
 
 impl<T> Decode for Range<T>
 where
-	T: Decode
+	T: Decode,
 {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
-		let (start, end) = <(T, T)>::decode(input)
-			.map_err(|e| e.chain("Could not decode `Range<T>`"))?;
+		let (start, end) =
+			<(T, T)>::decode(input).map_err(|e| e.chain("Could not decode `Range<T>`"))?;
 		Ok(Range { start, end })
 	}
 }
 
 impl<T> Encode for RangeInclusive<T>
 where
-	T: Encode
+	T: Encode,
 {
 	fn size_hint(&self) -> usize {
 		2 * mem::size_of::<T>()
@@ -1579,15 +1600,14 @@ where
 
 impl<T> Decode for RangeInclusive<T>
 where
-	T: Decode
+	T: Decode,
 {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
-		let (start, end) = <(T, T)>::decode(input)
-			.map_err(|e| e.chain("Could not decode `RangeInclusive<T>`"))?;
+		let (start, end) =
+			<(T, T)>::decode(input).map_err(|e| e.chain("Could not decode `RangeInclusive<T>`"))?;
 		Ok(RangeInclusive::new(start, end))
 	}
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -1597,9 +1617,7 @@ mod tests {
 	#[test]
 	fn vec_is_sliceable() {
 		let v = b"Hello world".to_vec();
-		v.using_encoded(|ref slice|
-			assert_eq!(slice, &b"\x2cHello world")
-		);
+		v.using_encoded(|ref slice| assert_eq!(slice, &b"\x2cHello world"));
 	}
 
 	#[test]
@@ -1633,7 +1651,11 @@ mod tests {
 	}
 
 	fn hexify(bytes: &[u8]) -> String {
-		bytes.iter().map(|ref b| format!("{:02x}", b)).collect::<Vec<String>>().join(" ")
+		bytes
+			.iter()
+			.map(|ref b| format!("{:02x}", b))
+			.collect::<Vec<String>>()
+			.join(" ")
 	}
 
 	#[test]
@@ -1684,10 +1706,7 @@ mod tests {
 		let encoded_vec = input.to_vec().encode();
 		assert_eq!(encoded, encoded_vec);
 
-		assert_eq!(
-			&b"hello"[..],
-			bytes::Bytes::decode(&mut &encoded[..]).unwrap(),
-		);
+		assert_eq!(&b"hello"[..], bytes::Bytes::decode(&mut &encoded[..]).unwrap(),);
 	}
 
 	#[cfg(feature = "bytes")]
@@ -1754,13 +1773,16 @@ mod tests {
 			"Hamlet".to_owned(),
 			"Война и мир".to_owned(),
 			"三国演义".to_owned(),
-			"أَلْف لَيْلَة وَلَيْلَة‎".to_owned()
+			"أَلْف لَيْلَة وَلَيْلَة‎".to_owned(),
 		];
 		let encoded = value.encode();
-		assert_eq!(hexify(&encoded), "10 18 48 61 6d 6c 65 74 50 d0 92 d0 be d0 b9 d0 bd d0 b0 20 d0 \
+		assert_eq!(
+			hexify(&encoded),
+			"10 18 48 61 6d 6c 65 74 50 d0 92 d0 be d0 b9 d0 bd d0 b0 20 d0 \
 			b8 20 d0 bc d0 b8 d1 80 30 e4 b8 89 e5 9b bd e6 bc 94 e4 b9 89 bc d8 a3 d9 8e d9 84 d9 92 \
 			d9 81 20 d9 84 d9 8e d9 8a d9 92 d9 84 d9 8e d8 a9 20 d9 88 d9 8e d9 84 d9 8e d9 8a d9 92 \
-			d9 84 d9 8e d8 a9 e2 80 8e");
+			d9 84 d9 8e d8 a9 e2 80 8e"
+		);
 		assert_eq!(<Vec<String>>::decode(&mut &encoded[..]).unwrap(), value);
 	}
 
@@ -1768,12 +1790,16 @@ mod tests {
 	struct MyWrapper(Compact<u32>);
 	impl Deref for MyWrapper {
 		type Target = Compact<u32>;
-		fn deref(&self) -> &Self::Target { &self.0 }
+		fn deref(&self) -> &Self::Target {
+			&self.0
+		}
 	}
 	impl WrapperTypeEncode for MyWrapper {}
 
 	impl From<Compact<u32>> for MyWrapper {
-		fn from(c: Compact<u32>) -> Self { MyWrapper(c) }
+		fn from(c: Compact<u32>) -> Self {
+			MyWrapper(c)
+		}
 	}
 	impl WrapperTypeDecode for MyWrapper {
 		type Wrapped = Compact<u32>;
@@ -1810,18 +1836,15 @@ mod tests {
 		let t1: BTreeSet<u32> = FromIterator::from_iter((0..10).flat_map(|i| 0..i));
 		let t2: LinkedList<u32> = FromIterator::from_iter((0..10).flat_map(|i| 0..i));
 		let t3: BinaryHeap<u32> = FromIterator::from_iter((0..10).flat_map(|i| 0..i));
-		let t4: BTreeMap<u16, u32> = FromIterator::from_iter(
-			(0..10)
-				.flat_map(|i| 0..i)
-				.map(|i| (i as u16, i + 10))
-		);
+		let t4: BTreeMap<u16, u32> =
+			FromIterator::from_iter((0..10).flat_map(|i| 0..i).map(|i| (i as u16, i + 10)));
 		let t5: BTreeSet<Vec<u8>> = FromIterator::from_iter((0..10).map(|i| Vec::from_iter(0..i)));
-		let t6: LinkedList<Vec<u8>> = FromIterator::from_iter((0..10).map(|i| Vec::from_iter(0..i)));
-		let t7: BinaryHeap<Vec<u8>> = FromIterator::from_iter((0..10).map(|i| Vec::from_iter(0..i)));
+		let t6: LinkedList<Vec<u8>> =
+			FromIterator::from_iter((0..10).map(|i| Vec::from_iter(0..i)));
+		let t7: BinaryHeap<Vec<u8>> =
+			FromIterator::from_iter((0..10).map(|i| Vec::from_iter(0..i)));
 		let t8: BTreeMap<Vec<u8>, u32> = FromIterator::from_iter(
-			(0..10)
-				.map(|i| Vec::from_iter(0..i))
-				.map(|i| (i.clone(), i.len() as u32))
+			(0..10).map(|i| Vec::from_iter(0..i)).map(|i| (i.clone(), i.len() as u32)),
 		);
 
 		assert_eq!(Decode::decode(&mut &t1.encode()[..]), Ok(t1));
@@ -2012,7 +2035,6 @@ mod tests {
 		assert!(encoded.is_empty());
 		<[u32; 0]>::decode(&mut &encoded[..]).unwrap();
 	}
-
 
 	macro_rules! test_array_encode_and_decode {
 		( $( $name:ty ),* $(,)? ) => {

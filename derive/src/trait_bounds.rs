@@ -55,7 +55,7 @@ impl<'a, 'ast> Visit<'ast> for TypePathStartsWithIdent<'a> {
 		if let Some(segment) = i.path.segments.first() {
 			if &segment.ident == self.ident {
 				self.result = true;
-				return
+				return;
 			}
 		}
 
@@ -119,7 +119,7 @@ pub fn add<N>(
 	let skip_type_params = match custom_trait_bound {
 		Some(CustomTraitBound::SpecifiedBounds { bounds, .. }) => {
 			generics.make_where_clause().predicates.extend(bounds);
-			return Ok(())
+			return Ok(());
 		},
 		Some(CustomTraitBound::SkipTypeParams { type_names, .. }) =>
 			type_names.into_iter().collect::<Vec<_>>(),
@@ -132,7 +132,7 @@ pub fn add<N>(
 		.map(|tp| tp.ident.clone())
 		.collect::<Vec<_>>();
 	if ty_params.is_empty() {
-		return Ok(())
+		return Ok(());
 	}
 
 	let codec_types =

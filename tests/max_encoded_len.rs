@@ -80,7 +80,6 @@ fn compact_field_max_length() {
 	);
 }
 
-
 #[derive(Encode, MaxEncodedLen)]
 struct CompactFieldGenerics<T: MaxEncodedLen> {
 	#[codec(compact)]
@@ -90,10 +89,7 @@ struct CompactFieldGenerics<T: MaxEncodedLen> {
 
 #[test]
 fn compact_field_generics_max_length() {
-	assert_eq!(
-		CompactFieldGenerics::<u64>::max_encoded_len(),
-		CompactField::max_encoded_len()
-	);
+	assert_eq!(CompactFieldGenerics::<u64>::max_encoded_len(), CompactField::max_encoded_len());
 }
 
 #[derive(Encode, MaxEncodedLen)]
