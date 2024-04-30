@@ -16,12 +16,14 @@
 
 use arrayvec::ArrayVec;
 
-use crate::alloc::vec::Vec;
-use crate::codec::{Encode, Decode, Input, Output, EncodeAsRef};
-use crate::encode_like::EncodeLike;
-use crate::Error;
 #[cfg(feature = "max-encoded-len")]
 use crate::MaxEncodedLen;
+use crate::{
+	alloc::vec::Vec,
+	codec::{Decode, Encode, EncodeAsRef, Input, Output},
+	encode_like::EncodeLike,
+	Error,
+};
 #[cfg(feature = "fuzz")]
 use arbitrary::Arbitrary;
 
@@ -69,8 +71,8 @@ impl<'a, T: 'a + Input> Input for PrefixInput<'a, T> {
 			Some(v) => {
 				buffer[0] = v;
 				self.input.read(&mut buffer[1..])
-			}
-			_ => self.input.read(buffer)
+			},
+			_ => self.input.read(buffer),
 		}
 	}
 }
@@ -87,11 +89,15 @@ pub trait CompactLen<T> {
 pub struct Compact<T>(pub T);
 
 impl<T> From<T> for Compact<T> {
-	fn from(x: T) -> Compact<T> { Compact(x) }
+	fn from(x: T) -> Compact<T> {
+		Compact(x)
+	}
 }
 
 impl<'a, T: Copy> From<&'a T> for Compact<T> {
-	fn from(x: &'a T) -> Compact<T> { Compact(*x) }
+	fn from(x: &'a T) -> Compact<T> {
+		Compact(*x)
+	}
 }
 
 /// Allow foreign structs to be wrap in Compact
@@ -106,10 +112,7 @@ pub trait CompactAs: From<Compact<Self>> {
 	fn decode_from(_: Self::As) -> Result<Self, Error>;
 }
 
-impl<T> EncodeLike for Compact<T>
-where
-	for<'a> CompactRef<'a, T>: Encode,
-{}
+impl<T> EncodeLike for Compact<T> where for<'a> CompactRef<'a, T>: Encode {}
 
 impl<T> Encode for Compact<T>
 where
@@ -136,7 +139,8 @@ impl<'a, T> EncodeLike for CompactRef<'a, T>
 where
 	T: CompactAs,
 	for<'b> CompactRef<'b, T::As>: Encode,
-{}
+{
+}
 
 impl<'a, T> Encode for CompactRef<'a, T>
 where
@@ -188,25 +192,42 @@ impl_from_compact! { (), u8, u16, u32, u64, u128 }
 pub struct CompactRef<'a, T>(pub &'a T);
 
 impl<'a, T> From<&'a T> for CompactRef<'a, T> {
-	fn from(x: &'a T) -> Self { CompactRef(x) }
+	fn from(x: &'a T) -> Self {
+		CompactRef(x)
+	}
 }
 
-impl<T> core::fmt::Debug for Compact<T> where T: core::fmt::Debug {
+impl<T> core::fmt::Debug for Compact<T>
+where
+	T: core::fmt::Debug,
+{
 	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 		self.0.fmt(f)
 	}
 }
 
 #[cfg(feature = "serde")]
-impl<T> serde::Serialize for Compact<T> where T: serde::Serialize {
-	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: serde::Serializer {
+impl<T> serde::Serialize for Compact<T>
+where
+	T: serde::Serialize,
+{
+	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+	where
+		S: serde::Serializer,
+	{
 		T::serialize(&self.0, serializer)
 	}
 }
 
 #[cfg(feature = "serde")]
-impl<'de, T> serde::Deserialize<'de> for Compact<T> where T: serde::Deserialize<'de> {
-	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: serde::Deserializer<'de> {
+impl<'de, T> serde::Deserialize<'de> for Compact<T>
+where
+	T: serde::Deserialize<'de>,
+{
+	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+	where
+		D: serde::Deserializer<'de>,
+	{
 		T::deserialize(deserializer).map(Compact)
 	}
 }
@@ -231,26 +252,34 @@ pub trait HasCompact: Sized {
 	type Type: for<'a> EncodeAsRef<'a, Self> + Decode + From<Self> + Into<Self> + MaybeMaxEncodedLen;
 }
 
-impl<'a, T: 'a> EncodeAsRef<'a, T> for Compact<T> where CompactRef<'a, T>: Encode + From<&'a T> {
+impl<'a, T: 'a> EncodeAsRef<'a, T> for Compact<T>
+where
+	CompactRef<'a, T>: Encode + From<&'a T>,
+{
 	type RefType = CompactRef<'a, T>;
 }
 
 #[cfg(feature = "max-encoded-len")]
-impl<T> MaxEncodedLen for Compact<T> where T: CompactAs, Compact<T::As>: MaxEncodedLen, Compact<T>: Encode {
+impl<T> MaxEncodedLen for Compact<T>
+where
+	T: CompactAs,
+	Compact<T::As>: MaxEncodedLen,
+	Compact<T>: Encode,
+{
 	fn max_encoded_len() -> usize {
 		Compact::<T::As>::max_encoded_len()
 	}
 }
 
-impl<T: 'static> HasCompact for T where
-	Compact<T>: for<'a> EncodeAsRef<'a, T> + Decode + From<Self> + Into<Self> + MaybeMaxEncodedLen
+impl<T: 'static> HasCompact for T
+where
+	Compact<T>: for<'a> EncodeAsRef<'a, T> + Decode + From<Self> + Into<Self> + MaybeMaxEncodedLen,
 {
 	type Type = Compact<T>;
 }
 
 impl<'a> Encode for CompactRef<'a, ()> {
-	fn encode_to<W: Output + ?Sized>(&self, _dest: &mut W) {
-	}
+	fn encode_to<W: Output + ?Sized>(&self, _dest: &mut W) {}
 
 	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
 		f(&[])
@@ -328,11 +357,12 @@ impl<'a> Encode for CompactRef<'a, u32> {
 		match self.0 {
 			0..=0b0011_1111 => dest.push_byte((*self.0 as u8) << 2),
 			0..=0b0011_1111_1111_1111 => (((*self.0 as u16) << 2) | 0b01).encode_to(dest),
-			0..=0b0011_1111_1111_1111_1111_1111_1111_1111 => ((*self.0 << 2) | 0b10).encode_to(dest),
+			0..=0b0011_1111_1111_1111_1111_1111_1111_1111 =>
+				((*self.0 << 2) | 0b10).encode_to(dest),
 			_ => {
 				dest.push_byte(0b11);
 				self.0.encode_to(dest);
-			}
+			},
 		}
 	}
 
@@ -363,10 +393,14 @@ impl<'a> Encode for CompactRef<'a, u64> {
 		match self.0 {
 			0..=0b0011_1111 => dest.push_byte((*self.0 as u8) << 2),
 			0..=0b0011_1111_1111_1111 => (((*self.0 as u16) << 2) | 0b01).encode_to(dest),
-			0..=0b0011_1111_1111_1111_1111_1111_1111_1111 => (((*self.0 as u32) << 2) | 0b10).encode_to(dest),
+			0..=0b0011_1111_1111_1111_1111_1111_1111_1111 =>
+				(((*self.0 as u32) << 2) | 0b10).encode_to(dest),
 			_ => {
 				let bytes_needed = 8 - self.0.leading_zeros() / 8;
-				assert!(bytes_needed >= 4, "Previous match arm matches anyting less than 2^30; qed");
+				assert!(
+					bytes_needed >= 4,
+					"Previous match arm matches anyting less than 2^30; qed"
+				);
 				dest.push_byte(0b11 + ((bytes_needed - 4) << 2) as u8);
 				let mut v = *self.0;
 				for _ in 0..bytes_needed {
@@ -374,7 +408,7 @@ impl<'a> Encode for CompactRef<'a, u64> {
 					v >>= 8;
 				}
 				assert_eq!(v, 0, "shifted sufficient bits right to lead only leading zeros; qed")
-			}
+			},
 		}
 	}
 
@@ -391,9 +425,7 @@ impl CompactLen<u64> for Compact<u64> {
 			0..=0b0011_1111 => 1,
 			0..=0b0011_1111_1111_1111 => 2,
 			0..=0b0011_1111_1111_1111_1111_1111_1111_1111 => 4,
-			_ => {
-				(8 - val.leading_zeros() / 8) as usize + 1
-			},
+			_ => (8 - val.leading_zeros() / 8) as usize + 1,
 		}
 	}
 }
@@ -407,10 +439,14 @@ impl<'a> Encode for CompactRef<'a, u128> {
 		match self.0 {
 			0..=0b0011_1111 => dest.push_byte((*self.0 as u8) << 2),
 			0..=0b0011_1111_1111_1111 => (((*self.0 as u16) << 2) | 0b01).encode_to(dest),
-			0..=0b0011_1111_1111_1111_1111_1111_1111_1111 => (((*self.0 as u32) << 2) | 0b10).encode_to(dest),
+			0..=0b0011_1111_1111_1111_1111_1111_1111_1111 =>
+				(((*self.0 as u32) << 2) | 0b10).encode_to(dest),
 			_ => {
 				let bytes_needed = 16 - self.0.leading_zeros() / 8;
-				assert!(bytes_needed >= 4, "Previous match arm matches anyting less than 2^30; qed");
+				assert!(
+					bytes_needed >= 4,
+					"Previous match arm matches anyting less than 2^30; qed"
+				);
 				dest.push_byte(0b11 + ((bytes_needed - 4) << 2) as u8);
 				let mut v = *self.0;
 				for _ in 0..bytes_needed {
@@ -418,7 +454,7 @@ impl<'a> Encode for CompactRef<'a, u128> {
 					v >>= 8;
 				}
 				assert_eq!(v, 0, "shifted sufficient bits right to lead only leading zeros; qed")
-			}
+			},
 		}
 	}
 
@@ -435,9 +471,7 @@ impl CompactLen<u128> for Compact<u128> {
 			0..=0b0011_1111 => 1,
 			0..=0b0011_1111_1111_1111 => 2,
 			0..=0b0011_1111_1111_1111_1111_1111_1111_1111 => 4,
-			_ => {
-				(16 - val.leading_zeros() / 8) as usize + 1
-			},
+			_ => (16 - val.leading_zeros() / 8) as usize + 1,
 		}
 	}
 }
@@ -460,7 +494,7 @@ impl Decode for Compact<u8> {
 		Ok(Compact(match prefix % 4 {
 			0 => prefix >> 2,
 			1 => {
-				let x = u16::decode(&mut PrefixInput{prefix: Some(prefix), input})? >> 2;
+				let x = u16::decode(&mut PrefixInput { prefix: Some(prefix), input })? >> 2;
 				if x > 0b0011_1111 && x <= 255 {
 					x as u8
 				} else {
@@ -478,7 +512,7 @@ impl Decode for Compact<u16> {
 		Ok(Compact(match prefix % 4 {
 			0 => u16::from(prefix) >> 2,
 			1 => {
-				let x = u16::decode(&mut PrefixInput{prefix: Some(prefix), input})? >> 2;
+				let x = u16::decode(&mut PrefixInput { prefix: Some(prefix), input })? >> 2;
 				if x > 0b0011_1111 && x <= 0b0011_1111_1111_1111 {
 					x
 				} else {
@@ -486,7 +520,7 @@ impl Decode for Compact<u16> {
 				}
 			},
 			2 => {
-				let x = u32::decode(&mut PrefixInput{prefix: Some(prefix), input})? >> 2;
+				let x = u32::decode(&mut PrefixInput { prefix: Some(prefix), input })? >> 2;
 				if x > 0b0011_1111_1111_1111 && x < 65536 {
 					x as u16
 				} else {
@@ -504,7 +538,7 @@ impl Decode for Compact<u32> {
 		Ok(Compact(match prefix % 4 {
 			0 => u32::from(prefix) >> 2,
 			1 => {
-				let x = u16::decode(&mut PrefixInput{prefix: Some(prefix), input})? >> 2;
+				let x = u16::decode(&mut PrefixInput { prefix: Some(prefix), input })? >> 2;
 				if x > 0b0011_1111 && x <= 0b0011_1111_1111_1111 {
 					u32::from(x)
 				} else {
@@ -512,7 +546,7 @@ impl Decode for Compact<u32> {
 				}
 			},
 			2 => {
-				let x = u32::decode(&mut PrefixInput{prefix: Some(prefix), input})? >> 2;
+				let x = u32::decode(&mut PrefixInput { prefix: Some(prefix), input })? >> 2;
 				if x > 0b0011_1111_1111_1111 && x <= u32::MAX >> 2 {
 					x
 				} else {
@@ -544,7 +578,7 @@ impl Decode for Compact<u64> {
 		Ok(Compact(match prefix % 4 {
 			0 => u64::from(prefix) >> 2,
 			1 => {
-				let x = u16::decode(&mut PrefixInput{prefix: Some(prefix), input})? >> 2;
+				let x = u16::decode(&mut PrefixInput { prefix: Some(prefix), input })? >> 2;
 				if x > 0b0011_1111 && x <= 0b0011_1111_1111_1111 {
 					u64::from(x)
 				} else {
@@ -552,7 +586,7 @@ impl Decode for Compact<u64> {
 				}
 			},
 			2 => {
-				let x = u32::decode(&mut PrefixInput{prefix: Some(prefix), input})? >> 2;
+				let x = u32::decode(&mut PrefixInput { prefix: Some(prefix), input })? >> 2;
 				if x > 0b0011_1111_1111_1111 && x <= u32::MAX >> 2 {
 					u64::from(x)
 				} else {
@@ -600,7 +634,7 @@ impl Decode for Compact<u128> {
 		Ok(Compact(match prefix % 4 {
 			0 => u128::from(prefix) >> 2,
 			1 => {
-				let x = u16::decode(&mut PrefixInput{prefix: Some(prefix), input})? >> 2;
+				let x = u16::decode(&mut PrefixInput { prefix: Some(prefix), input })? >> 2;
 				if x > 0b0011_1111 && x <= 0b0011_1111_1111_1111 {
 					u128::from(x)
 				} else {
@@ -608,7 +642,7 @@ impl Decode for Compact<u128> {
 				}
 			},
 			2 => {
-				let x = u32::decode(&mut PrefixInput{prefix: Some(prefix), input})? >> 2;
+				let x = u32::decode(&mut PrefixInput { prefix: Some(prefix), input })? >> 2;
 				if x > 0b0011_1111_1111_1111 && x <= u32::MAX >> 2 {
 					u128::from(x)
 				} else {
@@ -675,12 +709,30 @@ mod tests {
 	#[test]
 	fn compact_128_encoding_works() {
 		let tests = [
-			(0u128, 1usize), (63, 1), (64, 2), (16383, 2),
-			(16384, 4), (1073741823, 4),
-			(1073741824, 5), ((1 << 32) - 1, 5),
-			(1 << 32, 6), (1 << 40, 7), (1 << 48, 8), ((1 << 56) - 1, 8), (1 << 56, 9), ((1 << 64) - 1, 9),
-			(1 << 64, 10), (1 << 72, 11), (1 << 80, 12), (1 << 88, 13), (1 << 96, 14), (1 << 104, 15),
-			(1 << 112, 16), ((1 << 120) - 1, 16), (1 << 120, 17), (u128::MAX, 17)
+			(0u128, 1usize),
+			(63, 1),
+			(64, 2),
+			(16383, 2),
+			(16384, 4),
+			(1073741823, 4),
+			(1073741824, 5),
+			((1 << 32) - 1, 5),
+			(1 << 32, 6),
+			(1 << 40, 7),
+			(1 << 48, 8),
+			((1 << 56) - 1, 8),
+			(1 << 56, 9),
+			((1 << 64) - 1, 9),
+			(1 << 64, 10),
+			(1 << 72, 11),
+			(1 << 80, 12),
+			(1 << 88, 13),
+			(1 << 96, 14),
+			(1 << 104, 15),
+			(1 << 112, 16),
+			((1 << 120) - 1, 16),
+			(1 << 120, 17),
+			(u128::MAX, 17),
 		];
 		for &(n, l) in &tests {
 			let encoded = Compact(n as u128).encode();
@@ -693,10 +745,20 @@ mod tests {
 	#[test]
 	fn compact_64_encoding_works() {
 		let tests = [
-			(0u64, 1usize), (63, 1), (64, 2), (16383, 2),
-			(16384, 4), (1073741823, 4),
-			(1073741824, 5), ((1 << 32) - 1, 5),
-			(1 << 32, 6), (1 << 40, 7), (1 << 48, 8), ((1 << 56) - 1, 8), (1 << 56, 9), (u64::MAX, 9)
+			(0u64, 1usize),
+			(63, 1),
+			(64, 2),
+			(16383, 2),
+			(16384, 4),
+			(1073741823, 4),
+			(1073741824, 5),
+			((1 << 32) - 1, 5),
+			(1 << 32, 6),
+			(1 << 40, 7),
+			(1 << 48, 8),
+			((1 << 56) - 1, 8),
+			(1 << 56, 9),
+			(u64::MAX, 9),
 		];
 		for &(n, l) in &tests {
 			let encoded = Compact(n as u64).encode();
@@ -708,7 +770,16 @@ mod tests {
 
 	#[test]
 	fn compact_32_encoding_works() {
-		let tests = [(0u32, 1usize), (63, 1), (64, 2), (16383, 2), (16384, 4), (1073741823, 4), (1073741824, 5), (u32::MAX, 5)];
+		let tests = [
+			(0u32, 1usize),
+			(63, 1),
+			(64, 2),
+			(16383, 2),
+			(16384, 4),
+			(1073741823, 4),
+			(1073741824, 5),
+			(u32::MAX, 5),
+		];
 		for &(n, l) in &tests {
 			let encoded = Compact(n as u32).encode();
 			assert_eq!(encoded.len(), l);
@@ -742,7 +813,11 @@ mod tests {
 	}
 
 	fn hexify(bytes: &[u8]) -> String {
-		bytes.iter().map(|ref b| format!("{:02x}", b)).collect::<Vec<String>>().join(" ")
+		bytes
+			.iter()
+			.map(|ref b| format!("{:02x}", b))
+			.collect::<Vec<String>>()
+			.join(" ")
 	}
 
 	#[test]
@@ -761,7 +836,7 @@ mod tests {
 			(1 << 48, "0f 00 00 00 00 00 00 01"),
 			((1 << 56) - 1, "0f ff ff ff ff ff ff ff"),
 			(1 << 56, "13 00 00 00 00 00 00 00 01"),
-			(u64::MAX, "13 ff ff ff ff ff ff ff ff")
+			(u64::MAX, "13 ff ff ff ff ff ff ff ff"),
 		];
 		for &(n, s) in &tests {
 			// Verify u64 encoding
@@ -819,7 +894,7 @@ mod tests {
 			let encoded = compact.encode();
 			assert_eq!(encoded.len(), l);
 			assert_eq!(Compact::compact_len(&n), l);
-			let decoded = <Compact<Wrapper>>::decode(&mut & encoded[..]).unwrap();
+			let decoded = <Compact<Wrapper>>::decode(&mut &encoded[..]).unwrap();
 			let wrapper: Wrapper = decoded.into();
 			assert_eq!(wrapper, Wrapper(n));
 		}
@@ -912,7 +987,9 @@ mod tests {
 			(u64::MAX << 8) - 1,
 			u64::MAX << 16,
 			(u64::MAX << 16) - 1,
-		].iter() {
+		]
+		.iter()
+		{
 			let e = Compact::<u64>::encode(&Compact(*a));
 			let d = Compact::<u64>::decode(&mut &e[..]).unwrap().0;
 			assert_eq!(*a, d);
@@ -921,12 +998,7 @@ mod tests {
 
 	#[test]
 	fn compact_u128_test() {
-		for a in [
-			u64::MAX as u128,
-			(u64::MAX - 10) as u128,
-			u128::MAX,
-			u128::MAX - 10,
-		].iter() {
+		for a in [u64::MAX as u128, (u64::MAX - 10) as u128, u128::MAX, u128::MAX - 10].iter() {
 			let e = Compact::<u128>::encode(&Compact(*a));
 			let d = Compact::<u128>::decode(&mut &e[..]).unwrap().0;
 			assert_eq!(*a, d);
@@ -936,16 +1008,33 @@ mod tests {
 	#[test]
 	fn should_avoid_overlapping_definition() {
 		check_bound!(
-			0b01, u8, u16, [ (u8, U8_OUT_OF_RANGE), (u16, U16_OUT_OF_RANGE),
-			(u32, U32_OUT_OF_RANGE), (u64, U64_OUT_OF_RANGE), (u128, U128_OUT_OF_RANGE)]
+			0b01,
+			u8,
+			u16,
+			[
+				(u8, U8_OUT_OF_RANGE),
+				(u16, U16_OUT_OF_RANGE),
+				(u32, U32_OUT_OF_RANGE),
+				(u64, U64_OUT_OF_RANGE),
+				(u128, U128_OUT_OF_RANGE)
+			]
 		);
 		check_bound!(
-			0b10, u16, u32, [ (u16, U16_OUT_OF_RANGE),
-			(u32, U32_OUT_OF_RANGE), (u64, U64_OUT_OF_RANGE), (u128, U128_OUT_OF_RANGE)]
+			0b10,
+			u16,
+			u32,
+			[
+				(u16, U16_OUT_OF_RANGE),
+				(u32, U32_OUT_OF_RANGE),
+				(u64, U64_OUT_OF_RANGE),
+				(u128, U128_OUT_OF_RANGE)
+			]
 		);
-		check_bound_u32!(
-			[(u32, U32_OUT_OF_RANGE), (u64, U64_OUT_OF_RANGE), (u128, U128_OUT_OF_RANGE)]
-		);
+		check_bound_u32!([
+			(u32, U32_OUT_OF_RANGE),
+			(u64, U64_OUT_OF_RANGE),
+			(u128, U128_OUT_OF_RANGE)
+		]);
 		for i in 5..=8 {
 			check_bound_high!(i, [(u64, U64_OUT_OF_RANGE), (u128, U128_OUT_OF_RANGE)]);
 		}

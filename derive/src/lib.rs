@@ -129,7 +129,7 @@ pub fn encode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 	};
 
 	if let Err(e) = utils::check_attributes(&input) {
-		return e.to_compile_error().into()
+		return e.to_compile_error().into();
 	}
 
 	let crate_path = match codec_crate_path(&input.attrs) {
@@ -147,7 +147,7 @@ pub fn encode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 		utils::has_dumb_trait_bound(&input.attrs),
 		&crate_path,
 	) {
-		return e.to_compile_error().into()
+		return e.to_compile_error().into();
 	}
 
 	let name = &input.ident;
@@ -179,7 +179,7 @@ pub fn decode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 	};
 
 	if let Err(e) = utils::check_attributes(&input) {
-		return e.to_compile_error().into()
+		return e.to_compile_error().into();
 	}
 
 	let crate_path = match codec_crate_path(&input.attrs) {
@@ -197,7 +197,7 @@ pub fn decode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 		utils::has_dumb_trait_bound(&input.attrs),
 		&crate_path,
 	) {
-		return e.to_compile_error().into()
+		return e.to_compile_error().into();
 	}
 
 	let name = &input.ident;
@@ -208,12 +208,8 @@ pub fn decode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 	let decoding =
 		decode::quote(&input.data, name, &quote!(#ty_gen_turbofish), &input_, &crate_path);
 
-	let decode_into_body = decode::quote_decode_into(
-		&input.data,
-		&crate_path,
-		&input_,
-		&input.attrs
-	);
+	let decode_into_body =
+		decode::quote_decode_into(&input.data, &crate_path, &input_, &input.attrs);
 
 	let impl_decode_into = if let Some(body) = decode_into_body {
 		quote! {
@@ -266,7 +262,7 @@ pub fn compact_as_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStr
 	};
 
 	if let Err(e) = utils::check_attributes(&input) {
-		return e.to_compile_error().into()
+		return e.to_compile_error().into();
 	}
 
 	let crate_path = match codec_crate_path(&input.attrs) {
@@ -284,7 +280,7 @@ pub fn compact_as_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStr
 		utils::has_dumb_trait_bound(&input.attrs),
 		&crate_path,
 	) {
-		return e.to_compile_error().into()
+		return e.to_compile_error().into();
 	}
 
 	let name = &input.ident;
