@@ -75,7 +75,7 @@ pub trait Input {
 
 	/// Descend into nested reference when decoding.
 	/// This is called when decoding a new refence-based instance,
-	/// such as `Vec` or `Box`. Currently all such types are
+	/// such as `Vec` or `Box`. Currently, all such types are
 	/// allocated on the heap.
 	fn descend_ref(&mut self) -> Result<(), Error> {
 		Ok(())

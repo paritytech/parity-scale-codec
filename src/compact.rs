@@ -64,8 +64,11 @@ impl<'a, T: 'a + Input> Input for PrefixInput<'a, T> {
 	}
 
 	fn read(&mut self, buffer: &mut [u8]) -> Result<(), Error> {
+		if buffer.is_empty() {
+			return Ok(());
+		}
 		match self.prefix.take() {
-			Some(v) if !buffer.is_empty() => {
+			Some(v) => {
 				buffer[0] = v;
 				self.input.read(&mut buffer[1..])
 			},
@@ -692,6 +695,16 @@ impl Decode for Compact<u128> {
 #[cfg(test)]
 mod tests {
 	use super::*;
+
+	#[test]
+	fn prefix_input_empty_read_unchanged() {
+		let mut input = PrefixInput { prefix: Some(1), input: &mut &vec![2, 3, 4][..] };
+		assert_eq!(input.remaining_len(), Ok(Some(4)));
+		let mut empty_buf = [];
+		assert_eq!(input.read(&mut empty_buf[..]), Ok(()));
+		assert_eq!(input.remaining_len(), Ok(Some(4)));
+		assert_eq!(input.read_byte(), Ok(1));
+	}
 
 	#[test]
 	fn compact_128_encoding_works() {
