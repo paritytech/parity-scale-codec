@@ -75,6 +75,14 @@ impl<'a, T: 'a + Input> Input for PrefixInput<'a, T> {
 			_ => self.input.read(buffer),
 		}
 	}
+
+	fn skip(&mut self, len: usize) -> Result<(), Error> {
+		if len == 0 {
+			return Ok(());
+		}
+
+		self.input.skip(len - self.prefix.take().is_some() as usize)
+	}
 }
 
 /// Something that can return the compact encoded length for a given value.
@@ -704,6 +712,17 @@ mod tests {
 		assert_eq!(input.read(&mut empty_buf[..]), Ok(()));
 		assert_eq!(input.remaining_len(), Ok(Some(4)));
 		assert_eq!(input.read_byte(), Ok(1));
+	}
+
+	#[test]
+	fn prefix_input_skip() {
+		let mut input = PrefixInput { prefix: Some(1), input: &mut &vec![2, 3, 4][..] };
+		assert_eq!(input.remaining_len(), Ok(Some(4)));
+		input.skip(0).unwrap();
+		assert_eq!(input.remaining_len(), Ok(Some(4)));
+		input.skip(2).unwrap();
+		assert_eq!(input.remaining_len(), Ok(Some(2)));
+		assert_eq!(input.read_byte(), Ok(3));
 	}
 
 	#[test]

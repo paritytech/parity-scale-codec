@@ -73,6 +73,23 @@ pub trait Input {
 		Ok(buf[0])
 	}
 
+	/// Skip the exact number of bytes in the input.
+	///
+	/// Note that the default implementation does an actual read and discards the bytes.
+	/// When possible, an implementation should provide a specialized implementation.
+	fn skip(&mut self, len: usize) -> Result<(), Error> {
+		let mut buf = vec![0u8; len.min(MAX_PREALLOCATION)];
+
+		let mut remains = len;
+		while remains > MAX_PREALLOCATION {
+			self.read(&mut buf[..])?;
+			remains -= buf.len();
+		}
+
+		self.read(&mut buf[..remains])?;
+		Ok(())
+	}
+
 	/// Descend into nested reference when decoding.
 	/// This is called when decoding a new refence-based instance,
 	/// such as `Vec` or `Box`. Currently, all such types are
@@ -109,6 +126,14 @@ impl<'a> Input for &'a [u8] {
 		}
 		let len = into.len();
 		into.copy_from_slice(&self[..len]);
+		*self = &self[len..];
+		Ok(())
+	}
+
+	fn skip(&mut self, len: usize) -> Result<(), Error> {
+		if len > self.len() {
+			return Err("Not enough data to skip".into());
+		}
 		*self = &self[len..];
 		Ok(())
 	}
@@ -427,6 +452,15 @@ impl Input for BytesCursor {
 
 		into.copy_from_slice(&self.bytes[self.position..self.position + into.len()]);
 		self.position += into.len();
+		Ok(())
+	}
+
+	fn skip(&mut self, len: usize) -> Result<(), Error> {
+		if len > self.bytes.len() - self.position {
+			return Err("Not enough data to skip".into())
+		}
+
+		self.position += len;
 		Ok(())
 	}
 
@@ -1874,6 +1908,16 @@ mod tests {
 		assert_eq!(io_reader.read_byte().unwrap(), 3);
 
 		assert_eq!(io_reader.read_byte(), Err("io error: UnexpectedEof".into()));
+	}
+
+	#[test]
+	fn io_reader_skip() {
+		let mut io_reader = IoReader(std::io::Cursor::new(&[1u8, 2, 3, 4][..]));
+
+		io_reader.skip(0).unwrap();
+		io_reader.skip(2).unwrap();
+		assert_eq!(io_reader.read_byte().unwrap(), 3);
+		assert_eq!(io_reader.skip(2), Err("io error: UnexpectedEof".into()));
 	}
 
 	#[test]
