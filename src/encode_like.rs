@@ -28,7 +28,7 @@ use crate::codec::Encode;
 /// }
 ///
 /// fn main() {
-///     // Just pass the a reference to the normal tuple.
+///     // Just pass a reference to the normal tuple.
 ///     encode_like::<(u32, u32), _>(&(1u32, 2u32));
 ///     // Pass a tuple of references
 ///     encode_like::<(u32, u32), _>(&(&1u32, &2u32));
@@ -39,9 +39,9 @@ use crate::codec::Encode;
 ///
 /// # Warning
 ///
-/// The relation is not symetric, `T` implements `EncodeLike<U>` does not mean `U` has same
+/// The relation is not symmetric, `T` implements `EncodeLike<U>` does not mean `U` has same
 /// representation as `T`.
-/// For instance we could imaging a non zero integer to be encoded to the same representation as
+/// For instance, we could imagine a non-zero integer to be encoded to the same representation as
 /// the said integer but not the other way around.
 ///
 /// # Limitation
