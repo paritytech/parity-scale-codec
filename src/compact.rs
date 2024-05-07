@@ -181,6 +181,10 @@ where
 		let as_ = Compact::<T::As>::decode(input)?;
 		Ok(Compact(<T as CompactAs>::decode_from(as_.0)?))
 	}
+
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		Compact::<T::As>::skip(input)
+	}
 }
 
 macro_rules! impl_from_compact {
@@ -500,6 +504,16 @@ const U32_OUT_OF_RANGE: &str = "out of range decoding Compact<u32>";
 const U64_OUT_OF_RANGE: &str = "out of range decoding Compact<u64>";
 const U128_OUT_OF_RANGE: &str = "out of range decoding Compact<u128>";
 
+fn skip_compact<I: Input>(input: &mut I) -> Result<(), Error> {
+	let prefix = input.read_byte()?;
+	match prefix % 4 {
+		1 => input.skip(1),
+		2 => input.skip(3),
+		3 => input.skip(((prefix >> 2) + 4) as usize),
+		_ => Ok(()),
+	}
+}
+
 impl Decode for Compact<u8> {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		let prefix = input.read_byte()?;
@@ -515,6 +529,10 @@ impl Decode for Compact<u8> {
 			},
 			_ => return Err("unexpected prefix decoding Compact<u8>".into()),
 		}))
+	}
+
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		skip_compact(input)
 	}
 }
 
@@ -541,6 +559,10 @@ impl Decode for Compact<u16> {
 			},
 			_ => return Err("unexpected prefix decoding Compact<u16>".into()),
 		}))
+	}
+
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		skip_compact(input)
 	}
 }
 
@@ -581,6 +603,10 @@ impl Decode for Compact<u32> {
 			},
 			_ => unreachable!(),
 		}))
+	}
+
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		skip_compact(input)
 	}
 }
 
@@ -637,6 +663,10 @@ impl Decode for Compact<u64> {
 			},
 			_ => unreachable!(),
 		}))
+	}
+
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		skip_compact(input)
 	}
 }
 
@@ -701,6 +731,10 @@ impl Decode for Compact<u128> {
 			},
 			_ => unreachable!(),
 		}))
+	}
+
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		skip_compact(input)
 	}
 }
 

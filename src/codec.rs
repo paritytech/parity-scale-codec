@@ -514,6 +514,10 @@ impl Decode for bytes::Bytes {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		input.scale_internal_decode_bytes()
 	}
+
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		Vec::<u8>::skip(input)
+	}
 }
 
 impl<T, X> Encode for X
@@ -650,6 +654,10 @@ where
 		Self::decode_wrapped(input)
 	}
 
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		T::skip(input)
+	}
+
 	fn encoded_fixed_size() -> Option<usize> {
 		T::encoded_fixed_size()
 	}
@@ -731,6 +739,17 @@ impl<T: Decode, E: Decode> Decode for Result<T, E> {
 			_ => Err("unexpected first byte decoding Result".into()),
 		}
 	}
+
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		match input
+			.read_byte()
+			.map_err(|e| e.chain("Could not result variant byte for `Result`"))?
+		{
+			0 => T::skip(input),
+			1 => E::skip(input),
+			_ => Err("unexpected first byte decoding Result".into()),
+		}
+	}
 }
 
 /// Shim type because we can't do a specialised implementation for `Option<bool>` directly.
@@ -808,6 +827,17 @@ impl<T: Decode> Decode for Option<T> {
 			_ => Err("unexpected first byte decoding Option".into()),
 		}
 	}
+
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		match input
+			.read_byte()
+			.map_err(|e| e.chain("Could not decode variant byte for `Option`"))?
+		{
+			0 => Ok(()),
+			1 => T::skip(input),
+			_ => Err("unexpected first byte decoding Option".into()),
+		}
+	}
 }
 
 macro_rules! impl_for_non_zero {
@@ -845,6 +875,19 @@ macro_rules! impl_for_non_zero {
 			}
 		)*
 	}
+}
+
+impl_for_non_zero! {
+	NonZeroI8,
+	NonZeroI16,
+	NonZeroI32,
+	NonZeroI64,
+	NonZeroI128,
+	NonZeroU8,
+	NonZeroU16,
+	NonZeroU32,
+	NonZeroU64,
+	NonZeroU128,
 }
 
 /// Encode the slice without prepending the len.
@@ -929,19 +972,6 @@ pub fn decode_vec_with_len<T: Decode, I: Input>(
 			decode_unoptimized(input, len)
 		},
 	}
-}
-
-impl_for_non_zero! {
-	NonZeroI8,
-	NonZeroI16,
-	NonZeroI32,
-	NonZeroI64,
-	NonZeroI128,
-	NonZeroU8,
-	NonZeroU16,
-	NonZeroU32,
-	NonZeroU64,
-	NonZeroU128,
 }
 
 impl<T: Encode, const N: usize> Encode for [T; N] {
@@ -1075,6 +1105,13 @@ impl<T: Decode, const N: usize> Decode for [T; N] {
 		unsafe { Ok(DecodeFinished::assert_decoding_finished()) }
 	}
 
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		match Self::encoded_fixed_size() {
+			Some(len) => input.skip(len),
+			None => Result::from_iter((0..N).map(|_| T::skip(input))),
+		}
+	}
+
 	fn encoded_fixed_size() -> Option<usize> {
 		Some(<T as Decode>::encoded_fixed_size()? * N)
 	}
@@ -1108,6 +1145,10 @@ where
 		Ok(Cow::Owned(Decode::decode(input)?))
 	}
 
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		T::Owned::skip(input)
+	}
+
 	fn encoded_fixed_size() -> Option<usize> {
 		T::Owned::encoded_fixed_size()
 	}
@@ -1132,6 +1173,10 @@ impl<T> Decode for PhantomData<T> {
 impl Decode for String {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		Self::from_utf8(Vec::decode(input)?).map_err(|_| "Invalid utf8 sequence".into())
+	}
+
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		Vec::<u8>::skip(input)
 	}
 }
 
@@ -1237,6 +1282,14 @@ impl<T: Decode> Decode for Vec<T> {
 		<Compact<u32>>::decode(input)
 			.and_then(move |Compact(len)| decode_vec_with_len(input, len as usize))
 	}
+
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		let Compact(len) = <Compact<u32>>::decode(input)?;
+		match T::encoded_fixed_size() {
+			Some(size) => input.skip(size * len as usize),
+			None => Result::from_iter((0..len).map(|_| T::skip(input))),
+		}
+	}
 }
 
 macro_rules! impl_codec_through_iterator {
@@ -1270,6 +1323,10 @@ macro_rules! impl_codec_through_iterator {
 					input.ascend_ref();
 					result
 				})
+			}
+
+			fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+				Vec::<($( $generics, )*)>::skip(input)
 			}
 		}
 
@@ -1339,6 +1396,10 @@ impl<T: Encode> Encode for VecDeque<T> {
 impl<T: Decode> Decode for VecDeque<T> {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		Ok(<Vec<T>>::decode(input)?.into())
+	}
+
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		Vec::<T>::skip(input)
 	}
 }
 
@@ -1410,6 +1471,10 @@ macro_rules! tuple_impl {
 				}
 			}
 
+			fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+				$one::skip(input)
+			}
+
 			fn encoded_fixed_size() -> Option<usize> {
 				$one::encoded_fixed_size()
 			}
@@ -1457,6 +1522,12 @@ macro_rules! tuple_impl {
 						Err(e) => return Err(e),
 					},)+
 				))
+			}
+
+			fn skip<INPUT: Input>(input: &mut INPUT) -> Result<(), super::Error> {
+				$first::skip(input)?;
+				$($rest::skip(input)?;)+
+				Ok(())
 			}
 
 			fn encoded_fixed_size() -> Option<usize> {
