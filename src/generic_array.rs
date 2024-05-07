@@ -37,6 +37,10 @@ impl<T: Decode, L: generic_array::ArrayLength<T>> Decode for generic_array::Gene
 			None => Err("array length does not match definition".into()),
 		}
 	}
+
+	fn encoded_fixed_size() -> Option<usize> {
+		Some(T::encoded_fixed_size()? * L::to_usize())
+	}
 }
 
 #[cfg(test)]

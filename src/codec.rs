@@ -91,7 +91,7 @@ pub trait Input {
 	}
 
 	/// Descend into nested reference when decoding.
-	/// This is called when decoding a new refence-based instance,
+	/// This is called when decoding a new reference-based instance,
 	/// such as `Vec` or `Box`. Currently, all such types are
 	/// allocated on the heap.
 	fn descend_ref(&mut self) -> Result<(), Error> {
@@ -312,7 +312,7 @@ pub trait Decode: Sized {
 	#[doc(hidden)]
 	const TYPE_INFO: TypeInfo = TypeInfo::Unknown;
 
-	/// Attempt to deserialise the value from input.
+	/// Attempt to deserialize the value from input.
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error>;
 
 	/// Attempt to deserialize the value from input into a pre-allocated piece of memory.
@@ -339,10 +339,15 @@ pub trait Decode: Sized {
 
 	/// Attempt to skip the encoded value from input.
 	///
-	/// The default implementation of this function is just calling [`Decode::decode`].
+	/// The default implementation of this function is skipping the fixed encoded size
+	/// if it is known. Otherwise, it is just calling [`Decode::decode`].
 	/// When possible, an implementation should provide a specialized implementation.
 	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
-		Self::decode(input).map(|_| ())
+		if let Some(size) = Self::encoded_fixed_size() {
+			input.skip(size)
+		} else {
+			Self::decode(input).map(|_| ())
+		}
 	}
 
 	/// Returns the fixed encoded size of the type.
@@ -360,12 +365,12 @@ pub trait Decode: Sized {
 pub trait Codec: Decode + Encode {}
 impl<S: Decode + Encode> Codec for S {}
 
-/// Trait that bound `EncodeLike` along with `Encode`. Usefull for generic being used in function
+/// Trait that bound `EncodeLike` along with `Encode`. Useful for generic being used in function
 /// with `EncodeLike` parameters.
 pub trait FullEncode: Encode + EncodeLike {}
 impl<S: Encode + EncodeLike> FullEncode for S {}
 
-/// Trait that bound `EncodeLike` along with `Codec`. Usefull for generic being used in function
+/// Trait that bound `EncodeLike` along with `Codec`. Useful for generic being used in function
 /// with `EncodeLike` parameters.
 pub trait FullCodec: Decode + FullEncode {}
 impl<S: Decode + FullEncode> FullCodec for S {}
@@ -644,6 +649,10 @@ where
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		Self::decode_wrapped(input)
 	}
+
+	fn encoded_fixed_size() -> Option<usize> {
+		T::encoded_fixed_size()
+	}
 }
 
 /// A macro that matches on a [`TypeInfo`] and expands a given macro per variant.
@@ -759,6 +768,10 @@ impl Decode for OptionBool {
 			_ => Err("unexpected first byte decoding OptionBool".into()),
 		}
 	}
+
+	fn encoded_fixed_size() -> Option<usize> {
+		Some(1)
+	}
 }
 
 impl<T: EncodeLike<U>, U: Encode> EncodeLike<Option<U>> for Option<T> {}
@@ -824,6 +837,10 @@ macro_rules! impl_for_non_zero {
 				fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 					Self::new(Decode::decode(input)?)
 						.ok_or_else(|| Error::from("cannot create non-zero number from 0"))
+				}
+
+				fn encoded_fixed_size() -> Option<usize> {
+					Some(mem::size_of::<$name>())
 				}
 			}
 		)*
@@ -1058,18 +1075,6 @@ impl<T: Decode, const N: usize> Decode for [T; N] {
 		unsafe { Ok(DecodeFinished::assert_decoding_finished()) }
 	}
 
-	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
-		if Self::encoded_fixed_size().is_some() {
-			// Should skip the bytes, but Input does not support skip.
-			for _ in 0..N {
-				T::skip(input)?;
-			}
-		} else {
-			Self::decode(input)?;
-		}
-		Ok(())
-	}
-
 	fn encoded_fixed_size() -> Option<usize> {
 		Some(<T as Decode>::encoded_fixed_size()? * N)
 	}
@@ -1102,6 +1107,10 @@ where
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		Ok(Cow::Owned(Decode::decode(input)?))
 	}
+
+	fn encoded_fixed_size() -> Option<usize> {
+		T::Owned::encoded_fixed_size()
+	}
 }
 
 impl<T> EncodeLike for PhantomData<T> {}
@@ -1113,6 +1122,10 @@ impl<T> Encode for PhantomData<T> {
 impl<T> Decode for PhantomData<T> {
 	fn decode<I: Input>(_input: &mut I) -> Result<Self, Error> {
 		Ok(PhantomData)
+	}
+
+	fn encoded_fixed_size() -> Option<usize> {
+		Some(0)
 	}
 }
 
@@ -1347,6 +1360,10 @@ impl Decode for () {
 	fn decode<I: Input>(_: &mut I) -> Result<(), Error> {
 		Ok(())
 	}
+
+	fn encoded_fixed_size() -> Option<usize> {
+		Some(0)
+	}
 }
 
 macro_rules! impl_len {
@@ -1392,6 +1409,10 @@ macro_rules! tuple_impl {
 					Ok($one) => Ok(($one,)),
 				}
 			}
+
+			fn encoded_fixed_size() -> Option<usize> {
+				$one::encoded_fixed_size()
+			}
 		}
 
 		impl<$one: DecodeLength> DecodeLength for ($one,) {
@@ -1436,6 +1457,10 @@ macro_rules! tuple_impl {
 						Err(e) => return Err(e),
 					},)+
 				))
+			}
+
+			fn encoded_fixed_size() -> Option<usize> {
+				Some( $first::encoded_fixed_size()? $( + $rest::encoded_fixed_size()? )+)
 			}
 		}
 
@@ -1533,6 +1558,10 @@ macro_rules! impl_one_byte {
 			fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 				Ok(input.read_byte()? as $t)
 			}
+
+			fn encoded_fixed_size() -> Option<usize> {
+				Some(1)
+			}
 		}
 	)* }
 }
@@ -1591,6 +1620,10 @@ impl Decode for Duration {
 			Ok(Duration::new(secs, nanos))
 		}
 	}
+
+	fn encoded_fixed_size() -> Option<usize> {
+		<(u64, u32)>::encoded_fixed_size()
+	}
 }
 
 impl EncodeLike for Duration {}
@@ -1617,6 +1650,10 @@ where
 			<(T, T)>::decode(input).map_err(|e| e.chain("Could not decode `Range<T>`"))?;
 		Ok(Range { start, end })
 	}
+
+	fn encoded_fixed_size() -> Option<usize> {
+		<(T, T)>::encoded_fixed_size()
+	}
 }
 
 impl<T> Encode for RangeInclusive<T>
@@ -1640,6 +1677,10 @@ where
 		let (start, end) =
 			<(T, T)>::decode(input).map_err(|e| e.chain("Could not decode `RangeInclusive<T>`"))?;
 		Ok(RangeInclusive::new(start, end))
+	}
+
+	fn encoded_fixed_size() -> Option<usize> {
+		<(T, T)>::encoded_fixed_size()
 	}
 }
 

@@ -407,7 +407,7 @@ impl<'a> Encode for CompactRef<'a, u64> {
 				let bytes_needed = 8 - self.0.leading_zeros() / 8;
 				assert!(
 					bytes_needed >= 4,
-					"Previous match arm matches anyting less than 2^30; qed"
+					"Previous match arm matches anything less than 2^30; qed"
 				);
 				dest.push_byte(0b11 + ((bytes_needed - 4) << 2) as u8);
 				let mut v = *self.0;
@@ -487,6 +487,10 @@ impl CompactLen<u128> for Compact<u128> {
 impl Decode for Compact<()> {
 	fn decode<I: Input>(_input: &mut I) -> Result<Self, Error> {
 		Ok(Compact(()))
+	}
+
+	fn encoded_fixed_size() -> Option<usize> {
+		Some(0)
 	}
 }
 
