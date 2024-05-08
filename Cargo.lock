@@ -611,7 +611,7 @@ dependencies = [
 
 [[package]]
 name = "parity-scale-codec-derive"
-version = "3.6.9"
+version = "3.6.10"
 dependencies = [
  "parity-scale-codec",
  "proc-macro-crate",
