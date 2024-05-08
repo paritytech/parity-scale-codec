@@ -590,7 +590,7 @@ checksum = "ceedf44fb00f2d1984b0bc98102627ce622e083e49a5bacdb3e514fa4238e267"
 
 [[package]]
 name = "parity-scale-codec"
-version = "3.6.10"
+version = "3.6.11"
 dependencies = [
  "arbitrary",
  "arrayvec",
@@ -611,7 +611,7 @@ dependencies = [
 
 [[package]]
 name = "parity-scale-codec-derive"
-version = "3.6.10"
+version = "3.6.11"
 dependencies = [
  "parity-scale-codec",
  "proc-macro-crate",
