@@ -85,6 +85,11 @@ pub trait Input {
 	/// This is called when decoding reference-based type is finished.
 	fn ascend_ref(&mut self) {}
 
+	/// Try to allocate a contiguous chunk of memory of `size` bytes.
+	fn try_alloc(&mut self, size: usize) -> Result<(), Error> {
+		Ok(())
+	}
+
 	/// !INTERNAL USE ONLY!
 	///
 	/// Decodes a `bytes::Bytes`.
@@ -842,6 +847,8 @@ pub fn decode_vec_with_len<T: Decode, I: Input>(
 	input: &mut I,
 	len: usize,
 ) -> Result<Vec<T>, Error> {
+	input.try_alloc(mem::size_of::<T>().saturating_mul(len))?;
+
 	fn decode_unoptimized<I: Input, T: Decode>(
 		input: &mut I,
 		items_len: usize,
@@ -1187,6 +1194,7 @@ impl<T: EncodeLike<U>, U: Encode> EncodeLike<Vec<U>> for &[T] {}
 
 impl<T: Decode> Decode for Vec<T> {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
+		input.try_alloc(mem::size_of::<Self>())?;
 		<Compact<u32>>::decode(input)
 			.and_then(move |Compact(len)| decode_vec_with_len(input, len as usize))
 	}
