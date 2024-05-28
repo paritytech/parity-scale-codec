@@ -280,6 +280,10 @@ pub trait DecodeLength {
 	fn len(self_encoded: &[u8]) -> Result<usize, Error>;
 }
 
+/// Decoding ran out of memory.
+// TODO: Custom error variant
+pub const DECODE_OOM_ERROR: &str = "OOM while decoding";
+
 /// Trait that allows zero-copy read of value-references from slices in LE format.
 pub trait Decode: Sized {
 	// !INTERNAL USE ONLY!
@@ -328,6 +332,135 @@ pub trait Decode: Sized {
 	/// NOTE: A type with a fixed encoded size may return `None`.
 	fn encoded_fixed_size() -> Option<usize> {
 		None
+	}
+}
+
+/// Decode some data while having a generic context.
+pub trait DecodeWithContext<C>: Sized {
+	/// The type that will be decoded.
+	///
+	/// Attempt to deserialise the value from input while having a context.
+	fn decode_with_context<I: Input>(
+		input: &mut I,
+		ctx: &mut C,
+	) -> Result<Self, Error>;
+}
+
+#[impl_trait_for_tuples::impl_for_tuples(18)]
+impl<C> DecodeWithContext<C> for Tuple {
+	for_tuples!(where #( Tuple: DecodeWithContext<C> )*);
+	fn decode_with_context<I: Input>(
+		input: &mut I,
+		ctx: &mut C,
+	) -> Result<Self, Error> {
+		Ok((for_tuples!( #( Tuple::decode_with_context(input, ctx)? ),* )))
+	}
+}
+
+/// Decode some data while being constrained on the allocated memory.
+pub trait DecodeMemLimited: Sized {
+	const TYPE_INFO: TypeInfo = TypeInfo::Unknown;
+
+	/// Attempt to deserialise the value from input within a memory limit.
+	fn decode_mem_limited<I: Input>(
+		input: &mut I,
+		memory_limit: &mut MemLimit,
+	) -> Result<Self, Error>;
+}
+
+// blanket
+impl<T: DecodeWithContext<MemLimit>> DecodeMemLimited for T {
+	fn decode_mem_limited<I: Input>(
+		input: &mut I,
+		memory_limit: &mut MemLimit,
+	) -> Result<Self, Error> {
+		T::decode_with_context(input, memory_limit)
+	}
+}
+
+/*
+NOTE: We can sadly not have a blanket like this that gives us `Decode` for all `DecodeMemLimited`:
+```rust
+impl<T: DecodeMemLimited> Decode for T {
+	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
+		T::decode_mem_limited(input, MemLimit::max())
+	}
+}
+```
+
+because it produces a conflicting implementation with this blanket impl:
+
+```rust
+impl<T, X> Decode for X
+where
+	T: Decode + Into<X>,
+	X: WrapperTypeDecode<Wrapped = T>,
+{
+	...
+}
+```
+*/
+
+/// Wrapping mock to make something appear to be a `DecodeMemLimited`, while it is in fact just `Decode`.
+pub struct MockedDecodeMemLimited<T>(pub T);
+impl<T: Decode> DecodeMemLimited for MockedDecodeMemLimited<T> {
+	const TYPE_INFO: TypeInfo = T::TYPE_INFO;
+
+	fn decode_mem_limited<I: Input>(
+		input: &mut I,
+		memory_limit: &mut MemLimit,
+	) -> Result<Self, Error> {
+		// This is the joke: the mock ignores the limit.
+		let _ = memory_limit;
+		T::decode(input).map(MockedDecodeMemLimited)
+	}
+}
+
+/// Alignment some memory.
+pub enum MemAlignment {
+	/// Round up to the next power of two.
+	NextPowerOfTwo,
+}
+
+impl MemAlignment {
+	fn align(&self, size: usize) -> usize {
+		match self {
+			MemAlignment::NextPowerOfTwo => {
+				size.next_power_of_two().max(size)
+			},
+		}
+	}
+}
+
+/// A limit on the allocated memory.
+pub struct MemLimit {
+	/// The remaining memory limit.
+	limit: usize,
+	/// Memory alignment to be applied before allocating memory.
+	align: Option<MemAlignment>,
+}
+
+impl MemLimit {
+	/// Try to allocate a contiguous chunk of memory.
+	pub fn try_alloc(&mut self, size: usize) -> Result<(), Error> {
+		let size = self.align.as_ref().map_or(size, |a| a.align(size));
+
+		if let Some(remaining) = self.limit.checked_sub(size) {
+			self.limit = remaining;
+			Ok(())
+		} else {
+			Err(DECODE_OOM_ERROR.into())
+		}
+	}
+
+	pub fn max() -> Self {
+		Self { limit: usize::MAX, align: None }
+	}
+}
+
+impl <T: Into<usize>> From<T> for MemLimit {
+	fn from(limit: T) -> Self {
+		Self { limit: limit.into(), align: None }
 	}
 }
 
@@ -842,10 +975,44 @@ pub fn decode_vec_with_len<T: Decode, I: Input>(
 	input: &mut I,
 	len: usize,
 ) -> Result<Vec<T>, Error> {
-	fn decode_unoptimized<I: Input, T: Decode>(
+	// Stay backwards compatible by using this mock:
+	decode_vec_with_len_with_mem_limit_unpack::<MockedDecodeMemLimited<T>, T, I>(
+		input, len, &mut MemLimit::max(),
+		|m| m.0,
+	)
+}
+
+pub fn decode_vec_with_len_with_mem_limit<T: DecodeMemLimited, I: Input>(
+	input: &mut I,
+	len: usize,
+	mem_limit: &mut MemLimit,
+) -> Result<Vec<T>, Error> {
+	decode_vec_with_len_with_mem_limit_unpack::<T, T, I>(
+		input, len, mem_limit,
+		|i| i,
+	)
+}
+
+/// Decode a vector without prefix length and apply a transformation to each element.
+///
+/// This `unpack` transformation allows us to use wrapped decode - and in this code fudge the `DecodeMemLimited`
+/// requirement to stay backwards compatible. `unpack` is not used for values with 1 bytes size. In these cases
+/// it is assumed that the representations of `T` and `Inner` are the same. This functions is internal for a good reason.
+fn decode_vec_with_len_with_mem_limit_unpack<T: DecodeMemLimited, Inner, I: Input>(
+	input: &mut I,
+	len: usize,
+	mem_limit: &mut MemLimit,
+	unpack: impl Fn(T) -> Inner,
+) -> Result<Vec<Inner>, Error> {
+	// Try to allocate all the top-level values.
+	let () = mem_limit.try_alloc(mem::size_of::<T>().saturating_mul(len))?;
+
+	fn decode_unoptimized<I: Input, Inner, T: DecodeMemLimited>(
 		input: &mut I,
 		items_len: usize,
-	) -> Result<Vec<T>, Error> {
+		mem_limit: &mut MemLimit,
+		unpack: impl Fn(T) -> Inner,
+	) -> Result<Vec<Inner>, Error> {
 		let input_capacity = input
 			.remaining_len()?
 			.unwrap_or(MAX_PREALLOCATION)
@@ -854,28 +1021,30 @@ pub fn decode_vec_with_len<T: Decode, I: Input>(
 		let mut r = Vec::with_capacity(input_capacity.min(items_len));
 		input.descend_ref()?;
 		for _ in 0..items_len {
-			r.push(T::decode(input)?);
+			let v = T::decode_mem_limited(input, mem_limit)?;
+			r.push(unpack(v));
 		}
 		input.ascend_ref();
 		Ok(r)
 	}
 
 	macro_rules! decode {
-		( $ty:ty, $input:ident, $len:ident ) => {{
+		( $ty:ty, $input:ident, $len:ident, $mem:ident, $unpack:ident ) => {{
 			if cfg!(target_endian = "little") || mem::size_of::<T>() == 1 {
 				let vec = read_vec_from_u8s::<_, $ty>($input, $len)?;
-				Ok(unsafe { mem::transmute::<Vec<$ty>, Vec<T>>(vec) })
+				// We cant call `unpack` here, since this is a direct cast. Cheesy, but its private anyway.
+				Ok(unsafe { mem::transmute::<Vec<$ty>, Vec<Inner>>(vec) })
 			} else {
-				decode_unoptimized($input, $len)
+				decode_unoptimized($input, $len, $mem, $unpack)
 			}
 		}};
 	}
 
 	with_type_info! {
-		<T as Decode>::TYPE_INFO,
-		decode(input, len),
+		<T as DecodeMemLimited>::TYPE_INFO,
+		decode(input, len, mem_limit, unpack),
 		{
-			decode_unoptimized(input, len)
+			decode_unoptimized(input, len, mem_limit, unpack)
 		},
 	}
 }
@@ -1187,8 +1356,17 @@ impl<T: EncodeLike<U>, U: Encode> EncodeLike<Vec<U>> for &[T] {}
 
 impl<T: Decode> Decode for Vec<T> {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
-		<Compact<u32>>::decode(input)
-			.and_then(move |Compact(len)| decode_vec_with_len(input, len as usize))
+		let len = <Compact<u32>>::decode(input)?.0 as usize;
+		decode_vec_with_len(input, len)
+	}
+}
+
+impl<T: DecodeMemLimited> DecodeWithContext<MemLimit> for Vec<T> {
+	fn decode_with_context<I: Input>(input: &mut I, mem_limit: &mut MemLimit) -> Result<Self, Error> {
+		let () = mem_limit.try_alloc(mem::size_of::<Self>())?;
+		let len = <Compact<u32>>::decode(input)?.0 as usize;
+		
+		decode_vec_with_len_with_mem_limit(input, len, mem_limit)
 	}
 }
 
@@ -1475,6 +1653,16 @@ macro_rules! impl_endians {
 				Some(mem::size_of::<$t>())
 			}
 		}
+
+		impl DecodeMemLimited for $t {
+			const TYPE_INFO: TypeInfo = TypeInfo::$ty_info;
+
+			fn decode_mem_limited<I: Input>(input: &mut I, mem_limit: &mut MemLimit) -> Result<Self, Error> {
+				let () = mem_limit.try_alloc(mem::size_of::<Self>())?;
+				// These are primitive types - we can there just call the decode without expecting recursion.
+				Self::decode(input)
+			}
+		}
 	)* }
 }
 macro_rules! impl_one_byte {
@@ -1498,6 +1686,16 @@ macro_rules! impl_one_byte {
 
 			fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 				Ok(input.read_byte()? as $t)
+			}
+		}
+
+		impl DecodeMemLimited for $t {
+			const TYPE_INFO: TypeInfo = TypeInfo::$ty_info;
+
+			fn decode_mem_limited<I: Input>(input: &mut I, mem_limit: &mut MemLimit) -> Result<Self, Error> {
+				let () = mem_limit.try_alloc(mem::size_of::<Self>())?;
+				// These are primitive types - we can there just call the decode without expecting recursion.
+				Self::decode(input)
 			}
 		}
 	)* }
@@ -2104,5 +2302,38 @@ mod tests {
 		let range_inclusive_bytes = (1, 100).encode();
 		assert_eq!(range_inclusive.encode(), range_inclusive_bytes);
 		assert_eq!(RangeInclusive::decode(&mut &range_inclusive_bytes[..]), Ok(range_inclusive));
+	}
+
+	#[test]
+	fn decode_mem_limited_oom_detected() {
+		let bytes = (Compact(1024 as u32), vec![0u32; 1024]).encode();
+		let mut input = &bytes[..];
+
+		// Limit is one too small.
+		let limit = 4096 + mem::size_of::<Vec<u32>>() - 1;
+		let result = <Vec<u32>>::decode_mem_limited(&mut input, &mut (limit as usize).into());
+		assert_eq!(result, Err("OOM while decoding".into()));
+
+		// Now it works:
+		let limit = limit + 1;
+		let result = <Vec<u32>>::decode_mem_limited(&mut input, &mut (limit as usize).into());
+		assert_eq!(result, Ok(vec![0u32; 1024]));
+	}
+
+	#[test]
+	fn decode_mem_limited_tuple_oom_detected() {
+		// First entry is 1 KiB, second is 4 KiB.
+		let data = (vec![0u8; 1024], vec![0u32; 1024]);
+		let bytes = data.encode();
+
+		// Limit is one too small.
+		let limit = 1024 + 4096 + 2 * mem::size_of::<Vec<u32>>() - 1;
+		let result = <(Vec<u8>, Vec<u32>)>::decode_mem_limited(&mut &bytes[..], &mut (limit as usize).into());
+		assert_eq!(result, Err("OOM while decoding".into()));
+
+		// Now it works:
+		let limit = limit + 1;
+		let result = <(Vec<u8>, Vec<u32>)>::decode_mem_limited(&mut &bytes[..], &mut (limit as usize).into());
+		assert_eq!(result, Ok(data));
 	}
 }
