@@ -43,6 +43,7 @@ impl MemLimit {
 	/// Try to allocate a contiguous chunk of memory.
 	pub fn try_alloc(&mut self, size: usize) -> Result<(), Error> {
 		let size = self.align.as_ref().map_or(size, |a| a.align(size));
+		dbg!(size);
 
 		if let Some(remaining) = self.limit.checked_sub(size) {
 			self.limit = remaining;
@@ -152,6 +153,21 @@ mod tests {
 		// Now it works:
 		let limit = limit + 1;
 		let result = <(Vec<u8>, Vec<u32>)>::decode_with_mem_limit((limit as usize).into(), &mut &bytes[..]);
+		assert_eq!(result, Ok(data));
+	}
+
+	#[test]
+	fn decode_with_mem_limit_nested_oom_detected() {
+		// Total size is 4 KiB + 3 * vector_size.
+		let data = vec![vec![vec![0u32; 1024]]];
+		let bytes = data.encode();
+
+		let limit = 4096 + 3 * mem::size_of::<Vec<u32>>() - 1;
+		let result = <Vec<Vec<Vec<u32>>>>::decode_with_mem_limit((limit as usize).into(), &mut &bytes[..]);
+		assert_eq!(result, Err("Out of memory when decoding".into()));
+
+		let limit = limit + 1;
+		let result = <Vec<Vec<Vec<u32>>>>::decode_with_mem_limit((limit as usize).into(), &mut &bytes[..]);
 		assert_eq!(result, Ok(data));
 	}
 }

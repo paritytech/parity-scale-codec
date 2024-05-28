@@ -847,8 +847,6 @@ pub fn decode_vec_with_len<T: Decode, I: Input>(
 	input: &mut I,
 	len: usize,
 ) -> Result<Vec<T>, Error> {
-	input.try_alloc(mem::size_of::<T>().saturating_mul(len))?;
-
 	fn decode_unoptimized<I: Input, T: Decode>(
 		input: &mut I,
 		items_len: usize,
@@ -1141,6 +1139,9 @@ where
 	if input_len.map(|l| l < byte_len).unwrap_or(false) {
 		return Err("Not enough data to decode vector".into());
 	}
+
+	// Check that we have enough memory left to do this.
+	input.try_alloc(byte_len)?;
 
 	// In both these branches we're going to be creating and resizing a Vec<T>,
 	// but casting it to a &mut [u8] for reading.
@@ -1474,6 +1475,8 @@ macro_rules! impl_endians {
 			const TYPE_INFO: TypeInfo = TypeInfo::$ty_info;
 
 			fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
+				input.try_alloc(mem::size_of::<$t>())?;
+
 				let mut buf = [0u8; mem::size_of::<$t>()];
 				input.read(&mut buf)?;
 				Ok(<$t>::from_le_bytes(buf))
@@ -1505,6 +1508,8 @@ macro_rules! impl_one_byte {
 			const TYPE_INFO: TypeInfo = TypeInfo::$ty_info;
 
 			fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
+				input.try_alloc(1)?;
+
 				Ok(input.read_byte()? as $t)
 			}
 		}
