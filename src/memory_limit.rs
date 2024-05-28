@@ -43,7 +43,6 @@ impl MemLimit {
 	/// Try to allocate a contiguous chunk of memory.
 	pub fn try_alloc(&mut self, size: usize) -> Result<(), Error> {
 		let size = self.align.as_ref().map_or(size, |a| a.align(size));
-		dbg!(size);
 
 		if let Some(remaining) = self.limit.checked_sub(size) {
 			self.limit = remaining;
