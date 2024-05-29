@@ -1196,10 +1196,14 @@ impl<T: EncodeLike<U>, U: Encode> EncodeLike<Vec<U>> for &[T] {}
 impl<T: Decode> Decode for Vec<T> {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		input.try_alloc(mem::size_of::<Self>())?;
+
 		<Compact<u32>>::decode(input)
 			.and_then(move |Compact(len)| decode_vec_with_len(input, len as usize))
 	}
 }
+
+// Mark vec as MemLimited since we track the allocated memory:
+impl<T: Decode> crate::memory_limit::DecodeMemLimit for Vec<T> { }
 
 macro_rules! impl_codec_through_iterator {
 	($(

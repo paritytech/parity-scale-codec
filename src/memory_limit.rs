@@ -18,8 +18,25 @@ use crate::{Decode, Error, Input};
 const DECODE_OOM_ERROR: &str = "Out of memory when decoding";
 
 /// Extension trait to [`Decode`] for decoding with a maximum memory consumption.
+///
+/// Should be used as a marker for types that do the memory tracking in their `decode` implementation with [`Input::try_alloc`].
 pub trait DecodeMemLimit: Decode + Sized {
-	fn decode_with_mem_limit<I: Input>(limit: MemLimit, input: &mut I) -> Result<Self, Error>;
+	fn decode_with_mem_limit<I: Input>(limit: MemLimit, input: &mut I) -> Result<Self, Error> {
+		let mut input = MemTrackingInput { inner: input, limit };
+		Self::decode(&mut input)
+	}
+}
+
+// Mark tuples as memory-tracking compatible if all of their elements are, since they dont consume any memory themselves.
+#[impl_trait_for_tuples::impl_for_tuples(18)]
+impl DecodeMemLimit for Tuple {
+	for_tuples!( where #( Tuple: DecodeMemLimit )* );
+
+	fn decode_with_mem_limit<I: Input>(limit: MemLimit, input: &mut I) -> Result<Self, Error> {
+		let mut input = MemTrackingInput { inner: input, limit };
+		let r = for_tuples!( ( #( Tuple::decode(&mut input)? ),* ) );
+		Ok(r)
+	}
 }
 
 /// An input that additionally tracks memory usage.
@@ -106,13 +123,6 @@ impl<'a, I: Input> Input for MemTrackingInput<'a, I> {
 
 	fn try_alloc(&mut self, size: usize) -> Result<(), Error> {
 		self.limit.try_alloc(size)
-	}
-}
-
-impl<T: Decode> DecodeMemLimit for T {
-	fn decode_with_mem_limit<I: Input>(limit: MemLimit, input: &mut I) -> Result<Self, Error> {
-		let mut input = MemTrackingInput { inner: input, limit };
-		T::decode(&mut input)
 	}
 }
 
