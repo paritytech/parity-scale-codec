@@ -85,6 +85,11 @@ pub trait Input {
 	/// This is called when decoding reference-based type is finished.
 	fn ascend_ref(&mut self) {}
 
+	/// Try to allocate a contiguous chunk of memory of `size` bytes.
+	fn try_alloc(&mut self, size: usize) -> Result<(), Error> {
+		Ok(())
+	}
+
 	/// !INTERNAL USE ONLY!
 	///
 	/// Decodes a `bytes::Bytes`.
@@ -1135,6 +1140,9 @@ where
 		return Err("Not enough data to decode vector".into());
 	}
 
+	// Check that we have enough memory left to do this.
+	input.try_alloc(byte_len)?;
+
 	// In both these branches we're going to be creating and resizing a Vec<T>,
 	// but casting it to a &mut [u8] for reading.
 
@@ -1187,10 +1195,15 @@ impl<T: EncodeLike<U>, U: Encode> EncodeLike<Vec<U>> for &[T] {}
 
 impl<T: Decode> Decode for Vec<T> {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
+		input.try_alloc(mem::size_of::<Self>())?;
+
 		<Compact<u32>>::decode(input)
 			.and_then(move |Compact(len)| decode_vec_with_len(input, len as usize))
 	}
 }
+
+// Mark vec as MemLimited since we track the allocated memory:
+impl<T: Decode> crate::memory_limit::DecodeMemLimit for Vec<T> { }
 
 macro_rules! impl_codec_through_iterator {
 	($(
@@ -1466,6 +1479,8 @@ macro_rules! impl_endians {
 			const TYPE_INFO: TypeInfo = TypeInfo::$ty_info;
 
 			fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
+				input.try_alloc(mem::size_of::<$t>())?;
+
 				let mut buf = [0u8; mem::size_of::<$t>()];
 				input.read(&mut buf)?;
 				Ok(<$t>::from_le_bytes(buf))
@@ -1497,6 +1512,8 @@ macro_rules! impl_one_byte {
 			const TYPE_INFO: TypeInfo = TypeInfo::$ty_info;
 
 			fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
+				input.try_alloc(1)?;
+
 				Ok(input.read_byte()? as $t)
 			}
 		}

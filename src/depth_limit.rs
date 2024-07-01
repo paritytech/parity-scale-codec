@@ -32,8 +32,13 @@ pub trait DecodeLimit: Sized {
 }
 
 struct DepthTrackingInput<'a, I> {
+	/// The actual input.
 	input: &'a mut I,
+
+	/// Current recursive depth.
 	depth: u32,
+	
+	/// Maximum allowed recursive depth.
 	max_depth: u32,
 }
 
@@ -63,6 +68,10 @@ impl<'a, I: Input> Input for DepthTrackingInput<'a, I> {
 	fn ascend_ref(&mut self) {
 		self.input.ascend_ref();
 		self.depth -= 1;
+	}
+
+	fn try_alloc(&mut self, size: usize) -> Result<(), Error> {
+		self.input.try_alloc(size)
 	}
 }
 

@@ -48,6 +48,7 @@ mod const_encoded_len;
 mod decode_all;
 mod decode_finished;
 mod depth_limit;
+mod memory_limit;
 mod encode_append;
 mod encode_like;
 mod error;
