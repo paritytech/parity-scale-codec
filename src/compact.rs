@@ -75,6 +75,14 @@ impl<'a, T: 'a + Input> Input for PrefixInput<'a, T> {
 			_ => self.input.read(buffer),
 		}
 	}
+
+	fn skip(&mut self, len: usize) -> Result<(), Error> {
+		if len == 0 {
+			return Ok(());
+		}
+
+		self.input.skip(len - self.prefix.take().is_some() as usize)
+	}
 }
 
 /// Something that can return the compact encoded length for a given value.
@@ -172,6 +180,10 @@ where
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		let as_ = Compact::<T::As>::decode(input)?;
 		Ok(Compact(<T as CompactAs>::decode_from(as_.0)?))
+	}
+
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		Compact::<T::As>::skip(input)
 	}
 }
 
@@ -399,7 +411,7 @@ impl<'a> Encode for CompactRef<'a, u64> {
 				let bytes_needed = 8 - self.0.leading_zeros() / 8;
 				assert!(
 					bytes_needed >= 4,
-					"Previous match arm matches anyting less than 2^30; qed"
+					"Previous match arm matches anything less than 2^30; qed"
 				);
 				dest.push_byte(0b11 + ((bytes_needed - 4) << 2) as u8);
 				let mut v = *self.0;
@@ -480,6 +492,10 @@ impl Decode for Compact<()> {
 	fn decode<I: Input>(_input: &mut I) -> Result<Self, Error> {
 		Ok(Compact(()))
 	}
+
+	fn encoded_fixed_size() -> Option<usize> {
+		Some(0)
+	}
 }
 
 const U8_OUT_OF_RANGE: &str = "out of range decoding Compact<u8>";
@@ -487,6 +503,16 @@ const U16_OUT_OF_RANGE: &str = "out of range decoding Compact<u16>";
 const U32_OUT_OF_RANGE: &str = "out of range decoding Compact<u32>";
 const U64_OUT_OF_RANGE: &str = "out of range decoding Compact<u64>";
 const U128_OUT_OF_RANGE: &str = "out of range decoding Compact<u128>";
+
+fn skip_compact<I: Input>(input: &mut I) -> Result<(), Error> {
+	let prefix = input.read_byte()?;
+	match prefix % 4 {
+		1 => input.skip(1),
+		2 => input.skip(3),
+		3 => input.skip(((prefix >> 2) + 4) as usize),
+		_ => Ok(()),
+	}
+}
 
 impl Decode for Compact<u8> {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
@@ -503,6 +529,10 @@ impl Decode for Compact<u8> {
 			},
 			_ => return Err("unexpected prefix decoding Compact<u8>".into()),
 		}))
+	}
+
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		skip_compact(input)
 	}
 }
 
@@ -529,6 +559,10 @@ impl Decode for Compact<u16> {
 			},
 			_ => return Err("unexpected prefix decoding Compact<u16>".into()),
 		}))
+	}
+
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		skip_compact(input)
 	}
 }
 
@@ -569,6 +603,10 @@ impl Decode for Compact<u32> {
 			},
 			_ => unreachable!(),
 		}))
+	}
+
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		skip_compact(input)
 	}
 }
 
@@ -625,6 +663,10 @@ impl Decode for Compact<u64> {
 			},
 			_ => unreachable!(),
 		}))
+	}
+
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		skip_compact(input)
 	}
 }
 
@@ -690,6 +732,10 @@ impl Decode for Compact<u128> {
 			_ => unreachable!(),
 		}))
 	}
+
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		skip_compact(input)
+	}
 }
 
 #[cfg(test)]
@@ -704,6 +750,17 @@ mod tests {
 		assert_eq!(input.read(&mut empty_buf[..]), Ok(()));
 		assert_eq!(input.remaining_len(), Ok(Some(4)));
 		assert_eq!(input.read_byte(), Ok(1));
+	}
+
+	#[test]
+	fn prefix_input_skip() {
+		let mut input = PrefixInput { prefix: Some(1), input: &mut &vec![2, 3, 4][..] };
+		assert_eq!(input.remaining_len(), Ok(Some(4)));
+		input.skip(0).unwrap();
+		assert_eq!(input.remaining_len(), Ok(Some(4)));
+		input.skip(2).unwrap();
+		assert_eq!(input.remaining_len(), Ok(Some(2)));
+		assert_eq!(input.read_byte(), Ok(3));
 	}
 
 	#[test]

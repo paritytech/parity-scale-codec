@@ -73,8 +73,25 @@ pub trait Input {
 		Ok(buf[0])
 	}
 
+	/// Skip the exact number of bytes in the input.
+	///
+	/// Note that the default implementation does an actual read and discards the bytes.
+	/// When possible, an implementation should provide a specialized implementation.
+	fn skip(&mut self, len: usize) -> Result<(), Error> {
+		let mut buf = vec![0u8; len.min(MAX_PREALLOCATION)];
+
+		let mut remains = len;
+		while remains > MAX_PREALLOCATION {
+			self.read(&mut buf[..])?;
+			remains -= buf.len();
+		}
+
+		self.read(&mut buf[..remains])?;
+		Ok(())
+	}
+
 	/// Descend into nested reference when decoding.
-	/// This is called when decoding a new refence-based instance,
+	/// This is called when decoding a new reference-based instance,
 	/// such as `Vec` or `Box`. Currently, all such types are
 	/// allocated on the heap.
 	fn descend_ref(&mut self) -> Result<(), Error> {
@@ -109,6 +126,14 @@ impl<'a> Input for &'a [u8] {
 		}
 		let len = into.len();
 		into.copy_from_slice(&self[..len]);
+		*self = &self[len..];
+		Ok(())
+	}
+
+	fn skip(&mut self, len: usize) -> Result<(), Error> {
+		if len > self.len() {
+			return Err("Not enough data to skip".into());
+		}
 		*self = &self[len..];
 		Ok(())
 	}
@@ -287,7 +312,7 @@ pub trait Decode: Sized {
 	#[doc(hidden)]
 	const TYPE_INFO: TypeInfo = TypeInfo::Unknown;
 
-	/// Attempt to deserialise the value from input.
+	/// Attempt to deserialize the value from input.
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error>;
 
 	/// Attempt to deserialize the value from input into a pre-allocated piece of memory.
@@ -314,10 +339,15 @@ pub trait Decode: Sized {
 
 	/// Attempt to skip the encoded value from input.
 	///
-	/// The default implementation of this function is just calling [`Decode::decode`].
+	/// The default implementation of this function is skipping the fixed encoded size
+	/// if it is known. Otherwise, it is just calling [`Decode::decode`].
 	/// When possible, an implementation should provide a specialized implementation.
 	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
-		Self::decode(input).map(|_| ())
+		if let Some(size) = Self::encoded_fixed_size() {
+			input.skip(size)
+		} else {
+			Self::decode(input).map(|_| ())
+		}
 	}
 
 	/// Returns the fixed encoded size of the type.
@@ -335,12 +365,12 @@ pub trait Decode: Sized {
 pub trait Codec: Decode + Encode {}
 impl<S: Decode + Encode> Codec for S {}
 
-/// Trait that bound `EncodeLike` along with `Encode`. Usefull for generic being used in function
+/// Trait that bound `EncodeLike` along with `Encode`. Useful for generic being used in function
 /// with `EncodeLike` parameters.
 pub trait FullEncode: Encode + EncodeLike {}
 impl<S: Encode + EncodeLike> FullEncode for S {}
 
-/// Trait that bound `EncodeLike` along with `Codec`. Usefull for generic being used in function
+/// Trait that bound `EncodeLike` along with `Codec`. Useful for generic being used in function
 /// with `EncodeLike` parameters.
 pub trait FullCodec: Decode + FullEncode {}
 impl<S: Decode + FullEncode> FullCodec for S {}
@@ -430,6 +460,15 @@ impl Input for BytesCursor {
 		Ok(())
 	}
 
+	fn skip(&mut self, len: usize) -> Result<(), Error> {
+		if len > self.bytes.len() - self.position {
+			return Err("Not enough data to skip".into())
+		}
+
+		self.position += len;
+		Ok(())
+	}
+
 	fn scale_internal_decode_bytes(&mut self) -> Result<bytes::Bytes, Error> {
 		let length = <Compact<u32>>::decode(self)?.0 as usize;
 
@@ -474,6 +513,10 @@ where
 impl Decode for bytes::Bytes {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		input.scale_internal_decode_bytes()
+	}
+
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		Vec::<u8>::skip(input)
 	}
 }
 
@@ -610,6 +653,14 @@ where
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		Self::decode_wrapped(input)
 	}
+
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		T::skip(input)
+	}
+
+	fn encoded_fixed_size() -> Option<usize> {
+		T::encoded_fixed_size()
+	}
 }
 
 /// A macro that matches on a [`TypeInfo`] and expands a given macro per variant.
@@ -688,6 +739,17 @@ impl<T: Decode, E: Decode> Decode for Result<T, E> {
 			_ => Err("unexpected first byte decoding Result".into()),
 		}
 	}
+
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		match input
+			.read_byte()
+			.map_err(|e| e.chain("Could not result variant byte for `Result`"))?
+		{
+			0 => T::skip(input),
+			1 => E::skip(input),
+			_ => Err("unexpected first byte decoding Result".into()),
+		}
+	}
 }
 
 /// Shim type because we can't do a specialised implementation for `Option<bool>` directly.
@@ -725,6 +787,10 @@ impl Decode for OptionBool {
 			_ => Err("unexpected first byte decoding OptionBool".into()),
 		}
 	}
+
+	fn encoded_fixed_size() -> Option<usize> {
+		Some(1)
+	}
 }
 
 impl<T: EncodeLike<U>, U: Encode> EncodeLike<Option<U>> for Option<T> {}
@@ -761,6 +827,17 @@ impl<T: Decode> Decode for Option<T> {
 			_ => Err("unexpected first byte decoding Option".into()),
 		}
 	}
+
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		match input
+			.read_byte()
+			.map_err(|e| e.chain("Could not decode variant byte for `Option`"))?
+		{
+			0 => Ok(()),
+			1 => T::skip(input),
+			_ => Err("unexpected first byte decoding Option".into()),
+		}
+	}
 }
 
 macro_rules! impl_for_non_zero {
@@ -791,9 +868,26 @@ macro_rules! impl_for_non_zero {
 					Self::new(Decode::decode(input)?)
 						.ok_or_else(|| Error::from("cannot create non-zero number from 0"))
 				}
+
+				fn encoded_fixed_size() -> Option<usize> {
+					Some(mem::size_of::<$name>())
+				}
 			}
 		)*
 	}
+}
+
+impl_for_non_zero! {
+	NonZeroI8,
+	NonZeroI16,
+	NonZeroI32,
+	NonZeroI64,
+	NonZeroI128,
+	NonZeroU8,
+	NonZeroU16,
+	NonZeroU32,
+	NonZeroU64,
+	NonZeroU128,
 }
 
 /// Encode the slice without prepending the len.
@@ -878,19 +972,6 @@ pub fn decode_vec_with_len<T: Decode, I: Input>(
 			decode_unoptimized(input, len)
 		},
 	}
-}
-
-impl_for_non_zero! {
-	NonZeroI8,
-	NonZeroI16,
-	NonZeroI32,
-	NonZeroI64,
-	NonZeroI128,
-	NonZeroU8,
-	NonZeroU16,
-	NonZeroU32,
-	NonZeroU64,
-	NonZeroU128,
 }
 
 impl<T: Encode, const N: usize> Encode for [T; N] {
@@ -1025,15 +1106,10 @@ impl<T: Decode, const N: usize> Decode for [T; N] {
 	}
 
 	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
-		if Self::encoded_fixed_size().is_some() {
-			// Should skip the bytes, but Input does not support skip.
-			for _ in 0..N {
-				T::skip(input)?;
-			}
-		} else {
-			Self::decode(input)?;
+		match Self::encoded_fixed_size() {
+			Some(len) => input.skip(len),
+			None => Result::from_iter((0..N).map(|_| T::skip(input))),
 		}
-		Ok(())
 	}
 
 	fn encoded_fixed_size() -> Option<usize> {
@@ -1068,6 +1144,14 @@ where
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		Ok(Cow::Owned(Decode::decode(input)?))
 	}
+
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		T::Owned::skip(input)
+	}
+
+	fn encoded_fixed_size() -> Option<usize> {
+		T::Owned::encoded_fixed_size()
+	}
 }
 
 impl<T> EncodeLike for PhantomData<T> {}
@@ -1080,11 +1164,19 @@ impl<T> Decode for PhantomData<T> {
 	fn decode<I: Input>(_input: &mut I) -> Result<Self, Error> {
 		Ok(PhantomData)
 	}
+
+	fn encoded_fixed_size() -> Option<usize> {
+		Some(0)
+	}
 }
 
 impl Decode for String {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		Self::from_utf8(Vec::decode(input)?).map_err(|_| "Invalid utf8 sequence".into())
+	}
+
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		Vec::<u8>::skip(input)
 	}
 }
 
@@ -1190,6 +1282,14 @@ impl<T: Decode> Decode for Vec<T> {
 		<Compact<u32>>::decode(input)
 			.and_then(move |Compact(len)| decode_vec_with_len(input, len as usize))
 	}
+
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		let Compact(len) = <Compact<u32>>::decode(input)?;
+		match T::encoded_fixed_size() {
+			Some(size) => input.skip(size * len as usize),
+			None => Result::from_iter((0..len).map(|_| T::skip(input))),
+		}
+	}
 }
 
 macro_rules! impl_codec_through_iterator {
@@ -1223,6 +1323,10 @@ macro_rules! impl_codec_through_iterator {
 					input.ascend_ref();
 					result
 				})
+			}
+
+			fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+				Vec::<($( $generics, )*)>::skip(input)
 			}
 		}
 
@@ -1293,6 +1397,10 @@ impl<T: Decode> Decode for VecDeque<T> {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		Ok(<Vec<T>>::decode(input)?.into())
 	}
+
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		Vec::<T>::skip(input)
+	}
 }
 
 impl EncodeLike for () {}
@@ -1312,6 +1420,10 @@ impl Encode for () {
 impl Decode for () {
 	fn decode<I: Input>(_: &mut I) -> Result<(), Error> {
 		Ok(())
+	}
+
+	fn encoded_fixed_size() -> Option<usize> {
+		Some(0)
 	}
 }
 
@@ -1358,6 +1470,14 @@ macro_rules! tuple_impl {
 					Ok($one) => Ok(($one,)),
 				}
 			}
+
+			fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+				$one::skip(input)
+			}
+
+			fn encoded_fixed_size() -> Option<usize> {
+				$one::encoded_fixed_size()
+			}
 		}
 
 		impl<$one: DecodeLength> DecodeLength for ($one,) {
@@ -1402,6 +1522,16 @@ macro_rules! tuple_impl {
 						Err(e) => return Err(e),
 					},)+
 				))
+			}
+
+			fn skip<INPUT: Input>(input: &mut INPUT) -> Result<(), super::Error> {
+				$first::skip(input)?;
+				$($rest::skip(input)?;)+
+				Ok(())
+			}
+
+			fn encoded_fixed_size() -> Option<usize> {
+				Some( $first::encoded_fixed_size()? $( + $rest::encoded_fixed_size()? )+)
 			}
 		}
 
@@ -1499,6 +1629,10 @@ macro_rules! impl_one_byte {
 			fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 				Ok(input.read_byte()? as $t)
 			}
+
+			fn encoded_fixed_size() -> Option<usize> {
+				Some(1)
+			}
 		}
 	)* }
 }
@@ -1557,6 +1691,10 @@ impl Decode for Duration {
 			Ok(Duration::new(secs, nanos))
 		}
 	}
+
+	fn encoded_fixed_size() -> Option<usize> {
+		<(u64, u32)>::encoded_fixed_size()
+	}
 }
 
 impl EncodeLike for Duration {}
@@ -1583,6 +1721,10 @@ where
 			<(T, T)>::decode(input).map_err(|e| e.chain("Could not decode `Range<T>`"))?;
 		Ok(Range { start, end })
 	}
+
+	fn encoded_fixed_size() -> Option<usize> {
+		<(T, T)>::encoded_fixed_size()
+	}
 }
 
 impl<T> Encode for RangeInclusive<T>
@@ -1606,6 +1748,10 @@ where
 		let (start, end) =
 			<(T, T)>::decode(input).map_err(|e| e.chain("Could not decode `RangeInclusive<T>`"))?;
 		Ok(RangeInclusive::new(start, end))
+	}
+
+	fn encoded_fixed_size() -> Option<usize> {
+		<(T, T)>::encoded_fixed_size()
 	}
 }
 
@@ -1874,6 +2020,16 @@ mod tests {
 		assert_eq!(io_reader.read_byte().unwrap(), 3);
 
 		assert_eq!(io_reader.read_byte(), Err("io error: UnexpectedEof".into()));
+	}
+
+	#[test]
+	fn io_reader_skip() {
+		let mut io_reader = IoReader(std::io::Cursor::new(&[1u8, 2, 3, 4][..]));
+
+		io_reader.skip(0).unwrap();
+		io_reader.skip(2).unwrap();
+		assert_eq!(io_reader.read_byte().unwrap(), 3);
+		assert_eq!(io_reader.skip(2), Err("io error: UnexpectedEof".into()));
 	}
 
 	#[test]
