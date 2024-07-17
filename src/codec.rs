@@ -1253,32 +1253,9 @@ impl<T: Encode> Encode for VecDeque<T> {
 	fn encode_to<W: Output + ?Sized>(&self, dest: &mut W) {
 		compact_encode_len_to(dest, self.len()).expect("Compact encodes length");
 
-		macro_rules! encode_to {
-			( $ty:ty, $self:ident, $dest:ident ) => {{
-				if cfg!(target_endian = "little") || mem::size_of::<T>() == 1 {
-					let slices = $self.as_slices();
-					let typed =
-						unsafe { core::mem::transmute::<(&[T], &[T]), (&[$ty], &[$ty])>(slices) };
-
-					$dest.write(<[$ty] as AsByteSlice<$ty>>::as_byte_slice(typed.0));
-					$dest.write(<[$ty] as AsByteSlice<$ty>>::as_byte_slice(typed.1));
-				} else {
-					for item in $self {
-						item.encode_to($dest);
-					}
-				}
-			}};
-		}
-
-		with_type_info! {
-			<T as Encode>::TYPE_INFO,
-			encode_to(self, dest),
-			{
-				for item in self {
-					item.encode_to(dest);
-				}
-			},
-		}
+		let slices = self.as_slices();
+		encode_slice_no_len(slices.0, dest);
+		encode_slice_no_len(slices.1, dest);
 	}
 }
 
