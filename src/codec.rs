@@ -47,7 +47,7 @@ use crate::{
 	DecodeFinished, Error,
 };
 
-pub(crate) const MAX_PREALLOCATION: usize = 4 * 1024;
+pub(crate) const MAX_PREALLOCATION: usize = 16 * 1024;
 const A_BILLION: u32 = 1_000_000_000;
 
 /// Trait that allows reading of data into a slice.
@@ -834,52 +834,6 @@ pub(crate) fn encode_slice_no_len<T: Encode, W: Output + ?Sized>(slice: &[T], de
 	}
 }
 
-/// Decode the vec (without a prepended len).
-///
-/// This is equivalent to decode all elements one by one, but it is optimized in some
-/// situation.
-pub fn decode_vec_with_len<T: Decode, I: Input>(
-	input: &mut I,
-	len: usize,
-) -> Result<Vec<T>, Error> {
-	fn decode_unoptimized<I: Input, T: Decode>(
-		input: &mut I,
-		items_len: usize,
-	) -> Result<Vec<T>, Error> {
-		let input_capacity = input
-			.remaining_len()?
-			.unwrap_or(MAX_PREALLOCATION)
-			.checked_div(mem::size_of::<T>())
-			.unwrap_or(0);
-		let mut r = Vec::with_capacity(input_capacity.min(items_len));
-		input.descend_ref()?;
-		for _ in 0..items_len {
-			r.push(T::decode(input)?);
-		}
-		input.ascend_ref();
-		Ok(r)
-	}
-
-	macro_rules! decode {
-		( $ty:ty, $input:ident, $len:ident ) => {{
-			if cfg!(target_endian = "little") || mem::size_of::<T>() == 1 {
-				let vec = read_vec_from_u8s::<_, $ty>($input, $len)?;
-				Ok(unsafe { mem::transmute::<Vec<$ty>, Vec<T>>(vec) })
-			} else {
-				decode_unoptimized($input, $len)
-			}
-		}};
-	}
-
-	with_type_info! {
-		<T as Decode>::TYPE_INFO,
-		decode(input, len),
-		{
-			decode_unoptimized(input, len)
-		},
-	}
-}
-
 impl_for_non_zero! {
 	NonZeroI8,
 	NonZeroI16,
@@ -1113,71 +1067,110 @@ impl<T: Encode> Encode for [T] {
 	}
 }
 
-/// Create a `Vec<T>` by casting directly from a buffer of read `u8`s
-///
-/// The encoding of `T` must be equal to its binary representation, and size of `T` must be less or
-/// equal to [`MAX_PREALLOCATION`].
-pub(crate) fn read_vec_from_u8s<I, T>(input: &mut I, items_len: usize) -> Result<Vec<T>, Error>
+fn decode_vec_chunked<T, F>(len: usize, mut decode_chunk: F) -> Result<Vec<T>, Error>
 where
-	I: Input,
-	T: ToMutByteSlice + Default + Clone,
+	F: FnMut(&mut Vec<T>, usize) -> Result<(), Error>,
 {
 	debug_assert!(MAX_PREALLOCATION >= mem::size_of::<T>(), "Invalid precondition");
+	let chunk_len = MAX_PREALLOCATION / mem::size_of::<T>();
 
-	let byte_len = items_len
+	let mut decoded_vec = vec![];
+	let mut num_undecoded_items = len;
+	while num_undecoded_items > 0 {
+		let chunk_len = chunk_len.min(num_undecoded_items);
+		decoded_vec.reserve_exact(chunk_len);
+
+		decode_chunk(&mut decoded_vec, chunk_len)?;
+
+		num_undecoded_items = num_undecoded_items.saturating_sub(chunk_len);
+	}
+
+	Ok(decoded_vec)
+}
+
+/// Create a `Vec<T>` by casting directly from a buffer of read `u8`s
+///
+/// The encoding of `T` must be equal to its binary representation, and size of `T` must be less
+/// or equal to [`MAX_PREALLOCATION`].
+fn read_vec_from_u8s<T, I>(input: &mut I, len: usize) -> Result<Vec<T>, Error>
+where
+	T: ToMutByteSlice + Default + Clone,
+	I: Input,
+{
+	let byte_len = len
 		.checked_mul(mem::size_of::<T>())
 		.ok_or("Item is too big and cannot be allocated")?;
 
-	let input_len = input.remaining_len()?;
-
-	// If there is input len and it cannot be pre-allocated then return directly.
-	if input_len.map(|l| l < byte_len).unwrap_or(false) {
-		return Err("Not enough data to decode vector".into());
+	// Check if there is enough data in the input buffer.
+	if let Some(input_len) = input.remaining_len()? {
+		if input_len < byte_len {
+			return Err("Not enough data to decode vector".into());
+		}
 	}
 
-	// In both these branches we're going to be creating and resizing a Vec<T>,
-	// but casting it to a &mut [u8] for reading.
-
-	// Note: we checked that if input_len is some then it can preallocated.
-	let r = if input_len.is_some() || byte_len < MAX_PREALLOCATION {
-		// Here we pre-allocate the whole buffer.
-		let mut items: Vec<T> = vec![Default::default(); items_len];
-		let bytes_slice = items.as_mut_byte_slice();
-		input.read(bytes_slice)?;
-
-		items
-	} else {
-		// An allowed number of preallocated item.
-		// Note: `MAX_PREALLOCATION` is expected to be more or equal to size of `T`, precondition.
-		let max_preallocated_items = MAX_PREALLOCATION / mem::size_of::<T>();
-
-		// Here we pre-allocate only the maximum pre-allocation
-		let mut items: Vec<T> = vec![];
-
-		let mut items_remains = items_len;
-
-		while items_remains > 0 {
-			let items_len_read = max_preallocated_items.min(items_remains);
-
-			let items_len_filled = items.len();
-			let items_new_size = items_len_filled + items_len_read;
-
-			items.reserve_exact(items_len_read);
-			unsafe {
-				items.set_len(items_new_size);
-			}
-
-			let bytes_slice = items.as_mut_byte_slice();
-			let bytes_len_filled = items_len_filled * mem::size_of::<T>();
-			input.read(&mut bytes_slice[bytes_len_filled..])?;
-
-			items_remains = items_remains.saturating_sub(items_len_read);
+	decode_vec_chunked(len, |decoded_vec, chunk_len| {
+		let decoded_vec_len = decoded_vec.len();
+		let decoded_vec_size = decoded_vec_len * mem::size_of::<T>();
+		unsafe {
+			decoded_vec.set_len(decoded_vec_len + chunk_len);
 		}
 
-		items
-	};
+		let bytes_slice = decoded_vec.as_mut_byte_slice();
+		input.read(&mut bytes_slice[decoded_vec_size..])
+	})
+}
 
-	Ok(r)
+fn decode_vec_from_items<T, I>(input: &mut I, len: usize) -> Result<Vec<T>, Error>
+where
+	T: Decode,
+	I: Input,
+{
+	// Check if there is enough data in the input buffer.
+	if let Some(input_len) = input.remaining_len()? {
+		if input_len < len {
+			return Err("Not enough data to decode vector".into());
+		}
+	}
+
+	input.descend_ref()?;
+	let vec = decode_vec_chunked(len, |decoded_vec, chunk_len| {
+		for _ in 0..chunk_len {
+			decoded_vec.push(T::decode(input)?);
+		}
+
+		Ok(())
+	})?;
+	input.ascend_ref();
+
+	Ok(vec)
+}
+
+/// Decode the vec (without a prepended len).
+///
+/// This is equivalent to decode all elements one by one, but it is optimized in some
+/// situation.
+pub fn decode_vec_with_len<T: Decode, I: Input>(
+	input: &mut I,
+	len: usize,
+) -> Result<Vec<T>, Error> {
+	macro_rules! decode {
+		( $ty:ty, $input:ident, $len:ident ) => {{
+			if cfg!(target_endian = "little") || mem::size_of::<T>() == 1 {
+				let vec = read_vec_from_u8s::<$ty, _>($input, $len)?;
+				Ok(unsafe { mem::transmute::<Vec<$ty>, Vec<T>>(vec) })
+			} else {
+				decode_vec_from_items::<T, _>($input, $len)
+			}
+		}};
+	}
+
+	with_type_info! {
+		<T as Decode>::TYPE_INFO,
+		decode(input, len),
+		{
+			decode_vec_from_items::<T, _>(input, len)
+		},
+	}
 }
 
 impl<T> WrapperTypeEncode for Vec<T> {}
@@ -1260,32 +1253,9 @@ impl<T: Encode> Encode for VecDeque<T> {
 	fn encode_to<W: Output + ?Sized>(&self, dest: &mut W) {
 		compact_encode_len_to(dest, self.len()).expect("Compact encodes length");
 
-		macro_rules! encode_to {
-			( $ty:ty, $self:ident, $dest:ident ) => {{
-				if cfg!(target_endian = "little") || mem::size_of::<T>() == 1 {
-					let slices = $self.as_slices();
-					let typed =
-						unsafe { core::mem::transmute::<(&[T], &[T]), (&[$ty], &[$ty])>(slices) };
-
-					$dest.write(<[$ty] as AsByteSlice<$ty>>::as_byte_slice(typed.0));
-					$dest.write(<[$ty] as AsByteSlice<$ty>>::as_byte_slice(typed.1));
-				} else {
-					for item in $self {
-						item.encode_to($dest);
-					}
-				}
-			}};
-		}
-
-		with_type_info! {
-			<T as Encode>::TYPE_INFO,
-			encode_to(self, dest),
-			{
-				for item in self {
-					item.encode_to(dest);
-				}
-			},
-		}
+		let slices = self.as_slices();
+		encode_slice_no_len(slices.0, dest);
+		encode_slice_no_len(slices.1, dest);
 	}
 }
 
