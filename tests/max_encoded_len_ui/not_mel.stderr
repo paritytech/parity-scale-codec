@@ -5,10 +5,7 @@ error[E0599]: the function or associated item `max_encoded_len` exists for struc
    | ------------- doesn't satisfy `NotMel: MaxEncodedLen`
 ...
 7  | struct Generic<T> {
-   | -----------------
-   | |
-   | function or associated item `max_encoded_len` not found for this struct
-   | doesn't satisfy `Generic<NotMel>: MaxEncodedLen`
+   | ----------------- function or associated item `max_encoded_len` not found for this struct because it doesn't satisfy `Generic<NotMel>: MaxEncodedLen`
 ...
 12 |     let _ = Generic::<NotMel>::max_encoded_len();
    |                                ^^^^^^^^^^^^^^^ function or associated item cannot be called on `Generic<NotMel>` due to unsatisfied trait bounds
