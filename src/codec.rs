@@ -1071,7 +1071,7 @@ fn decode_vec_chunked<T, F>(len: usize, mut decode_chunk: F) -> Result<Vec<T>, E
 where
 	F: FnMut(&mut Vec<T>, usize) -> Result<(), Error>,
 {
-	debug_assert!(MAX_PREALLOCATION >= mem::size_of::<T>(), "Invalid precondition");
+	const { assert!(MAX_PREALLOCATION >= mem::size_of::<T>()) }
 	// we have to account for the fact that `mem::size_of::<T>` can be 0 for types like `()`
 	// for example.
 	let chunk_len = MAX_PREALLOCATION.checked_div(mem::size_of::<T>()).unwrap_or(usize::MAX);
