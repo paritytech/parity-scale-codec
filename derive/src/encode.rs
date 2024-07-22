@@ -103,7 +103,7 @@ enum FieldAttribute<'a> {
 	None(&'a Field),
 	Compact(&'a Field),
 	EncodedAs { field: &'a Field, encoded_as: &'a TokenStream },
-	Skip(&'a Field),
+	Skip,
 }
 
 fn iterate_over_fields<F, H, J>(
@@ -138,7 +138,7 @@ where
 		} else if let Some(ref encoded_as) = encoded_as {
 			field_handler(field, FieldAttribute::EncodedAs { field: f, encoded_as })
 		} else if skip {
-			field_handler(field, FieldAttribute::Skip(f))
+			field_handler(field, FieldAttribute::Skip)
 		} else {
 			field_handler(field, FieldAttribute::None(f))
 		}
@@ -191,7 +191,7 @@ where
 					}
 				}
 			},
-			FieldAttribute::Skip(_) => quote! {
+			FieldAttribute::Skip => quote! {
 				let _ = #field;
 			},
 		},
@@ -236,7 +236,7 @@ where
 					))
 				}
 			},
-			FieldAttribute::Skip(_) => quote!(),
+			FieldAttribute::Skip => quote!(),
 		},
 		|recurse| {
 			quote! {

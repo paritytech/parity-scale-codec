@@ -309,7 +309,7 @@ pub fn compact_as_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStr
 				(&field.ty, quote!(&self.#field_name), constructor)
 			},
 			Fields::Unnamed(ref fields) if utils::filter_skip_unnamed(fields).count() == 1 => {
-				let recurse = fields.unnamed.iter().enumerate().map(|(_, f)| {
+				let recurse = fields.unnamed.iter().map(|f| {
 					let val_or_default = val_or_default(f);
 					quote_spanned!(f.span()=> #val_or_default)
 				});

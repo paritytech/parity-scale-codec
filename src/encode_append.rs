@@ -160,7 +160,7 @@ mod tests {
 	#[test]
 	fn vec_encode_append_multiple_items_works() {
 		let encoded = (0..TEST_VALUE).fold(Vec::new(), |encoded, v| {
-			<Vec<u32> as EncodeAppend>::append_or_new(encoded, &[v, v, v, v]).unwrap()
+			<Vec<u32> as EncodeAppend>::append_or_new(encoded, [v, v, v, v]).unwrap()
 		});
 
 		let decoded = Vec::<u32>::decode(&mut &encoded[..]).unwrap();
@@ -184,7 +184,7 @@ mod tests {
 	#[test]
 	fn vecdeque_encode_append_multiple_items_works() {
 		let encoded = (0..TEST_VALUE).fold(Vec::new(), |encoded, v| {
-			<VecDeque<u32> as EncodeAppend>::append_or_new(encoded, &[v, v, v, v]).unwrap()
+			<VecDeque<u32> as EncodeAppend>::append_or_new(encoded, [v, v, v, v]).unwrap()
 		});
 
 		let decoded = VecDeque::<u32>::decode(&mut &encoded[..]).unwrap();
@@ -228,7 +228,7 @@ mod tests {
 	#[test]
 	fn vec_encode_like_append_works() {
 		let encoded = (0..TEST_VALUE).fold(Vec::new(), |encoded, v| {
-			<Vec<u32> as EncodeAppend>::append_or_new(encoded, std::iter::once(Box::new(v as u32)))
+			<Vec<u32> as EncodeAppend>::append_or_new(encoded, std::iter::once(Box::new(v)))
 				.unwrap()
 		});
 

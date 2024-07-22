@@ -1706,7 +1706,7 @@ mod tests {
 		assert_eq!(decoded, &b"hello"[..]);
 
 		// The `slice_ref` will panic if the `decoded` is not a subslice of `encoded`.
-		assert_eq!(encoded.slice_ref(&decoded), &b"hello"[..]);
+		assert_eq!(encoded.slice_ref(decoded), &b"hello"[..]);
 	}
 
 	fn test_encode_length<T: Encode + Decode + DecodeLength>(thing: &T, len: usize) {
@@ -1897,8 +1897,8 @@ mod tests {
 	fn boolean() {
 		assert_eq!(true.encode(), vec![1]);
 		assert_eq!(false.encode(), vec![0]);
-		assert_eq!(bool::decode(&mut &[1][..]).unwrap(), true);
-		assert_eq!(bool::decode(&mut &[0][..]).unwrap(), false);
+		assert!(bool::decode(&mut &[1][..]).unwrap());
+		assert!(!bool::decode(&mut &[0][..]).unwrap());
 	}
 
 	#[test]
@@ -1915,7 +1915,7 @@ mod tests {
 		let encoded = data.encode();
 
 		let decoded = Vec::<u32>::decode(&mut &encoded[..]).unwrap();
-		assert!(decoded.iter().all(|v| data.contains(&v)));
+		assert!(decoded.iter().all(|v| data.contains(v)));
 		assert_eq!(data.len(), decoded.len());
 
 		let encoded = decoded.encode();
@@ -1946,7 +1946,7 @@ mod tests {
 		let num_nanos = 37;
 
 		let duration = Duration::new(num_secs, num_nanos);
-		let expected = (num_secs, num_nanos as u32).encode();
+		let expected = (num_secs, num_nanos).encode();
 
 		assert_eq!(duration.encode(), expected);
 		assert_eq!(Duration::decode(&mut &expected[..]).unwrap(), duration);

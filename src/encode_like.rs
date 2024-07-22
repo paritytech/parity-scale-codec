@@ -122,7 +122,7 @@ mod tests {
 	#[test]
 	fn vec_and_slice_are_working() {
 		let slice: &[u8] = &[1, 2, 3, 4];
-		let data: Vec<u8> = slice.iter().copied().collect();
+		let data: Vec<u8> = slice.to_vec();
 
 		let data_encoded = data.encode();
 		let slice_encoded = ComplexStuff::<Vec<u8>>::complex_method(&slice);

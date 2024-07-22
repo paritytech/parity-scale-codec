@@ -24,17 +24,17 @@ struct StructNamed {
 }
 
 #[derive(DeriveDecode, Debug)]
-struct StructUnnamed(u16);
+struct StructUnnamed(#[allow(dead_code)] u16);
 
 #[derive(DeriveDecode, Debug)]
 enum E {
 	VariantNamed { _foo: u16 },
-	VariantUnnamed(u16),
+	VariantUnnamed(#[allow(dead_code)] u16),
 }
 
 #[test]
 fn full_error_struct_named() {
-	let encoded = vec![0];
+	let encoded = [0];
 	let err = r#"Could not decode `Wrapper.0`:
 	Could not decode `StructNamed::_foo`:
 		Not enough data to fill buffer
@@ -48,7 +48,7 @@ fn full_error_struct_named() {
 
 #[test]
 fn full_error_struct_unnamed() {
-	let encoded = vec![0];
+	let encoded = [0];
 	let err = r#"Could not decode `Wrapper.0`:
 	Could not decode `StructUnnamed.0`:
 		Not enough data to fill buffer
@@ -62,7 +62,7 @@ fn full_error_struct_unnamed() {
 
 #[test]
 fn full_error_enum_unknown_variant() {
-	let encoded = vec![2];
+	let encoded = [2];
 	let err = r#"Could not decode `E`, variant doesn't exist"#;
 
 	assert_eq!(E::decode(&mut &encoded[..]).unwrap_err().to_string(), String::from(err),);
@@ -70,7 +70,7 @@ fn full_error_enum_unknown_variant() {
 
 #[test]
 fn full_error_enum_named_field() {
-	let encoded = vec![0, 0];
+	let encoded = [0, 0];
 	let err = r#"Could not decode `E::VariantNamed::_foo`:
 	Not enough data to fill buffer
 "#;
@@ -80,7 +80,7 @@ fn full_error_enum_named_field() {
 
 #[test]
 fn full_error_enum_unnamed_field() {
-	let encoded = vec![1, 0];
+	let encoded = [1, 0];
 	let err = r#"Could not decode `E::VariantUnnamed.0`:
 	Not enough data to fill buffer
 "#;
