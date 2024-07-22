@@ -351,6 +351,7 @@ fn associated_type_bounds() {
 }
 
 #[test]
+#[allow(non_local_definitions)]
 fn generic_bound_encoded_as() {
 	// This struct does not impl Codec nor HasCompact
 	struct StructEncodeAsRef;
