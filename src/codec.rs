@@ -1072,7 +1072,9 @@ where
 	F: FnMut(&mut Vec<T>, usize) -> Result<(), Error>,
 {
 	debug_assert!(MAX_PREALLOCATION >= mem::size_of::<T>(), "Invalid precondition");
-	let chunk_len = MAX_PREALLOCATION / mem::size_of::<T>();
+	// we have to account for the fact that `mem::size_of::<T>` can be 0 for types like `()`
+	// for example.
+	let chunk_len = MAX_PREALLOCATION.checked_div(mem::size_of::<T>()).unwrap_or(usize::MAX);
 
 	let mut decoded_vec = vec![];
 	let mut num_undecoded_items = len;
@@ -1082,7 +1084,7 @@ where
 
 		decode_chunk(&mut decoded_vec, chunk_len)?;
 
-		num_undecoded_items = num_undecoded_items.saturating_sub(chunk_len);
+		num_undecoded_items -= chunk_len;
 	}
 
 	Ok(decoded_vec)
@@ -1125,13 +1127,6 @@ where
 	T: Decode,
 	I: Input,
 {
-	// Check if there is enough data in the input buffer.
-	if let Some(input_len) = input.remaining_len()? {
-		if input_len < len {
-			return Err("Not enough data to decode vector".into());
-		}
-	}
-
 	input.descend_ref()?;
 	let vec = decode_vec_chunked(len, |decoded_vec, chunk_len| {
 		for _ in 0..chunk_len {
@@ -1666,6 +1661,14 @@ mod tests {
 		let encoded = value.encode();
 		assert_eq!(hexify(&encoded), "0c 01 02 00");
 		assert_eq!(<Vec<OptionBool>>::decode(&mut &encoded[..]).unwrap(), value);
+	}
+
+	#[test]
+	fn vec_of_empty_tuples_encoded_as_expected() {
+		let value = vec![(), (), (), (), ()];
+		let encoded = value.encode();
+		assert_eq!(hexify(&encoded), "14");
+		assert_eq!(<Vec<()>>::decode(&mut &encoded[..]).unwrap(), value);
 	}
 
 	#[cfg(feature = "bytes")]
