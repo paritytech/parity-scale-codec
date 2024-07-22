@@ -1110,7 +1110,8 @@ where
 		}
 	}
 
-	decode_vec_chunked(len, |decoded_vec, chunk_len| {
+	input.descend_ref()?;
+	let vec = decode_vec_chunked(len, |decoded_vec, chunk_len| {
 		let decoded_vec_len = decoded_vec.len();
 		let decoded_vec_size = decoded_vec_len * mem::size_of::<T>();
 		unsafe {
@@ -1119,7 +1120,10 @@ where
 
 		let bytes_slice = decoded_vec.as_mut_byte_slice();
 		input.read(&mut bytes_slice[decoded_vec_size..])
-	})
+	})?;
+	input.ascend_ref();
+
+	Ok(vec)
 }
 
 fn decode_vec_from_items<T, I>(input: &mut I, len: usize) -> Result<Vec<T>, Error>

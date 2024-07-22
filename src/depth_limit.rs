@@ -94,7 +94,7 @@ mod tests {
 		let nested: NestedVec = vec![vec![vec![vec![1]]]];
 		let encoded = nested.encode();
 
-		let decoded = NestedVec::decode_with_depth_limit(3, &mut encoded.as_slice()).unwrap();
+		let decoded = NestedVec::decode_with_depth_limit(4, &mut encoded.as_slice()).unwrap();
 		assert_eq!(decoded, nested);
 		assert!(NestedVec::decode_with_depth_limit(2, &mut encoded.as_slice()).is_err());
 	}
@@ -117,12 +117,12 @@ mod tests {
 		let nested: NestedVec = vec![vec![vec![vec![1]]]];
 		let mut encoded = NestedVec::encode(&nested);
 
-		let decoded = NestedVec::decode_all_with_depth_limit(3, &mut encoded.as_slice()).unwrap();
+		let decoded = NestedVec::decode_all_with_depth_limit(4, &mut encoded.as_slice()).unwrap();
 		assert_eq!(decoded, nested);
 
 		encoded.extend(&[1, 2, 3, 4, 5, 6]);
 		assert_eq!(
-			NestedVec::decode_all_with_depth_limit(3, &mut encoded.as_slice())
+			NestedVec::decode_all_with_depth_limit(4, &mut encoded.as_slice())
 				.unwrap_err()
 				.to_string(),
 			"Input buffer has still data left after decoding!",
