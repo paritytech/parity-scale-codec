@@ -14,7 +14,11 @@
 // limitations under the License.
 
 use crate::Decode;
+use impl_trait_for_tuples::impl_for_tuples;
 
 /// Marker trait used for identifying types that call the mem tracking hooks exposed by `Input`
 /// while decoding.
 pub trait DecodeWithMemTracking: Decode {}
+
+#[impl_for_tuples(18)]
+impl DecodeWithMemTracking for Tuple {}
