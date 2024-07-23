@@ -1071,8 +1071,10 @@ fn decode_vec_chunked<T, F>(len: usize, mut decode_chunk: F) -> Result<Vec<T>, E
 where
 	F: FnMut(&mut Vec<T>, usize) -> Result<(), Error>,
 {
-	debug_assert!(MAX_PREALLOCATION >= mem::size_of::<T>(), "Invalid precondition");
-	let chunk_len = MAX_PREALLOCATION / mem::size_of::<T>();
+	const { assert!(MAX_PREALLOCATION >= mem::size_of::<T>()) }
+	// we have to account for the fact that `mem::size_of::<T>` can be 0 for types like `()`
+	// for example.
+	let chunk_len = MAX_PREALLOCATION.checked_div(mem::size_of::<T>()).unwrap_or(usize::MAX);
 
 	let mut decoded_vec = vec![];
 	let mut num_undecoded_items = len;
@@ -1082,7 +1084,7 @@ where
 
 		decode_chunk(&mut decoded_vec, chunk_len)?;
 
-		num_undecoded_items = num_undecoded_items.saturating_sub(chunk_len);
+		num_undecoded_items -= chunk_len;
 	}
 
 	Ok(decoded_vec)
@@ -1125,13 +1127,6 @@ where
 	T: Decode,
 	I: Input,
 {
-	// Check if there is enough data in the input buffer.
-	if let Some(input_len) = input.remaining_len()? {
-		if input_len < len {
-			return Err("Not enough data to decode vector".into());
-		}
-	}
-
 	input.descend_ref()?;
 	let vec = decode_vec_chunked(len, |decoded_vec, chunk_len| {
 		for _ in 0..chunk_len {
@@ -1668,6 +1663,14 @@ mod tests {
 		assert_eq!(<Vec<OptionBool>>::decode(&mut &encoded[..]).unwrap(), value);
 	}
 
+	#[test]
+	fn vec_of_empty_tuples_encoded_as_expected() {
+		let value = vec![(), (), (), (), ()];
+		let encoded = value.encode();
+		assert_eq!(hexify(&encoded), "14");
+		assert_eq!(<Vec<()>>::decode(&mut &encoded[..]).unwrap(), value);
+	}
+
 	#[cfg(feature = "bytes")]
 	#[test]
 	fn bytes_works_as_expected() {
@@ -1699,7 +1702,7 @@ mod tests {
 		assert_eq!(decoded, &b"hello"[..]);
 
 		// The `slice_ref` will panic if the `decoded` is not a subslice of `encoded`.
-		assert_eq!(encoded.slice_ref(&decoded), &b"hello"[..]);
+		assert_eq!(encoded.slice_ref(decoded), &b"hello"[..]);
 	}
 
 	fn test_encode_length<T: Encode + Decode + DecodeLength>(thing: &T, len: usize) {
@@ -1890,8 +1893,8 @@ mod tests {
 	fn boolean() {
 		assert_eq!(true.encode(), vec![1]);
 		assert_eq!(false.encode(), vec![0]);
-		assert_eq!(bool::decode(&mut &[1][..]).unwrap(), true);
-		assert_eq!(bool::decode(&mut &[0][..]).unwrap(), false);
+		assert!(bool::decode(&mut &[1][..]).unwrap());
+		assert!(!bool::decode(&mut &[0][..]).unwrap());
 	}
 
 	#[test]
@@ -1908,7 +1911,7 @@ mod tests {
 		let encoded = data.encode();
 
 		let decoded = Vec::<u32>::decode(&mut &encoded[..]).unwrap();
-		assert!(decoded.iter().all(|v| data.contains(&v)));
+		assert!(decoded.iter().all(|v| data.contains(v)));
 		assert_eq!(data.len(), decoded.len());
 
 		let encoded = decoded.encode();
@@ -1939,7 +1942,7 @@ mod tests {
 		let num_nanos = 37;
 
 		let duration = Duration::new(num_secs, num_nanos);
-		let expected = (num_secs, num_nanos as u32).encode();
+		let expected = (num_secs, num_nanos).encode();
 
 		assert_eq!(duration.encode(), expected);
 		assert_eq!(Duration::decode(&mut &expected[..]).unwrap(), duration);

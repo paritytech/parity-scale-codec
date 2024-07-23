@@ -234,11 +234,11 @@ const U64_TEST_COMPACT_VALUES: &[(u64, usize)] = &[
 	(16384, 4),
 	(1073741823, 4),
 	(1073741824, 5),
-	(1 << 32 - 1, 5),
+	(1 << (32 - 1), 5),
 	(1 << 32, 6),
 	(1 << 40, 7),
 	(1 << 48, 8),
-	(1 << 56 - 1, 8),
+	(1 << (56 - 1), 8),
 	(1 << 56, 9),
 	(u64::MAX, 9),
 ];
@@ -251,11 +251,11 @@ const U64_TEST_COMPACT_VALUES_FOR_ENUM: &[(u64, usize)] = &[
 	(16384, 5),
 	(1073741823, 5),
 	(1073741824, 6),
-	(1 << 32 - 1, 6),
+	(1 << (32 - 1), 6),
 	(1 << 32, 7),
 	(1 << 40, 8),
 	(1 << 48, 9),
-	(1 << 56 - 1, 9),
+	(1 << (56 - 1), 9),
 	(1 << 56, 10),
 	(u64::MAX, 10),
 ];
@@ -351,6 +351,7 @@ fn associated_type_bounds() {
 }
 
 #[test]
+#[allow(non_local_definitions)]
 fn generic_bound_encoded_as() {
 	// This struct does not impl Codec nor HasCompact
 	struct StructEncodeAsRef;
@@ -669,7 +670,7 @@ fn decoding_a_huge_boxed_newtype_array_does_not_overflow_the_stack() {
 	struct HugeArrayNewtype([u8; 100 * 1024 * 1024]);
 
 	#[derive(DeriveDecode)]
-	struct HugeArrayNewtypeBox(Box<HugeArrayNewtype>);
+	struct HugeArrayNewtypeBox(#[allow(dead_code)] Box<HugeArrayNewtype>);
 
 	let data = &[];
 	assert!(HugeArrayNewtypeBox::decode(&mut data.as_slice()).is_err());
@@ -714,7 +715,7 @@ fn zero_sized_types_are_properly_decoded_in_a_transparent_boxed_struct() {
 	}
 
 	#[derive(DeriveDecode)]
-	struct NewtypeWithZstBox(Box<NewtypeWithZst>);
+	struct NewtypeWithZstBox(#[allow(dead_code)] Box<NewtypeWithZst>);
 
 	impl Decode for ConsumeByte {
 		fn decode<I: parity_scale_codec::Input>(input: &mut I) -> Result<Self, Error> {
@@ -761,11 +762,11 @@ fn decoding_an_array_of_boxed_zero_sized_types_works() {
 #[test]
 fn incomplete_decoding_of_an_array_drops_partially_read_elements_if_reading_fails() {
 	thread_local! {
-		pub static COUNTER: core::cell::Cell<usize> = core::cell::Cell::new(0);
+		pub static COUNTER: core::cell::Cell<usize> = const { core::cell::Cell::new(0) };
 	}
 
 	#[derive(DeriveDecode)]
-	struct Foobar(u8);
+	struct Foobar(#[allow(dead_code)] u8);
 
 	impl Drop for Foobar {
 		fn drop(&mut self) {
@@ -786,10 +787,10 @@ fn incomplete_decoding_of_an_array_drops_partially_read_elements_if_reading_fail
 #[test]
 fn incomplete_decoding_of_an_array_drops_partially_read_elements_if_reading_panics() {
 	thread_local! {
-		pub static COUNTER: core::cell::Cell<usize> = core::cell::Cell::new(0);
+		pub static COUNTER: core::cell::Cell<usize> = const { core::cell::Cell::new(0) };
 	}
 
-	struct Foobar(u8);
+	struct Foobar(#[allow(dead_code)] u8);
 
 	impl Decode for Foobar {
 		fn decode<I: parity_scale_codec::Input>(input: &mut I) -> Result<Self, Error> {
@@ -825,6 +826,7 @@ fn deserializing_of_big_recursively_nested_enum_works() {
 	struct Data([u8; 1472]);
 
 	#[derive(PartialEq, Eq, DeriveDecode, DeriveEncode)]
+	#[allow(clippy::large_enum_variant)]
 	enum Enum {
 		Nested(Vec<Enum>),
 		Data(Data),

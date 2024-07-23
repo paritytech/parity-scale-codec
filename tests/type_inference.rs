@@ -28,4 +28,4 @@ pub enum A<T: Trait> {
 }
 
 #[derive(DeriveDecode)]
-pub struct B<T: Trait>((T::AccountId, T::AccountId), Vec<(T::Value, T::Value)>);
+pub struct B<T: Trait>((T::AccountId, T::AccountId), #[allow(dead_code)] Vec<(T::Value, T::Value)>);

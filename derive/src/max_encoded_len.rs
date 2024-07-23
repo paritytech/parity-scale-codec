@@ -66,20 +66,10 @@ pub fn derive_max_encoded_len(input: proc_macro::TokenStream) -> proc_macro::Tok
 /// generate an expression to sum up the max encoded length from several fields
 fn fields_length_expr(fields: &Fields, crate_path: &syn::Path) -> proc_macro2::TokenStream {
 	let fields_iter: Box<dyn Iterator<Item = &Field>> = match fields {
-		Fields::Named(ref fields) => Box::new(fields.named.iter().filter_map(|field| {
-			if should_skip(&field.attrs) {
-				None
-			} else {
-				Some(field)
-			}
-		})),
-		Fields::Unnamed(ref fields) => Box::new(fields.unnamed.iter().filter_map(|field| {
-			if should_skip(&field.attrs) {
-				None
-			} else {
-				Some(field)
-			}
-		})),
+		Fields::Named(ref fields) =>
+			Box::new(fields.named.iter().filter(|field| !should_skip(&field.attrs))),
+		Fields::Unnamed(ref fields) =>
+			Box::new(fields.unnamed.iter().filter(|field| !should_skip(&field.attrs))),
 		Fields::Unit => Box::new(std::iter::empty()),
 	};
 	// expands to an expression like
@@ -94,7 +84,7 @@ fn fields_length_expr(fields: &Fields, crate_path: &syn::Path) -> proc_macro2::T
 	// caused the issue.
 	let expansion = fields_iter.map(|field| {
 		let ty = &field.ty;
-		if utils::is_compact(&field) {
+		if utils::is_compact(field) {
 			quote_spanned! {
 				ty.span() => .saturating_add(
 					<<#ty as #crate_path::HasCompact>::Type as #crate_path::MaxEncodedLen>::max_encoded_len()

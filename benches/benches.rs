@@ -184,7 +184,7 @@ fn encode_decode_complex_type(c: &mut Criterion) {
 
 	let complex_types = vec![
 		ComplexType { _val: 3, _other_val: 345634635, _vec: vec![1, 2, 3, 5, 6, 7] },
-		ComplexType { _val: 1000, _other_val: 0980345634635, _vec: vec![1, 2, 3, 5, 6, 7] },
+		ComplexType { _val: 1000, _other_val: 980345634635, _vec: vec![1, 2, 3, 5, 6, 7] },
 		ComplexType { _val: 43564, _other_val: 342342345634635, _vec: vec![1, 2, 3, 5, 6, 7] },
 	];
 

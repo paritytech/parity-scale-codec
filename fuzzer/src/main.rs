@@ -47,8 +47,13 @@ pub enum MockEnum {
 	Empty,
 	Unit(u32),
 	UnitVec(Vec<u8>),
-	Complex { data: Vec<u32>, bitvec: BitVecWrapper<u8, Msb0>, string: String },
+	Complex {
+		data: Vec<u32>,
+		bitvec: BitVecWrapper<u8, Msb0>,
+		string: String,
+	},
 	Mock(MockStruct),
+	#[allow(clippy::type_complexity)]
 	NestedVec(Vec<Vec<Vec<Vec<Vec<Vec<Vec<Vec<Option<u8>>>>>>>>>),
 }
 
