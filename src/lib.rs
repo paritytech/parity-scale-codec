@@ -57,6 +57,7 @@ mod joiner;
 mod keyedvec;
 #[cfg(feature = "max-encoded-len")]
 mod max_encoded_len;
+mod mem_tracking;
 
 #[cfg(feature = "std")]
 pub use self::codec::IoReader;

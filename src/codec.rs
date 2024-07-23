@@ -85,6 +85,11 @@ pub trait Input {
 	/// This is called when decoding reference-based type is finished.
 	fn ascend_ref(&mut self) {}
 
+	/// Hook that is called before allocating memory on the heap.
+	fn on_before_alloc_mem(&mut self, _size: usize) -> Result<(), Error> {
+		Ok(())
+	}
+
 	/// !INTERNAL USE ONLY!
 	///
 	/// Decodes a `bytes::Bytes`.
