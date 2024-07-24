@@ -75,4 +75,12 @@ impl<'a, I: Input> Input for MemTrackingInput<'a, I> {
 
 		Ok(())
 	}
+
+	#[cfg(feature = "bytes")]
+	fn __private_bytes_cursor(&mut self) -> Option<&mut crate::BytesCursor>
+	where
+		Self: Sized,
+	{
+		self.input.__private_bytes_cursor()
+	}
 }

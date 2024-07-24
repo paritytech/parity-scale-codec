@@ -130,4 +130,4 @@ pub use max_encoded_len::MaxEncodedLen;
 pub use parity_scale_codec_derive::MaxEncodedLen;
 
 #[cfg(feature = "bytes")]
-pub use self::codec::decode_from_bytes;
+pub use self::codec::{decode_from_bytes, BytesCursor};
