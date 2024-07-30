@@ -57,6 +57,7 @@ mod joiner;
 mod keyedvec;
 #[cfg(feature = "max-encoded-len")]
 mod max_encoded_len;
+mod mem_tracking;
 
 #[cfg(feature = "std")]
 pub use self::codec::IoReader;
@@ -74,6 +75,7 @@ pub use self::{
 	error::Error,
 	joiner::Joiner,
 	keyedvec::KeyedVec,
+	mem_tracking::{DecodeWithMemTracking, MemTrackingInput},
 };
 #[cfg(feature = "max-encoded-len")]
 pub use const_encoded_len::ConstEncodedLen;
@@ -128,4 +130,4 @@ pub use max_encoded_len::MaxEncodedLen;
 pub use parity_scale_codec_derive::MaxEncodedLen;
 
 #[cfg(feature = "bytes")]
-pub use self::codec::decode_from_bytes;
+pub use self::codec::{decode_from_bytes, BytesCursor};

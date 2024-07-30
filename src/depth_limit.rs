@@ -64,6 +64,18 @@ impl<'a, I: Input> Input for DepthTrackingInput<'a, I> {
 		self.input.ascend_ref();
 		self.depth -= 1;
 	}
+
+	fn on_before_alloc_mem(&mut self, size: usize) -> Result<(), Error> {
+		self.input.on_before_alloc_mem(size)
+	}
+
+	#[cfg(feature = "bytes")]
+	fn __private_bytes_cursor(&mut self) -> Option<&mut crate::BytesCursor>
+	where
+		Self: Sized,
+	{
+		self.input.__private_bytes_cursor()
+	}
 }
 
 impl<T: Decode> DecodeLimit for T {
