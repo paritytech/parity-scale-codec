@@ -119,12 +119,14 @@ fn data_length_expr(data: &Data, crate_path: &syn::Path) -> proc_macro2::TokenSt
 			//
 			// Each variant expression's sum is computed the way an equivalent struct's would be.
 
-			let expansion = data.variants.iter().map(|variant| {
-				let variant_expression = fields_length_expr(&variant.fields, crate_path);
-				quote! {
-					.max(#variant_expression)
-				}
-			});
+			let expansion = data.variants.iter()
+				.filter(|variant| !should_skip(&variant.attrs))
+				.map(|variant| {
+					let variant_expression = fields_length_expr(&variant.fields, crate_path);
+					quote! {
+						.max(#variant_expression)
+					}
+				});
 
 			quote! {
 				0_usize #( #expansion )* .saturating_add(1)

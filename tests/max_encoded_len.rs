@@ -246,3 +246,37 @@ fn skip_type_params() {
 
 	assert_eq!(SomeData::<u32, SomeStruct>::max_encoded_len(), 4);
 }
+
+#[test]
+fn skip_enum_struct_test() {
+	#[derive(Default)]
+	struct NoCodecType;
+
+	struct NoCodecNoDefaultType;
+
+	#[derive(Encode, Decode, MaxEncodedLen)]
+	enum Enum<T = NoCodecType, S = NoCodecNoDefaultType> {
+		#[codec(skip)]
+		A(S),
+		B {
+			#[codec(skip)]
+			_b1: T,
+			b2: u32,
+		},
+		C(#[codec(skip)] T, u32),
+	}
+
+	#[derive(Encode, Decode, MaxEncodedLen)]
+	struct StructNamed<T = NoCodecType> {
+		#[codec(skip)]
+		a: T,
+		b: u32,
+	}
+
+	#[derive(Encode, Decode, MaxEncodedLen)]
+	struct StructUnnamed<T = NoCodecType>(#[codec(skip)] T, u32);
+
+	assert_eq!(Enum::<NoCodecType, NoCodecNoDefaultType>::max_encoded_len(), 5);
+	assert_eq!(StructNamed::<NoCodecType>::max_encoded_len(), 4);
+	assert_eq!(StructUnnamed::<NoCodecType>::max_encoded_len(), 4);
+}
