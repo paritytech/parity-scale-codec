@@ -279,4 +279,8 @@ fn skip_enum_struct_test() {
 	assert_eq!(Enum::<NoCodecType, NoCodecNoDefaultType>::max_encoded_len(), 5);
 	assert_eq!(StructNamed::<NoCodecType>::max_encoded_len(), 4);
 	assert_eq!(StructUnnamed::<NoCodecType>::max_encoded_len(), 4);
+
+	// Use the fields to avoid unused warnings.
+	let _ = Enum::<NoCodecType, NoCodecNoDefaultType>::A(NoCodecNoDefaultType);
+	let _ = StructNamed::<NoCodecType> { a: NoCodecType, b: 0 }.a;
 }
