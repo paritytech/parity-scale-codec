@@ -1,3 +1,4 @@
+
 # Parity SCALE Codec
 
 Rust implementation of the SCALE (Simple Concatenated Aggregate Little-Endian) data format
