@@ -87,6 +87,12 @@ pub trait Input {
 	fn ascend_ref(&mut self) {}
 
 	/// Hook that is called before allocating memory on the heap.
+	///
+	/// The aim is to get a reasonable approximation of memory usage, especially with variably
+	/// sized types like `Vec`s. Depending on the structure, it is acceptable to be off by a bit.
+	/// For example for structures like `BTreeMap` we don't track the memory  used by the internal
+	/// tree nodes etc. Also we don't take alignment or memory layouts into account.
+	/// But we should always track the memory used by the decoded data inside the type.
 	fn on_before_alloc_mem(&mut self, _size: usize) -> Result<(), Error> {
 		Ok(())
 	}
