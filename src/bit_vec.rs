@@ -15,7 +15,8 @@
 //! `BitVec` specific serialization.
 
 use crate::{
-	codec::decode_vec_with_len, Compact, Decode, Encode, EncodeLike, Error, Input, Output,
+	codec::decode_vec_with_len, Compact, Decode, DecodeWithMemTracking, Encode, EncodeLike, Error,
+	Input, Output,
 };
 use bitvec::{
 	boxed::BitBox, order::BitOrder, slice::BitSlice, store::BitStore, vec::BitVec, view::BitView,
@@ -74,6 +75,8 @@ impl<O: BitOrder, T: BitStore + Decode> Decode for BitVec<T, O> {
 	}
 }
 
+impl<O: BitOrder, T: BitStore + Decode> DecodeWithMemTracking for BitVec<T, O> {}
+
 impl<O: BitOrder, T: BitStore + Encode> Encode for BitBox<T, O> {
 	fn encode_to<W: Output + ?Sized>(&self, dest: &mut W) {
 		self.as_bitslice().encode_to(dest)
@@ -87,6 +90,8 @@ impl<O: BitOrder, T: BitStore + Decode> Decode for BitBox<T, O> {
 		Ok(BitVec::<T, O>::decode(input)?.into())
 	}
 }
+
+impl<O: BitOrder, T: BitStore + Decode> DecodeWithMemTracking for BitBox<T, O> {}
 
 #[cfg(test)]
 mod tests {
