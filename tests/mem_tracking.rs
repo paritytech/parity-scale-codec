@@ -23,6 +23,27 @@ use parity_scale_codec::{
 };
 use parity_scale_codec_derive::{Decode as DeriveDecode, Encode as DeriveEncode};
 
+const ARRAY: [u8; 1000] = [11; 1000];
+
+#[derive(DeriveEncode, DeriveDecode, PartialEq, Debug)]
+#[allow(clippy::large_enum_variant)]
+enum TestEnum {
+	Empty,
+	Array([u8; 1000]),
+}
+
+impl DecodeWithMemTracking for TestEnum {}
+
+#[derive(DeriveEncode, DeriveDecode, PartialEq, Debug)]
+struct ComplexStruct {
+	test_enum: TestEnum,
+	boxed_test_enum: Box<TestEnum>,
+	box_field: Box<u32>,
+	vec: Vec<u8>,
+}
+
+impl DecodeWithMemTracking for ComplexStruct {}
+
 fn decode_object<T>(obj: T, mem_limit: usize, expected_used_mem: usize) -> Result<T, Error>
 where
 	T: Encode + DecodeWithMemTracking + PartialEq + Debug,
@@ -38,8 +59,6 @@ where
 
 #[test]
 fn decode_simple_objects_works() {
-	const ARRAY: [u8; 1000] = [11; 1000];
-
 	// Test simple objects
 	assert!(decode_object(ARRAY, usize::MAX, 0).is_ok());
 	assert!(decode_object(Some(ARRAY), usize::MAX, 0).is_ok());
@@ -99,25 +118,6 @@ fn decode_bytes_from_bytes_works() {
 
 #[test]
 fn decode_complex_derived_struct_works() {
-	#[derive(DeriveEncode, DeriveDecode, PartialEq, Debug)]
-	#[allow(clippy::large_enum_variant)]
-	enum TestEnum {
-		Empty,
-		Array([u8; 1000]),
-	}
-
-	impl DecodeWithMemTracking for TestEnum {}
-
-	#[derive(DeriveEncode, DeriveDecode, PartialEq, Debug)]
-	struct ComplexStruct {
-		test_enum: TestEnum,
-		boxed_test_enum: Box<TestEnum>,
-		box_field: Box<u32>,
-		vec: Vec<u8>,
-	}
-
-	impl DecodeWithMemTracking for ComplexStruct {}
-
 	assert!(decode_object(
 		ComplexStruct {
 			test_enum: TestEnum::Array([0; 1000]),
@@ -128,5 +128,31 @@ fn decode_complex_derived_struct_works() {
 		usize::MAX,
 		1015
 	)
-	.is_ok())
+	.is_ok());
+}
+
+#[test]
+fn mem_limit_exceeded_is_triggered() {
+	// Test simple heap object
+	assert_eq!(
+		decode_object(Box::new(ARRAY), 999, 999).unwrap_err().to_string(),
+		"Heap memory limit exceeded while decoding"
+	);
+
+	// Test complex derived struct
+	assert_eq!(
+		decode_object(
+			ComplexStruct {
+				test_enum: TestEnum::Array([0; 1000]),
+				boxed_test_enum: Box::new(TestEnum::Empty),
+				box_field: Box::new(1),
+				vec: vec![1; 10],
+			},
+			1014,
+			1014
+		)
+		.unwrap_err()
+		.to_string(),
+		"Could not decode `ComplexStruct::vec`:\n\tHeap memory limit exceeded while decoding\n"
+	);
 }
