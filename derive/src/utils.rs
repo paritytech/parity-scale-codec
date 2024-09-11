@@ -62,7 +62,7 @@ impl UsedIndexes {
 				None
 			}) {
 				if !set.insert(index) {
-					return Err(syn::Error::new(nv.span(), "Duplicate variant index. qed"))
+					return Err(syn::Error::new(nv.span(), "Duplicate variant index. qed"));
 				}
 			} else if let Some((
 				_,
@@ -73,7 +73,7 @@ impl UsedIndexes {
 					.base10_parse::<u8>()
 					.expect("Internal error, index attribute must have been checked");
 				if !set.insert(index) {
-					return Err(syn::Error::new(expr.span(), "Duplicate variant index. qed"))
+					return Err(syn::Error::new(expr.span(), "Duplicate variant index. qed"));
 				}
 			}
 		}
@@ -118,7 +118,7 @@ impl UsedIndexes {
 			} else {
 				let index = self.current;
 				self.current += 1;
-				return index
+				return index;
 			}
 		}
 	}
