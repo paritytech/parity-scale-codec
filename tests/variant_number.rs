@@ -39,7 +39,7 @@ fn index_attr_variant_counted_and_reused_in_default_index() {
 	assert_eq!(T::B.encode(), vec![0]);
 }
 #[test]
-fn index_attr_vairant_duplicates_forbidden() {
+fn index_attr_vairant_duplicates_indices() {
 	#[derive(DeriveEncode)]
 	enum T {
 		A = 1,

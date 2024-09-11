@@ -64,20 +64,16 @@ impl UsedIndexes {
 				if !set.insert(index) {
 					return Err(syn::Error::new(nv.span(), "Duplicate variant index. qed"))
 				}
-			} else {
-				match v.discriminant.as_ref() {
-					Some((
-						_,
-						expr @ syn::Expr::Lit(ExprLit { lit: syn::Lit::Int(lit_int), .. }),
-					)) => {
-						let index = lit_int
-							.base10_parse::<u8>()
-							.expect("Internal error, index attribute must have been checked");
-						if !set.insert(index) {
-							return Err(syn::Error::new(expr.span(), "Duplicate variant index. qed"))
-						}
-					},
-					_ => (),
+			} else if let Some((
+				_,
+				expr @ syn::Expr::Lit(ExprLit { lit: syn::Lit::Int(lit_int), .. }),
+			)) = v.discriminant.as_ref()
+			{
+				let index = lit_int
+					.base10_parse::<u8>()
+					.expect("Internal error, index attribute must have been checked");
+				if !set.insert(index) {
+					return Err(syn::Error::new(expr.span(), "Duplicate variant index. qed"))
 				}
 			}
 		}
@@ -105,10 +101,10 @@ impl UsedIndexes {
 
 		index.map_or_else(
 			|| match v.discriminant.as_ref() {
-				Some((_, expr)) => return Ok(quote! { #expr }),
+				Some((_, expr)) => Ok(quote! { #expr }),
 				None => {
 					let idx = self.next_index();
-					return Ok(quote! { #idx })
+					Ok(quote! { #idx })
 				},
 			},
 			|i| Ok(quote! { #i }),

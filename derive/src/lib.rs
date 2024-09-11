@@ -94,8 +94,7 @@ fn wrap_with_dummy_const(
 /// * if variant has attribute: `#[codec(index = "$n")]` then n
 /// * else if variant has discriminant (like 3 in `enum T { A = 3 }`) then the discriminant.
 /// * else its position in the variant set, excluding skipped variants, but including variant with
-/// discriminant or attribute. Warning this position does collision with discriminant or attribute
-/// index.
+///   discriminant or attribute. Warning this position does collision with discriminant or attribute index.
 ///
 /// variant attributes:
 /// * `#[codec(skip)]`: the variant is not encoded.
