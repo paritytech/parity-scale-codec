@@ -10,7 +10,7 @@ fn discriminant_variant_counted_in_default_index() {
 	}
 
 	assert_eq!(T::A.encode(), vec![1]);
-	assert_eq!(T::B.encode(), vec![2]);
+	assert_eq!(T::B.encode(), vec![0]);
 }
 
 #[test]
@@ -36,5 +36,16 @@ fn index_attr_variant_counted_and_reused_in_default_index() {
 	}
 
 	assert_eq!(T::A.encode(), vec![1]);
-	assert_eq!(T::B.encode(), vec![2]);
+	assert_eq!(T::B.encode(), vec![0]);
+}
+#[test]
+fn index_attr_vairant_duplicates_forbidden() {
+	#[derive(DeriveEncode)]
+	enum T {
+		A = 1,
+		B = 0,
+	}
+
+	assert_eq!(T::A.encode(), vec![1]);
+	assert_eq!(T::B.encode(), vec![0]);
 }

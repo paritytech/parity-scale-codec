@@ -119,7 +119,7 @@ fn wrap_with_dummy_const(
 /// assert_eq!(EnumType::A.encode(), vec![15]);
 /// assert_eq!(EnumType::B.encode(), vec![]);
 /// assert_eq!(EnumType::C.encode(), vec![3]);
-/// assert_eq!(EnumType::D.encode(), vec![2]);
+/// assert_eq!(EnumType::D.encode(), vec![0]);
 /// ```
 #[proc_macro_derive(Encode, attributes(codec))]
 pub fn encode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {

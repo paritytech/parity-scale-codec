@@ -47,7 +47,7 @@ impl UsedIndexes {
 	/// Build a Set of used indexes for use with #[scale(index = $int)] attribute on variant
 	pub fn from_iter<'a, I: Iterator<Item = &'a Variant>>(values: I) -> syn::Result<Self> {
 		let mut set = HashSet::new();
-		for (i, v) in values.enumerate() {
+		for v in values {
 			if let Some((index, nv)) = find_meta_item(v.attrs.iter(), |meta| {
 				if let NestedMeta::Meta(Meta::NameValue(ref nv)) = meta {
 					if nv.path.is_ident("index") {
@@ -64,7 +64,6 @@ impl UsedIndexes {
 				if !set.insert(index) {
 					return Err(syn::Error::new(nv.span(), "Duplicate variant index. qed"))
 				}
-				set.insert(i.try_into().expect("Will never happen. qed"));
 			} else {
 				match v.discriminant.as_ref() {
 					Some((
@@ -77,7 +76,6 @@ impl UsedIndexes {
 						if !set.insert(index) {
 							return Err(syn::Error::new(expr.span(), "Duplicate variant index. qed"))
 						}
-						set.insert(i.try_into().expect("Will never happen. qed"));
 					},
 					_ => (),
 				}
