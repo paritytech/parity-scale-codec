@@ -17,7 +17,7 @@ use std::str::from_utf8;
 use proc_macro2::{Ident, Span, TokenStream};
 use syn::{punctuated::Punctuated, spanned::Spanned, token::Comma, Data, Error, Field, Fields};
 
-use crate::utils;
+use crate::{utils, utils::UsedIndexes};
 
 type FieldsList = Punctuated<Field, Comma>;
 
@@ -313,12 +313,18 @@ fn impl_encode(data: &Data, type_name: &Ident, crate_path: &syn::Path) -> TokenS
 			if data_variants().count() == 0 {
 				return quote!();
 			}
-
-			let recurse = data_variants().enumerate().map(|(i, f)| {
+			let mut used_indexes = match UsedIndexes::from_iter(data_variants()) {
+				Ok(index) => index,
+				Err(e) => return e.into_compile_error(),
+			};
+			let mut items = vec![];
+			for f in data_variants() {
 				let name = &f.ident;
-				let index = utils::variant_index(f, i);
-
-				match f.fields {
+				let index = match used_indexes.variant_index(f) {
+					Ok(index) => index,
+					Err(e) => return e.into_compile_error(),
+				};
+				let item = match f.fields {
 					Fields::Named(ref fields) => {
 						let fields = &fields.named;
 						let field_name = |_, ident: &Option<Ident>| quote!(#ident);
@@ -396,11 +402,12 @@ fn impl_encode(data: &Data, type_name: &Ident, crate_path: &syn::Path) -> TokenS
 
 						[hinting, encoding]
 					},
-				}
-			});
+				};
+				items.push(item)
+			}
 
-			let recurse_hinting = recurse.clone().map(|[hinting, _]| hinting);
-			let recurse_encoding = recurse.clone().map(|[_, encoding]| encoding);
+			let recurse_hinting = items.iter().map(|[hinting, _]| hinting);
+			let recurse_encoding = items.iter().map(|[_, encoding]| encoding);
 
 			let hinting = quote! {
 				// The variant index uses 1 byte.

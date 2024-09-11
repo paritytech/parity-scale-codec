@@ -15,7 +15,7 @@
 use proc_macro2::{Ident, Span, TokenStream};
 use syn::{spanned::Spanned, Data, Error, Field, Fields};
 
-use crate::utils;
+use crate::utils::{self, UsedIndexes};
 
 /// Generate function block for function `Decode::decode`.
 ///
@@ -57,9 +57,17 @@ pub fn quote(
 				.to_compile_error();
 			}
 
-			let recurse = data_variants().enumerate().map(|(i, v)| {
+			let mut used_indexes = match UsedIndexes::from_iter(data_variants()) {
+				Ok(index) => index,
+				Err(e) => return e.into_compile_error(),
+			};
+			let mut items = vec![];
+			for v in data_variants() {
 				let name = &v.ident;
-				let index = utils::variant_index(v, i);
+				let index = match used_indexes.variant_index(v) {
+					Ok(index) => index,
+					Err(e) => return e.into_compile_error(),
+				};
 
 				let create = create_instance(
 					quote! { #type_name #type_generics :: #name },
@@ -69,7 +77,7 @@ pub fn quote(
 					crate_path,
 				);
 
-				quote_spanned! { v.span() =>
+				let item = quote_spanned! { v.span() =>
 					#[allow(clippy::unnecessary_cast)]
 					__codec_x_edqy if __codec_x_edqy == #index as ::core::primitive::u8 => {
 						// NOTE: This lambda is necessary to work around an upstream bug
@@ -80,8 +88,9 @@ pub fn quote(
 							#create
 						})();
 					},
-				}
-			});
+				};
+				items.push(item);
+			}
 
 			let read_byte_err_msg =
 				format!("Could not decode `{type_name}`, failed to read variant byte");
@@ -91,7 +100,7 @@ pub fn quote(
 				match #input.read_byte()
 					.map_err(|e| e.chain(#read_byte_err_msg))?
 				{
-					#( #recurse )*
+					#( #items )*
 					_ => {
 						#[allow(clippy::redundant_closure_call)]
 						return (move || {

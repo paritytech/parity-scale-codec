@@ -17,13 +17,14 @@
 //! NOTE: attributes finder must be checked using check_attribute first,
 //! otherwise the macro can panic.
 
-use std::str::FromStr;
+use std::{collections::HashSet, str::FromStr};
 
 use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
 use syn::{
 	parse::Parse, punctuated::Punctuated, spanned::Spanned, token, Attribute, Data, DeriveInput,
-	Field, Fields, FieldsNamed, FieldsUnnamed, Lit, Meta, MetaNameValue, NestedMeta, Path, Variant,
+	ExprLit, Field, Fields, FieldsNamed, FieldsUnnamed, Lit, Meta, MetaNameValue, NestedMeta, Path,
+	Variant,
 };
 
 fn find_meta_item<'a, F, R, I, M>(mut itr: I, mut pred: F) -> Option<R>
@@ -37,32 +38,96 @@ where
 	})
 }
 
-/// Look for a `#[scale(index = $int)]` attribute on a variant. If no attribute
-/// is found, fall back to the discriminant or just the variant index.
-pub fn variant_index(v: &Variant, i: usize) -> TokenStream {
-	// first look for an attribute
-	let index = find_meta_item(v.attrs.iter(), |meta| {
-		if let NestedMeta::Meta(Meta::NameValue(ref nv)) = meta {
-			if nv.path.is_ident("index") {
-				if let Lit::Int(ref v) = nv.lit {
-					let byte = v
-						.base10_parse::<u8>()
-						.expect("Internal error, index attribute must have been checked");
-					return Some(byte);
+pub struct UsedIndexes {
+	used_set: HashSet<u8>,
+	current: u8,
+}
+
+impl UsedIndexes {
+	/// Build a Set of used indexes for use with #[scale(index = $int)] attribute on variant
+	pub fn from_iter<'a, I: Iterator<Item = &'a Variant>>(values: I) -> syn::Result<Self> {
+		let mut set = HashSet::new();
+		for (i, v) in values.enumerate() {
+			if let Some((index, nv)) = find_meta_item(v.attrs.iter(), |meta| {
+				if let NestedMeta::Meta(Meta::NameValue(ref nv)) = meta {
+					if nv.path.is_ident("index") {
+						if let Lit::Int(ref v) = nv.lit {
+							let byte = v
+								.base10_parse::<u8>()
+								.expect("Internal error, index attribute must have been checked");
+							return Some((byte, nv.span()));
+						}
+					}
+				}
+				None
+			}) {
+				if !set.insert(index) {
+					return Err(syn::Error::new(nv.span(), "Duplicate variant index. qed"))
+				}
+				set.insert(i.try_into().expect("Will never happen. qed"));
+			} else {
+				match v.discriminant.as_ref() {
+					Some((
+						_,
+						expr @ syn::Expr::Lit(ExprLit { lit: syn::Lit::Int(lit_int), .. }),
+					)) => {
+						let index = lit_int
+							.base10_parse::<u8>()
+							.expect("Internal error, index attribute must have been checked");
+						if !set.insert(index) {
+							return Err(syn::Error::new(expr.span(), "Duplicate variant index. qed"))
+						}
+						set.insert(i.try_into().expect("Will never happen. qed"));
+					},
+					_ => (),
 				}
 			}
 		}
+		Ok(Self { current: 0, used_set: set })
+	}
 
-		None
-	});
+	/// Look for a `#[scale(index = $int)]` attribute on a variant. If no attribute
+	/// is found, fall back to the discriminant or just the variant index.
+	pub fn variant_index(&mut self, v: &Variant) -> syn::Result<TokenStream> {
+		// first look for an attribute
+		let index = find_meta_item(v.attrs.iter(), |meta| {
+			if let NestedMeta::Meta(Meta::NameValue(ref nv)) = meta {
+				if nv.path.is_ident("index") {
+					if let Lit::Int(ref v) = nv.lit {
+						let byte = v
+							.base10_parse::<u8>()
+							.expect("Internal error, index attribute must have been checked");
+						return Some(byte);
+					}
+				}
+			}
 
-	// then fallback to discriminant or just index
-	index.map(|i| quote! { #i }).unwrap_or_else(|| {
-		v.discriminant
-			.as_ref()
-			.map(|(_, expr)| quote! { #expr })
-			.unwrap_or_else(|| quote! { #i })
-	})
+			None
+		});
+
+		index.map_or_else(
+			|| match v.discriminant.as_ref() {
+				Some((_, expr)) => return Ok(quote! { #expr }),
+				None => {
+					let idx = self.next_index();
+					return Ok(quote! { #idx })
+				},
+			},
+			|i| Ok(quote! { #i }),
+		)
+	}
+
+	fn next_index(&mut self) -> u8 {
+		loop {
+			if self.used_set.contains(&self.current) {
+				self.current += 1;
+			} else {
+				let index = self.current;
+				self.current += 1;
+				return index
+			}
+		}
+	}
 }
 
 /// Look for a `#[codec(encoded_as = "SomeType")]` outer attribute on the given

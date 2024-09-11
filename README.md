@@ -216,7 +216,7 @@ The derive implementation supports the following attributes:
 - `codec(encoded_as = "OtherType")`: Needs to be placed above a field and makes the field being
   encoded by using `OtherType`.
 - `codec(index = 0)`: Needs to be placed above an enum variant to make the variant use the given
-  index when encoded. By default the index is determined by counting from `0` beginning wth the
+  index when encoded. By default the index is determined by counting from `0` beginning with the
   first variant.
 - `codec(encode_bound)`, `codec(decode_bound)` and `codec(mel_bound)`: All 3 attributes take
   in a `where` clause for the `Encode`, `Decode` and `MaxEncodedLen` trait implementation for
