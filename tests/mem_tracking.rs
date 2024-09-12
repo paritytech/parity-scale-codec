@@ -54,6 +54,11 @@ where
 	let decoded_obj = T::decode(&mut input)?;
 	assert_eq!(&decoded_obj, &obj);
 	assert_eq!(input.used_mem(), expected_used_mem);
+
+	if expected_used_mem > 0 {
+		let mut input = MemTrackingInput::new(raw_input, expected_used_mem);
+		assert!(T::decode(&mut input).is_err());
+	}
 	Ok(decoded_obj)
 }
 

@@ -90,7 +90,7 @@ pub trait Input {
 	///
 	/// The aim is to get a reasonable approximation of memory usage, especially with variably
 	/// sized types like `Vec`s. Depending on the structure, it is acceptable to be off by a bit.
-	/// For example for structures like `BTreeMap` we don't track the memory  used by the internal
+	/// For example for structures like `BTreeMap` we don't track the memory used by the internal
 	/// tree nodes etc. Also we don't take alignment or memory layouts into account.
 	/// But we should always track the memory used by the decoded data inside the type.
 	fn on_before_alloc_mem(&mut self, _size: usize) -> Result<(), Error> {
@@ -1281,7 +1281,7 @@ macro_rules! impl_codec_through_iterator {
 				<Compact<u32>>::decode(input).and_then(move |Compact(len)| {
 					input.descend_ref()?;
 					let result = Result::from_iter((0..len).map(|_| {
-						input.on_before_alloc_mem(0 $( + mem::size_of::<$generics>() )*)?;
+						input.on_before_alloc_mem(0usize$(.saturating_add(mem::size_of::<$generics>()))*)?;
 						Decode::decode(input)
 					}));
 					input.ascend_ref();

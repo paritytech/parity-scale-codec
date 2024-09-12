@@ -16,7 +16,7 @@
 use crate::{Decode, Error, Input};
 use impl_trait_for_tuples::impl_for_tuples;
 
-/// Marker trait used for identifying types that call the mem tracking hooks exposed by `Input`
+/// Marker trait used for identifying types that call the [`Input::on_before_alloc_mem`] hook
 /// while decoding.
 pub trait DecodeWithMemTracking: Decode {}
 
