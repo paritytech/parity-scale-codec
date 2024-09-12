@@ -99,14 +99,14 @@ pub trait Input {
 
 	/// !INTERNAL USE ONLY!
 	///
-	/// Used when decoding a `bytes::Bytes` from a `BytesCursor` input.
+	/// Decodes a `bytes::Bytes`.
 	#[cfg(feature = "bytes")]
 	#[doc(hidden)]
-	fn __private_bytes_cursor(&mut self) -> Option<&mut BytesCursor>
+	fn scale_internal_decode_bytes(&mut self) -> Result<bytes::Bytes, Error>
 	where
 		Self: Sized,
 	{
-		None
+		Vec::<u8>::decode(self).map(bytes::Bytes::from)
 	}
 }
 
@@ -420,30 +420,10 @@ mod feature_wrapper_bytes {
 	impl EncodeLike<Bytes> for Vec<u8> {}
 }
 
-/// `Input` implementation optimized for decoding `bytes::Bytes`.
 #[cfg(feature = "bytes")]
-pub struct BytesCursor {
+struct BytesCursor {
 	bytes: bytes::Bytes,
 	position: usize,
-}
-
-#[cfg(feature = "bytes")]
-impl BytesCursor {
-	/// Create a new instance of `BytesCursor`.
-	pub fn new(bytes: bytes::Bytes) -> Self {
-		Self { bytes, position: 0 }
-	}
-
-	fn decode_bytes_with_len(&mut self, length: usize) -> Result<bytes::Bytes, Error> {
-		bytes::Buf::advance(&mut self.bytes, self.position);
-		self.position = 0;
-
-		if length > self.bytes.len() {
-			return Err("Not enough data to fill buffer".into());
-		}
-
-		Ok(self.bytes.split_to(length))
-	}
 }
 
 #[cfg(feature = "bytes")]
@@ -462,11 +442,18 @@ impl Input for BytesCursor {
 		Ok(())
 	}
 
-	fn __private_bytes_cursor(&mut self) -> Option<&mut BytesCursor>
-	where
-		Self: Sized,
-	{
-		Some(self)
+	fn scale_internal_decode_bytes(&mut self) -> Result<bytes::Bytes, Error> {
+		let length = <Compact<u32>>::decode(self)?.0 as usize;
+
+		bytes::Buf::advance(&mut self.bytes, self.position);
+		self.position = 0;
+
+		if length > self.bytes.len() {
+			return Err("Not enough data to fill buffer".into());
+		}
+
+		self.on_before_alloc_mem(length)?;
+		Ok(self.bytes.split_to(length))
 	}
 }
 
@@ -492,23 +479,14 @@ where
 	// However, if `T` doesn't contain any `Bytes` then this extra allocation is
 	// technically unnecessary, and we can avoid it by tracking the position ourselves
 	// and treating the underlying `Bytes` as a fancy `&[u8]`.
-	let mut input = BytesCursor::new(bytes);
+	let mut input = BytesCursor { bytes, position: 0 };
 	T::decode(&mut input)
 }
 
 #[cfg(feature = "bytes")]
 impl Decode for bytes::Bytes {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
-		let len = <Compact<u32>>::decode(input)?.0 as usize;
-		if input.__private_bytes_cursor().is_some() {
-			input.on_before_alloc_mem(len)?;
-		}
-
-		if let Some(bytes_cursor) = input.__private_bytes_cursor() {
-			bytes_cursor.decode_bytes_with_len(len)
-		} else {
-			decode_vec_with_len::<u8, _>(input, len).map(bytes::Bytes::from)
-		}
+		input.scale_internal_decode_bytes()
 	}
 }
 

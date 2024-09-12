@@ -107,20 +107,6 @@ fn decode_complex_objects_works() {
 	assert!(decode_object(Box::new(Rc::new(vec![String::from("test")])), usize::MAX, 60).is_ok());
 }
 
-#[cfg(feature = "bytes")]
-#[test]
-fn decode_bytes_from_bytes_works() {
-	use parity_scale_codec::Decode;
-
-	let obj = ([0u8; 100], Box::new(0u8), bytes::Bytes::from(vec![0u8; 50]));
-	let encoded_bytes = obj.encode();
-	let mut bytes_cursor = parity_scale_codec::BytesCursor::new(bytes::Bytes::from(encoded_bytes));
-	let mut input = MemTrackingInput::new(&mut bytes_cursor, usize::MAX);
-	let decoded_obj = <([u8; 100], Box<u8>, bytes::Bytes)>::decode(&mut input).unwrap();
-	assert_eq!(&decoded_obj, &obj);
-	assert_eq!(input.used_mem(), 51);
-}
-
 #[test]
 fn decode_complex_derived_struct_works() {
 	assert!(decode_object(
