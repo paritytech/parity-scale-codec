@@ -12,10 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use proc_macro2::{Ident, Span, TokenStream};
-use syn::{spanned::Spanned, Data, Error, Field, Fields};
-
 use crate::utils;
+use proc_macro2::{Ident, Span, TokenStream};
+use quote::ToTokens;
+use std::iter;
+use syn::{spanned::Spanned, Data, Error, Field, Fields};
 
 /// Generate function block for function `Decode::decode`.
 ///
@@ -282,5 +283,46 @@ fn create_instance(
 				::core::result::Result::Ok(#name)
 			}
 		},
+	}
+}
+
+pub fn quote_decode_with_mem_tracking(data: &Data, crate_path: &syn::Path) -> TokenStream {
+	let fields: Box<dyn Iterator<Item = &Field>> = match data {
+		Data::Struct(data) => Box::new(data.fields.iter()),
+		Data::Enum(ref data) => {
+			let variants = match utils::try_get_variants(data) {
+				Ok(variants) => variants,
+				Err(e) => return e.to_compile_error(),
+			};
+
+			let mut fields: Box<dyn Iterator<Item = &Field>> = Box::new(iter::empty());
+			for variant in variants {
+				fields = Box::new(fields.chain(variant.fields.iter()));
+			}
+			fields
+		},
+		Data::Union(_) => {
+			return Error::new(Span::call_site(), "Union types are not supported.")
+				.to_compile_error();
+		},
+	};
+
+	let processed_fields = fields.filter_map(|field| {
+		if utils::should_skip(&field.attrs) {
+			return None;
+		}
+
+		let field_type = if let Some(compact) = utils::get_compact_type(field, crate_path) {
+			compact
+		} else if let Some(encoded_as) = utils::get_encoded_as_type(field) {
+			encoded_as
+		} else {
+			field.ty.to_token_stream()
+		};
+		Some(quote! {<#field_type as #crate_path::DecodeWithMemTracking>::__is_implemented();})
+	});
+
+	quote! {
+		#(#processed_fields)*
 	}
 }

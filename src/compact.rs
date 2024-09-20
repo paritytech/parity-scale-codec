@@ -256,7 +256,12 @@ impl<T> MaybeMaxEncodedLen for T {}
 /// Trait that tells you if a given type can be encoded/decoded in a compact way.
 pub trait HasCompact: Sized {
 	/// The compact type; this can be
-	type Type: for<'a> EncodeAsRef<'a, Self> + Decode + From<Self> + Into<Self> + MaybeMaxEncodedLen;
+	type Type: for<'a> EncodeAsRef<'a, Self>
+		+ Decode
+		+ DecodeWithMemTracking
+		+ From<Self>
+		+ Into<Self>
+		+ MaybeMaxEncodedLen;
 }
 
 impl<'a, T: 'a> EncodeAsRef<'a, T> for Compact<T>
@@ -280,7 +285,12 @@ where
 
 impl<T: 'static> HasCompact for T
 where
-	Compact<T>: for<'a> EncodeAsRef<'a, T> + Decode + From<Self> + Into<Self> + MaybeMaxEncodedLen,
+	Compact<T>: for<'a> EncodeAsRef<'a, T>
+		+ Decode
+		+ DecodeWithMemTracking
+		+ From<Self>
+		+ Into<Self>
+		+ MaybeMaxEncodedLen,
 {
 	type Type = Compact<T>;
 }

@@ -18,7 +18,10 @@ use impl_trait_for_tuples::impl_for_tuples;
 
 /// Marker trait used for identifying types that call the [`Input::on_before_alloc_mem`] hook
 /// while decoding.
-pub trait DecodeWithMemTracking: Decode {}
+pub trait DecodeWithMemTracking: Decode {
+	/// Internal method used to derive `DecodeWithMemTracking`.
+	fn __is_implemented() {}
+}
 
 const DECODE_OOM_MSG: &str = "Heap memory limit exceeded while decoding";
 

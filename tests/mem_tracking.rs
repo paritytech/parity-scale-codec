@@ -21,28 +21,27 @@ use parity_scale_codec::{
 	},
 	DecodeWithMemTracking, Encode, Error, MemTrackingInput,
 };
-use parity_scale_codec_derive::{Decode as DeriveDecode, Encode as DeriveEncode};
+use parity_scale_codec_derive::{
+	Decode as DeriveDecode, DecodeWithMemTracking as DeriveDecodeWithMemTracking,
+	Encode as DeriveEncode,
+};
 
 const ARRAY: [u8; 1000] = [11; 1000];
 
-#[derive(DeriveEncode, DeriveDecode, PartialEq, Debug)]
+#[derive(DeriveEncode, DeriveDecode, DeriveDecodeWithMemTracking, PartialEq, Debug)]
 #[allow(clippy::large_enum_variant)]
 enum TestEnum {
 	Empty,
 	Array([u8; 1000]),
 }
 
-impl DecodeWithMemTracking for TestEnum {}
-
-#[derive(DeriveEncode, DeriveDecode, PartialEq, Debug)]
+#[derive(DeriveEncode, DeriveDecode, DeriveDecodeWithMemTracking, PartialEq, Debug)]
 struct ComplexStruct {
 	test_enum: TestEnum,
 	boxed_test_enum: Box<TestEnum>,
 	box_field: Box<u32>,
 	vec: Vec<u8>,
 }
-
-impl DecodeWithMemTracking for ComplexStruct {}
 
 fn decode_object<T>(obj: T, mem_limit: usize, expected_used_mem: usize) -> Result<T, Error>
 where

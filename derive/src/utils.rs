@@ -235,6 +235,7 @@ impl<N: Parse> Parse for CustomTraitBound<N> {
 
 syn::custom_keyword!(encode_bound);
 syn::custom_keyword!(decode_bound);
+syn::custom_keyword!(decode_with_mem_tracking_bound);
 syn::custom_keyword!(mel_bound);
 syn::custom_keyword!(skip_type_params);
 
@@ -242,6 +243,15 @@ syn::custom_keyword!(skip_type_params);
 ///
 /// If found, it should be used as trait bounds when deriving the `Decode` trait.
 pub fn custom_decode_trait_bound(attrs: &[Attribute]) -> Option<CustomTraitBound<decode_bound>> {
+	find_meta_item(attrs.iter(), Some)
+}
+
+/// Look for a `#[codec(decode_with_mem_tracking_bound(T: Decode))]` in the given attributes.
+///
+/// If found, it should be used as trait bounds when deriving the `Decode` trait.
+pub fn custom_decode_with_mem_tracking_trait_bound(
+	attrs: &[Attribute],
+) -> Option<CustomTraitBound<decode_with_mem_tracking_bound>> {
 	find_meta_item(attrs.iter(), Some)
 }
 
@@ -411,11 +421,13 @@ fn check_variant_attribute(attr: &Attribute) -> syn::Result<()> {
 fn check_top_attribute(attr: &Attribute) -> syn::Result<()> {
 	let top_error = "Invalid attribute: only `#[codec(dumb_trait_bound)]`, \
 		`#[codec(crate = path::to::crate)]`, `#[codec(encode_bound(T: Encode))]`, \
-		`#[codec(decode_bound(T: Decode))]`, or `#[codec(mel_bound(T: MaxEncodedLen))]` \
-		are accepted as top attribute";
+		`#[codec(decode_bound(T: Decode))]`, \
+		`#[codec(decode_bound_with_mem_tracking_bound(T: Decode))]` or \
+		`#[codec(mel_bound(T: MaxEncodedLen))]` are accepted as top attribute";
 	if attr.path.is_ident("codec") &&
 		attr.parse_args::<CustomTraitBound<encode_bound>>().is_err() &&
 		attr.parse_args::<CustomTraitBound<decode_bound>>().is_err() &&
+		attr.parse_args::<CustomTraitBound<decode_with_mem_tracking_bound>>().is_err() &&
 		attr.parse_args::<CustomTraitBound<mel_bound>>().is_err() &&
 		codec_crate_path_inner(attr).is_none()
 	{

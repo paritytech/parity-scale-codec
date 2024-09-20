@@ -1076,7 +1076,7 @@ impl<T> Decode for PhantomData<T> {
 	}
 }
 
-impl<T: DecodeWithMemTracking> DecodeWithMemTracking for PhantomData<T> where PhantomData<T>: Decode {}
+impl<T> DecodeWithMemTracking for PhantomData<T> where PhantomData<T>: Decode {}
 
 impl Decode for String {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
