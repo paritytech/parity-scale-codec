@@ -16,7 +16,7 @@
 #[derive(Eq, PartialEq, Clone, Debug)]
 pub enum Count {
 	/// The counter has an exact value.
-	Exact(u32),
+	Exact(u64),
 	/// The counter has reached its maximum countable value.
 	MaxCountReached,
 }
@@ -25,10 +25,10 @@ pub enum Count {
 ///
 /// If inner `Input` fails to read, the counter is not incremented.
 ///
-/// It can count until `u32::MAX - 1` accurately.
+/// It can count until `u64::MAX - 1` accurately.
 pub struct CountedInput<'a, I: crate::Input> {
 	input: &'a mut I,
-	counter: u32,
+	counter: u64,
 }
 
 impl<'a, I: crate::Input> CountedInput<'a, I> {
@@ -38,9 +38,9 @@ impl<'a, I: crate::Input> CountedInput<'a, I> {
 	}
 
 	/// Get the number of bytes successfully read.
-	/// Count until `u32::MAX - 1` accurately.
+	/// Count until `u64::MAX - 1` accurately.
 	pub fn count(&self) -> Count {
-		if self.counter == u32::MAX {
+		if self.counter == u64::MAX {
 			Count::MaxCountReached
 		} else {
 			Count::Exact(self.counter)
@@ -57,7 +57,7 @@ impl<I: crate::Input> crate::Input for CountedInput<'_, I> {
 		self.input.read(into)
 			.map(|r| {
 				self.counter = self.counter.saturating_add(
-					into.len().try_into().unwrap_or(u32::MAX)
+					into.len().try_into().unwrap_or(u64::MAX)
 				);
 				r
 			})
@@ -122,69 +122,55 @@ mod test {
 		assert_eq!(counted_input.count(), Count::Exact(5));
 	}
 
+	#[test]
+	fn test_counted_input_max_count_read_byte() {
+		let max_exact_count = u64::MAX - 1;
 
-	struct BigInput;
-	impl Input for BigInput {
-		fn remaining_len(&mut self) -> Result<Option<usize>, crate::Error> {
-			Ok(None)
-		}
+		let mut input = &[0u8; 1000][..];
+		let mut counted_input = CountedInput::new(&mut input);
 
-		fn read(&mut self, _into: &mut [u8]) -> Result<(), crate::Error> {
-			Ok(())
-		}
+		counted_input.counter = max_exact_count - 2;
 
-		fn read_byte(&mut self) -> Result<u8, crate::Error> {
-			Ok(0)
-		}
+		assert_eq!(counted_input.count(), Count::Exact(max_exact_count - 2));
 
-		fn ascend_ref(&mut self) {}
+		counted_input.read_byte().unwrap();
 
-		fn descend_ref(&mut self) -> Result<(), crate::Error> {
-			Ok(())
-		}
+		assert_eq!(counted_input.count(), Count::Exact(max_exact_count - 1));
+
+		counted_input.read_byte().unwrap();
+
+		assert_eq!(counted_input.count(), Count::Exact(max_exact_count));
+
+		counted_input.read_byte().unwrap();
+
+		assert_eq!(counted_input.count(), Count::MaxCountReached);
+
+		counted_input.read_byte().unwrap();
+
+		assert_eq!(counted_input.count(), Count::MaxCountReached);
 	}
 
 	#[test]
-	fn test_counted_input_max_count() {
-		let max = u32::MAX - 1; // 2^32 - 2
+	fn test_counted_input_max_count_read() {
+		let max_exact_count = u64::MAX - 1;
 
-		let mut input = BigInput;
+		let mut input = &[0u8; 1000][..];
 		let mut counted_input = CountedInput::new(&mut input);
 
-		assert_eq!(counted_input.count(), Count::Exact(0));
+		counted_input.counter = max_exact_count - 1;
 
-		// Test will read continuously into this page.
-		let page_size = 1024 * 1024; // 1 MB
-		let mut page = vec![0u8; page_size];
+		assert_eq!(counted_input.count(), Count::Exact(max_exact_count - 1));
 
-		// Calculate the number of full pages and the remaining bytes
-		let total_bytes = max as usize;
-		let full_pages = total_bytes / page_size;
-		let remaining_bytes = total_bytes % page_size;
-
-		// Read full pages
-		for _ in 0..full_pages {
-			counted_input.read(&mut page[..]).unwrap();
-		}
-
-		// Read remaining bytes
-		if remaining_bytes > 0 {
-			counted_input.read(&mut page[..remaining_bytes]).unwrap();
-		}
-
-		// Max is reached exactly
-		assert_eq!(counted_input.count(), Count::Exact(max));
-
-		// Perform one additional read
 		counted_input.read_byte().unwrap();
 
-		// Count is more than max.
+		assert_eq!(counted_input.count(), Count::Exact(max_exact_count));
+
+		counted_input.read(&mut [0u8; 2][..]).unwrap();
+
 		assert_eq!(counted_input.count(), Count::MaxCountReached);
 
-		// Perform one additional read
-		counted_input.read_byte().unwrap();
+		counted_input.read(&mut [0u8; 2][..]).unwrap();
 
-		// Count is still more than max.
 		assert_eq!(counted_input.count(), Count::MaxCountReached);
 	}
 }
