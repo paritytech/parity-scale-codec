@@ -137,7 +137,7 @@ mod test {
 
 		counted_input.counter = max_exact_count;
 
-		assert_eq!(counted_input.count(), max_exact_count));
+		assert_eq!(counted_input.count(), max_exact_count);
 
 		counted_input.read(&mut [0u8; 2][..]).unwrap();
 

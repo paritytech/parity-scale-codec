@@ -75,7 +75,7 @@ pub use self::{
 	error::Error,
 	joiner::Joiner,
 	keyedvec::KeyedVec,
-	counted_input::{CountedInput, Count},
+	counted_input::CountedInput,
 };
 #[cfg(feature = "max-encoded-len")]
 pub use const_encoded_len::ConstEncodedLen;
