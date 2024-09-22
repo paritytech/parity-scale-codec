@@ -40,21 +40,17 @@ impl<I: crate::Input> crate::Input for CountedInput<'_, I> {
 	}
 
 	fn read(&mut self, into: &mut [u8]) -> Result<(), crate::Error> {
-		self.input.read(into)
-			.map(|r| {
-				self.counter = self.counter.saturating_add(
-					into.len().try_into().unwrap_or(u64::MAX)
-				);
-				r
-			})
+		self.input.read(into).map(|r| {
+			self.counter = self.counter.saturating_add(into.len().try_into().unwrap_or(u64::MAX));
+			r
+		})
 	}
 
 	fn read_byte(&mut self) -> Result<u8, crate::Error> {
-		self.input.read_byte()
-			.map(|r| {
-				self.counter = self.counter.saturating_add(1);
-				r
-			})
+		self.input.read_byte().map(|r| {
+			self.counter = self.counter.saturating_add(1);
+			r
+		})
 	}
 
 	fn ascend_ref(&mut self) {
@@ -102,7 +98,10 @@ mod test {
 		assert_eq!(counted_input.remaining_len().unwrap(), Some(0));
 		assert_eq!(counted_input.count(), 5);
 
-		assert_eq!(counted_input.read(&mut [0u8; 2][..]), Err("Not enough data to fill buffer".into()));
+		assert_eq!(
+			counted_input.read(&mut [0u8; 2][..]),
+			Err("Not enough data to fill buffer".into())
+		);
 
 		assert_eq!(counted_input.remaining_len().unwrap(), Some(0));
 		assert_eq!(counted_input.count(), 5);
