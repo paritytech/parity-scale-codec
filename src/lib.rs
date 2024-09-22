@@ -50,6 +50,7 @@ mod decode_finished;
 mod depth_limit;
 mod encode_append;
 mod encode_like;
+mod counted_input;
 mod error;
 #[cfg(feature = "generic-array")]
 mod generic_array;
@@ -74,6 +75,7 @@ pub use self::{
 	error::Error,
 	joiner::Joiner,
 	keyedvec::KeyedVec,
+	counted_input::{CountedInput, Count},
 };
 #[cfg(feature = "max-encoded-len")]
 pub use const_encoded_len::ConstEncodedLen;
