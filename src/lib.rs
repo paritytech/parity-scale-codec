@@ -45,6 +45,7 @@ mod codec;
 mod compact;
 #[cfg(feature = "max-encoded-len")]
 mod const_encoded_len;
+mod counted_input;
 mod decode_all;
 mod decode_finished;
 mod depth_limit;
@@ -66,6 +67,7 @@ pub use self::{
 		FullEncode, Input, OptionBool, Output, WrapperTypeDecode, WrapperTypeEncode,
 	},
 	compact::{Compact, CompactAs, CompactLen, CompactRef, HasCompact},
+	counted_input::CountedInput,
 	decode_all::DecodeAll,
 	decode_finished::DecodeFinished,
 	depth_limit::DecodeLimit,
