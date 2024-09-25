@@ -75,7 +75,7 @@ pub use self::{
 	error::Error,
 	joiner::Joiner,
 	keyedvec::KeyedVec,
-	mem_tracking::{DecodeWithMemTracking, MemTrackingInput},
+	mem_tracking::{DecodeWithMemLimit, DecodeWithMemTracking, MemTrackingInput},
 };
 #[cfg(feature = "max-encoded-len")]
 pub use const_encoded_len::ConstEncodedLen;

@@ -79,3 +79,22 @@ impl<'a, I: Input> Input for MemTrackingInput<'a, I> {
 		Ok(())
 	}
 }
+
+/// Extension trait to [`Decode`] for decoding with a maximum memory limit.
+pub trait DecodeWithMemLimit: DecodeWithMemTracking {
+	/// Decode `Self` with the given maximum memory limit and advance `input` by the number of
+	/// bytes consumed.
+	///
+	/// If `mem_limit` is hit, an error is returned.
+	fn decode_with_mem_limit<I: Input>(input: &mut I, mem_limit: usize) -> Result<Self, Error>;
+}
+
+impl<T> DecodeWithMemLimit for T
+where
+	T: DecodeWithMemTracking,
+{
+	fn decode_with_mem_limit<I: Input>(input: &mut I, mem_limit: usize) -> Result<Self, Error> {
+		let mut input = MemTrackingInput::new(input, mem_limit);
+		T::decode(&mut input)
+	}
+}

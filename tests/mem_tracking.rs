@@ -19,7 +19,7 @@ use parity_scale_codec::{
 		collections::{BTreeMap, BTreeSet, LinkedList, VecDeque},
 		rc::Rc,
 	},
-	DecodeWithMemTracking, Encode, Error, MemTrackingInput,
+	DecodeWithMemLimit, DecodeWithMemTracking, Encode, Error, MemTrackingInput,
 };
 use parity_scale_codec_derive::{
 	Decode as DeriveDecode, DecodeWithMemTracking as DeriveDecodeWithMemTracking,
@@ -45,19 +45,24 @@ struct ComplexStruct {
 
 fn decode_object<T>(obj: T, mem_limit: usize, expected_used_mem: usize) -> Result<T, Error>
 where
-	T: Encode + DecodeWithMemTracking + PartialEq + Debug,
+	T: Encode + DecodeWithMemTracking + DecodeWithMemLimit + PartialEq + Debug,
 {
 	let encoded_bytes = obj.encode();
+
+	let decoded_obj = T::decode_with_mem_limit(&mut &encoded_bytes[..], mem_limit)?;
+	assert_eq!(&decoded_obj, &obj);
+
 	let raw_input = &mut &encoded_bytes[..];
 	let mut input = MemTrackingInput::new(raw_input, mem_limit);
 	let decoded_obj = T::decode(&mut input)?;
 	assert_eq!(&decoded_obj, &obj);
 	assert_eq!(input.used_mem(), expected_used_mem);
-
 	if expected_used_mem > 0 {
+		let raw_input = &mut &encoded_bytes[..];
 		let mut input = MemTrackingInput::new(raw_input, expected_used_mem);
 		assert!(T::decode(&mut input).is_err());
 	}
+
 	Ok(decoded_obj)
 }
 
@@ -86,18 +91,18 @@ fn decode_simple_objects_works() {
 	#[cfg(feature = "bytes")]
 	assert!(decode_object(bytes::Bytes::from(&ARRAY[..]), usize::MAX, 1000).is_ok());
 	// Complex Collections
-	assert!(decode_object(BTreeMap::<u8, u8>::from([(1, 2), (2, 3)]), usize::MAX, 4).is_ok());
+	assert!(decode_object(BTreeMap::<u8, u8>::from([(1, 2), (2, 3)]), usize::MAX, 136).is_ok());
 	assert!(decode_object(
 		BTreeMap::from([
 			("key1".to_string(), "value1".to_string()),
 			("key2".to_string(), "value2".to_string()),
 		]),
 		usize::MAX,
-		116,
+		660,
 	)
 	.is_ok());
-	assert!(decode_object(BTreeSet::<u8>::from([1, 2, 3, 4, 5]), usize::MAX, 5).is_ok());
-	assert!(decode_object(LinkedList::<u8>::from([1, 2, 3, 4, 5]), usize::MAX, 5).is_ok());
+	assert!(decode_object(BTreeSet::<u8>::from([1, 2, 3, 4, 5]), usize::MAX, 120).is_ok());
+	assert!(decode_object(LinkedList::<u8>::from([1, 2, 3, 4, 5]), usize::MAX, 120).is_ok());
 }
 
 #[test]

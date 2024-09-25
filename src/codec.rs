@@ -1231,7 +1231,7 @@ impl<T: Decode> Decode for Vec<T> {
 
 impl<T: DecodeWithMemTracking> DecodeWithMemTracking for Vec<T> {}
 
-macro_rules! impl_codec_through_iterator {
+macro_rules! impl_encode_for_collection {
 	($(
 		$type:ident
 		{ $( $generics:ident $( : $decode_additional:ident )? ),* }
@@ -1240,7 +1240,7 @@ macro_rules! impl_codec_through_iterator {
 	)*) => {$(
 		impl<$( $generics: Encode ),*> Encode for $type<$( $generics, )*> {
 			fn size_hint(&self) -> usize {
-				mem::size_of::<u32>() $( + mem::size_of::<$generics>() * self.len() )*
+				mem::size_of::<u32>() + mem::size_of::<($($generics,)*)>().saturating_mul(self.len())
 			}
 
 			fn encode_to<W: Output + ?Sized>(&self, dest: &mut W) {
@@ -1252,26 +1252,6 @@ macro_rules! impl_codec_through_iterator {
 			}
 		}
 
-		impl<$( $generics: Decode $( + $decode_additional )? ),*> Decode
-			for $type<$( $generics, )*>
-		{
-			fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
-				<Compact<u32>>::decode(input).and_then(move |Compact(len)| {
-					input.descend_ref()?;
-					let result = Result::from_iter((0..len).map(|_| {
-						input.on_before_alloc_mem(0usize$(.saturating_add(mem::size_of::<$generics>()))*)?;
-						Decode::decode(input)
-					}));
-					input.ascend_ref();
-					result
-				})
-			}
-		}
-
-		impl<$( $generics: DecodeWithMemTracking ),*> DecodeWithMemTracking
-			for $type<$( $generics, )*>
-			where $type<$( $generics, )*>: Decode {}
-
 		impl<$( $impl_like_generics )*> EncodeLike<$type<$( $type_like_generics ),*>>
 			for $type<$( $generics ),*> {}
 		impl<$( $impl_like_generics )*> EncodeLike<&[( $( $type_like_generics, )* )]>
@@ -1281,16 +1261,98 @@ macro_rules! impl_codec_through_iterator {
 	)*}
 }
 
-impl_codec_through_iterator! {
+// Constants from rust's source:
+// https://doc.rust-lang.org/src/alloc/collections/btree/node.rs.html#43-45
+const BTREE_B: usize = 6;
+const BTREE_CAPACITY: usize = 2 * BTREE_B - 1;
+const BTREE_MIN_LEN_AFTER_SPLIT: usize = BTREE_B - 1;
+
+/// Estimate the mem size of a btree.
+fn mem_size_of_btree<T>(len: u32) -> usize {
+	// We try to estimate the size of the `InternalNode` struct from:
+	// https://doc.rust-lang.org/src/alloc/collections/btree/node.rs.html#97
+	// A btree `LeafNode` has 2*B - 1 (K,V) pairs and (usize, u16, u16) overhead.
+	// An `InternalNode` additionally has 2*B `usize` overhead.
+	let node_size = mem::size_of::<(usize, u16, u16, [T; BTREE_CAPACITY], [usize; 2 * BTREE_B])>();
+	// A node can contain between B - 1 and 2*B - 1 elements, so we assume it has the midpoint.
+	let num_nodes = (len as usize).saturating_div((BTREE_CAPACITY + BTREE_MIN_LEN_AFTER_SPLIT) / 2);
+	core::cmp::max(num_nodes, 1).saturating_mul(node_size)
+}
+
+impl_encode_for_collection! {
 	BTreeMap { K: Ord, V } { LikeK, LikeV}
 		{ K: EncodeLike<LikeK>, LikeK: Encode, V: EncodeLike<LikeV>, LikeV: Encode }
+}
+
+impl<K: Decode + Ord, V: Decode> Decode for BTreeMap<K, V> {
+	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
+		<Compact<u32>>::decode(input).and_then(move |Compact(len)| {
+			input.descend_ref()?;
+			input.on_before_alloc_mem(mem_size_of_btree::<(K, V)>(len))?;
+			let result = Result::from_iter((0..len).map(|_| Decode::decode(input)));
+			input.ascend_ref();
+			result
+		})
+	}
+}
+
+impl<K: DecodeWithMemTracking, V: DecodeWithMemTracking> DecodeWithMemTracking for BTreeMap<K, V> where
+	BTreeMap<K, V>: Decode
+{
+}
+
+impl_encode_for_collection! {
 	BTreeSet { T: Ord } { LikeT }
 		{ T: EncodeLike<LikeT>, LikeT: Encode }
+}
+
+impl<T: Decode + Ord> Decode for BTreeSet<T> {
+	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
+		<Compact<u32>>::decode(input).and_then(move |Compact(len)| {
+			input.descend_ref()?;
+			input.on_before_alloc_mem(mem_size_of_btree::<T>(len))?;
+			let result = Result::from_iter((0..len).map(|_| Decode::decode(input)));
+			input.ascend_ref();
+			result
+		})
+	}
+}
+impl<T: DecodeWithMemTracking> DecodeWithMemTracking for BTreeSet<T> where BTreeSet<T>: Decode {}
+
+impl_encode_for_collection! {
 	LinkedList { T } { LikeT }
 		{ T: EncodeLike<LikeT>, LikeT: Encode }
+}
+
+impl<T: Decode> Decode for LinkedList<T> {
+	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
+		<Compact<u32>>::decode(input).and_then(move |Compact(len)| {
+			input.descend_ref()?;
+			let result = Result::from_iter((0..len).map(|_| {
+				// We account for the size of the `prev` and `next` pointers of each list node,
+				// plus the decoded element.
+				input.on_before_alloc_mem(mem::size_of::<(usize, usize, T)>())?;
+				Decode::decode(input)
+			}));
+			input.ascend_ref();
+			result
+		})
+	}
+}
+
+impl<T: DecodeWithMemTracking> DecodeWithMemTracking for LinkedList<T> where LinkedList<T>: Decode {}
+
+impl_encode_for_collection! {
 	BinaryHeap { T: Ord } { LikeT }
 		{ T: EncodeLike<LikeT>, LikeT: Encode }
 }
+
+impl<T: Decode + Ord> Decode for BinaryHeap<T> {
+	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
+		Ok(Vec::decode(input)?.into())
+	}
+}
+impl<T: DecodeWithMemTracking> DecodeWithMemTracking for BinaryHeap<T> where BinaryHeap<T>: Decode {}
 
 impl<T: Encode> EncodeLike for VecDeque<T> {}
 impl<T: EncodeLike<U>, U: Encode> EncodeLike<&[U]> for VecDeque<T> {}
