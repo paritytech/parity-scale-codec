@@ -22,8 +22,9 @@ use std::str::FromStr;
 use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
 use syn::{
-	parse::Parse, punctuated::Punctuated, spanned::Spanned, token, Attribute, Data, DeriveInput,
-	Field, Fields, FieldsNamed, FieldsUnnamed, Lit, Meta, MetaNameValue, NestedMeta, Path, Variant,
+	parse::Parse, punctuated::Punctuated, spanned::Spanned, token, Attribute, Data, DataEnum,
+	DeriveInput, Field, Fields, FieldsNamed, FieldsUnnamed, Lit, Meta, MetaNameValue, NestedMeta,
+	Path, Variant,
 };
 
 fn find_meta_item<'a, F, R, I, M>(mut itr: I, mut pred: F) -> Option<R>
@@ -85,17 +86,22 @@ pub fn get_encoded_as_type(field: &Field) -> Option<TokenStream> {
 }
 
 /// Look for a `#[codec(compact)]` outer attribute on the given `Field`.
-pub fn is_compact(field: &Field) -> bool {
+pub fn get_compact_type(field: &Field, crate_path: &syn::Path) -> Option<TokenStream> {
 	find_meta_item(field.attrs.iter(), |meta| {
 		if let NestedMeta::Meta(Meta::Path(ref path)) = meta {
 			if path.is_ident("compact") {
-				return Some(());
+				let field_type = &field.ty;
+				return Some(quote! {<#field_type as #crate_path::HasCompact>::Type});
 			}
 		}
 
 		None
 	})
-	.is_some()
+}
+
+/// Look for a `#[codec(compact)]` outer attribute on the given `Field`.
+pub fn is_compact(field: &Field) -> bool {
+	get_compact_type(field, &parse_quote!(::crate)).is_some()
 }
 
 /// Look for a `#[codec(skip)]` in the given attributes.
@@ -448,4 +454,17 @@ fn check_repr(attrs: &[syn::Attribute], value: &str) -> bool {
 pub fn is_transparent(attrs: &[syn::Attribute]) -> bool {
 	// TODO: When migrating to syn 2 the `"(transparent)"` needs to be changed into `"transparent"`.
 	check_repr(attrs, "(transparent)")
+}
+
+pub fn try_get_variants(data: &DataEnum) -> Result<Vec<&Variant>, syn::Error> {
+	let data_variants = || data.variants.iter().filter(|variant| !should_skip(&variant.attrs));
+
+	if data_variants().count() > 256 {
+		return Err(syn::Error::new(
+			data.variants.span(),
+			"Currently only enums with at most 256 variants are encodable/decodable.",
+		))
+	}
+
+	Ok(data_variants().collect())
 }
