@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#![cfg_attr(all(test, feature = "unstable-tests"), feature(allocator_api))]
+#![cfg_attr(all(test, feature = "unstable-tests"), feature(btreemap_alloc))]
 #![doc = include_str!("../README.md")]
 #![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
@@ -41,6 +43,7 @@ pub mod alloc {
 
 #[cfg(feature = "bit-vec")]
 mod bit_vec;
+mod btree_utils;
 mod codec;
 mod compact;
 #[cfg(feature = "max-encoded-len")]

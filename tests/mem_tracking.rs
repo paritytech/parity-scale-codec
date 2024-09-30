@@ -91,17 +91,17 @@ fn decode_simple_objects_works() {
 	#[cfg(feature = "bytes")]
 	assert!(decode_object(bytes::Bytes::from(&ARRAY[..]), usize::MAX, 1000).is_ok());
 	// Complex Collections
-	assert!(decode_object(BTreeMap::<u8, u8>::from([(1, 2), (2, 3)]), usize::MAX, 136).is_ok());
+	assert!(decode_object(BTreeMap::<u8, u8>::from([(1, 2), (2, 3)]), usize::MAX, 40).is_ok());
 	assert!(decode_object(
 		BTreeMap::from([
 			("key1".to_string(), "value1".to_string()),
 			("key2".to_string(), "value2".to_string()),
 		]),
 		usize::MAX,
-		660,
+		564,
 	)
 	.is_ok());
-	assert!(decode_object(BTreeSet::<u8>::from([1, 2, 3, 4, 5]), usize::MAX, 120).is_ok());
+	assert!(decode_object(BTreeSet::<u8>::from([1, 2, 3, 4, 5]), usize::MAX, 24).is_ok());
 	assert!(decode_object(LinkedList::<u8>::from([1, 2, 3, 4, 5]), usize::MAX, 120).is_ok());
 }
 

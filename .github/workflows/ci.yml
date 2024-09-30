@@ -22,10 +22,10 @@ jobs:
       - id: set_image
         run: echo "IMAGE=${{ env.IMAGE }}" >> $GITHUB_OUTPUT
 
-# Checks
+  # Checks
   fmt:
     runs-on: ubuntu-latest
-    needs: [set-image]
+    needs: [ set-image ]
     container: ${{ needs.set-image.outputs.IMAGE }}
     steps:
       - name: Checkout code
@@ -39,7 +39,7 @@ jobs:
 
   clippy:
     runs-on: ubuntu-latest
-    needs: [set-image]
+    needs: [ set-image ]
     container: ${{ needs.set-image.outputs.IMAGE }}
     steps:
       - name: Checkout code/.
@@ -64,7 +64,7 @@ jobs:
 
   checks:
     runs-on: ubuntu-latest
-    needs: [set-image]
+    needs: [ set-image ]
     container: ${{ needs.set-image.outputs.IMAGE }}
     steps:
       - name: Checkout code
@@ -99,10 +99,10 @@ jobs:
           export RUSTFLAGS='-Cdebug-assertions=y -Dwarnings'
           time cargo +stable check --verbose --features max-encoded-len
 
-# Tests
+  # Tests
   tests:
     runs-on: ubuntu-latest
-    needs: [set-image]
+    needs: [ set-image ]
     container: ${{ needs.set-image.outputs.IMAGE }}
     steps:
       - name: Checkout code
@@ -139,13 +139,18 @@ jobs:
           export RUSTFLAGS='-Cdebug-assertions=y -Dwarnings'
           time cargo +stable test --verbose --features max-encoded-len,std --no-default-features
 
-# Benches
+      - name: Run Unstable Rust Tests
+        run: |
+          export RUSTFLAGS='-Cdebug-assertions=y -Dwarnings'
+          time cargo +nightly test --verbose --features unstable-tests --lib btree_utils
+
+  # Benches
   bench-rust-nightly:
     runs-on: ubuntu-latest
-    needs: [set-image]
+    needs: [ set-image ]
     strategy:
       matrix:
-        feature: [bit-vec,bytes,generic-array,derive,max-encoded-len]
+        feature: [ bit-vec,bytes,generic-array,derive,max-encoded-len ]
     container: ${{ needs.set-image.outputs.IMAGE }}
     steps:
       - name: Checkout code
@@ -163,10 +168,10 @@ jobs:
 
   miri:
     runs-on: ubuntu-latest
-    needs: [set-image]
+    needs: [ set-image ]
     strategy:
       matrix:
-        feature: [bit-vec,bytes,generic-array,arbitrary]
+        feature: [ bit-vec,bytes,generic-array,arbitrary ]
     container: ${{ needs.set-image.outputs.IMAGE }}
     steps:
       - name: Checkout code
@@ -184,11 +189,11 @@ jobs:
           export MIRIFLAGS='-Zmiri-disable-isolation'
           time cargo +nightly miri test --features ${{ matrix.feature }} --release
 
-# Build
+  # Build
 
   build-linux-ubuntu-amd64:
     runs-on: ubuntu-latest
-    needs: [set-image, clippy, checks, tests]
+    needs: [ set-image, clippy, checks, tests ]
     container: ${{ needs.set-image.outputs.IMAGE }}
     steps:
       - name: Checkout code
@@ -204,7 +209,7 @@ jobs:
 
   publish-dry-run:
     runs-on: ubuntu-latest
-    needs: [set-image, build-linux-ubuntu-amd64]
+    needs: [ set-image, build-linux-ubuntu-amd64 ]
     container: ${{ needs.set-image.outputs.IMAGE }}
     steps:
       - name: Checkout code

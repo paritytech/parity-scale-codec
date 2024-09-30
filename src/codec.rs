@@ -1261,24 +1261,6 @@ macro_rules! impl_encode_for_collection {
 	)*}
 }
 
-// Constants from rust's source:
-// https://doc.rust-lang.org/src/alloc/collections/btree/node.rs.html#43-45
-const BTREE_B: usize = 6;
-const BTREE_CAPACITY: usize = 2 * BTREE_B - 1;
-const BTREE_MIN_LEN_AFTER_SPLIT: usize = BTREE_B - 1;
-
-/// Estimate the mem size of a btree.
-fn mem_size_of_btree<T>(len: u32) -> usize {
-	// We try to estimate the size of the `InternalNode` struct from:
-	// https://doc.rust-lang.org/src/alloc/collections/btree/node.rs.html#97
-	// A btree `LeafNode` has 2*B - 1 (K,V) pairs and (usize, u16, u16) overhead.
-	// An `InternalNode` additionally has 2*B `usize` overhead.
-	let node_size = mem::size_of::<(usize, u16, u16, [T; BTREE_CAPACITY], [usize; 2 * BTREE_B])>();
-	// A node can contain between B - 1 and 2*B - 1 elements, so we assume it has the midpoint.
-	let num_nodes = (len as usize).saturating_div((BTREE_CAPACITY + BTREE_MIN_LEN_AFTER_SPLIT) / 2);
-	core::cmp::max(num_nodes, 1).saturating_mul(node_size)
-}
-
 impl_encode_for_collection! {
 	BTreeMap { K: Ord, V } { LikeK, LikeV}
 		{ K: EncodeLike<LikeK>, LikeK: Encode, V: EncodeLike<LikeV>, LikeV: Encode }
@@ -1288,7 +1270,7 @@ impl<K: Decode + Ord, V: Decode> Decode for BTreeMap<K, V> {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		<Compact<u32>>::decode(input).and_then(move |Compact(len)| {
 			input.descend_ref()?;
-			input.on_before_alloc_mem(mem_size_of_btree::<(K, V)>(len))?;
+			input.on_before_alloc_mem(super::btree_utils::mem_size_of_btree::<(K, V)>(len))?;
 			let result = Result::from_iter((0..len).map(|_| Decode::decode(input)));
 			input.ascend_ref();
 			result
@@ -1310,7 +1292,7 @@ impl<T: Decode + Ord> Decode for BTreeSet<T> {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		<Compact<u32>>::decode(input).and_then(move |Compact(len)| {
 			input.descend_ref()?;
-			input.on_before_alloc_mem(mem_size_of_btree::<T>(len))?;
+			input.on_before_alloc_mem(super::btree_utils::mem_size_of_btree::<T>(len))?;
 			let result = Result::from_iter((0..len).map(|_| Decode::decode(input)));
 			input.ascend_ref();
 			result
