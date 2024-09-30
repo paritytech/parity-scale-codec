@@ -469,14 +469,15 @@ pub fn is_transparent(attrs: &[syn::Attribute]) -> bool {
 }
 
 pub fn try_get_variants(data: &DataEnum) -> Result<Vec<&Variant>, syn::Error> {
-	let data_variants = || data.variants.iter().filter(|variant| !should_skip(&variant.attrs));
+	let data_variants: Vec<_> =
+		data.variants.iter().filter(|variant| !should_skip(&variant.attrs)).collect();
 
-	if data_variants().count() > 256 {
+	if data_variants.len() > 256 {
 		return Err(syn::Error::new(
 			data.variants.span(),
 			"Currently only enums with at most 256 variants are encodable/decodable.",
 		))
 	}
 
-	Ok(data_variants().collect())
+	Ok(data_variants)
 }

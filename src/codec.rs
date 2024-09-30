@@ -1328,12 +1328,12 @@ impl<T: Decode> Decode for LinkedList<T> {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		<Compact<u32>>::decode(input).and_then(move |Compact(len)| {
 			input.descend_ref()?;
-			let result = Result::from_iter((0..len).map(|_| {
-				// We account for the size of the `prev` and `next` pointers of each list node,
-				// plus the decoded element.
-				input.on_before_alloc_mem(mem::size_of::<(usize, usize, T)>())?;
-				Decode::decode(input)
-			}));
+			// We account for the size of the `prev` and `next` pointers of each list node,
+			// plus the decoded element.
+			input.on_before_alloc_mem(
+				(len as usize).saturating_mul(size_of::<(usize, usize, T)>()),
+			)?;
+			let result = Result::from_iter((0..len).map(|_| Decode::decode(input)));
 			input.ascend_ref();
 			result
 		})

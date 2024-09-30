@@ -273,18 +273,17 @@ pub fn decode_with_mem_tracking_derive(input: proc_macro::TokenStream) -> proc_m
 	let name = &input.ident;
 	let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
-	let decode_with_mem_tracking_body =
-		decode::quote_decode_with_mem_tracking(&input.data, &crate_path);
+	let decode_with_mem_tracking_checks =
+		decode::quote_decode_with_mem_tracking_checks(&input.data, &crate_path);
 	let impl_block = quote! {
+		fn check_struct #impl_generics() #where_clause {
+			#decode_with_mem_tracking_checks
+		}
+
 		#[automatically_derived]
 		impl #impl_generics #crate_path::DecodeWithMemTracking for #name #ty_generics #where_clause {
-			fn __is_implemented() {
-				#decode_with_mem_tracking_body
-			}
 		}
 	};
-
-	// panic!("mem tracking impl_block: {}", impl_block.to_string());
 
 	wrap_with_dummy_const(input, impl_block)
 }

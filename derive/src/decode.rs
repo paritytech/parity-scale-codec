@@ -286,7 +286,7 @@ fn create_instance(
 	}
 }
 
-pub fn quote_decode_with_mem_tracking(data: &Data, crate_path: &syn::Path) -> TokenStream {
+pub fn quote_decode_with_mem_tracking_checks(data: &Data, crate_path: &syn::Path) -> TokenStream {
 	let fields: Box<dyn Iterator<Item = &Field>> = match data {
 		Data::Struct(data) => Box::new(data.fields.iter()),
 		Data::Enum(ref data) => {
@@ -319,10 +319,14 @@ pub fn quote_decode_with_mem_tracking(data: &Data, crate_path: &syn::Path) -> To
 		} else {
 			field.ty.to_token_stream()
 		};
-		Some(quote! {<#field_type as #crate_path::DecodeWithMemTracking>::__is_implemented();})
+		Some(quote! {#field_type})
 	});
 
 	quote! {
-		#(#processed_fields)*
+		fn check_field<T: #crate_path::DecodeWithMemTracking>() {}
+
+		#(
+			check_field::<#processed_fields>();
+		)*
 	}
 }
