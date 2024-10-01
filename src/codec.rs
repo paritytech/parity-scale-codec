@@ -1312,9 +1312,11 @@ impl<T: Decode> Decode for LinkedList<T> {
 			input.descend_ref()?;
 			// We account for the size of the `prev` and `next` pointers of each list node,
 			// plus the decoded element.
-			input.on_before_alloc_mem(
-				(len as usize).saturating_mul(size_of::<(usize, usize, T)>()),
-			)?;
+			input.on_before_alloc_mem((len as usize).saturating_mul(mem::size_of::<(
+				usize,
+				usize,
+				T,
+			)>()))?;
 			let result = Result::from_iter((0..len).map(|_| Decode::decode(input)));
 			input.ascend_ref();
 			result
