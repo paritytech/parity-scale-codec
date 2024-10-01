@@ -313,16 +313,18 @@ fn impl_encode(data: &Data, type_name: &Ident, crate_path: &syn::Path) -> TokenS
 			if data_variants().count() == 0 {
 				return quote!();
 			}
-			let mut used_indexes = match UsedIndexes::from_iter(data_variants()) {
-				Ok(index) => index,
-				Err(e) => return e.into_compile_error(),
-			};
+			let mut used_indexes =
+				match UsedIndexes::from(data_variants()).map_err(|e| e.to_compile_error()) {
+					Ok(index) => index,
+					Err(e) => return e,
+				};
 			let mut items = vec![];
 			for f in data_variants() {
 				let name = &f.ident;
-				let index = match used_indexes.variant_index(f) {
-					Ok(index) => index,
-					Err(e) => return e.into_compile_error(),
+				let index = match used_indexes.variant_index(f).map_err(|e| e.into_compile_error())
+				{
+					Ok(i) => i,
+					Err(e) => return e,
 				};
 				let item = match f.fields {
 					Fields::Named(ref fields) => {

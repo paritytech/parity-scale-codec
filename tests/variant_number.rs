@@ -39,13 +39,16 @@ fn index_attr_variant_counted_and_reused_in_default_index() {
 	assert_eq!(T::B.encode(), vec![0]);
 }
 #[test]
-fn index_attr_vairant_duplicates_indices() {
+fn index_attr_variant_duplicates_indices() {
+	// Tests codec index overriding and that variant indexes are without duplicates
 	#[derive(DeriveEncode)]
 	enum T {
+		#[codec(index = 0)]
 		A = 1,
+		#[codec(index = 1)]
 		B = 0,
 	}
 
-	assert_eq!(T::A.encode(), vec![1]);
-	assert_eq!(T::B.encode(), vec![0]);
+	assert_eq!(T::A.encode(), vec![0]);
+	assert_eq!(T::B.encode(), vec![1]);
 }

@@ -56,17 +56,18 @@ pub fn quote(
 				)
 				.to_compile_error();
 			}
-
-			let mut used_indexes = match UsedIndexes::from_iter(data_variants()) {
-				Ok(index) => index,
-				Err(e) => return e.into_compile_error(),
-			};
+			let mut used_indexes =
+				match UsedIndexes::from(data_variants()).map_err(|e| e.to_compile_error()) {
+					Ok(index) => index,
+					Err(e) => return e,
+				};
 			let mut items = vec![];
 			for v in data_variants() {
 				let name = &v.ident;
-				let index = match used_indexes.variant_index(v) {
-					Ok(index) => index,
-					Err(e) => return e.into_compile_error(),
+				let index = match used_indexes.variant_index(v).map_err(|e| e.into_compile_error())
+				{
+					Ok(i) => i,
+					Err(e) => return e,
 				};
 
 				let create = create_instance(

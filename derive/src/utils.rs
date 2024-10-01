@@ -17,9 +17,9 @@
 //! NOTE: attributes finder must be checked using check_attribute first,
 //! otherwise the macro can panic.
 
-use std::{collections::HashSet, str::FromStr};
+use std::{collections::HashMap, str::FromStr};
 
-use proc_macro2::TokenStream;
+use proc_macro2::{Span, TokenStream};
 use quote::{quote, ToTokens};
 use syn::{
 	parse::Parse, punctuated::Punctuated, spanned::Spanned, token, Attribute, Data, DeriveInput,
@@ -38,15 +38,20 @@ where
 	})
 }
 
+/// Indexes used while defining variants.
 pub struct UsedIndexes {
-	used_set: HashSet<u8>,
+	/// Map from index of the variant to it's attribute or definition span
+	used_set: HashMap<u8, Span>,
+	/// We need this u8 to correctly assign indexes to variants
+	/// that are not annotated by coded(index = ?) or explicit discriminant
 	current: u8,
 }
 
 impl UsedIndexes {
-	/// Build a Set of used indexes for use with #[scale(index = $int)] attribute on variant
-	pub fn from_iter<'a, I: Iterator<Item = &'a Variant>>(values: I) -> syn::Result<Self> {
-		let mut set = HashSet::new();
+	/// Build a Set of used indexes for use with #[scale(index = $int)] attribute or
+	/// explicit  discriminant  on the variant
+	pub fn from<'a, I: Iterator<Item = &'a Variant>>(values: I) -> syn::Result<Self> {
+		let mut map: HashMap<u8, Span> = HashMap::new();
 		for v in values {
 			if let Some((index, nv)) = find_meta_item(v.attrs.iter(), |meta| {
 				if let NestedMeta::Meta(Meta::NameValue(ref nv)) = meta {
@@ -61,8 +66,10 @@ impl UsedIndexes {
 				}
 				None
 			}) {
-				if !set.insert(index) {
-					return Err(syn::Error::new(nv.span(), "Duplicate variant index. qed"));
+				if let Some(span) = map.insert(index, nv.span()) {
+					let mut error = syn::Error::new(nv.span(), "Duplicate variant index. qed");
+					error.combine(syn::Error::new(span, "Variant index already defined here."));
+					return Err(error)
 				}
 			} else if let Some((
 				_,
@@ -72,12 +79,14 @@ impl UsedIndexes {
 				let index = lit_int
 					.base10_parse::<u8>()
 					.expect("Internal error, index attribute must have been checked");
-				if !set.insert(index) {
-					return Err(syn::Error::new(expr.span(), "Duplicate variant index. qed"));
+				if let Some(span) = map.insert(index, expr.span()) {
+					let mut error = syn::Error::new(expr.span(), "Duplicate variant index. qed");
+					error.combine(syn::Error::new(span, "Variant index already defined here."));
+					return Err(error)
 				}
 			}
 		}
-		Ok(Self { current: 0, used_set: set })
+		Ok(Self { current: 0, used_set: map })
 	}
 
 	/// Look for a `#[scale(index = $int)]` attribute on a variant. If no attribute
@@ -113,7 +122,7 @@ impl UsedIndexes {
 
 	fn next_index(&mut self) -> u8 {
 		loop {
-			if self.used_set.contains(&self.current) {
+			if self.used_set.contains_key(&self.current) {
 				self.current += 1;
 			} else {
 				let index = self.current;
