@@ -76,7 +76,7 @@ mod test {
 	}
 
 	fn check_btree_size(expected_size: usize, actual_size: Arc<Mutex<usize>>) {
-		/// Check that the margin of error is at most 25%.
+		// Check that the margin of error is at most 25%.
 		assert!(*actual_size.lock().unwrap() as f64 * 0.75 <= expected_size as f64);
 		assert!(*actual_size.lock().unwrap() as f64 * 1.25 >= expected_size as f64);
 	}
@@ -95,8 +95,8 @@ mod test {
 			map.insert(i, 0);
 			set.insert(i as u128);
 
-			/// For small number of elements, the differences between the expected size and
-			/// the actual size can be higher.
+			// For small number of elements, the differences between the expected size and
+			// the actual size can be higher.
 			if i > 100 {
 				let map_expected_size = mem_size_of_btree::<(u32, u32)>(map.len() as u32);
 				check_btree_size(map_expected_size, map_actual_size.clone());
