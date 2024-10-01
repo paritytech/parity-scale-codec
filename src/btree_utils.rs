@@ -42,7 +42,8 @@ pub fn mem_size_of_btree<T>(len: u32) -> usize {
 	num_nodes.saturating_mul(internal_node_size)
 }
 
-#[cfg(all(test, feature = "unstable-tests"))]
+#[cfg(test)]
+#[rustversion::nightly]
 mod test {
 	use super::*;
 	use crate::alloc::{
@@ -54,7 +55,6 @@ mod test {
 		ptr::NonNull,
 	};
 
-	#[cfg(feature = "std")]
 	#[derive(Clone)]
 	struct MockAllocator {
 		total: Arc<Mutex<usize>>,

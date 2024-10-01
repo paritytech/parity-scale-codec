@@ -139,10 +139,10 @@ jobs:
           export RUSTFLAGS='-Cdebug-assertions=y -Dwarnings'
           time cargo +stable test --verbose --features max-encoded-len,std --no-default-features
 
-      - name: Run Unstable Rust Tests
+      - name: Run Nightly Tests
         run: |
           export RUSTFLAGS='-Cdebug-assertions=y -Dwarnings'
-          time cargo +nightly test --verbose --features unstable-tests --lib btree_utils
+          time cargo +nightly test --verbose --lib btree_utils
 
   # Benches
   bench-rust-nightly:
