@@ -43,6 +43,7 @@ pub fn mem_size_of_btree<T>(len: u32) -> usize {
 }
 
 #[cfg(test)]
+#[cfg(not(miri))]
 #[rustversion::nightly]
 mod test {
 	use super::*;
