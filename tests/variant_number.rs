@@ -10,7 +10,7 @@ fn discriminant_variant_counted_in_default_index() {
 	}
 
 	assert_eq!(T::A.encode(), vec![1]);
-	assert_eq!(T::B.encode(), vec![0]);
+	assert_eq!(T::B.encode(), vec![2]);
 }
 
 #[test]
@@ -36,7 +36,7 @@ fn index_attr_variant_counted_and_reused_in_default_index() {
 	}
 
 	assert_eq!(T::A.encode(), vec![1]);
-	assert_eq!(T::B.encode(), vec![0]);
+	assert_eq!(T::B.encode(), vec![2]);
 }
 #[test]
 fn index_attr_variant_duplicates_indices() {
@@ -51,4 +51,21 @@ fn index_attr_variant_duplicates_indices() {
 
 	assert_eq!(T::A.encode(), vec![0]);
 	assert_eq!(T::B.encode(), vec![1]);
+}
+#[test]
+fn dicriminant_resulting_index() {
+	// Tests codec index overriding and that variant indexes are without duplicates
+	#[derive(DeriveEncode)]
+	enum T {
+		Z,
+		A = 3,
+		B,
+		C = 6,
+		D,
+	}
+	assert_eq!(T::Z.encode(), vec![0]);
+	assert_eq!(T::A.encode(), vec![3]);
+	assert_eq!(T::B.encode(), vec![4]);
+	assert_eq!(T::C.encode(), vec![6]);
+	assert_eq!(T::D.encode(), vec![7]);
 }
