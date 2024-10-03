@@ -319,7 +319,7 @@ pub fn quote_decode_with_mem_tracking_checks(data: &Data, crate_path: &syn::Path
 		} else {
 			field.ty.to_token_stream()
 		};
-		Some(quote! {#field_type})
+		Some(quote_spanned! {field.span() => #field_type})
 	});
 
 	quote! {
