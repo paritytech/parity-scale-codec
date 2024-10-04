@@ -1,4 +1,4 @@
-use parity_scale_codec::{Compact, Decode, Encode, HasCompact};
+use parity_scale_codec::{Compact, Decode, DecodeWithMemTracking, Encode, HasCompact};
 use parity_scale_codec_derive::{
 	CompactAs as DeriveCompactAs, Decode as DeriveDecode,
 	DecodeWithMemTracking as DeriveDecodeWithMemTracking, Encode as DeriveEncode,
@@ -37,7 +37,10 @@ struct Sc {
 }
 
 #[derive(Debug, PartialEq, DeriveEncode, DeriveDecode, DeriveDecodeWithMemTracking)]
-struct Sh<T: HasCompact> {
+struct Sh<T: HasCompact>
+where
+	<T as HasCompact>::Type: DecodeWithMemTracking,
+{
 	#[codec(encoded_as = "<T as HasCompact>::Type")]
 	x: T,
 }
@@ -99,7 +102,9 @@ struct USkipcas(#[codec(compact)] USkip);
 struct SSkipcas(#[codec(compact)] SSkip);
 
 #[derive(Debug, PartialEq, DeriveEncode, DeriveDecode, DeriveDecodeWithMemTracking)]
-struct Uh<T: HasCompact>(#[codec(encoded_as = "<T as HasCompact>::Type")] T);
+struct Uh<T: HasCompact>(#[codec(encoded_as = "<T as HasCompact>::Type")] T)
+where
+	<T as HasCompact>::Type: DecodeWithMemTracking;
 
 #[test]
 fn test_encoding() {

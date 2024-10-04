@@ -69,7 +69,10 @@ enum EnumWithDiscriminant {
 }
 
 #[derive(Debug, PartialEq, DeriveEncode, DeriveDecode, DeriveDecodeWithMemTracking)]
-struct TestHasCompact<T: HasCompact> {
+struct TestHasCompact<T: HasCompact>
+where
+	<T as HasCompact>::Type: DecodeWithMemTracking,
+{
 	#[codec(encoded_as = "<T as HasCompact>::Type")]
 	bar: T,
 }
