@@ -100,20 +100,20 @@ a.using_encoded(|ref slice| {
 });
 
 b.using_encoded(|ref slice| {
-    assert_eq!(slice, &b"\x01\x01\0\0\0\x02\0\0\0\0\0\0\0");
+    assert_eq!(slice, &b"\x10\x01\0\0\0\x02\0\0\0\0\0\0\0");
 });
 
 c.using_encoded(|ref slice| {
-    assert_eq!(slice, &b"\x02\x01\0\0\0\x02\0\0\0\0\0\0\0");
+    assert_eq!(slice, &b"\x11\x01\0\0\0\x02\0\0\0\0\0\0\0");
 });
 
 let mut da: &[u8] = b"\x0f";
 assert_eq!(EnumType::decode(&mut da).ok(), Some(a));
 
-let mut db: &[u8] = b"\x01\x01\0\0\0\x02\0\0\0\0\0\0\0";
+let mut db: &[u8] = b"\x10\x01\0\0\0\x02\0\0\0\0\0\0\0";
 assert_eq!(EnumType::decode(&mut db).ok(), Some(b));
 
-let mut dc: &[u8] = b"\x02\x01\0\0\0\x02\0\0\0\0\0\0\0";
+let mut dc: &[u8] = b"\x11\x01\0\0\0\x02\0\0\0\0\0\0\0";
 assert_eq!(EnumType::decode(&mut dc).ok(), Some(c));
 
 let mut dz: &[u8] = &[0];
@@ -216,7 +216,7 @@ The derive implementation supports the following attributes:
 - `codec(encoded_as = "OtherType")`: Needs to be placed above a field and makes the field being
   encoded by using `OtherType`.
 - `codec(index = 0)`: Needs to be placed above an enum variant to make the variant use the given
-  index when encoded. By default the index is determined by counting from `0` beginning wth the
+  index when encoded. By default the index is determined by counting from `0` beginning with the
   first variant.
 - `codec(encode_bound)`, `codec(decode_bound)` and `codec(mel_bound)`: All 3 attributes take
   in a `where` clause for the `Encode`, `Decode` and `MaxEncodedLen` trait implementation for

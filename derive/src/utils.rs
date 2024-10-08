@@ -17,13 +17,14 @@
 //! NOTE: attributes finder must be checked using check_attribute first,
 //! otherwise the macro can panic.
 
-use std::str::FromStr;
+use std::{collections::HashMap, str::FromStr};
 
-use proc_macro2::TokenStream;
+use proc_macro2::{Span, TokenStream};
 use quote::{quote, ToTokens};
 use syn::{
 	parse::Parse, punctuated::Punctuated, spanned::Spanned, token, Attribute, Data, DeriveInput,
-	Field, Fields, FieldsNamed, FieldsUnnamed, Lit, Meta, MetaNameValue, NestedMeta, Path, Variant,
+	ExprLit, Field, Fields, FieldsNamed, FieldsUnnamed, Lit, Meta, MetaNameValue, NestedMeta, Path,
+	Variant,
 };
 
 fn find_meta_item<'a, F, R, I, M>(mut itr: I, mut pred: F) -> Option<R>
@@ -37,32 +38,117 @@ where
 	})
 }
 
-/// Look for a `#[scale(index = $int)]` attribute on a variant. If no attribute
-/// is found, fall back to the discriminant or just the variant index.
-pub fn variant_index(v: &Variant, i: usize) -> TokenStream {
-	// first look for an attribute
-	let index = find_meta_item(v.attrs.iter(), |meta| {
-		if let NestedMeta::Meta(Meta::NameValue(ref nv)) = meta {
-			if nv.path.is_ident("index") {
-				if let Lit::Int(ref v) = nv.lit {
-					let byte = v
-						.base10_parse::<u8>()
-						.expect("Internal error, index attribute must have been checked");
-					return Some(byte);
+/// Indexes used while defining variants.
+pub struct UsedIndexes {
+	/// Map from index of the variant to it's attribute or definition span
+	used_set: HashMap<u8, Span>,
+	/// We need this u8 to correctly assign indexes to variants
+	/// that are not annotated by coded(index = ?) or explicit discriminant
+	current: u8,
+}
+
+impl UsedIndexes {
+	/// Build a Set of used indexes for use with #[scale(index = $int)] attribute or
+	/// explicit  discriminant  on the variant
+	pub fn from<'a, I: Iterator<Item = &'a Variant>>(values: I) -> syn::Result<Self> {
+		let mut map: HashMap<u8, Span> = HashMap::new();
+		for v in values {
+			match find_meta_item(v.attrs.iter(), |meta| {
+				if let NestedMeta::Meta(Meta::NameValue(ref nv)) = meta {
+					if nv.path.is_ident("index") {
+						if let Lit::Int(ref v) = nv.lit {
+							let byte = v
+								.base10_parse::<u8>()
+								.expect("Internal error, index attribute must have been checked");
+							return Some((byte, nv.span()));
+						}
+					}
 				}
+				None
+			}) {
+				Some((index, nv)) =>
+					if let Some(span) = map.insert(index, nv.span()) {
+						let mut error = syn::Error::new(nv.span(), "Duplicate variant index. qed");
+						error.combine(syn::Error::new(span, "Variant index already defined here."));
+						return Err(error)
+					},
+				_ => match v.discriminant.as_ref() {
+					Some((
+						_,
+						expr @ syn::Expr::Lit(ExprLit { lit: syn::Lit::Int(lit_int), .. }),
+					)) => {
+						let index = lit_int
+							.base10_parse::<u8>()
+							.expect("Internal error, index attribute must have been checked");
+						if let Some(span) = map.insert(index, expr.span()) {
+							let mut error =
+								syn::Error::new(expr.span(), "Duplicate variant index. qed");
+							error.combine(syn::Error::new(
+								span,
+								"Variant index already defined here.",
+							));
+							return Err(error)
+						}
+					},
+					Some((_, expr)) =>
+						return Err(syn::Error::new(expr.span(), "Invalid discriminant. qed")),
+					None => (),
+				},
 			}
 		}
+		Ok(Self { current: 0, used_set: map })
+	}
 
-		None
-	});
+	/// Look for a `#[scale(index = $int)]` attribute on a variant. If no attribute
+	/// is found, fall back to the discriminant or just the variant index.
+	pub fn variant_index(&mut self, v: &Variant) -> syn::Result<TokenStream> {
+		// first look for an attribute
+		let index = find_meta_item(v.attrs.iter(), |meta| {
+			if let NestedMeta::Meta(Meta::NameValue(ref nv)) = meta {
+				if nv.path.is_ident("index") {
+					if let Lit::Int(ref v) = nv.lit {
+						let byte = v
+							.base10_parse::<u8>()
+							.expect("Internal error, index attribute must have been checked");
+						return Some(byte);
+					}
+				}
+			}
 
-	// then fallback to discriminant or just index
-	index.map(|i| quote! { #i }).unwrap_or_else(|| {
-		v.discriminant
-			.as_ref()
-			.map(|(_, expr)| quote! { #expr })
-			.unwrap_or_else(|| quote! { #i })
-	})
+			None
+		});
+		if let Some(index) = index {
+			self.current = index;
+			Ok(quote! { #index })
+		} else {
+			match v.discriminant.as_ref() {
+				Some((_, expr @ syn::Expr::Lit(ExprLit { lit: syn::Lit::Int(lit_int), .. }))) => {
+					self.current = lit_int
+						.base10_parse()
+						.expect("Internal error, index attribute must have been checked");
+
+					Ok(quote! { #expr })
+				},
+				Some((_, expr)) => Err(syn::Error::new(expr.span(), "Invalid discriminant. qed")),
+				None => {
+					let idx = self.next_index();
+					Ok(quote! { #idx })
+				},
+			}
+		}
+	}
+
+	fn next_index(&mut self) -> u8 {
+		loop {
+			if self.used_set.contains_key(&self.current) {
+				self.current += 1;
+			} else {
+				let index = self.current;
+				self.current += 1;
+				return index;
+			}
+		}
+	}
 }
 
 /// Look for a `#[codec(encoded_as = "SomeType")]` outer attribute on the given
