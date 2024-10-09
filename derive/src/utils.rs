@@ -85,7 +85,8 @@ pub fn get_encoded_as_type(field: &Field) -> Option<TokenStream> {
 	})
 }
 
-/// Look for a `#[codec(compact)]` outer attribute on the given `Field`.
+/// Look for a `#[codec(compact)]` outer attribute on the given `Field`. If the attribute is found,
+/// return the compact type associated with the field type.
 pub fn get_compact_type(field: &Field, crate_path: &syn::Path) -> Option<TokenStream> {
 	find_meta_item(field.attrs.iter(), |meta| {
 		if let NestedMeta::Meta(Meta::Path(ref path)) = meta {
