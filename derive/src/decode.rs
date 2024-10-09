@@ -12,10 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use proc_macro2::{Ident, Span, TokenStream};
-use syn::{spanned::Spanned, Data, Error, Field, Fields};
-
 use crate::utils;
+use proc_macro2::{Ident, Span, TokenStream};
+use quote::ToTokens;
+use std::iter;
+use syn::{spanned::Spanned, Data, Error, Field, Fields};
 
 /// Generate function block for function `Decode::decode`.
 ///
@@ -31,33 +32,20 @@ pub fn quote(
 	crate_path: &syn::Path,
 ) -> TokenStream {
 	match *data {
-		Data::Struct(ref data) => match data.fields {
-			Fields::Named(_) | Fields::Unnamed(_) => create_instance(
-				quote! { #type_name #type_generics },
-				&type_name.to_string(),
-				input,
-				&data.fields,
-				crate_path,
-			),
-			Fields::Unit => {
-				quote_spanned! { data.fields.span() =>
-					::core::result::Result::Ok(#type_name)
-				}
-			},
-		},
+		Data::Struct(ref data) => create_instance(
+			quote! { #type_name #type_generics },
+			&type_name.to_string(),
+			input,
+			&data.fields,
+			crate_path,
+		),
 		Data::Enum(ref data) => {
-			let data_variants =
-				|| data.variants.iter().filter(|variant| !utils::should_skip(&variant.attrs));
+			let variants = match utils::try_get_variants(data) {
+				Ok(variants) => variants,
+				Err(e) => return e.to_compile_error(),
+			};
 
-			if data_variants().count() > 256 {
-				return Error::new(
-					data.variants.span(),
-					"Currently only enums with at most 256 variants are encodable.",
-				)
-				.to_compile_error();
-			}
-
-			let recurse = data_variants().enumerate().map(|(i, v)| {
+			let recurse = variants.iter().enumerate().map(|(i, v)| {
 				let name = &v.ident;
 				let index = utils::variant_index(v, i);
 
@@ -198,12 +186,12 @@ fn create_decode_expr(
 	crate_path: &syn::Path,
 ) -> TokenStream {
 	let encoded_as = utils::get_encoded_as_type(field);
-	let compact = utils::is_compact(field);
+	let compact = utils::get_compact_type(field, crate_path);
 	let skip = utils::should_skip(&field.attrs);
 
 	let res = quote!(__codec_res_edqy);
 
-	if encoded_as.is_some() as u8 + compact as u8 + skip as u8 > 1 {
+	if encoded_as.is_some() as u8 + compact.is_some() as u8 + skip as u8 > 1 {
 		return Error::new(
 			field.span(),
 			"`encoded_as`, `compact` and `skip` can only be used one at a time!",
@@ -213,13 +201,10 @@ fn create_decode_expr(
 
 	let err_msg = format!("Could not decode `{}`", name);
 
-	if compact {
-		let field_type = &field.ty;
+	if let Some(compact) = compact {
 		quote_spanned! { field.span() =>
 			{
-				let #res = <
-					<#field_type as #crate_path::HasCompact>::Type as #crate_path::Decode
-				>::decode(#input);
+				let #res = <#compact as #crate_path::Decode>::decode(#input);
 				match #res {
 					::core::result::Result::Err(e) => return ::core::result::Result::Err(e.chain(#err_msg)),
 					::core::result::Result::Ok(#res) => #res.into(),
@@ -298,5 +283,50 @@ fn create_instance(
 				::core::result::Result::Ok(#name)
 			}
 		},
+	}
+}
+
+pub fn quote_decode_with_mem_tracking_checks(data: &Data, crate_path: &syn::Path) -> TokenStream {
+	let fields: Box<dyn Iterator<Item = &Field>> = match data {
+		Data::Struct(data) => Box::new(data.fields.iter()),
+		Data::Enum(ref data) => {
+			let variants = match utils::try_get_variants(data) {
+				Ok(variants) => variants,
+				Err(e) => return e.to_compile_error(),
+			};
+
+			let mut fields: Box<dyn Iterator<Item = &Field>> = Box::new(iter::empty());
+			for variant in variants {
+				fields = Box::new(fields.chain(variant.fields.iter()));
+			}
+			fields
+		},
+		Data::Union(_) => {
+			return Error::new(Span::call_site(), "Union types are not supported.")
+				.to_compile_error();
+		},
+	};
+
+	let processed_fields = fields.filter_map(|field| {
+		if utils::should_skip(&field.attrs) {
+			return None;
+		}
+
+		let field_type = if let Some(compact) = utils::get_compact_type(field, crate_path) {
+			compact
+		} else if let Some(encoded_as) = utils::get_encoded_as_type(field) {
+			encoded_as
+		} else {
+			field.ty.to_token_stream()
+		};
+		Some(quote_spanned! {field.span() => #field_type})
+	});
+
+	quote! {
+		fn check_field<T: #crate_path::DecodeWithMemTracking>() {}
+
+		#(
+			check_field::<#processed_fields>();
+		)*
 	}
 }

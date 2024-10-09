@@ -575,7 +575,7 @@ checksum = "ceedf44fb00f2d1984b0bc98102627ce622e083e49a5bacdb3e514fa4238e267"
 
 [[package]]
 name = "parity-scale-codec"
-version = "3.6.8"
+version = "3.7.0"
 dependencies = [
  "arbitrary",
  "arrayvec",
@@ -589,6 +589,7 @@ dependencies = [
  "paste",
  "proptest",
  "quickcheck",
+ "rustversion",
  "serde",
  "serde_derive",
  "trybuild",
@@ -833,6 +834,12 @@ dependencies = [
  "linux-raw-sys",
  "windows-sys 0.48.0",
 ]
+
+[[package]]
+name = "rustversion"
+version = "1.0.17"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "955d28af4278de8121b7ebeb796b6a45735dc01436d898801014aced2773a3d6"
 
 [[package]]
 name = "rusty-fork"

@@ -64,6 +64,10 @@ impl<'a, I: Input> Input for DepthTrackingInput<'a, I> {
 		self.input.ascend_ref();
 		self.depth -= 1;
 	}
+
+	fn on_before_alloc_mem(&mut self, size: usize) -> Result<(), Error> {
+		self.input.on_before_alloc_mem(size)
+	}
 }
 
 impl<T: Decode> DecodeLimit for T {

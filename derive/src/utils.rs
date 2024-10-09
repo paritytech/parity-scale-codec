@@ -22,8 +22,9 @@ use std::str::FromStr;
 use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
 use syn::{
-	parse::Parse, punctuated::Punctuated, spanned::Spanned, token, Attribute, Data, DeriveInput,
-	Field, Fields, FieldsNamed, FieldsUnnamed, Lit, Meta, MetaNameValue, NestedMeta, Path, Variant,
+	parse::Parse, punctuated::Punctuated, spanned::Spanned, token, Attribute, Data, DataEnum,
+	DeriveInput, Field, Fields, FieldsNamed, FieldsUnnamed, Lit, Meta, MetaNameValue, NestedMeta,
+	Path, Variant,
 };
 
 fn find_meta_item<'a, F, R, I, M>(mut itr: I, mut pred: F) -> Option<R>
@@ -84,18 +85,24 @@ pub fn get_encoded_as_type(field: &Field) -> Option<TokenStream> {
 	})
 }
 
-/// Look for a `#[codec(compact)]` outer attribute on the given `Field`.
-pub fn is_compact(field: &Field) -> bool {
+/// Look for a `#[codec(compact)]` outer attribute on the given `Field`. If the attribute is found,
+/// return the compact type associated with the field type.
+pub fn get_compact_type(field: &Field, crate_path: &syn::Path) -> Option<TokenStream> {
 	find_meta_item(field.attrs.iter(), |meta| {
 		if let NestedMeta::Meta(Meta::Path(ref path)) = meta {
 			if path.is_ident("compact") {
-				return Some(());
+				let field_type = &field.ty;
+				return Some(quote! {<#field_type as #crate_path::HasCompact>::Type});
 			}
 		}
 
 		None
 	})
-	.is_some()
+}
+
+/// Look for a `#[codec(compact)]` outer attribute on the given `Field`.
+pub fn is_compact(field: &Field) -> bool {
+	get_compact_type(field, &parse_quote!(::crate)).is_some()
 }
 
 /// Look for a `#[codec(skip)]` in the given attributes.
@@ -229,6 +236,7 @@ impl<N: Parse> Parse for CustomTraitBound<N> {
 
 syn::custom_keyword!(encode_bound);
 syn::custom_keyword!(decode_bound);
+syn::custom_keyword!(decode_with_mem_tracking_bound);
 syn::custom_keyword!(mel_bound);
 syn::custom_keyword!(skip_type_params);
 
@@ -236,6 +244,15 @@ syn::custom_keyword!(skip_type_params);
 ///
 /// If found, it should be used as trait bounds when deriving the `Decode` trait.
 pub fn custom_decode_trait_bound(attrs: &[Attribute]) -> Option<CustomTraitBound<decode_bound>> {
+	find_meta_item(attrs.iter(), Some)
+}
+
+/// Look for a `#[codec(decode_with_mem_tracking_bound(T: Decode))]` in the given attributes.
+///
+/// If found, it should be used as trait bounds when deriving the `Decode` trait.
+pub fn custom_decode_with_mem_tracking_trait_bound(
+	attrs: &[Attribute],
+) -> Option<CustomTraitBound<decode_with_mem_tracking_bound>> {
 	find_meta_item(attrs.iter(), Some)
 }
 
@@ -405,11 +422,13 @@ fn check_variant_attribute(attr: &Attribute) -> syn::Result<()> {
 fn check_top_attribute(attr: &Attribute) -> syn::Result<()> {
 	let top_error = "Invalid attribute: only `#[codec(dumb_trait_bound)]`, \
 		`#[codec(crate = path::to::crate)]`, `#[codec(encode_bound(T: Encode))]`, \
-		`#[codec(decode_bound(T: Decode))]`, or `#[codec(mel_bound(T: MaxEncodedLen))]` \
-		are accepted as top attribute";
+		`#[codec(decode_bound(T: Decode))]`, \
+		`#[codec(decode_bound_with_mem_tracking_bound(T: DecodeWithMemTracking))]` or \
+		`#[codec(mel_bound(T: MaxEncodedLen))]` are accepted as top attribute";
 	if attr.path.is_ident("codec") &&
 		attr.parse_args::<CustomTraitBound<encode_bound>>().is_err() &&
 		attr.parse_args::<CustomTraitBound<decode_bound>>().is_err() &&
+		attr.parse_args::<CustomTraitBound<decode_with_mem_tracking_bound>>().is_err() &&
 		attr.parse_args::<CustomTraitBound<mel_bound>>().is_err() &&
 		codec_crate_path_inner(attr).is_none()
 	{
@@ -448,4 +467,18 @@ fn check_repr(attrs: &[syn::Attribute], value: &str) -> bool {
 pub fn is_transparent(attrs: &[syn::Attribute]) -> bool {
 	// TODO: When migrating to syn 2 the `"(transparent)"` needs to be changed into `"transparent"`.
 	check_repr(attrs, "(transparent)")
+}
+
+pub fn try_get_variants(data: &DataEnum) -> Result<Vec<&Variant>, syn::Error> {
+	let data_variants: Vec<_> =
+		data.variants.iter().filter(|variant| !should_skip(&variant.attrs)).collect();
+
+	if data_variants.len() > 256 {
+		return Err(syn::Error::new(
+			data.variants.span(),
+			"Currently only enums with at most 256 variants are encodable/decodable.",
+		))
+	}
+
+	Ok(data_variants)
 }

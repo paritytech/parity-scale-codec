@@ -162,10 +162,12 @@ pub fn add<N>(
 			.into_iter()
 			.for_each(|ty| where_clause.predicates.push(parse_quote!(#ty : #codec_bound)));
 
-		let has_compact_bound: syn::Path = parse_quote!(#crate_path::HasCompact);
-		compact_types
-			.into_iter()
-			.for_each(|ty| where_clause.predicates.push(parse_quote!(#ty : #has_compact_bound)));
+		compact_types.into_iter().for_each(|ty| {
+			where_clause.predicates.push(parse_quote!(#ty : #crate_path::HasCompact));
+			where_clause
+				.predicates
+				.push(parse_quote!(<#ty as #crate_path::HasCompact>::Type : #codec_bound));
+		});
 
 		skip_types.into_iter().for_each(|ty| {
 			let codec_skip_bound = codec_skip_bound.as_ref();
