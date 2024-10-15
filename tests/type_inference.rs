@@ -15,17 +15,19 @@
 //! Test for type inference issue in decode.
 
 use parity_scale_codec::Decode;
-use parity_scale_codec_derive::Decode as DeriveDecode;
+use parity_scale_codec_derive::{
+	Decode as DeriveDecode, DecodeWithMemTracking as DeriveDecodeWithMemTracking,
+};
 
 pub trait Trait {
 	type Value;
 	type AccountId: Decode;
 }
 
-#[derive(DeriveDecode)]
+#[derive(DeriveDecode, DeriveDecodeWithMemTracking)]
 pub enum A<T: Trait> {
 	_C((T::AccountId, T::AccountId), Vec<(T::Value, T::Value)>),
 }
 
-#[derive(DeriveDecode)]
+#[derive(DeriveDecode, DeriveDecodeWithMemTracking)]
 pub struct B<T: Trait>((T::AccountId, T::AccountId), #[allow(dead_code)] Vec<(T::Value, T::Value)>);

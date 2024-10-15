@@ -17,7 +17,7 @@ use std::str::from_utf8;
 use proc_macro2::{Ident, Span, TokenStream};
 use syn::{punctuated::Punctuated, spanned::Spanned, token::Comma, Data, Error, Field, Fields};
 
-use crate::{utils, utils::UsedIndexes};
+use crate::utils;
 
 type FieldsList = Punctuated<Field, Comma>;
 
@@ -28,7 +28,7 @@ fn encode_single_field(
 	crate_path: &syn::Path,
 ) -> TokenStream {
 	let encoded_as = utils::get_encoded_as_type(field);
-	let compact = utils::is_compact(field);
+	let compact = utils::get_compact_type(field, crate_path);
 
 	if utils::should_skip(&field.attrs) {
 		return Error::new(
@@ -38,7 +38,7 @@ fn encode_single_field(
 		.to_compile_error();
 	}
 
-	if encoded_as.is_some() && compact {
+	if encoded_as.is_some() && compact.is_some() {
 		return Error::new(
 			Span::call_site(),
 			"`encoded_as` and `compact` can not be used at the same time!",
@@ -46,12 +46,11 @@ fn encode_single_field(
 		.to_compile_error();
 	}
 
-	let final_field_variable = if compact {
+	let final_field_variable = if let Some(compact) = compact {
 		let field_type = &field.ty;
 		quote_spanned! {
 			field.span() => {
-				<<#field_type as #crate_path::HasCompact>::Type as
-				#crate_path::EncodeAsRef<'_, #field_type>>::RefType::from(#field_name)
+				<#compact as #crate_path::EncodeAsRef<'_, #field_type>>::RefType::from(#field_name)
 			}
 		}
 	} else if let Some(encoded_as) = encoded_as {
@@ -298,32 +297,23 @@ fn impl_encode(data: &Data, type_name: &Ident, crate_path: &syn::Path) -> TokenS
 			Fields::Unit => [quote! { 0_usize }, quote!()],
 		},
 		Data::Enum(ref data) => {
-			let data_variants =
-				|| data.variants.iter().filter(|variant| !utils::should_skip(&variant.attrs));
-
-			if data_variants().count() > 256 {
-				return Error::new(
-					data.variants.span(),
-					"Currently only enums with at most 256 variants are encodable.",
-				)
-				.to_compile_error();
-			}
+			let variants = match utils::try_get_variants(data) {
+				Ok(variants) => variants,
+				Err(e) => return e.to_compile_error(),
+			};
 
 			// If the enum has no variants, we don't need to encode anything.
-			if data_variants().count() == 0 {
+			if variants.is_empty() {
 				return quote!();
 			}
-			let mut used_indexes =
-				match UsedIndexes::from(data_variants()).map_err(|e| e.to_compile_error()) {
-					Ok(index) => index,
-					Err(e) => return e,
-				};
+			match utils::check_indexes(variants.iter()).map_err(|e| e.to_compile_error()) {
+				Ok(()) => (),
+				Err(e) => return e,
+			};
 			let mut items = vec![];
-			for (index, f) in data_variants().enumerate() {
+			for (index, f) in variants.iter().enumerate() {
 				let name = &f.ident;
-				let index = match used_indexes
-					.variant_index(f, index)
-					.map_err(|e| e.into_compile_error())
+				let index = match utils::variant_index(f, index).map_err(|e| e.into_compile_error())
 				{
 					Ok(i) => i,
 					Err(e) => return e,

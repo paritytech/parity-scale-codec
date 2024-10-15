@@ -22,7 +22,7 @@ use crate::{
 	alloc::vec::Vec,
 	codec::{Decode, Encode, EncodeAsRef, Input, Output},
 	encode_like::EncodeLike,
-	Error,
+	DecodeWithMemTracking, Error,
 };
 #[cfg(feature = "fuzz")]
 use arbitrary::Arbitrary;
@@ -173,6 +173,13 @@ where
 		let as_ = Compact::<T::As>::decode(input)?;
 		Ok(Compact(<T as CompactAs>::decode_from(as_.0)?))
 	}
+}
+
+impl<T> DecodeWithMemTracking for Compact<T>
+where
+	T: CompactAs,
+	Compact<T::As>: DecodeWithMemTracking,
+{
 }
 
 macro_rules! impl_from_compact {
@@ -482,6 +489,8 @@ impl Decode for Compact<()> {
 	}
 }
 
+impl DecodeWithMemTracking for Compact<()> {}
+
 const U8_OUT_OF_RANGE: &str = "out of range decoding Compact<u8>";
 const U16_OUT_OF_RANGE: &str = "out of range decoding Compact<u16>";
 const U32_OUT_OF_RANGE: &str = "out of range decoding Compact<u32>";
@@ -505,6 +514,8 @@ impl Decode for Compact<u8> {
 		}))
 	}
 }
+
+impl DecodeWithMemTracking for Compact<u8> {}
 
 impl Decode for Compact<u16> {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
@@ -531,6 +542,8 @@ impl Decode for Compact<u16> {
 		}))
 	}
 }
+
+impl DecodeWithMemTracking for Compact<u16> {}
 
 impl Decode for Compact<u32> {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
@@ -571,6 +584,8 @@ impl Decode for Compact<u32> {
 		}))
 	}
 }
+
+impl DecodeWithMemTracking for Compact<u32> {}
 
 impl Decode for Compact<u64> {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
@@ -627,6 +642,8 @@ impl Decode for Compact<u64> {
 		}))
 	}
 }
+
+impl DecodeWithMemTracking for Compact<u64> {}
 
 impl Decode for Compact<u128> {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
@@ -691,6 +708,8 @@ impl Decode for Compact<u128> {
 		}))
 	}
 }
+
+impl DecodeWithMemTracking for Compact<u128> {}
 
 #[cfg(test)]
 mod tests {

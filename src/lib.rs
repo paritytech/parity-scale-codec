@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#![cfg_attr(all(test, nightly), feature(allocator_api))]
+#![cfg_attr(all(test, nightly), feature(btreemap_alloc))]
 #![doc = include_str!("../README.md")]
 #![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
@@ -41,10 +43,12 @@ pub mod alloc {
 
 #[cfg(feature = "bit-vec")]
 mod bit_vec;
+mod btree_utils;
 mod codec;
 mod compact;
 #[cfg(feature = "max-encoded-len")]
 mod const_encoded_len;
+mod counted_input;
 mod decode_all;
 mod decode_finished;
 mod depth_limit;
@@ -57,6 +61,7 @@ mod joiner;
 mod keyedvec;
 #[cfg(feature = "max-encoded-len")]
 mod max_encoded_len;
+mod mem_tracking;
 
 #[cfg(feature = "std")]
 pub use self::codec::IoReader;
@@ -66,6 +71,7 @@ pub use self::{
 		FullEncode, Input, OptionBool, Output, WrapperTypeDecode, WrapperTypeEncode,
 	},
 	compact::{Compact, CompactAs, CompactLen, CompactRef, HasCompact},
+	counted_input::CountedInput,
 	decode_all::DecodeAll,
 	decode_finished::DecodeFinished,
 	depth_limit::DecodeLimit,
@@ -74,6 +80,7 @@ pub use self::{
 	error::Error,
 	joiner::Joiner,
 	keyedvec::KeyedVec,
+	mem_tracking::{DecodeWithMemLimit, DecodeWithMemTracking, MemTrackingInput},
 };
 #[cfg(feature = "max-encoded-len")]
 pub use const_encoded_len::ConstEncodedLen;
