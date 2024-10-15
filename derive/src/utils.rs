@@ -39,20 +39,14 @@ where
 }
 
 /// Indexes used while defining variants.
-pub struct UsedIndexes {
-	/// Map from index of the variant to it's attribute or definition span
-	used_set: HashMap<u8, Span>,
-	/// We need this u8 to correctly assign indexes to variants
-	/// that are not annotated by coded(index = ?) or explicit discriminant
-	current: u8,
-}
+pub struct UsedIndexes;
 
 impl UsedIndexes {
 	/// Build a Set of used indexes for use with #[scale(index = $int)] attribute or
 	/// explicit  discriminant  on the variant
 	pub fn from<'a, I: Iterator<Item = &'a Variant>>(values: I) -> syn::Result<Self> {
 		let mut map: HashMap<u8, Span> = HashMap::new();
-		for v in values {
+		for (i, v) in values.enumerate() {
 			match find_meta_item(v.attrs.iter(), |meta| {
 				if let NestedMeta::Meta(Meta::NameValue(ref nv)) = meta {
 					if nv.path.is_ident("index") {
@@ -60,29 +54,26 @@ impl UsedIndexes {
 							let byte = v
 								.base10_parse::<u8>()
 								.expect("Internal error, index attribute must have been checked");
-							return Some((byte, nv.span()));
+							return Some(byte);
 						}
 					}
 				}
 				None
 			}) {
-				Some((index, nv)) =>
-					if let Some(span) = map.insert(index, nv.span()) {
-						let mut error = syn::Error::new(nv.span(), "Duplicate variant index. qed");
+				Some(index) =>
+					if let Some(span) = map.insert(index, v.span()) {
+						let mut error = syn::Error::new(v.span(), "Duplicate variant index. qed");
 						error.combine(syn::Error::new(span, "Variant index already defined here."));
 						return Err(error)
 					},
 				_ => match v.discriminant.as_ref() {
-					Some((
-						_,
-						expr @ syn::Expr::Lit(ExprLit { lit: syn::Lit::Int(lit_int), .. }),
-					)) => {
+					Some((_, syn::Expr::Lit(ExprLit { lit: syn::Lit::Int(lit_int), .. }))) => {
 						let index = lit_int
 							.base10_parse::<u8>()
 							.expect("Internal error, index attribute must have been checked");
-						if let Some(span) = map.insert(index, expr.span()) {
+						if let Some(span) = map.insert(index, v.span()) {
 							let mut error =
-								syn::Error::new(expr.span(), "Duplicate variant index. qed");
+								syn::Error::new(v.span(), "Duplicate variant index. qed");
 							error.combine(syn::Error::new(
 								span,
 								"Variant index already defined here.",
@@ -90,20 +81,28 @@ impl UsedIndexes {
 							return Err(error)
 						}
 					},
-					Some((_, expr)) =>
-						return Err(syn::Error::new(expr.span(), "Invalid discriminant. qed")),
-					None => (),
+					Some((_, _)) =>
+						return Err(syn::Error::new(v.span(), "Invalid discriminant. qed")),
+					None =>
+						if let Some(span) = map.insert(i.try_into().unwrap(), v.span()) {
+							let mut error = syn::Error::new(
+								span,
+								"Custom variant index is duplicated later. qed",
+							);
+							error.combine(syn::Error::new(v.span(), "Variant index derived here."));
+							return Err(error)
+						},
 				},
 			}
 		}
-		Ok(Self { current: 0, used_set: map })
+		Ok(Self)
 	}
 
 	/// Look for a `#[scale(index = $int)]` attribute on a variant. If no attribute
 	/// is found, fall back to the discriminant or just the variant index.
-	pub fn variant_index(&mut self, v: &Variant) -> syn::Result<TokenStream> {
+	pub fn variant_index(&mut self, v: &Variant, index: usize) -> syn::Result<TokenStream> {
 		// first look for an attribute
-		let index = find_meta_item(v.attrs.iter(), |meta| {
+		let codec_index = find_meta_item(v.attrs.iter(), |meta| {
 			if let NestedMeta::Meta(Meta::NameValue(ref nv)) = meta {
 				if nv.path.is_ident("index") {
 					if let Lit::Int(ref v) = nv.lit {
@@ -117,35 +116,14 @@ impl UsedIndexes {
 
 			None
 		});
-		if let Some(index) = index {
-			self.current = index;
+		if let Some(index) = codec_index {
 			Ok(quote! { #index })
 		} else {
 			match v.discriminant.as_ref() {
-				Some((_, expr @ syn::Expr::Lit(ExprLit { lit: syn::Lit::Int(lit_int), .. }))) => {
-					self.current = lit_int
-						.base10_parse()
-						.expect("Internal error, index attribute must have been checked");
-
-					Ok(quote! { #expr })
-				},
+				Some((_, expr @ syn::Expr::Lit(ExprLit { lit: syn::Lit::Int(_), .. }))) =>
+					Ok(quote! { #expr }),
 				Some((_, expr)) => Err(syn::Error::new(expr.span(), "Invalid discriminant. qed")),
-				None => {
-					let idx = self.next_index();
-					Ok(quote! { #idx })
-				},
-			}
-		}
-	}
-
-	fn next_index(&mut self) -> u8 {
-		loop {
-			if self.used_set.contains_key(&self.current) {
-				self.current += 1;
-			} else {
-				let index = self.current;
-				self.current += 1;
-				return index;
+				None => Ok(quote! { #index }),
 			}
 		}
 	}

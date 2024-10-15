@@ -319,9 +319,11 @@ fn impl_encode(data: &Data, type_name: &Ident, crate_path: &syn::Path) -> TokenS
 					Err(e) => return e,
 				};
 			let mut items = vec![];
-			for f in data_variants() {
+			for (index, f) in data_variants().enumerate() {
 				let name = &f.ident;
-				let index = match used_indexes.variant_index(f).map_err(|e| e.into_compile_error())
+				let index = match used_indexes
+					.variant_index(f, index)
+					.map_err(|e| e.into_compile_error())
 				{
 					Ok(i) => i,
 					Err(e) => return e,

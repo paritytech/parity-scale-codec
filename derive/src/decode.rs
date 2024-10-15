@@ -62,9 +62,11 @@ pub fn quote(
 					Err(e) => return e,
 				};
 			let mut items = vec![];
-			for v in data_variants() {
+			for (index, v) in data_variants().enumerate() {
 				let name = &v.ident;
-				let index = match used_indexes.variant_index(v).map_err(|e| e.into_compile_error())
+				let index = match used_indexes
+					.variant_index(v, index)
+					.map_err(|e| e.into_compile_error())
 				{
 					Ok(i) => i,
 					Err(e) => return e,
