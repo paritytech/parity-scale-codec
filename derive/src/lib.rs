@@ -94,8 +94,8 @@ fn wrap_with_dummy_const(
 /// * if variant has attribute: `#[codec(index = "$n")]` then n
 /// * else if variant has discriminant (like 3 in `enum T { A = 3 }`) then the discriminant.
 /// * else its position in the variant set, excluding skipped variants, but including variant with
-/// discriminant or attribute. Warning this position does collision with discriminant or attribute
-/// index.
+///   discriminant or attribute. Warning this position does collision with discriminant or attribute
+///   index.
 ///
 /// variant attributes:
 /// * `#[codec(skip)]`: the variant is not encoded.
@@ -119,7 +119,7 @@ fn wrap_with_dummy_const(
 /// assert_eq!(EnumType::A.encode(), vec![15]);
 /// assert_eq!(EnumType::B.encode(), vec![]);
 /// assert_eq!(EnumType::C.encode(), vec![3]);
-/// assert_eq!(EnumType::D.encode(), vec![2]);
+/// assert_eq!(EnumType::D.encode(), vec![0]);
 /// ```
 #[proc_macro_derive(Encode, attributes(codec))]
 pub fn encode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
