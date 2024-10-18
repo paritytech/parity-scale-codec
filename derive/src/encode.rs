@@ -306,12 +306,19 @@ fn impl_encode(data: &Data, type_name: &Ident, crate_path: &syn::Path) -> TokenS
 			if variants.is_empty() {
 				return quote!();
 			}
-
-			let recurse = variants.iter().enumerate().map(|(i, f)| {
+			match utils::check_indexes(variants.iter()).map_err(|e| e.to_compile_error()) {
+				Ok(()) => (),
+				Err(e) => return e,
+			};
+			let mut items = vec![];
+			for (index, f) in variants.iter().enumerate() {
 				let name = &f.ident;
-				let index = utils::variant_index(f, i);
-
-				match f.fields {
+				let index = match utils::variant_index(f, index).map_err(|e| e.into_compile_error())
+				{
+					Ok(i) => i,
+					Err(e) => return e,
+				};
+				let item = match f.fields {
 					Fields::Named(ref fields) => {
 						let fields = &fields.named;
 						let field_name = |_, ident: &Option<Ident>| quote!(#ident);
@@ -389,11 +396,12 @@ fn impl_encode(data: &Data, type_name: &Ident, crate_path: &syn::Path) -> TokenS
 
 						[hinting, encoding]
 					},
-				}
-			});
+				};
+				items.push(item)
+			}
 
-			let recurse_hinting = recurse.clone().map(|[hinting, _]| hinting);
-			let recurse_encoding = recurse.clone().map(|[_, encoding]| encoding);
+			let recurse_hinting = items.iter().map(|[hinting, _]| hinting);
+			let recurse_encoding = items.iter().map(|[_, encoding]| encoding);
 
 			let hinting = quote! {
 				// The variant index uses 1 byte.
