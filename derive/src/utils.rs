@@ -43,7 +43,7 @@ where
 pub fn check_indexes<'a, I: Iterator<Item = &'a &'a Variant>>(values: I) -> syn::Result<()> {
 	let mut map: HashMap<u8, Span> = HashMap::new();
 	for (i, v) in values.enumerate() {
-		match find_meta_item(v.attrs.iter(), |meta| {
+		if let Some(index) = find_meta_item(v.attrs.iter(), |meta| {
 			if let NestedMeta::Meta(Meta::NameValue(ref nv)) = meta {
 				if nv.path.is_ident("index") {
 					if let Lit::Int(ref v) = nv.lit {
@@ -56,13 +56,13 @@ pub fn check_indexes<'a, I: Iterator<Item = &'a &'a Variant>>(values: I) -> syn:
 			}
 			None
 		}) {
-			Some(index) =>
-				if let Some(span) = map.insert(index, v.span()) {
-					let mut error = syn::Error::new(v.span(), "Duplicate variant index. qed");
-					error.combine(syn::Error::new(span, "Variant index already defined here."));
-					return Err(error)
-				},
-			_ => match v.discriminant.as_ref() {
+			if let Some(span) = map.insert(index, v.span()) {
+				let mut error = syn::Error::new(v.span(), "Duplicate variant index. qed");
+				error.combine(syn::Error::new(span, "Variant index already defined here."));
+				return Err(error)
+			}
+		} else {
+			match v.discriminant.as_ref() {
 				Some((_, syn::Expr::Lit(ExprLit { lit: syn::Lit::Int(lit_int), .. }))) => {
 					let index = lit_int
 						.base10_parse::<u8>()
@@ -81,7 +81,7 @@ pub fn check_indexes<'a, I: Iterator<Item = &'a &'a Variant>>(values: I) -> syn:
 						error.combine(syn::Error::new(v.span(), "Variant index derived here."));
 						return Err(error)
 					},
-			},
+			}
 		}
 	}
 	Ok(())
