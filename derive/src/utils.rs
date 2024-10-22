@@ -451,15 +451,9 @@ fn check_top_attribute(attr: &Attribute) -> syn::Result<()> {
 
 fn check_repr(attrs: &[syn::Attribute], value: &str) -> bool {
 	let mut result = false;
-	for raw_attr in attrs {
-		let path = raw_attr.path.clone().into_token_stream().to_string();
-		if path != "repr" {
-			continue;
-		}
-
+	for raw_attr in attrs.iter().filter(|attr| attr.path.is_ident("repr")) {
 		result = raw_attr.tokens.clone().into_token_stream().to_string() == value;
 	}
-
 	result
 }
 
