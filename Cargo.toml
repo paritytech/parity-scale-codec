@@ -12,7 +12,7 @@ rust-version = "1.60.0"
 
 [dependencies]
 arrayvec = { version = "0.7", default-features = false }
-serde = { version = "1.0.210", default-features = false, optional = true }
+serde = { version = "1.0.211", default-features = false, optional = true }
 parity-scale-codec-derive = { path = "derive", version = ">= 3.6.8", default-features = false, optional = true }
 bitvec = { version = "1", default-features = false, features = ["alloc"], optional = true }
 bytes = { version = "1", default-features = false, optional = true }
@@ -27,7 +27,7 @@ serde_derive = { version = "1.0" }
 parity-scale-codec-derive = { path = "derive", default-features = false }
 quickcheck = "1.0"
 proptest = "1.5.0"
-trybuild = "1.0.100"
+trybuild = "1.0.101"
 paste = "1"
 rustversion = "1"
 
