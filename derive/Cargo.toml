@@ -12,7 +12,7 @@ repository = "https://github.com/paritytech/parity-scale-codec"
 proc-macro = true
 
 [dependencies]
-syn = { version = "1.0.98", features = ["full", "visit"] }
+syn = { version = "2", features = ["full", "visit"] }
 quote = "1.0.37"
 proc-macro2 = "1.0.88"
 proc-macro-crate = "3.1.0"

@@ -20,11 +20,9 @@
 use std::str::FromStr;
 
 use proc_macro2::TokenStream;
-use quote::{quote, ToTokens};
+use quote::quote;
 use syn::{
-	parse::Parse, punctuated::Punctuated, spanned::Spanned, token, Attribute, Data, DataEnum,
-	DeriveInput, Field, Fields, FieldsNamed, FieldsUnnamed, Lit, Meta, MetaNameValue, NestedMeta,
-	Path, Variant,
+	parse::Parse, punctuated::Punctuated, spanned::Spanned, token, Attribute, Data, DataEnum, DeriveInput, Expr, Field, Fields, FieldsNamed, FieldsUnnamed, Lit, Meta, MetaNameValue, ExprLit, Path, Variant
 };
 
 fn find_meta_item<'a, F, R, I, M>(mut itr: I, mut pred: F) -> Option<R>
@@ -34,7 +32,7 @@ where
 	M: Parse,
 {
 	itr.find_map(|attr| {
-		attr.path.is_ident("codec").then(|| pred(attr.parse_args().ok()?)).flatten()
+		attr.path().is_ident("codec").then(|| pred(attr.parse_args().ok()?)).flatten()
 	})
 }
 
@@ -43,9 +41,9 @@ where
 pub fn variant_index(v: &Variant, i: usize) -> TokenStream {
 	// first look for an attribute
 	let index = find_meta_item(v.attrs.iter(), |meta| {
-		if let NestedMeta::Meta(Meta::NameValue(ref nv)) = meta {
+		if let Meta::NameValue(ref nv) = meta {
 			if nv.path.is_ident("index") {
-				if let Lit::Int(ref v) = nv.lit {
+				if let Expr::Lit(ExprLit { lit: Lit::Int(ref v), .. }) = nv.value {
 					let byte = v
 						.base10_parse::<u8>()
 						.expect("Internal error, index attribute must have been checked");
@@ -70,9 +68,9 @@ pub fn variant_index(v: &Variant, i: usize) -> TokenStream {
 /// `Field`.
 pub fn get_encoded_as_type(field: &Field) -> Option<TokenStream> {
 	find_meta_item(field.attrs.iter(), |meta| {
-		if let NestedMeta::Meta(Meta::NameValue(ref nv)) = meta {
+		if let Meta::NameValue(ref nv) = meta {
 			if nv.path.is_ident("encoded_as") {
-				if let Lit::Str(ref s) = nv.lit {
+				if let Expr::Lit(ExprLit { lit: Lit::Str(ref s), .. }) = nv.value {
 					return Some(
 						TokenStream::from_str(&s.value())
 							.expect("Internal error, encoded_as attribute must have been checked"),
@@ -89,7 +87,7 @@ pub fn get_encoded_as_type(field: &Field) -> Option<TokenStream> {
 /// return the compact type associated with the field type.
 pub fn get_compact_type(field: &Field, crate_path: &syn::Path) -> Option<TokenStream> {
 	find_meta_item(field.attrs.iter(), |meta| {
-		if let NestedMeta::Meta(Meta::Path(ref path)) = meta {
+		if let Meta::Path(ref path) = meta {
 			if path.is_ident("compact") {
 				let field_type = &field.ty;
 				return Some(quote! {<#field_type as #crate_path::HasCompact>::Type});
@@ -108,7 +106,7 @@ pub fn is_compact(field: &Field) -> bool {
 /// Look for a `#[codec(skip)]` in the given attributes.
 pub fn should_skip(attrs: &[Attribute]) -> bool {
 	find_meta_item(attrs.iter(), |meta| {
-		if let NestedMeta::Meta(Meta::Path(ref path)) = meta {
+		if let Meta::Path(ref path) = meta {
 			if path.is_ident("skip") {
 				return Some(path.span());
 			}
@@ -122,7 +120,7 @@ pub fn should_skip(attrs: &[Attribute]) -> bool {
 /// Look for a `#[codec(dumb_trait_bound)]`in the given attributes.
 pub fn has_dumb_trait_bound(attrs: &[Attribute]) -> bool {
 	find_meta_item(attrs.iter(), |meta| {
-		if let NestedMeta::Meta(Meta::Path(ref path)) = meta {
+		if let Meta::Path(ref path) = meta {
 			if path.is_ident("dumb_trait_bound") {
 				return Some(());
 			}
@@ -174,7 +172,7 @@ impl From<CratePath> for Path {
 /// Match `#[codec(crate = ...)]` and return the `...` if it is a `Path`.
 fn codec_crate_path_inner(attr: &Attribute) -> Option<Path> {
 	// match `#[codec ...]`
-	attr.path
+	attr.path()
 		.is_ident("codec")
 		.then(|| {
 			// match `#[codec(crate = ...)]` and return the `...`
@@ -222,13 +220,13 @@ impl<N: Parse> Parse for CustomTraitBound<N> {
 				_paren_token_1: _paren_token,
 				_skip_type_params: content.parse::<skip_type_params>()?,
 				_paren_token_2: syn::parenthesized!(content in content),
-				type_names: content.parse_terminated(syn::Ident::parse)?,
+				type_names: content.parse_terminated(syn::Ident::parse, Token![,])?,
 			})
 		} else {
 			Ok(Self::SpecifiedBounds {
 				_name,
 				_paren_token,
-				bounds: content.parse_terminated(syn::WherePredicate::parse)?,
+				bounds: content.parse_terminated(syn::WherePredicate::parse, Token![,])?,
 			})
 		}
 	}
@@ -339,10 +337,10 @@ pub fn check_attributes(input: &DeriveInput) -> syn::Result<()> {
 
 // Check if the attribute is `#[allow(..)]`, `#[deny(..)]`, `#[forbid(..)]` or `#[warn(..)]`.
 pub fn is_lint_attribute(attr: &Attribute) -> bool {
-	attr.path.is_ident("allow") ||
-		attr.path.is_ident("deny") ||
-		attr.path.is_ident("forbid") ||
-		attr.path.is_ident("warn")
+	attr.path().is_ident("allow") ||
+		attr.path().is_ident("deny") ||
+		attr.path().is_ident("forbid") ||
+		attr.path().is_ident("warn")
 }
 
 // Ensure a field is decorated only with the following attributes:
@@ -353,31 +351,30 @@ fn check_field_attribute(attr: &Attribute) -> syn::Result<()> {
 	let field_error = "Invalid attribute on field, only `#[codec(skip)]`, `#[codec(compact)]` and \
 		`#[codec(encoded_as = \"$EncodeAs\")]` are accepted.";
 
-	if attr.path.is_ident("codec") {
-		match attr.parse_meta()? {
-			Meta::List(ref meta_list) if meta_list.nested.len() == 1 => {
-				match meta_list.nested.first().expect("Just checked that there is one item; qed") {
-					NestedMeta::Meta(Meta::Path(path))
-						if path.get_ident().map_or(false, |i| i == "skip") =>
-						Ok(()),
+	if attr.path().is_ident("codec") {
+		let nested = attr.parse_args_with(Punctuated::<Meta, Token![,]>::parse_terminated)?;
+		if nested.len() != 1 {
+			return Err(syn::Error::new(attr.meta.span(), field_error))
+		}
+		match nested.first().expect("Just checked that there is one item; qed") {
+			Meta::Path(path)
+				if path.get_ident().map_or(false, |i| i == "skip") =>
+				Ok(()),
 
-					NestedMeta::Meta(Meta::Path(path))
-						if path.get_ident().map_or(false, |i| i == "compact") =>
-						Ok(()),
+			Meta::Path(path)
+				if path.get_ident().map_or(false, |i| i == "compact") =>
+				Ok(()),
 
-					NestedMeta::Meta(Meta::NameValue(MetaNameValue {
-						path,
-						lit: Lit::Str(lit_str),
-						..
-					})) if path.get_ident().map_or(false, |i| i == "encoded_as") =>
-						TokenStream::from_str(&lit_str.value())
-							.map(|_| ())
-							.map_err(|_e| syn::Error::new(lit_str.span(), "Invalid token stream")),
+			Meta::NameValue(MetaNameValue {
+				path,
+				value: Expr::Lit(ExprLit { lit: Lit::Str(lit_str), .. }),
+				..
+			}) if path.get_ident().map_or(false, |i| i == "encoded_as") =>
+				TokenStream::from_str(&lit_str.value())
+					.map(|_| ())
+					.map_err(|_e| syn::Error::new(lit_str.span(), "Invalid token stream")),
 
-					elt => Err(syn::Error::new(elt.span(), field_error)),
-				}
-			},
-			meta => Err(syn::Error::new(meta.span(), field_error)),
+			elt => Err(syn::Error::new(elt.span(), field_error)),
 		}
 	} else {
 		Ok(())
@@ -391,27 +388,26 @@ fn check_variant_attribute(attr: &Attribute) -> syn::Result<()> {
 	let variant_error = "Invalid attribute on variant, only `#[codec(skip)]` and \
 		`#[codec(index = $u8)]` are accepted.";
 
-	if attr.path.is_ident("codec") {
-		match attr.parse_meta()? {
-			Meta::List(ref meta_list) if meta_list.nested.len() == 1 => {
-				match meta_list.nested.first().expect("Just checked that there is one item; qed") {
-					NestedMeta::Meta(Meta::Path(path))
-						if path.get_ident().map_or(false, |i| i == "skip") =>
-						Ok(()),
+	if attr.path().is_ident("codec") {
+		let nested = attr.parse_args_with(Punctuated::<Meta, Token![,]>::parse_terminated)?;
+		if nested.len() != 1 {
+			return Err(syn::Error::new(attr.meta.span(), variant_error))
+		}
+		match nested.first().expect("Just checked that there is one item; qed") {
+			Meta::Path(path)
+				if path.get_ident().map_or(false, |i| i == "skip") =>
+				Ok(()),
 
-					NestedMeta::Meta(Meta::NameValue(MetaNameValue {
-						path,
-						lit: Lit::Int(lit_int),
-						..
-					})) if path.get_ident().map_or(false, |i| i == "index") => lit_int
-						.base10_parse::<u8>()
-						.map(|_| ())
-						.map_err(|_| syn::Error::new(lit_int.span(), "Index must be in 0..255")),
+			Meta::NameValue(MetaNameValue {
+				path,
+				value: Expr::Lit(ExprLit { lit: Lit::Int(lit_int), .. }),
+				..
+			}) if path.get_ident().map_or(false, |i| i == "index") => lit_int
+				.base10_parse::<u8>()
+				.map(|_| ())
+				.map_err(|_| syn::Error::new(lit_int.span(), "Index must be in 0..255")),
 
-					elt => Err(syn::Error::new(elt.span(), variant_error)),
-				}
-			},
-			meta => Err(syn::Error::new(meta.span(), variant_error)),
+			elt => Err(syn::Error::new(elt.span(), variant_error)),
 		}
 	} else {
 		Ok(())
@@ -425,48 +421,45 @@ fn check_top_attribute(attr: &Attribute) -> syn::Result<()> {
 		`#[codec(decode_bound(T: Decode))]`, \
 		`#[codec(decode_bound_with_mem_tracking_bound(T: DecodeWithMemTracking))]` or \
 		`#[codec(mel_bound(T: MaxEncodedLen))]` are accepted as top attribute";
-	if attr.path.is_ident("codec") &&
+	if attr.path().is_ident("codec") &&
 		attr.parse_args::<CustomTraitBound<encode_bound>>().is_err() &&
 		attr.parse_args::<CustomTraitBound<decode_bound>>().is_err() &&
 		attr.parse_args::<CustomTraitBound<decode_with_mem_tracking_bound>>().is_err() &&
 		attr.parse_args::<CustomTraitBound<mel_bound>>().is_err() &&
 		codec_crate_path_inner(attr).is_none()
 	{
-		match attr.parse_meta()? {
-			Meta::List(ref meta_list) if meta_list.nested.len() == 1 => {
-				match meta_list.nested.first().expect("Just checked that there is one item; qed") {
-					NestedMeta::Meta(Meta::Path(path))
-						if path.get_ident().map_or(false, |i| i == "dumb_trait_bound") =>
-						Ok(()),
+		let nested = attr.parse_args_with(Punctuated::<Meta, Token![,]>::parse_terminated)?;
+		if nested.len() != 1 {
+			return Err(syn::Error::new(attr.meta.span(), top_error))
+		}
+		match nested.first().expect("Just checked that there is one item; qed") {
+			Meta::Path(path)
+				if path.get_ident().map_or(false, |i| i == "dumb_trait_bound") =>
+				Ok(()),
 
-					elt => Err(syn::Error::new(elt.span(), top_error)),
-				}
-			},
-			_ => Err(syn::Error::new(attr.span(), top_error)),
+			elt => Err(syn::Error::new(elt.span(), top_error)),
 		}
 	} else {
 		Ok(())
 	}
 }
 
-fn check_repr(attrs: &[syn::Attribute], value: &str) -> bool {
-	let mut result = false;
-	for raw_attr in attrs {
-		let path = raw_attr.path.clone().into_token_stream().to_string();
-		if path != "repr" {
-			continue;
-		}
-
-		result = raw_attr.tokens.clone().into_token_stream().to_string() == value;
-	}
-
-	result
-}
-
 /// Checks whether the given attributes contain a `#[repr(transparent)]`.
 pub fn is_transparent(attrs: &[syn::Attribute]) -> bool {
-	// TODO: When migrating to syn 2 the `"(transparent)"` needs to be changed into `"transparent"`.
-	check_repr(attrs, "(transparent)")
+	attrs.iter().any(|attr| {
+		if !attr.path().is_ident("repr") {
+			return false
+		}
+		let Ok(nested) = attr.parse_args_with(Punctuated::<Meta, Token![,]>::parse_terminated) else {
+			return false
+		};
+		nested.iter().any(|n| {
+			match n {
+				Meta::Path(p) if p.is_ident("transparent") => true,
+				_ => false
+			}
+		})
+	})
 }
 
 pub fn try_get_variants(data: &DataEnum) -> Result<Vec<&Variant>, syn::Error> {
