@@ -22,7 +22,9 @@ use std::str::FromStr;
 use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{
-	parse::Parse, punctuated::Punctuated, spanned::Spanned, token, Attribute, Data, DataEnum, DeriveInput, Expr, Field, Fields, FieldsNamed, FieldsUnnamed, Lit, Meta, MetaNameValue, ExprLit, Path, Variant
+	parse::Parse, punctuated::Punctuated, spanned::Spanned, token, Attribute, Data, DataEnum,
+	DeriveInput, Expr, ExprLit, Field, Fields, FieldsNamed, FieldsUnnamed, Lit, Meta,
+	MetaNameValue, Path, Variant,
 };
 
 fn find_meta_item<'a, F, R, I, M>(mut itr: I, mut pred: F) -> Option<R>
@@ -354,16 +356,12 @@ fn check_field_attribute(attr: &Attribute) -> syn::Result<()> {
 	if attr.path().is_ident("codec") {
 		let nested = attr.parse_args_with(Punctuated::<Meta, Token![,]>::parse_terminated)?;
 		if nested.len() != 1 {
-			return Err(syn::Error::new(attr.meta.span(), field_error))
+			return Err(syn::Error::new(attr.meta.span(), field_error));
 		}
 		match nested.first().expect("Just checked that there is one item; qed") {
-			Meta::Path(path)
-				if path.get_ident().map_or(false, |i| i == "skip") =>
-				Ok(()),
+			Meta::Path(path) if path.get_ident().map_or(false, |i| i == "skip") => Ok(()),
 
-			Meta::Path(path)
-				if path.get_ident().map_or(false, |i| i == "compact") =>
-				Ok(()),
+			Meta::Path(path) if path.get_ident().map_or(false, |i| i == "compact") => Ok(()),
 
 			Meta::NameValue(MetaNameValue {
 				path,
@@ -391,12 +389,10 @@ fn check_variant_attribute(attr: &Attribute) -> syn::Result<()> {
 	if attr.path().is_ident("codec") {
 		let nested = attr.parse_args_with(Punctuated::<Meta, Token![,]>::parse_terminated)?;
 		if nested.len() != 1 {
-			return Err(syn::Error::new(attr.meta.span(), variant_error))
+			return Err(syn::Error::new(attr.meta.span(), variant_error));
 		}
 		match nested.first().expect("Just checked that there is one item; qed") {
-			Meta::Path(path)
-				if path.get_ident().map_or(false, |i| i == "skip") =>
-				Ok(()),
+			Meta::Path(path) if path.get_ident().map_or(false, |i| i == "skip") => Ok(()),
 
 			Meta::NameValue(MetaNameValue {
 				path,
@@ -430,11 +426,10 @@ fn check_top_attribute(attr: &Attribute) -> syn::Result<()> {
 	{
 		let nested = attr.parse_args_with(Punctuated::<Meta, Token![,]>::parse_terminated)?;
 		if nested.len() != 1 {
-			return Err(syn::Error::new(attr.meta.span(), top_error))
+			return Err(syn::Error::new(attr.meta.span(), top_error));
 		}
 		match nested.first().expect("Just checked that there is one item; qed") {
-			Meta::Path(path)
-				if path.get_ident().map_or(false, |i| i == "dumb_trait_bound") =>
+			Meta::Path(path) if path.get_ident().map_or(false, |i| i == "dumb_trait_bound") =>
 				Ok(()),
 
 			elt => Err(syn::Error::new(elt.span(), top_error)),
@@ -448,17 +443,13 @@ fn check_top_attribute(attr: &Attribute) -> syn::Result<()> {
 pub fn is_transparent(attrs: &[syn::Attribute]) -> bool {
 	attrs.iter().any(|attr| {
 		if !attr.path().is_ident("repr") {
-			return false
+			return false;
 		}
-		let Ok(nested) = attr.parse_args_with(Punctuated::<Meta, Token![,]>::parse_terminated) else {
-			return false
+		let Ok(nested) = attr.parse_args_with(Punctuated::<Meta, Token![,]>::parse_terminated)
+		else {
+			return false;
 		};
-		nested.iter().any(|n| {
-			match n {
-				Meta::Path(p) if p.is_ident("transparent") => true,
-				_ => false
-			}
-		})
+		nested.iter().any(|n| matches!(n, Meta::Path(p) if p.is_ident("transparent")))
 	})
 }
 
@@ -470,7 +461,7 @@ pub fn try_get_variants(data: &DataEnum) -> Result<Vec<&Variant>, syn::Error> {
 		return Err(syn::Error::new(
 			data.variants.span(),
 			"Currently only enums with at most 256 variants are encodable/decodable.",
-		))
+		));
 	}
 
 	Ok(data_variants)
