@@ -7,13 +7,13 @@ license.workspace = true
 repository.workspace = true
 categories.workspace = true
 edition.workspace = true
-rust-version.workspace = true
 build = "build.rs"
+rust-version.workspace = true
 
 [dependencies]
 arrayvec = { version = "0.7", default-features = false }
 serde = { version = "1.0.213", default-features = false, optional = true }
-parity-scale-codec-derive = { path = "derive", version = "3.7.1", default-features = false, optional = true }
+parity-scale-codec-derive = { path = "derive", version = "3.6.8", default-features = false, optional = true }
 bitvec = { version = "1", default-features = false, features = ["alloc"], optional = true }
 bytes = { version = "1", default-features = false, optional = true }
 byte-slice-cast = { version = "1.2.2", default-features = false }
