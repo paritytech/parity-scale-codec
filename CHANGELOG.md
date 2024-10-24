@@ -8,10 +8,17 @@ and this crate adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 ## [3.7.0] - 2024-10-24
 
 ### Added
+
 - Allow decoding with a memory limit. ([616](https://github.com/paritytech/parity-scale-codec/pull/616))
 
 ### Changed
+
 - This release bumps some dependencies, primarily bumping `syn` to 2. ([#640](https://github.com/paritytech/parity-scale-codec/pull/640)).
+
+### Fixed
+
+- Fix MaxEncodedLen derive macro for enum with skipped variant ([#622](https://github.com/paritytech/parity-scale-codec/pull/622))
+- Use MAX_PREALLOCATION consistently [#605](https://github.com/paritytech/parity-scale-codec/pull/605)
 
 ## [3.6.4] - 2023-07-14
 
