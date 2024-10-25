@@ -37,6 +37,19 @@ where
 		attr.path().is_ident("codec").then(|| pred(attr.parse_args().ok()?)).flatten()
 	})
 }
+fn find_meta_item_in_path<F, R>(attrs: &[Attribute], word: &str, success_callback: F) -> Option<R>
+where
+	F: FnMut(&Path) -> R + Clone, // Ensure that F implements Clone
+{
+	find_meta_item(attrs.iter(), move |meta| {
+		if let Meta::Path(ref path) = meta {
+			if path.is_ident(word) {
+				return Some(success_callback.clone()(path));
+			}
+		}
+		None
+	})
+}
 
 /// Look for a `#[scale(index = $int)]` attribute on a variant. If no attribute
 /// is found, fall back to the discriminant or just the variant index.
@@ -87,16 +100,10 @@ pub fn get_encoded_as_type(field: &Field) -> Option<TokenStream> {
 
 /// Look for a `#[codec(compact)]` outer attribute on the given `Field`. If the attribute is found,
 /// return the compact type associated with the field type.
-pub fn get_compact_type(field: &Field, crate_path: &syn::Path) -> Option<TokenStream> {
-	find_meta_item(field.attrs.iter(), |meta| {
-		if let Meta::Path(ref path) = meta {
-			if path.is_ident("compact") {
-				let field_type = &field.ty;
-				return Some(quote! {<#field_type as #crate_path::HasCompact>::Type});
-			}
-		}
-
-		None
+pub fn get_compact_type(field: &Field, crate_path: &Path) -> Option<TokenStream> {
+	find_meta_item_in_path(field.attrs.as_slice(), "compact", |_path| {
+		let field_type = &field.ty;
+		quote! {<#field_type as #crate_path::HasCompact>::Type}
 	})
 }
 
@@ -107,30 +114,12 @@ pub fn is_compact(field: &Field) -> bool {
 
 /// Look for a `#[codec(skip)]` in the given attributes.
 pub fn should_skip(attrs: &[Attribute]) -> bool {
-	find_meta_item(attrs.iter(), |meta| {
-		if let Meta::Path(ref path) = meta {
-			if path.is_ident("skip") {
-				return Some(path.span());
-			}
-		}
-
-		None
-	})
-	.is_some()
+	find_meta_item_in_path(attrs, "skip", |path| path.span()).is_some()
 }
 
 /// Look for a `#[codec(dumb_trait_bound)]`in the given attributes.
 pub fn has_dumb_trait_bound(attrs: &[Attribute]) -> bool {
-	find_meta_item(attrs.iter(), |meta| {
-		if let Meta::Path(ref path) = meta {
-			if path.is_ident("dumb_trait_bound") {
-				return Some(());
-			}
-		}
-
-		None
-	})
-	.is_some()
+	find_meta_item_in_path(attrs, "dumb_trait_bound", |_| true).is_some()
 }
 
 /// Generate the crate access for the crate using 2018 syntax.
@@ -141,7 +130,7 @@ fn crate_access() -> syn::Result<proc_macro2::Ident> {
 	match crate_name(DEF_CRATE) {
 		Ok(FoundCrate::Itself) => {
 			let name = DEF_CRATE.to_string().replace('-', "_");
-			Ok(syn::Ident::new(&name, Span::call_site()))
+			Ok(Ident::new(&name, Span::call_site()))
 		},
 		Ok(FoundCrate::Name(name)) => Ok(Ident::new(&name, Span::call_site())),
 		Err(e) => Err(syn::Error::new(Span::call_site(), e)),
@@ -273,13 +262,13 @@ pub fn custom_mel_trait_bound(attrs: &[Attribute]) -> Option<CustomTraitBound<me
 
 /// Given a set of named fields, return an iterator of `Field` where all fields
 /// marked `#[codec(skip)]` are filtered out.
-pub fn filter_skip_named(fields: &syn::FieldsNamed) -> impl Iterator<Item = &Field> {
+pub fn filter_skip_named(fields: &FieldsNamed) -> impl Iterator<Item = &Field> {
 	fields.named.iter().filter(|f| !should_skip(&f.attrs))
 }
 
 /// Given a set of unnamed fields, return an iterator of `(index, Field)` where all fields
 /// marked `#[codec(skip)]` are filtered out.
-pub fn filter_skip_unnamed(fields: &syn::FieldsUnnamed) -> impl Iterator<Item = (usize, &Field)> {
+pub fn filter_skip_unnamed(fields: &FieldsUnnamed) -> impl Iterator<Item = (usize, &Field)> {
 	fields.unnamed.iter().enumerate().filter(|(_, f)| !should_skip(&f.attrs))
 }
 
@@ -364,10 +353,10 @@ fn check_field_attribute(attr: &Attribute) -> syn::Result<()> {
 			Meta::Path(path) if path.get_ident().map_or(false, |i| i == "compact") => Ok(()),
 
 			Meta::NameValue(MetaNameValue {
-				path,
-				value: Expr::Lit(ExprLit { lit: Lit::Str(lit_str), .. }),
-				..
-			}) if path.get_ident().map_or(false, |i| i == "encoded_as") =>
+								path,
+								value: Expr::Lit(ExprLit { lit: Lit::Str(lit_str), .. }),
+								..
+							}) if path.get_ident().map_or(false, |i| i == "encoded_as") =>
 				TokenStream::from_str(&lit_str.value())
 					.map(|_| ())
 					.map_err(|_e| syn::Error::new(lit_str.span(), "Invalid token stream")),
@@ -395,10 +384,10 @@ fn check_variant_attribute(attr: &Attribute) -> syn::Result<()> {
 			Meta::Path(path) if path.get_ident().map_or(false, |i| i == "skip") => Ok(()),
 
 			Meta::NameValue(MetaNameValue {
-				path,
-				value: Expr::Lit(ExprLit { lit: Lit::Int(lit_int), .. }),
-				..
-			}) if path.get_ident().map_or(false, |i| i == "index") => lit_int
+								path,
+								value: Expr::Lit(ExprLit { lit: Lit::Int(lit_int), .. }),
+								..
+							}) if path.get_ident().map_or(false, |i| i == "index") => lit_int
 				.base10_parse::<u8>()
 				.map(|_| ())
 				.map_err(|_| syn::Error::new(lit_int.span(), "Index must be in 0..255")),
@@ -440,7 +429,7 @@ fn check_top_attribute(attr: &Attribute) -> syn::Result<()> {
 }
 
 /// Checks whether the given attributes contain a `#[repr(transparent)]`.
-pub fn is_transparent(attrs: &[syn::Attribute]) -> bool {
+pub fn is_transparent(attrs: &[Attribute]) -> bool {
 	attrs.iter().any(|attr| {
 		if !attr.path().is_ident("repr") {
 			return false;
