@@ -70,7 +70,7 @@ impl<'a, I: Input> Input for MemTrackingInput<'a, I> {
 
 		self.used_mem = self.used_mem.saturating_add(size);
 		if self.used_mem >= self.mem_limit {
-			return Err(DECODE_OOM_MSG.into())
+			return Err(DECODE_OOM_MSG.into());
 		}
 
 		Ok(())
