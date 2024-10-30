@@ -20,11 +20,11 @@
 use std::{collections::HashMap, str::FromStr};
 
 use proc_macro2::{Span, TokenStream};
-use quote::{quote, ToTokens};
+use quote::quote;
 use syn::{
 	parse::Parse, punctuated::Punctuated, spanned::Spanned, token, Attribute, Data, DataEnum,
-	DeriveInput, Expr, ExprLit, Field, Fields, FieldsNamed, FieldsUnnamed, Lit, Meta, MetaNameValue,
-	NestedMeta, Path, Variant,
+	DeriveInput, Expr, ExprLit, Field, Fields, FieldsNamed, FieldsUnnamed, Lit, Meta,
+	MetaNameValue, Path, Variant,
 };
 
 fn find_meta_item<'a, F, R, I, M>(mut itr: I, mut pred: F) -> Option<R>
@@ -44,9 +44,9 @@ pub fn check_indexes<'a, I: Iterator<Item = &'a &'a Variant>>(values: I) -> syn:
 	let mut map: HashMap<u8, Span> = HashMap::new();
 	for (i, v) in values.enumerate() {
 		if let Some(index) = find_meta_item(v.attrs.iter(), |meta| {
-			if let NestedMeta::Meta(Meta::NameValue(ref nv)) = meta {
+			if let Meta::NameValue(ref nv) = meta {
 				if nv.path.is_ident("index") {
-					if let Lit::Int(ref v) = nv.lit {
+					if let Expr::Lit(ExprLit { lit: Lit::Int(ref v), .. }) = nv.value {
 						let byte = v
 							.base10_parse::<u8>()
 							.expect("Internal error, index attribute must have been checked");
@@ -91,8 +91,8 @@ pub fn check_indexes<'a, I: Iterator<Item = &'a &'a Variant>>(values: I) -> syn:
 /// is found, fall back to the discriminant or just the variant index.
 pub fn variant_index(v: &Variant, index: usize) -> syn::Result<TokenStream> {
 	// first look for an attribute
-	let index = find_meta_item(v.attrs.iter(), |meta| {
-		if let NestedMeta::Meta(Meta::NameValue(ref nv)) = meta {
+	let codec_index = find_meta_item(v.attrs.iter(), |meta| {
+		if let Meta::NameValue(ref nv) = meta {
 			if nv.path.is_ident("index") {
 				if let Expr::Lit(ExprLit { lit: Lit::Int(ref v), .. }) = nv.value {
 					let byte = v
