@@ -37,7 +37,9 @@ where
 		attr.path().is_ident("codec").then(|| pred(attr.parse_args().ok()?)).flatten()
 	})
 }
-fn find_meta_item_in_path<F, R>(attrs: &[Attribute], word: &str, success_callback: F) -> Option<R>
+
+/// Execute the callback for all the attribute matching `#[codec($path)]`.
+fn find_path_meta_item<F, R>(attrs: &[Attribute], path: &str, success_callback: F) -> Option<R>
 where
 	F: FnMut(&Path) -> R + Clone, // Ensure that F implements Clone
 {
