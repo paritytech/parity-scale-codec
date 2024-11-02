@@ -39,7 +39,7 @@ where
 }
 
 /// Execute the callback for all the attribute matching `#[codec($path)]`.
-fn find_path_meta_item<F, R>(attrs: &[Attribute], path: &str, success_callback: F) -> Option<R>
+fn find_path_meta_item<F, R>(attrs: &[Attribute], word: &str, success_callback: F) -> Option<R>
 where
 	F: FnMut(&Path) -> R + Clone, // Ensure that F implements Clone
 {
@@ -103,7 +103,7 @@ pub fn get_encoded_as_type(field: &Field) -> Option<TokenStream> {
 /// Look for a `#[codec(compact)]` outer attribute on the given `Field`. If the attribute is found,
 /// return the compact type associated with the field type.
 pub fn get_compact_type(field: &Field, crate_path: &Path) -> Option<TokenStream> {
-	find_meta_item_in_path(field.attrs.as_slice(), "compact", |_path| {
+	find_path_meta_item(field.attrs.as_slice(), "compact", |_path| {
 		let field_type = &field.ty;
 		quote! {<#field_type as #crate_path::HasCompact>::Type}
 	})
@@ -116,12 +116,12 @@ pub fn is_compact(field: &Field) -> bool {
 
 /// Look for a `#[codec(skip)]` in the given attributes.
 pub fn should_skip(attrs: &[Attribute]) -> bool {
-	find_meta_item_in_path(attrs, "skip", |path| path.span()).is_some()
+	find_path_meta_item(attrs, "skip", |path| path.span()).is_some()
 }
 
 /// Look for a `#[codec(dumb_trait_bound)]`in the given attributes.
 pub fn has_dumb_trait_bound(attrs: &[Attribute]) -> bool {
-	find_meta_item_in_path(attrs, "dumb_trait_bound", |_| true).is_some()
+	find_path_meta_item(attrs, "dumb_trait_bound", |_| true).is_some()
 }
 
 /// Generate the crate access for the crate using 2018 syntax.
