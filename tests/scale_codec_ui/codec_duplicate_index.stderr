@@ -1,23 +1,23 @@
-error: Duplicate variant index. qed
- --> tests/scale_codec_ui/fail/codec_duplicate_index.rs:5:2
+error: scale codec error: Invalid variant index, the variant index is duplicated.
+ --> tests/scale_codec_ui/codec_duplicate_index.rs:5:2
   |
 5 |     #[codec(index = 3)]
   |     ^
 
-error: Variant index already defined here.
- --> tests/scale_codec_ui/fail/codec_duplicate_index.rs:4:2
+error: Variant index used here.
+ --> tests/scale_codec_ui/codec_duplicate_index.rs:4:2
   |
 4 |     A = 3,
   |     ^
 
-error: Duplicate variant index. qed
-  --> tests/scale_codec_ui/fail/codec_duplicate_index.rs:13:2
+error: scale codec error: Invalid variant index, the variant index is duplicated.
+  --> tests/scale_codec_ui/codec_duplicate_index.rs:13:2
    |
 13 |     #[codec(index = 0)]
    |     ^
 
-error: Variant index already defined here.
-  --> tests/scale_codec_ui/fail/codec_duplicate_index.rs:12:2
+error: Variant index used here.
+  --> tests/scale_codec_ui/codec_duplicate_index.rs:12:2
    |
 12 |     A,
    |     ^

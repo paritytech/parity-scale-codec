@@ -1,23 +1,23 @@
-error: Custom variant index is duplicated later. qed
- --> tests/scale_codec_ui/fail/discriminant_variant_counted_in_default_index.rs:4:2
-  |
-4 |     A = 1,
-  |     ^
-
-error: Variant index derived here.
- --> tests/scale_codec_ui/fail/discriminant_variant_counted_in_default_index.rs:5:2
+error: scale codec error: Invalid variant index, the variant index is duplicated.
+ --> tests/scale_codec_ui/discriminant_variant_counted_in_default_index.rs:5:2
   |
 5 |     B,
   |     ^
 
-error: Custom variant index is duplicated later. qed
-  --> tests/scale_codec_ui/fail/discriminant_variant_counted_in_default_index.rs:11:2
-   |
-11 |     #[codec(index = 1)]
-   |     ^
+error: Variant index used here.
+ --> tests/scale_codec_ui/discriminant_variant_counted_in_default_index.rs:4:2
+  |
+4 |     A = 1,
+  |     ^
 
-error: Variant index derived here.
-  --> tests/scale_codec_ui/fail/discriminant_variant_counted_in_default_index.rs:13:2
+error: scale codec error: Invalid variant index, the variant index is duplicated.
+  --> tests/scale_codec_ui/discriminant_variant_counted_in_default_index.rs:13:2
    |
 13 |     B,
+   |     ^
+
+error: Variant index used here.
+  --> tests/scale_codec_ui/discriminant_variant_counted_in_default_index.rs:11:2
+   |
+11 |     #[codec(index = 1)]
    |     ^
