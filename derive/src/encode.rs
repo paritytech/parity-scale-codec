@@ -345,7 +345,7 @@ fn impl_encode(data: &Data, type_name: &Ident, crate_path: &syn::Path) -> TokenS
 							}
 						};
 
-						[hinting, encoding, quote! { #index }]
+						[hinting, encoding]
 					},
 					Fields::Unnamed(ref fields) => {
 						let fields = &fields.unnamed;
@@ -378,7 +378,7 @@ fn impl_encode(data: &Data, type_name: &Ident, crate_path: &syn::Path) -> TokenS
 							}
 						};
 
-						[hinting, encoding, quote! { #index }]
+						[hinting, encoding]
 					},
 					Fields::Unit => {
 						let hinting = quote_spanned! { f.span() =>
@@ -394,15 +394,14 @@ fn impl_encode(data: &Data, type_name: &Ident, crate_path: &syn::Path) -> TokenS
 							}
 						};
 
-						[hinting, encoding, quote! { #index }]
+						[hinting, encoding]
 					},
 				};
 				items.push(item)
 			}
 
-			let recurse_hinting = items.iter().map(|[hinting, _, _]| hinting);
-			let recurse_encoding = items.iter().map(|[_, encoding, _]| encoding);
-			let recurse_indices = items.iter().map(|[_, _, index]| index);
+			let recurse_hinting = items.iter().map(|[hinting, _]| hinting);
+			let recurse_encoding = items.iter().map(|[_, encoding]| encoding);
 			let hinting = quote! {
 				// The variant index uses 1 byte.
 				1_usize + match *#self_ {
@@ -412,23 +411,6 @@ fn impl_encode(data: &Data, type_name: &Ident, crate_path: &syn::Path) -> TokenS
 			};
 
 			let encoding = quote! {
-				const _: () = {
-					let indices = [#( #recurse_indices ,)*];
-					let len = indices.len();
-
-					// Check each pair for uniqueness
-					let mut index = 0;
-					while index < len {
-						let mut next_index = index + 1;
-						while next_index < len {
-							if indices[index] == indices[next_index] {
-								panic!("TODO: good error message with variant names and indices");
-							}
-							next_index += 1;
-						}
-						index += 1;
-					}
-				};
 				match *#self_ {
 					#( #recurse_encoding )*,
 					_ => (),
