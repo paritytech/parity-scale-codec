@@ -10,6 +10,7 @@ and this crate adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 ### Added
 
 - Allow decoding with a memory limit. ([616](https://github.com/paritytech/parity-scale-codec/pull/616))
+- Introduce `CountedInput`, an wrapper on `Input` that counts the bytes read. ([630](https://github.com/paritytech/parity-scale-codec/pull/630))
 
 ### Changed
 
