@@ -66,10 +66,12 @@ pub fn derive_max_encoded_len(input: proc_macro::TokenStream) -> proc_macro::Tok
 /// generate an expression to sum up the max encoded length from several fields
 fn fields_length_expr(fields: &Fields, crate_path: &syn::Path) -> proc_macro2::TokenStream {
 	let fields_iter: Box<dyn Iterator<Item = &Field>> = match fields {
-		Fields::Named(ref fields) =>
-			Box::new(fields.named.iter().filter(|field| !should_skip(&field.attrs))),
-		Fields::Unnamed(ref fields) =>
-			Box::new(fields.unnamed.iter().filter(|field| !should_skip(&field.attrs))),
+		Fields::Named(ref fields) => {
+			Box::new(fields.named.iter().filter(|field| !should_skip(&field.attrs)))
+		},
+		Fields::Unnamed(ref fields) => {
+			Box::new(fields.unnamed.iter().filter(|field| !should_skip(&field.attrs)))
+		},
 		Fields::Unit => Box::new(std::iter::empty()),
 	};
 	// expands to an expression like

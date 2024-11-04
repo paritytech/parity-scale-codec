@@ -1,0 +1,97 @@
+index 2812fc6..c803ff7 100644
+--- a/derive/src/utils.rs
++++ b/derive/src/utils.rs
+@@ -43,45 +43,14 @@ where
+ pub fn check_indexes<'a, I: Iterator<Item = &'a &'a Variant>>(values: I) -> syn::Result<()> {
+ 	let mut map: HashMap<u8, Span> = HashMap::new();
+ 	for (i, v) in values.enumerate() {
+-		if let Some(index) = find_meta_item(v.attrs.iter(), |meta| {
+-			if let Meta::NameValue(ref nv) = meta {
+-				if nv.path.is_ident("index") {
+-					if let Expr::Lit(ExprLit { lit: Lit::Int(ref v), .. }) = nv.value {
+-						let byte = v
+-							.base10_parse::<u8>()
+-							.expect("Internal error, index attribute must have been checked");
+-						return Some(byte);
+-					}
+-				}
+-			}
+-			None
+-		}) {
+-			if let Some(span) = map.insert(index, v.span()) {
+-				let mut error = syn::Error::new(v.span(), "Duplicate variant index. qed");
+-				error.combine(syn::Error::new(span, "Variant index already defined here."));
+-				return Err(error)
+-			}
+-		} else {
+-			match v.discriminant.as_ref() {
+-				Some((_, syn::Expr::Lit(ExprLit { lit: syn::Lit::Int(lit_int), .. }))) => {
+-					let index = lit_int
+-						.base10_parse::<u8>()
+-						.expect("Internal error, index attribute must have been checked");
+-					if let Some(span) = map.insert(index, v.span()) {
+-						let mut error = syn::Error::new(v.span(), "Duplicate variant index. qed");
+-						error.combine(syn::Error::new(span, "Variant index already defined here."));
+-						return Err(error)
+-					}
+-				},
+-				Some((_, _)) => return Err(syn::Error::new(v.span(), "Invalid discriminant. qed")),
+-				None =>
+-					if let Some(span) = map.insert(i.try_into().unwrap(), v.span()) {
+-						let mut error =
+-							syn::Error::new(span, "Custom variant index is duplicated later. qed");
+-						error.combine(syn::Error::new(v.span(), "Variant index derived here."));
+-						return Err(error)
+-					},
+-			}
++		let index = variant_index(v, i)?;
++		if let Some(span) = map.insert(index, v.span()) {
++			let mut error = syn::Error::new(
++				v.span(),
++				"scale codec error: Invalid variant index, the variant index is duplicated.",
++			);
++			error.combine(syn::Error::new(span, "Variant index used here."));
++			return Err(error)
+ 		}
+ 	}
+ 	Ok(())
+@@ -89,7 +58,7 @@ pub fn check_indexes<'a, I: Iterator<Item = &'a &'a Variant>>(values: I) -> syn:
+
+ /// Look for a `#[scale(index = $int)]` attribute on a variant. If no attribute
+ /// is found, fall back to the discriminant or just the variant index.
+-pub fn variant_index(v: &Variant, index: usize) -> syn::Result<TokenStream> {
++pub fn variant_index(v: &Variant, index: usize) -> syn::Result<u8> {
+ 	// first look for an attribute
+ 	let codec_index = find_meta_item(v.attrs.iter(), |meta| {
+ 		if let Meta::NameValue(ref nv) = meta {
+@@ -106,13 +75,25 @@ pub fn variant_index(v: &Variant, index: usize) -> syn::Result<TokenStream> {
+ 		None
+ 	});
+ 	if let Some(index) = codec_index {
+-		Ok(quote! { #index })
++		Ok(index)
+ 	} else {
+ 		match v.discriminant.as_ref() {
+-			Some((_, expr @ syn::Expr::Lit(ExprLit { lit: syn::Lit::Int(_), .. }))) =>
+-				Ok(quote! { #expr }),
+-			Some((_, expr)) => Err(syn::Error::new(expr.span(), "Invalid discriminant. qed")),
+-			None => Ok(quote! { #index }),
++			Some((_, syn::Expr::Lit(ExprLit { lit: syn::Lit::Int(v), .. }))) => {
++				let byte = v
++					.base10_parse::<u8>()
++					.expect("scale codec error: Invalid variant index, discriminant doesn't fit u8.");
++				Ok(byte)
++			},
++			Some((_, expr)) => Err(syn::Error::new(
++					expr.span(),
++					"scale codec error: Invalid discriminant, only int literal are accepted, e.g. \
++					`= 32`.",
++			)),
++			None => index.try_into().map_err(|_| syn::Error::new(
++					v.span(),
++					"scale codec error: Variant index is too large, only 256 variants are \
++					supported.",
++			)),
+ 		}
+ 	}
+ }

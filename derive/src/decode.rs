@@ -100,8 +100,9 @@ pub fn quote(
 				}
 			}
 		},
-		Data::Union(_) =>
-			Error::new(Span::call_site(), "Union types are not supported.").to_compile_error(),
+		Data::Union(_) => {
+			Error::new(Span::call_site(), "Union types are not supported.").to_compile_error()
+		},
 	}
 }
 
@@ -120,8 +121,8 @@ pub fn quote_decode_into(
 	let fields = match data {
 		Data::Struct(syn::DataStruct {
 			fields:
-				Fields::Named(syn::FieldsNamed { named: fields, .. }) |
-				Fields::Unnamed(syn::FieldsUnnamed { unnamed: fields, .. }),
+				Fields::Named(syn::FieldsNamed { named: fields, .. })
+				| Fields::Unnamed(syn::FieldsUnnamed { unnamed: fields, .. }),
 			..
 		}) => fields,
 		_ => return None,
@@ -133,9 +134,9 @@ pub fn quote_decode_into(
 
 	// Bail if there are any extra attributes which could influence how the type is decoded.
 	if fields.iter().any(|field| {
-		utils::get_encoded_as_type(field).is_some() ||
-			utils::is_compact(field) ||
-			utils::should_skip(&field.attrs)
+		utils::get_encoded_as_type(field).is_some()
+			|| utils::is_compact(field)
+			|| utils::should_skip(&field.attrs)
 	}) {
 		return None;
 	}

@@ -364,8 +364,9 @@ impl<'a> Encode for CompactRef<'a, u32> {
 		match self.0 {
 			0..=0b0011_1111 => dest.push_byte((*self.0 as u8) << 2),
 			0..=0b0011_1111_1111_1111 => (((*self.0 as u16) << 2) | 0b01).encode_to(dest),
-			0..=0b0011_1111_1111_1111_1111_1111_1111_1111 =>
-				((*self.0 << 2) | 0b10).encode_to(dest),
+			0..=0b0011_1111_1111_1111_1111_1111_1111_1111 => {
+				((*self.0 << 2) | 0b10).encode_to(dest)
+			},
 			_ => {
 				dest.push_byte(0b11);
 				self.0.encode_to(dest);
@@ -400,8 +401,9 @@ impl<'a> Encode for CompactRef<'a, u64> {
 		match self.0 {
 			0..=0b0011_1111 => dest.push_byte((*self.0 as u8) << 2),
 			0..=0b0011_1111_1111_1111 => (((*self.0 as u16) << 2) | 0b01).encode_to(dest),
-			0..=0b0011_1111_1111_1111_1111_1111_1111_1111 =>
-				(((*self.0 as u32) << 2) | 0b10).encode_to(dest),
+			0..=0b0011_1111_1111_1111_1111_1111_1111_1111 => {
+				(((*self.0 as u32) << 2) | 0b10).encode_to(dest)
+			},
 			_ => {
 				let bytes_needed = 8 - self.0.leading_zeros() / 8;
 				assert!(
@@ -446,8 +448,9 @@ impl<'a> Encode for CompactRef<'a, u128> {
 		match self.0 {
 			0..=0b0011_1111 => dest.push_byte((*self.0 as u8) << 2),
 			0..=0b0011_1111_1111_1111 => (((*self.0 as u16) << 2) | 0b01).encode_to(dest),
-			0..=0b0011_1111_1111_1111_1111_1111_1111_1111 =>
-				(((*self.0 as u32) << 2) | 0b10).encode_to(dest),
+			0..=0b0011_1111_1111_1111_1111_1111_1111_1111 => {
+				(((*self.0 as u32) << 2) | 0b10).encode_to(dest)
+			},
 			_ => {
 				let bytes_needed = 16 - self.0.leading_zeros() / 8;
 				assert!(

@@ -121,8 +121,9 @@ pub fn add<N>(
 			generics.make_where_clause().predicates.extend(bounds);
 			return Ok(());
 		},
-		Some(CustomTraitBound::SkipTypeParams { type_names, .. }) =>
-			type_names.into_iter().collect::<Vec<_>>(),
+		Some(CustomTraitBound::SkipTypeParams { type_names, .. }) => {
+			type_names.into_iter().collect::<Vec<_>>()
+		},
 		None => Vec::new(),
 	};
 
@@ -189,9 +190,9 @@ fn get_types_to_add_trait_bound(
 		Ok(ty_params.iter().map(|t| parse_quote!( #t )).collect())
 	} else {
 		let needs_codec_bound = |f: &syn::Field| {
-			!utils::is_compact(f) &&
-				utils::get_encoded_as_type(f).is_none() &&
-				!utils::should_skip(&f.attrs)
+			!utils::is_compact(f)
+				&& utils::get_encoded_as_type(f).is_none()
+				&& !utils::should_skip(&f.attrs)
 		};
 		let res = collect_types(data, needs_codec_bound)?
 			.into_iter()
@@ -222,9 +223,10 @@ fn collect_types(data: &syn::Data, type_filter: fn(&syn::Field) -> bool) -> Resu
 
 	let types = match *data {
 		Data::Struct(ref data) => match &data.fields {
-			| Fields::Named(FieldsNamed { named: fields, .. }) |
-			Fields::Unnamed(FieldsUnnamed { unnamed: fields, .. }) =>
-				fields.iter().filter(|f| type_filter(f)).map(|f| f.ty.clone()).collect(),
+			| Fields::Named(FieldsNamed { named: fields, .. })
+			| Fields::Unnamed(FieldsUnnamed { unnamed: fields, .. }) => {
+				fields.iter().filter(|f| type_filter(f)).map(|f| f.ty.clone()).collect()
+			},
 
 			Fields::Unit => Vec::new(),
 		},
@@ -234,16 +236,18 @@ fn collect_types(data: &syn::Data, type_filter: fn(&syn::Field) -> bool) -> Resu
 			.iter()
 			.filter(|variant| !utils::should_skip(&variant.attrs))
 			.flat_map(|variant| match &variant.fields {
-				| Fields::Named(FieldsNamed { named: fields, .. }) |
-				Fields::Unnamed(FieldsUnnamed { unnamed: fields, .. }) =>
-					fields.iter().filter(|f| type_filter(f)).map(|f| f.ty.clone()).collect(),
+				| Fields::Named(FieldsNamed { named: fields, .. })
+				| Fields::Unnamed(FieldsUnnamed { unnamed: fields, .. }) => {
+					fields.iter().filter(|f| type_filter(f)).map(|f| f.ty.clone()).collect()
+				},
 
 				Fields::Unit => Vec::new(),
 			})
 			.collect(),
 
-		Data::Union(ref data) =>
-			return Err(Error::new(data.union_token.span(), "Union types are not supported.")),
+		Data::Union(ref data) => {
+			return Err(Error::new(data.union_token.span(), "Union types are not supported."))
+		},
 	};
 
 	Ok(types)

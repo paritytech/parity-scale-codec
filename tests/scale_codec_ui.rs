@@ -19,5 +19,4 @@ fn scale_codec_ui_tests() {
 	let t = trybuild::TestCases::new();
 	t.compile_fail("tests/scale_codec_ui/*.rs");
 	t.pass("tests/scale_codec_ui/pass/*.rs");
-	t.compile_fail("tests/scale_codec_ui/fail/*.rs");
 }

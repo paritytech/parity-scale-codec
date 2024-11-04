@@ -918,16 +918,16 @@ impl<T: Decode, const N: usize> Decode for [T; N] {
 	) -> Result<DecodeFinished, Error> {
 		let is_primitive = match <T as Decode>::TYPE_INFO {
 			| TypeInfo::U8 | TypeInfo::I8 => true,
-			| TypeInfo::U16 |
-			TypeInfo::I16 |
-			TypeInfo::U32 |
-			TypeInfo::I32 |
-			TypeInfo::U64 |
-			TypeInfo::I64 |
-			TypeInfo::U128 |
-			TypeInfo::I128 |
-			TypeInfo::F32 |
-			TypeInfo::F64 => cfg!(target_endian = "little"),
+			| TypeInfo::U16
+			| TypeInfo::I16
+			| TypeInfo::U32
+			| TypeInfo::I32
+			| TypeInfo::U64
+			| TypeInfo::I64
+			| TypeInfo::U128
+			| TypeInfo::I128
+			| TypeInfo::F32
+			| TypeInfo::F64 => cfg!(target_endian = "little"),
 			TypeInfo::Unknown => false,
 		};
 

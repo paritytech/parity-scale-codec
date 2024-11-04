@@ -43,45 +43,14 @@ where
 pub fn check_indexes<'a, I: Iterator<Item = &'a &'a Variant>>(values: I) -> syn::Result<()> {
 	let mut map: HashMap<u8, Span> = HashMap::new();
 	for (i, v) in values.enumerate() {
-		if let Some(index) = find_meta_item(v.attrs.iter(), |meta| {
-			if let Meta::NameValue(ref nv) = meta {
-				if nv.path.is_ident("index") {
-					if let Expr::Lit(ExprLit { lit: Lit::Int(ref v), .. }) = nv.value {
-						let byte = v
-							.base10_parse::<u8>()
-							.expect("Internal error, index attribute must have been checked");
-						return Some(byte);
-					}
-				}
-			}
-			None
-		}) {
-			if let Some(span) = map.insert(index, v.span()) {
-				let mut error = syn::Error::new(v.span(), "Duplicate variant index. qed");
-				error.combine(syn::Error::new(span, "Variant index already defined here."));
-				return Err(error)
-			}
-		} else {
-			match v.discriminant.as_ref() {
-				Some((_, syn::Expr::Lit(ExprLit { lit: syn::Lit::Int(lit_int), .. }))) => {
-					let index = lit_int
-						.base10_parse::<u8>()
-						.expect("Internal error, index attribute must have been checked");
-					if let Some(span) = map.insert(index, v.span()) {
-						let mut error = syn::Error::new(v.span(), "Duplicate variant index. qed");
-						error.combine(syn::Error::new(span, "Variant index already defined here."));
-						return Err(error)
-					}
-				},
-				Some((_, _)) => return Err(syn::Error::new(v.span(), "Invalid discriminant. qed")),
-				None =>
-					if let Some(span) = map.insert(i.try_into().unwrap(), v.span()) {
-						let mut error =
-							syn::Error::new(span, "Custom variant index is duplicated later. qed");
-						error.combine(syn::Error::new(v.span(), "Variant index derived here."));
-						return Err(error)
-					},
-			}
+		let index = variant_index(v, i)?;
+		if let Some(span) = map.insert(index, v.span()) {
+			let mut error = syn::Error::new(
+				v.span(),
+				"scale codec error: Invalid variant index, the variant index is duplicated.",
+			);
+			error.combine(syn::Error::new(span, "Variant index used here."));
+			return Err(error);
 		}
 	}
 	Ok(())
@@ -89,7 +58,7 @@ pub fn check_indexes<'a, I: Iterator<Item = &'a &'a Variant>>(values: I) -> syn:
 
 /// Look for a `#[scale(index = $int)]` attribute on a variant. If no attribute
 /// is found, fall back to the discriminant or just the variant index.
-pub fn variant_index(v: &Variant, index: usize) -> syn::Result<TokenStream> {
+pub fn variant_index(v: &Variant, index: usize) -> syn::Result<u8> {
 	// first look for an attribute
 	let codec_index = find_meta_item(v.attrs.iter(), |meta| {
 		if let Meta::NameValue(ref nv) = meta {
@@ -106,13 +75,27 @@ pub fn variant_index(v: &Variant, index: usize) -> syn::Result<TokenStream> {
 		None
 	});
 	if let Some(index) = codec_index {
-		Ok(quote! { #index })
+		Ok(index)
 	} else {
 		match v.discriminant.as_ref() {
-			Some((_, expr @ syn::Expr::Lit(ExprLit { lit: syn::Lit::Int(_), .. }))) =>
-				Ok(quote! { #expr }),
-			Some((_, expr)) => Err(syn::Error::new(expr.span(), "Invalid discriminant. qed")),
-			None => Ok(quote! { #index }),
+			Some((_, syn::Expr::Lit(ExprLit { lit: syn::Lit::Int(v), .. }))) => {
+				let byte = v.base10_parse::<u8>().expect(
+					"scale codec error: Invalid variant index, discriminant doesn't fit u8.",
+				);
+				Ok(byte)
+			},
+			Some((_, expr)) => Err(syn::Error::new(
+				expr.span(),
+				"scale codec error: Invalid discriminant, only int literal are accepted, e.g. \
+					`= 32`.",
+			)),
+			None => index.try_into().map_err(|_| {
+				syn::Error::new(
+					v.span(),
+					"scale codec error: Variant index is too large, only 256 variants are \
+					supported.",
+				)
+			}),
 		}
 	}
 }
@@ -363,16 +346,17 @@ pub fn check_attributes(input: &DeriveInput) -> syn::Result<()> {
 
 	match input.data {
 		Data::Struct(ref data) => match &data.fields {
-			| Fields::Named(FieldsNamed { named: fields, .. }) |
-			Fields::Unnamed(FieldsUnnamed { unnamed: fields, .. }) =>
+			| Fields::Named(FieldsNamed { named: fields, .. })
+			| Fields::Unnamed(FieldsUnnamed { unnamed: fields, .. }) => {
 				for field in fields {
 					for attr in &field.attrs {
 						check_field_attribute(attr)?;
 					}
-				},
+				}
+			},
 			Fields::Unit => (),
 		},
-		Data::Enum(ref data) =>
+		Data::Enum(ref data) => {
 			for variant in data.variants.iter() {
 				for attr in &variant.attrs {
 					check_variant_attribute(attr)?;
@@ -382,7 +366,8 @@ pub fn check_attributes(input: &DeriveInput) -> syn::Result<()> {
 						check_field_attribute(attr)?;
 					}
 				}
-			},
+			}
+		},
 		Data::Union(_) => (),
 	}
 	Ok(())
@@ -390,10 +375,10 @@ pub fn check_attributes(input: &DeriveInput) -> syn::Result<()> {
 
 // Check if the attribute is `#[allow(..)]`, `#[deny(..)]`, `#[forbid(..)]` or `#[warn(..)]`.
 pub fn is_lint_attribute(attr: &Attribute) -> bool {
-	attr.path().is_ident("allow") ||
-		attr.path().is_ident("deny") ||
-		attr.path().is_ident("forbid") ||
-		attr.path().is_ident("warn")
+	attr.path().is_ident("allow")
+		|| attr.path().is_ident("deny")
+		|| attr.path().is_ident("forbid")
+		|| attr.path().is_ident("warn")
 }
 
 // Ensure a field is decorated only with the following attributes:
@@ -418,10 +403,11 @@ fn check_field_attribute(attr: &Attribute) -> syn::Result<()> {
 				path,
 				value: Expr::Lit(ExprLit { lit: Lit::Str(lit_str), .. }),
 				..
-			}) if path.get_ident().map_or(false, |i| i == "encoded_as") =>
+			}) if path.get_ident().map_or(false, |i| i == "encoded_as") => {
 				TokenStream::from_str(&lit_str.value())
 					.map(|_| ())
-					.map_err(|_e| syn::Error::new(lit_str.span(), "Invalid token stream")),
+					.map_err(|_e| syn::Error::new(lit_str.span(), "Invalid token stream"))
+			},
 
 			elt => Err(syn::Error::new(elt.span(), field_error)),
 		}
@@ -468,20 +454,21 @@ fn check_top_attribute(attr: &Attribute) -> syn::Result<()> {
 		`#[codec(decode_bound(T: Decode))]`, \
 		`#[codec(decode_bound_with_mem_tracking_bound(T: DecodeWithMemTracking))]` or \
 		`#[codec(mel_bound(T: MaxEncodedLen))]` are accepted as top attribute";
-	if attr.path().is_ident("codec") &&
-		attr.parse_args::<CustomTraitBound<encode_bound>>().is_err() &&
-		attr.parse_args::<CustomTraitBound<decode_bound>>().is_err() &&
-		attr.parse_args::<CustomTraitBound<decode_with_mem_tracking_bound>>().is_err() &&
-		attr.parse_args::<CustomTraitBound<mel_bound>>().is_err() &&
-		codec_crate_path_inner(attr).is_none()
+	if attr.path().is_ident("codec")
+		&& attr.parse_args::<CustomTraitBound<encode_bound>>().is_err()
+		&& attr.parse_args::<CustomTraitBound<decode_bound>>().is_err()
+		&& attr.parse_args::<CustomTraitBound<decode_with_mem_tracking_bound>>().is_err()
+		&& attr.parse_args::<CustomTraitBound<mel_bound>>().is_err()
+		&& codec_crate_path_inner(attr).is_none()
 	{
 		let nested = attr.parse_args_with(Punctuated::<Meta, Token![,]>::parse_terminated)?;
 		if nested.len() != 1 {
 			return Err(syn::Error::new(attr.meta.span(), top_error));
 		}
 		match nested.first().expect("Just checked that there is one item; qed") {
-			Meta::Path(path) if path.get_ident().map_or(false, |i| i == "dumb_trait_bound") =>
-				Ok(()),
+			Meta::Path(path) if path.get_ident().map_or(false, |i| i == "dumb_trait_bound") => {
+				Ok(())
+			},
 
 			elt => Err(syn::Error::new(elt.span(), top_error)),
 		}
