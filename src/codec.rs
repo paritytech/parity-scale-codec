@@ -44,10 +44,11 @@ use crate::{
 	},
 	compact::Compact,
 	encode_like::EncodeLike,
+	mem_tracking::DecodeWithMemTracking,
 	DecodeFinished, Error,
 };
 
-pub(crate) const MAX_PREALLOCATION: usize = 4 * 1024;
+pub(crate) const MAX_PREALLOCATION: usize = 16 * 1024;
 const A_BILLION: u32 = 1_000_000_000;
 
 /// Trait that allows reading of data into a slice.
@@ -101,6 +102,17 @@ pub trait Input {
 	/// Ascend to previous structure level when decoding.
 	/// This is called when decoding reference-based type is finished.
 	fn ascend_ref(&mut self) {}
+
+	/// Hook that is called before allocating memory on the heap.
+	///
+	/// The aim is to get a reasonable approximation of memory usage, especially with variably
+	/// sized types like `Vec`s. Depending on the structure, it is acceptable to be off by a bit.
+	/// In some cases we might not track the memory used by internal sub-structures, and
+	/// also we don't take alignment or memory layouts into account.
+	/// But we should always track the memory used by the decoded data inside the type.
+	fn on_before_alloc_mem(&mut self, _size: usize) -> Result<(), Error> {
+		Ok(())
+	}
 
 	/// !INTERNAL USE ONLY!
 	///
@@ -479,6 +491,7 @@ impl Input for BytesCursor {
 			return Err("Not enough data to fill buffer".into());
 		}
 
+		self.on_before_alloc_mem(length)?;
 		Ok(self.bytes.split_to(length))
 	}
 }
@@ -519,6 +532,9 @@ impl Decode for bytes::Bytes {
 		Vec::<u8>::skip(input)
 	}
 }
+
+#[cfg(feature = "bytes")]
+impl DecodeWithMemTracking for bytes::Bytes {}
 
 impl<T, X> Encode for X
 where
@@ -581,6 +597,7 @@ impl<T> WrapperTypeDecode for Box<T> {
 		// TODO: Use `Box::new_uninit` once that's stable.
 		let layout = core::alloc::Layout::new::<MaybeUninit<T>>();
 
+		input.on_before_alloc_mem(layout.size())?;
 		let ptr: *mut MaybeUninit<T> = if layout.size() == 0 {
 			core::ptr::NonNull::dangling().as_ptr()
 		} else {
@@ -619,6 +636,8 @@ impl<T> WrapperTypeDecode for Box<T> {
 	}
 }
 
+impl<T: DecodeWithMemTracking> DecodeWithMemTracking for Box<T> {}
+
 impl<T> WrapperTypeDecode for Rc<T> {
 	type Wrapped = T;
 
@@ -630,6 +649,9 @@ impl<T> WrapperTypeDecode for Rc<T> {
 		Box::<T>::decode(input).map(|output| output.into())
 	}
 }
+
+// `Rc<T>` uses `Box::<T>::decode()` internally, so it supports `DecodeWithMemTracking`.
+impl<T: DecodeWithMemTracking> DecodeWithMemTracking for Rc<T> {}
 
 #[cfg(target_has_atomic = "ptr")]
 impl<T> WrapperTypeDecode for Arc<T> {
@@ -643,6 +665,9 @@ impl<T> WrapperTypeDecode for Arc<T> {
 		Box::<T>::decode(input).map(|output| output.into())
 	}
 }
+
+// `Arc<T>` uses `Box::<T>::decode()` internally, so it supports `DecodeWithMemTracking`.
+impl<T: DecodeWithMemTracking> DecodeWithMemTracking for Arc<T> {}
 
 impl<T, X> Decode for X
 where
@@ -752,6 +777,8 @@ impl<T: Decode, E: Decode> Decode for Result<T, E> {
 	}
 }
 
+impl<T: DecodeWithMemTracking, E: DecodeWithMemTracking> DecodeWithMemTracking for Result<T, E> {}
+
 /// Shim type because we can't do a specialised implementation for `Option<bool>` directly.
 #[derive(Eq, PartialEq, Clone, Copy)]
 pub struct OptionBool(pub Option<bool>);
@@ -792,6 +819,8 @@ impl Decode for OptionBool {
 		Some(1)
 	}
 }
+
+impl DecodeWithMemTracking for OptionBool {}
 
 impl<T: EncodeLike<U>, U: Encode> EncodeLike<Option<U>> for Option<T> {}
 
@@ -840,6 +869,8 @@ impl<T: Decode> Decode for Option<T> {
 	}
 }
 
+impl<T: DecodeWithMemTracking> DecodeWithMemTracking for Option<T> {}
+
 macro_rules! impl_for_non_zero {
 	( $( $name:ty ),* $(,)? ) => {
 		$(
@@ -873,6 +904,8 @@ macro_rules! impl_for_non_zero {
 					Some(mem::size_of::<$name>())
 				}
 			}
+
+			impl DecodeWithMemTracking for $name {}
 		)*
 	}
 }
@@ -924,52 +957,6 @@ pub(crate) fn encode_slice_no_len<T: Encode, W: Output + ?Sized>(slice: &[T], de
 			for item in slice.iter() {
 				item.encode_to(dest);
 			}
-		},
-	}
-}
-
-/// Decode the vec (without a prepended len).
-///
-/// This is equivalent to decode all elements one by one, but it is optimized in some
-/// situation.
-pub fn decode_vec_with_len<T: Decode, I: Input>(
-	input: &mut I,
-	len: usize,
-) -> Result<Vec<T>, Error> {
-	fn decode_unoptimized<I: Input, T: Decode>(
-		input: &mut I,
-		items_len: usize,
-	) -> Result<Vec<T>, Error> {
-		let input_capacity = input
-			.remaining_len()?
-			.unwrap_or(MAX_PREALLOCATION)
-			.checked_div(mem::size_of::<T>())
-			.unwrap_or(0);
-		let mut r = Vec::with_capacity(input_capacity.min(items_len));
-		input.descend_ref()?;
-		for _ in 0..items_len {
-			r.push(T::decode(input)?);
-		}
-		input.ascend_ref();
-		Ok(r)
-	}
-
-	macro_rules! decode {
-		( $ty:ty, $input:ident, $len:ident ) => {{
-			if cfg!(target_endian = "little") || mem::size_of::<T>() == 1 {
-				let vec = read_vec_from_u8s::<_, $ty>($input, $len)?;
-				Ok(unsafe { mem::transmute::<Vec<$ty>, Vec<T>>(vec) })
-			} else {
-				decode_unoptimized($input, $len)
-			}
-		}};
-	}
-
-	with_type_info! {
-		<T as Decode>::TYPE_INFO,
-		decode(input, len),
-		{
-			decode_unoptimized(input, len)
 		},
 	}
 }
@@ -1117,6 +1104,8 @@ impl<T: Decode, const N: usize> Decode for [T; N] {
 	}
 }
 
+impl<T: DecodeWithMemTracking, const N: usize> DecodeWithMemTracking for [T; N] {}
+
 impl<T: EncodeLike<U>, U: Encode, const N: usize> EncodeLike<[U; N]> for [T; N] {}
 
 impl Encode for str {
@@ -1154,6 +1143,11 @@ where
 	}
 }
 
+impl<'a, T: ToOwned + DecodeWithMemTracking> DecodeWithMemTracking for Cow<'a, T> where
+	Cow<'a, T>: Decode
+{
+}
+
 impl<T> EncodeLike for PhantomData<T> {}
 
 impl<T> Encode for PhantomData<T> {
@@ -1170,6 +1164,8 @@ impl<T> Decode for PhantomData<T> {
 	}
 }
 
+impl<T> DecodeWithMemTracking for PhantomData<T> where PhantomData<T>: Decode {}
+
 impl Decode for String {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		Self::from_utf8(Vec::decode(input)?).map_err(|_| "Invalid utf8 sequence".into())
@@ -1179,6 +1175,8 @@ impl Decode for String {
 		Vec::<u8>::skip(input)
 	}
 }
+
+impl DecodeWithMemTracking for String {}
 
 /// Writes the compact encoding of `len` do `dest`.
 pub(crate) fn compact_encode_len_to<W: Output + ?Sized>(
@@ -1205,71 +1203,110 @@ impl<T: Encode> Encode for [T] {
 	}
 }
 
+fn decode_vec_chunked<T, I: Input, F>(
+	input: &mut I,
+	len: usize,
+	mut decode_chunk: F,
+) -> Result<Vec<T>, Error>
+where
+	F: FnMut(&mut I, &mut Vec<T>, usize) -> Result<(), Error>,
+{
+	const { assert!(MAX_PREALLOCATION >= mem::size_of::<T>()) }
+	// we have to account for the fact that `mem::size_of::<T>` can be 0 for types like `()`
+	// for example.
+	let chunk_len = MAX_PREALLOCATION.checked_div(mem::size_of::<T>()).unwrap_or(usize::MAX);
+
+	let mut decoded_vec = vec![];
+	let mut num_undecoded_items = len;
+	while num_undecoded_items > 0 {
+		let chunk_len = chunk_len.min(num_undecoded_items);
+		input.on_before_alloc_mem(chunk_len.saturating_mul(mem::size_of::<T>()))?;
+		decoded_vec.reserve_exact(chunk_len);
+
+		decode_chunk(input, &mut decoded_vec, chunk_len)?;
+
+		num_undecoded_items -= chunk_len;
+	}
+
+	Ok(decoded_vec)
+}
+
 /// Create a `Vec<T>` by casting directly from a buffer of read `u8`s
 ///
-/// The encoding of `T` must be equal to its binary representation, and size of `T` must be less or
-/// equal to [`MAX_PREALLOCATION`].
-pub(crate) fn read_vec_from_u8s<I, T>(input: &mut I, items_len: usize) -> Result<Vec<T>, Error>
+/// The encoding of `T` must be equal to its binary representation, and size of `T` must be less
+/// or equal to [`MAX_PREALLOCATION`].
+fn read_vec_from_u8s<T, I>(input: &mut I, len: usize) -> Result<Vec<T>, Error>
 where
-	I: Input,
 	T: ToMutByteSlice + Default + Clone,
+	I: Input,
 {
-	debug_assert!(MAX_PREALLOCATION >= mem::size_of::<T>(), "Invalid precondition");
-
-	let byte_len = items_len
+	let byte_len = len
 		.checked_mul(mem::size_of::<T>())
 		.ok_or("Item is too big and cannot be allocated")?;
 
-	let input_len = input.remaining_len()?;
-
-	// If there is input len and it cannot be pre-allocated then return directly.
-	if input_len.map(|l| l < byte_len).unwrap_or(false) {
-		return Err("Not enough data to decode vector".into());
+	// Check if there is enough data in the input buffer.
+	if let Some(input_len) = input.remaining_len()? {
+		if input_len < byte_len {
+			return Err("Not enough data to decode vector".into());
+		}
 	}
 
-	// In both these branches we're going to be creating and resizing a Vec<T>,
-	// but casting it to a &mut [u8] for reading.
-
-	// Note: we checked that if input_len is some then it can preallocated.
-	let r = if input_len.is_some() || byte_len < MAX_PREALLOCATION {
-		// Here we pre-allocate the whole buffer.
-		let mut items: Vec<T> = vec![Default::default(); items_len];
-		let bytes_slice = items.as_mut_byte_slice();
-		input.read(bytes_slice)?;
-
-		items
-	} else {
-		// An allowed number of preallocated item.
-		// Note: `MAX_PREALLOCATION` is expected to be more or equal to size of `T`, precondition.
-		let max_preallocated_items = MAX_PREALLOCATION / mem::size_of::<T>();
-
-		// Here we pre-allocate only the maximum pre-allocation
-		let mut items: Vec<T> = vec![];
-
-		let mut items_remains = items_len;
-
-		while items_remains > 0 {
-			let items_len_read = max_preallocated_items.min(items_remains);
-
-			let items_len_filled = items.len();
-			let items_new_size = items_len_filled + items_len_read;
-
-			items.reserve_exact(items_len_read);
-			unsafe {
-				items.set_len(items_new_size);
-			}
-
-			let bytes_slice = items.as_mut_byte_slice();
-			let bytes_len_filled = items_len_filled * mem::size_of::<T>();
-			input.read(&mut bytes_slice[bytes_len_filled..])?;
-
-			items_remains = items_remains.saturating_sub(items_len_read);
+	decode_vec_chunked(input, len, |input, decoded_vec, chunk_len| {
+		let decoded_vec_len = decoded_vec.len();
+		let decoded_vec_size = decoded_vec_len * mem::size_of::<T>();
+		unsafe {
+			decoded_vec.set_len(decoded_vec_len + chunk_len);
 		}
 
-		items
-	};
+		let bytes_slice = decoded_vec.as_mut_byte_slice();
+		input.read(&mut bytes_slice[decoded_vec_size..])
+	})
+}
 
-	Ok(r)
+fn decode_vec_from_items<T, I>(input: &mut I, len: usize) -> Result<Vec<T>, Error>
+where
+	T: Decode,
+	I: Input,
+{
+	input.descend_ref()?;
+	let vec = decode_vec_chunked(input, len, |input, decoded_vec, chunk_len| {
+		for _ in 0..chunk_len {
+			decoded_vec.push(T::decode(input)?);
+		}
+
+		Ok(())
+	})?;
+	input.ascend_ref();
+
+	Ok(vec)
+}
+
+/// Decode the vec (without a prepended len).
+///
+/// This is equivalent to decode all elements one by one, but it is optimized in some
+/// situation.
+pub fn decode_vec_with_len<T: Decode, I: Input>(
+	input: &mut I,
+	len: usize,
+) -> Result<Vec<T>, Error> {
+	macro_rules! decode {
+		( $ty:ty, $input:ident, $len:ident ) => {{
+			if cfg!(target_endian = "little") || mem::size_of::<T>() == 1 {
+				let vec = read_vec_from_u8s::<$ty, _>($input, $len)?;
+				Ok(unsafe { mem::transmute::<Vec<$ty>, Vec<T>>(vec) })
+			} else {
+				decode_vec_from_items::<T, _>($input, $len)
+			}
+		}};
+	}
+
+	with_type_info! {
+		<T as Decode>::TYPE_INFO,
+		decode(input, len),
+		{
+			decode_vec_from_items::<T, _>(input, len)
+		},
+	}
 }
 
 impl<T> WrapperTypeEncode for Vec<T> {}
@@ -1292,7 +1329,9 @@ impl<T: Decode> Decode for Vec<T> {
 	}
 }
 
-macro_rules! impl_codec_through_iterator {
+impl<T: DecodeWithMemTracking> DecodeWithMemTracking for Vec<T> {}
+
+macro_rules! impl_encode_for_collection {
 	($(
 		$type:ident
 		{ $( $generics:ident $( : $decode_additional:ident )? ),* }
@@ -1301,7 +1340,7 @@ macro_rules! impl_codec_through_iterator {
 	)*) => {$(
 		impl<$( $generics: Encode ),*> Encode for $type<$( $generics, )*> {
 			fn size_hint(&self) -> usize {
-				mem::size_of::<u32>() $( + mem::size_of::<$generics>() * self.len() )*
+				mem::size_of::<u32>() + mem::size_of::<($($generics,)*)>().saturating_mul(self.len())
 			}
 
 			fn encode_to<W: Output + ?Sized>(&self, dest: &mut W) {
@@ -1310,23 +1349,6 @@ macro_rules! impl_codec_through_iterator {
 				for i in self.iter() {
 					i.encode_to(dest);
 				}
-			}
-		}
-
-		impl<$( $generics: Decode $( + $decode_additional )? ),*> Decode
-			for $type<$( $generics, )*>
-		{
-			fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
-				<Compact<u32>>::decode(input).and_then(move |Compact(len)| {
-					input.descend_ref()?;
-					let result = Result::from_iter((0..len).map(|_| Decode::decode(input)));
-					input.ascend_ref();
-					result
-				})
-			}
-
-			fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
-				Vec::<($( $generics, )*)>::skip(input)
 			}
 		}
 
@@ -1339,16 +1361,82 @@ macro_rules! impl_codec_through_iterator {
 	)*}
 }
 
-impl_codec_through_iterator! {
+impl_encode_for_collection! {
 	BTreeMap { K: Ord, V } { LikeK, LikeV}
 		{ K: EncodeLike<LikeK>, LikeK: Encode, V: EncodeLike<LikeV>, LikeV: Encode }
+}
+
+impl<K: Decode + Ord, V: Decode> Decode for BTreeMap<K, V> {
+	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
+		<Compact<u32>>::decode(input).and_then(move |Compact(len)| {
+			input.descend_ref()?;
+			input.on_before_alloc_mem(super::btree_utils::mem_size_of_btree::<(K, V)>(len))?;
+			let result = Result::from_iter((0..len).map(|_| Decode::decode(input)));
+			input.ascend_ref();
+			result
+		})
+	}
+}
+
+impl<K: DecodeWithMemTracking, V: DecodeWithMemTracking> DecodeWithMemTracking for BTreeMap<K, V> where
+	BTreeMap<K, V>: Decode
+{
+}
+
+impl_encode_for_collection! {
 	BTreeSet { T: Ord } { LikeT }
 		{ T: EncodeLike<LikeT>, LikeT: Encode }
+}
+
+impl<T: Decode + Ord> Decode for BTreeSet<T> {
+	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
+		<Compact<u32>>::decode(input).and_then(move |Compact(len)| {
+			input.descend_ref()?;
+			input.on_before_alloc_mem(super::btree_utils::mem_size_of_btree::<T>(len))?;
+			let result = Result::from_iter((0..len).map(|_| Decode::decode(input)));
+			input.ascend_ref();
+			result
+		})
+	}
+}
+impl<T: DecodeWithMemTracking> DecodeWithMemTracking for BTreeSet<T> where BTreeSet<T>: Decode {}
+
+impl_encode_for_collection! {
 	LinkedList { T } { LikeT }
 		{ T: EncodeLike<LikeT>, LikeT: Encode }
+}
+
+impl<T: Decode> Decode for LinkedList<T> {
+	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
+		<Compact<u32>>::decode(input).and_then(move |Compact(len)| {
+			input.descend_ref()?;
+			// We account for the size of the `prev` and `next` pointers of each list node,
+			// plus the decoded element.
+			input.on_before_alloc_mem((len as usize).saturating_mul(mem::size_of::<(
+				usize,
+				usize,
+				T,
+			)>()))?;
+			let result = Result::from_iter((0..len).map(|_| Decode::decode(input)));
+			input.ascend_ref();
+			result
+		})
+	}
+}
+
+impl<T: DecodeWithMemTracking> DecodeWithMemTracking for LinkedList<T> where LinkedList<T>: Decode {}
+
+impl_encode_for_collection! {
 	BinaryHeap { T: Ord } { LikeT }
 		{ T: EncodeLike<LikeT>, LikeT: Encode }
 }
+
+impl<T: Decode + Ord> Decode for BinaryHeap<T> {
+	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
+		Ok(Vec::decode(input)?.into())
+	}
+}
+impl<T: DecodeWithMemTracking> DecodeWithMemTracking for BinaryHeap<T> where BinaryHeap<T>: Decode {}
 
 impl<T: Encode> EncodeLike for VecDeque<T> {}
 impl<T: EncodeLike<U>, U: Encode> EncodeLike<&[U]> for VecDeque<T> {}
@@ -1364,32 +1452,9 @@ impl<T: Encode> Encode for VecDeque<T> {
 	fn encode_to<W: Output + ?Sized>(&self, dest: &mut W) {
 		compact_encode_len_to(dest, self.len()).expect("Compact encodes length");
 
-		macro_rules! encode_to {
-			( $ty:ty, $self:ident, $dest:ident ) => {{
-				if cfg!(target_endian = "little") || mem::size_of::<T>() == 1 {
-					let slices = $self.as_slices();
-					let typed =
-						unsafe { core::mem::transmute::<(&[T], &[T]), (&[$ty], &[$ty])>(slices) };
-
-					$dest.write(<[$ty] as AsByteSlice<$ty>>::as_byte_slice(typed.0));
-					$dest.write(<[$ty] as AsByteSlice<$ty>>::as_byte_slice(typed.1));
-				} else {
-					for item in $self {
-						item.encode_to($dest);
-					}
-				}
-			}};
-		}
-
-		with_type_info! {
-			<T as Encode>::TYPE_INFO,
-			encode_to(self, dest),
-			{
-				for item in self {
-					item.encode_to(dest);
-				}
-			},
-		}
+		let slices = self.as_slices();
+		encode_slice_no_len(slices.0, dest);
+		encode_slice_no_len(slices.1, dest);
 	}
 }
 
@@ -1402,6 +1467,8 @@ impl<T: Decode> Decode for VecDeque<T> {
 		Vec::<T>::skip(input)
 	}
 }
+
+impl<T: DecodeWithMemTracking> DecodeWithMemTracking for VecDeque<T> {}
 
 impl EncodeLike for () {}
 
@@ -1605,6 +1672,8 @@ macro_rules! impl_endians {
 				Some(mem::size_of::<$t>())
 			}
 		}
+
+		impl DecodeWithMemTracking for $t {}
 	)* }
 }
 macro_rules! impl_one_byte {
@@ -1634,6 +1703,8 @@ macro_rules! impl_one_byte {
 				Some(1)
 			}
 		}
+
+		impl DecodeWithMemTracking for $t {}
 	)* }
 }
 
@@ -1669,6 +1740,8 @@ impl Decode for bool {
 	}
 }
 
+impl DecodeWithMemTracking for bool {}
+
 impl Encode for Duration {
 	fn size_hint(&self) -> usize {
 		mem::size_of::<u64>() + mem::size_of::<u32>()
@@ -1696,6 +1769,8 @@ impl Decode for Duration {
 		<(u64, u32)>::encoded_fixed_size()
 	}
 }
+
+impl DecodeWithMemTracking for Duration {}
 
 impl EncodeLike for Duration {}
 
@@ -1727,6 +1802,8 @@ where
 	}
 }
 
+impl<T: DecodeWithMemTracking> DecodeWithMemTracking for Range<T> {}
+
 impl<T> Encode for RangeInclusive<T>
 where
 	T: Encode,
@@ -1754,6 +1831,8 @@ where
 		<(T, T)>::encoded_fixed_size()
 	}
 }
+
+impl<T: DecodeWithMemTracking> DecodeWithMemTracking for RangeInclusive<T> {}
 
 #[cfg(test)]
 mod tests {
@@ -1844,6 +1923,14 @@ mod tests {
 		assert_eq!(<Vec<OptionBool>>::decode(&mut &encoded[..]).unwrap(), value);
 	}
 
+	#[test]
+	fn vec_of_empty_tuples_encoded_as_expected() {
+		let value = vec![(), (), (), (), ()];
+		let encoded = value.encode();
+		assert_eq!(hexify(&encoded), "14");
+		assert_eq!(<Vec<()>>::decode(&mut &encoded[..]).unwrap(), value);
+	}
+
 	#[cfg(feature = "bytes")]
 	#[test]
 	fn bytes_works_as_expected() {
@@ -1875,7 +1962,7 @@ mod tests {
 		assert_eq!(decoded, &b"hello"[..]);
 
 		// The `slice_ref` will panic if the `decoded` is not a subslice of `encoded`.
-		assert_eq!(encoded.slice_ref(&decoded), &b"hello"[..]);
+		assert_eq!(encoded.slice_ref(decoded), &b"hello"[..]);
 	}
 
 	fn test_encode_length<T: Encode + Decode + DecodeLength>(thing: &T, len: usize) {
@@ -2076,8 +2163,8 @@ mod tests {
 	fn boolean() {
 		assert_eq!(true.encode(), vec![1]);
 		assert_eq!(false.encode(), vec![0]);
-		assert_eq!(bool::decode(&mut &[1][..]).unwrap(), true);
-		assert_eq!(bool::decode(&mut &[0][..]).unwrap(), false);
+		assert!(bool::decode(&mut &[1][..]).unwrap());
+		assert!(!bool::decode(&mut &[0][..]).unwrap());
 	}
 
 	#[test]
@@ -2094,7 +2181,7 @@ mod tests {
 		let encoded = data.encode();
 
 		let decoded = Vec::<u32>::decode(&mut &encoded[..]).unwrap();
-		assert!(decoded.iter().all(|v| data.contains(&v)));
+		assert!(decoded.iter().all(|v| data.contains(v)));
 		assert_eq!(data.len(), decoded.len());
 
 		let encoded = decoded.encode();
@@ -2125,7 +2212,7 @@ mod tests {
 		let num_nanos = 37;
 
 		let duration = Duration::new(num_secs, num_nanos);
-		let expected = (num_secs, num_nanos as u32).encode();
+		let expected = (num_secs, num_nanos).encode();
 
 		assert_eq!(duration.encode(), expected);
 		assert_eq!(Duration::decode(&mut &expected[..]).unwrap(), duration);

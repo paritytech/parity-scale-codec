@@ -1,5 +1,8 @@
 use parity_scale_codec::{Decode, Encode};
-use parity_scale_codec_derive::{Decode as DeriveDecode, Encode as DeriveEncode};
+use parity_scale_codec_derive::{
+	Decode as DeriveDecode, DecodeWithMemTracking as DeriveDecodeWithMemTracking,
+	Encode as DeriveEncode,
+};
 
 #[test]
 fn enum_struct_test() {
@@ -9,8 +12,11 @@ fn enum_struct_test() {
 	#[derive(PartialEq, Debug)]
 	struct UncodecUndefaultType;
 
-	use parity_scale_codec_derive::{Decode as DeriveDecode, Encode as DeriveEncode};
-	#[derive(PartialEq, Debug, DeriveEncode, DeriveDecode)]
+	use parity_scale_codec_derive::{
+		Decode as DeriveDecode, DecodeWithMemTracking as DeriveDecodeWithMemTracking,
+		Encode as DeriveEncode,
+	};
+	#[derive(PartialEq, Debug, DeriveEncode, DeriveDecode, DeriveDecodeWithMemTracking)]
 	enum Enum<T = UncodecType, S = UncodecUndefaultType> {
 		#[codec(skip)]
 		A(S),
@@ -22,14 +28,14 @@ fn enum_struct_test() {
 		C(#[codec(skip)] T, u32),
 	}
 
-	#[derive(PartialEq, Debug, DeriveEncode, DeriveDecode)]
+	#[derive(PartialEq, Debug, DeriveEncode, DeriveDecode, DeriveDecodeWithMemTracking)]
 	struct StructNamed<T = UncodecType> {
 		#[codec(skip)]
 		a: T,
 		b: u32,
 	}
 
-	#[derive(PartialEq, Debug, DeriveEncode, DeriveDecode)]
+	#[derive(PartialEq, Debug, DeriveEncode, DeriveDecode, DeriveDecodeWithMemTracking)]
 	struct StructUnnamed<T = UncodecType>(#[codec(skip)] T, u32);
 
 	let ea: Enum = Enum::A(UncodecUndefaultType);
@@ -56,7 +62,7 @@ fn skip_enum_struct_inner_variant() {
 	// Make sure the skipping does not generates a warning.
 	#![deny(warnings)]
 
-	#[derive(DeriveEncode, DeriveDecode)]
+	#[derive(DeriveEncode, DeriveDecode, DeriveDecodeWithMemTracking)]
 	enum Enum {
 		Data {
 			some_named: u32,

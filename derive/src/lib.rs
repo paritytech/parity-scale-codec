@@ -168,7 +168,7 @@ pub fn encode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 	wrap_with_dummy_const(input, impl_block)
 }
 
-/// Derive `parity_scale_codec::Decode` and for struct and enum.
+/// Derive `parity_scale_codec::Decode` for struct and enum.
 ///
 /// see derive `Encode` documentation.
 #[proc_macro_derive(Decode, attributes(codec))]
@@ -234,6 +234,54 @@ pub fn decode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 			}
 
 			#impl_decode_into
+		}
+	};
+
+	wrap_with_dummy_const(input, impl_block)
+}
+
+/// Derive `parity_scale_codec::DecodeWithMemTracking` for struct and enum.
+#[proc_macro_derive(DecodeWithMemTracking, attributes(codec))]
+pub fn decode_with_mem_tracking_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+	let mut input: DeriveInput = match syn::parse(input) {
+		Ok(input) => input,
+		Err(e) => return e.to_compile_error().into(),
+	};
+
+	if let Err(e) = utils::check_attributes(&input) {
+		return e.to_compile_error().into();
+	}
+
+	let crate_path = match codec_crate_path(&input.attrs) {
+		Ok(crate_path) => crate_path,
+		Err(error) => return error.into_compile_error().into(),
+	};
+
+	if let Err(e) = trait_bounds::add(
+		&input.ident,
+		&mut input.generics,
+		&input.data,
+		utils::custom_decode_with_mem_tracking_trait_bound(&input.attrs),
+		parse_quote!(#crate_path::DecodeWithMemTracking),
+		Some(parse_quote!(Default)),
+		utils::has_dumb_trait_bound(&input.attrs),
+		&crate_path,
+	) {
+		return e.to_compile_error().into();
+	}
+
+	let name = &input.ident;
+	let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
+
+	let decode_with_mem_tracking_checks =
+		decode::quote_decode_with_mem_tracking_checks(&input.data, &crate_path);
+	let impl_block = quote! {
+		fn check_struct #impl_generics() #where_clause {
+			#decode_with_mem_tracking_checks
+		}
+
+		#[automatically_derived]
+		impl #impl_generics #crate_path::DecodeWithMemTracking for #name #ty_generics #where_clause {
 		}
 	};
 
@@ -309,7 +357,7 @@ pub fn compact_as_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStr
 				(&field.ty, quote!(&self.#field_name), constructor)
 			},
 			Fields::Unnamed(ref fields) if utils::filter_skip_unnamed(fields).count() == 1 => {
-				let recurse = fields.unnamed.iter().enumerate().map(|(_, f)| {
+				let recurse = fields.unnamed.iter().map(|f| {
 					let val_or_default = val_or_default(f);
 					quote_spanned!(f.span()=> #val_or_default)
 				});

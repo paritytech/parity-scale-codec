@@ -13,25 +13,29 @@
 // limitations under the License.
 
 use parity_scale_codec::{
-	Compact, CompactAs, Decode, Encode, EncodeAsRef, Error, HasCompact, Output,
+	Compact, CompactAs, Decode, DecodeWithMemTracking, Encode, EncodeAsRef, Error, HasCompact,
+	Output,
 };
-use parity_scale_codec_derive::{Decode as DeriveDecode, Encode as DeriveEncode};
+use parity_scale_codec_derive::{
+	Decode as DeriveDecode, DecodeWithMemTracking as DeriveDecodeWithMemTracking,
+	Encode as DeriveEncode,
+};
 use serde_derive::{Deserialize, Serialize};
 
-#[derive(Debug, PartialEq, DeriveEncode, DeriveDecode)]
+#[derive(Debug, PartialEq, DeriveEncode, DeriveDecode, DeriveDecodeWithMemTracking)]
 struct Unit;
 
-#[derive(Debug, PartialEq, DeriveEncode, DeriveDecode)]
+#[derive(Debug, PartialEq, DeriveEncode, DeriveDecode, DeriveDecodeWithMemTracking)]
 struct Indexed(u32, u64);
 
-#[derive(Debug, PartialEq, DeriveEncode, DeriveDecode, Default)]
+#[derive(Debug, PartialEq, DeriveEncode, DeriveDecode, DeriveDecodeWithMemTracking, Default)]
 struct Struct<A, B, C> {
 	pub a: A,
 	pub b: B,
 	pub c: C,
 }
 
-#[derive(Debug, PartialEq, DeriveEncode, DeriveDecode)]
+#[derive(Debug, PartialEq, DeriveEncode, DeriveDecode, DeriveDecodeWithMemTracking)]
 struct StructWithPhantom {
 	pub a: u32,
 	pub b: u64,
@@ -46,7 +50,7 @@ impl<A, B, C> Struct<A, B, C> {
 	}
 }
 
-#[derive(Debug, PartialEq, DeriveEncode, DeriveDecode)]
+#[derive(Debug, PartialEq, DeriveEncode, DeriveDecode, DeriveDecodeWithMemTracking)]
 enum EnumType {
 	#[codec(index = 15)]
 	A,
@@ -57,26 +61,29 @@ enum EnumType {
 	},
 }
 
-#[derive(Debug, PartialEq, DeriveEncode, DeriveDecode)]
+#[derive(Debug, PartialEq, DeriveEncode, DeriveDecode, DeriveDecodeWithMemTracking)]
 enum EnumWithDiscriminant {
 	A = 1,
 	B = 15,
 	C = 255,
 }
 
-#[derive(Debug, PartialEq, DeriveEncode, DeriveDecode)]
-struct TestHasCompact<T: HasCompact> {
+#[derive(Debug, PartialEq, DeriveEncode, DeriveDecode, DeriveDecodeWithMemTracking)]
+struct TestHasCompact<T: HasCompact>
+where
+	<T as HasCompact>::Type: DecodeWithMemTracking,
+{
 	#[codec(encoded_as = "<T as HasCompact>::Type")]
 	bar: T,
 }
 
-#[derive(Debug, PartialEq, DeriveEncode, DeriveDecode)]
+#[derive(Debug, PartialEq, DeriveEncode, DeriveDecode, DeriveDecodeWithMemTracking)]
 struct TestCompactHasCompact<T: HasCompact> {
 	#[codec(compact)]
 	bar: T,
 }
 
-#[derive(Debug, PartialEq, DeriveEncode, DeriveDecode)]
+#[derive(Debug, PartialEq, DeriveEncode, DeriveDecode, DeriveDecodeWithMemTracking)]
 enum TestHasCompactEnum<T: HasCompact> {
 	Unnamed(#[codec(encoded_as = "<T as HasCompact>::Type")] T),
 	Named {
@@ -90,13 +97,13 @@ enum TestHasCompactEnum<T: HasCompact> {
 	},
 }
 
-#[derive(Debug, PartialEq, DeriveEncode, DeriveDecode)]
+#[derive(Debug, PartialEq, DeriveEncode, DeriveDecode, DeriveDecodeWithMemTracking)]
 struct TestCompactAttribute {
 	#[codec(compact)]
 	bar: u64,
 }
 
-#[derive(Debug, PartialEq, DeriveEncode, DeriveDecode)]
+#[derive(Debug, PartialEq, DeriveEncode, DeriveDecode, DeriveDecodeWithMemTracking)]
 enum TestCompactAttributeEnum {
 	Unnamed(#[codec(compact)] u64),
 	Named {
@@ -234,11 +241,11 @@ const U64_TEST_COMPACT_VALUES: &[(u64, usize)] = &[
 	(16384, 4),
 	(1073741823, 4),
 	(1073741824, 5),
-	(1 << 32 - 1, 5),
+	(1 << (32 - 1), 5),
 	(1 << 32, 6),
 	(1 << 40, 7),
 	(1 << 48, 8),
-	(1 << 56 - 1, 8),
+	(1 << (56 - 1), 8),
 	(1 << 56, 9),
 	(u64::MAX, 9),
 ];
@@ -251,11 +258,11 @@ const U64_TEST_COMPACT_VALUES_FOR_ENUM: &[(u64, usize)] = &[
 	(16384, 5),
 	(1073741823, 5),
 	(1073741824, 6),
-	(1 << 32 - 1, 6),
+	(1 << (32 - 1), 6),
 	(1 << 32, 7),
 	(1 << 40, 8),
 	(1 << 48, 9),
-	(1 << 56 - 1, 9),
+	(1 << (56 - 1), 9),
 	(1 << 56, 10),
 	(u64::MAX, 10),
 ];
@@ -329,7 +336,7 @@ fn associated_type_bounds() {
 		type NonEncodableType;
 	}
 
-	#[derive(DeriveEncode, DeriveDecode, Debug, PartialEq)]
+	#[derive(DeriveEncode, DeriveDecode, DeriveDecodeWithMemTracking, Debug, PartialEq)]
 	struct Struct<T: Trait, Type> {
 		field: (Vec<T::EncodableType>, Type),
 	}
@@ -351,6 +358,7 @@ fn associated_type_bounds() {
 }
 
 #[test]
+#[allow(non_local_definitions)]
 fn generic_bound_encoded_as() {
 	// This struct does not impl Codec nor HasCompact
 	struct StructEncodeAsRef;
@@ -371,7 +379,7 @@ fn generic_bound_encoded_as() {
 		type RefType = &'a u32;
 	}
 
-	#[derive(Debug, PartialEq, DeriveEncode, DeriveDecode)]
+	#[derive(Debug, PartialEq, DeriveEncode, DeriveDecode, DeriveDecodeWithMemTracking)]
 	struct TestGeneric<A: From<u32>>
 	where
 		u32: for<'a> EncodeAsRef<'a, A>,
@@ -407,7 +415,7 @@ fn generic_bound_hascompact() {
 		}
 	}
 
-	#[derive(Debug, PartialEq, DeriveEncode, DeriveDecode)]
+	#[derive(Debug, PartialEq, DeriveEncode, DeriveDecode, DeriveDecodeWithMemTracking)]
 	enum TestGenericHasCompact<T> {
 		A {
 			#[codec(compact)]
@@ -428,14 +436,14 @@ fn generic_trait() {
 
 	struct StructNoCodec;
 
-	#[derive(Debug, PartialEq, DeriveEncode, DeriveDecode)]
+	#[derive(Debug, PartialEq, DeriveEncode, DeriveDecode, DeriveDecodeWithMemTracking)]
 	struct StructCodec;
 
 	impl TraitNoCodec for StructNoCodec {
 		type Type = StructCodec;
 	}
 
-	#[derive(Debug, PartialEq, DeriveEncode, DeriveDecode)]
+	#[derive(Debug, PartialEq, DeriveEncode, DeriveDecode, DeriveDecodeWithMemTracking)]
 	struct TestGenericTrait<T: TraitNoCodec> {
 		t: T::Type,
 	}
@@ -447,7 +455,9 @@ fn generic_trait() {
 
 #[test]
 fn recursive_variant_1_encode_works() {
-	#[derive(Debug, PartialEq, DeriveEncode, DeriveDecode, Default)]
+	#[derive(
+		Debug, PartialEq, DeriveEncode, DeriveDecode, DeriveDecodeWithMemTracking, Default,
+	)]
 	struct Recursive<N> {
 		data: N,
 		other: Vec<Recursive<N>>,
@@ -459,7 +469,9 @@ fn recursive_variant_1_encode_works() {
 
 #[test]
 fn recursive_variant_2_encode_works() {
-	#[derive(Debug, PartialEq, DeriveEncode, DeriveDecode, Default)]
+	#[derive(
+		Debug, PartialEq, DeriveEncode, DeriveDecode, DeriveDecodeWithMemTracking, Default,
+	)]
 	struct Recursive<A, B, N> {
 		data: N,
 		other: Vec<Struct<A, B, Recursive<A, B, N>>>,
@@ -475,10 +487,14 @@ fn private_type_in_where_bound() {
 	// an error.
 	#![deny(warnings)]
 
-	#[derive(Debug, PartialEq, DeriveEncode, DeriveDecode, Default)]
+	#[derive(
+		Debug, PartialEq, DeriveEncode, DeriveDecode, DeriveDecodeWithMemTracking, Default,
+	)]
 	struct Private;
 
-	#[derive(Debug, PartialEq, DeriveEncode, DeriveDecode, Default)]
+	#[derive(
+		Debug, PartialEq, DeriveEncode, DeriveDecode, DeriveDecodeWithMemTracking, Default,
+	)]
 	#[codec(dumb_trait_bound)]
 	pub struct Test<N> {
 		data: Vec<(N, Private)>,
@@ -490,7 +506,7 @@ fn private_type_in_where_bound() {
 
 #[test]
 fn encode_decode_empty_enum() {
-	#[derive(DeriveEncode, DeriveDecode, PartialEq, Debug)]
+	#[derive(DeriveEncode, DeriveDecode, DeriveDecodeWithMemTracking, PartialEq, Debug)]
 	enum EmptyEnumDerive {}
 
 	fn impls_encode_decode<T: Encode + Decode>() {}
@@ -512,13 +528,13 @@ fn codec_vec_u8() {
 
 #[test]
 fn recursive_type() {
-	#[derive(DeriveEncode, DeriveDecode)]
+	#[derive(DeriveEncode, DeriveDecode, DeriveDecodeWithMemTracking)]
 	pub enum Foo {
 		T(Box<Bar>),
 		A,
 	}
 
-	#[derive(DeriveEncode, DeriveDecode)]
+	#[derive(DeriveEncode, DeriveDecode, DeriveDecodeWithMemTracking)]
 	pub struct Bar {
 		field: Foo,
 	}
@@ -566,7 +582,7 @@ fn weird_derive() {
 		};
 	}
 
-	make_struct!(#[derive(DeriveEncode, DeriveDecode)]);
+	make_struct!(#[derive(DeriveEncode, DeriveDecode, DeriveDecodeWithMemTracking)]);
 }
 
 #[test]
@@ -576,15 +592,16 @@ fn output_trait_object() {
 
 #[test]
 fn custom_trait_bound() {
-	#[derive(DeriveEncode, DeriveDecode)]
+	#[derive(DeriveEncode, DeriveDecode, DeriveDecodeWithMemTracking)]
 	#[codec(encode_bound(N: Encode, T: Default))]
 	#[codec(decode_bound(N: Decode, T: Default))]
+	#[codec(decode_with_mem_tracking_bound(N: DecodeWithMemTracking, T: Default))]
 	struct Something<T, N> {
 		hello: Hello<T>,
 		val: N,
 	}
 
-	#[derive(DeriveEncode, DeriveDecode)]
+	#[derive(DeriveEncode, DeriveDecode, DeriveDecodeWithMemTracking)]
 	#[codec(encode_bound())]
 	#[codec(decode_bound())]
 	struct Hello<T> {
@@ -619,7 +636,7 @@ fn bit_vec_works() {
 
 	assert_eq!(original_vec, original_vec_clone);
 
-	#[derive(DeriveDecode, DeriveEncode, PartialEq, Debug)]
+	#[derive(DeriveDecode, DeriveDecodeWithMemTracking, DeriveEncode, PartialEq, Debug)]
 	struct MyStruct {
 		v: BitVec<u8, Msb0>,
 		x: u8,
@@ -636,7 +653,7 @@ fn bit_vec_works() {
 
 #[test]
 fn no_warning_for_deprecated() {
-	#[derive(DeriveEncode, DeriveDecode)]
+	#[derive(DeriveEncode, DeriveDecode, DeriveDecodeWithMemTracking)]
 	pub enum MyEnum {
 		VariantA,
 		#[deprecated]
@@ -664,12 +681,12 @@ fn decoding_a_huge_array_inside_of_arc_does_not_overflow_the_stack() {
 
 #[test]
 fn decoding_a_huge_boxed_newtype_array_does_not_overflow_the_stack() {
-	#[derive(DeriveDecode)]
+	#[derive(DeriveDecode, DeriveDecodeWithMemTracking)]
 	#[repr(transparent)]
 	struct HugeArrayNewtype([u8; 100 * 1024 * 1024]);
 
-	#[derive(DeriveDecode)]
-	struct HugeArrayNewtypeBox(Box<HugeArrayNewtype>);
+	#[derive(DeriveDecode, DeriveDecodeWithMemTracking)]
+	struct HugeArrayNewtypeBox(#[allow(dead_code)] Box<HugeArrayNewtype>);
 
 	let data = &[];
 	assert!(HugeArrayNewtypeBox::decode(&mut data.as_slice()).is_err());
@@ -679,10 +696,10 @@ fn decoding_a_huge_boxed_newtype_array_does_not_overflow_the_stack() {
 fn decoding_two_indirectly_boxed_arrays_works() {
 	// This test will fail if the check for `#[repr(transparent)]` in the derive crate
 	// doesn't work when implementing `Decode::decode_into`.
-	#[derive(DeriveDecode, PartialEq, Eq, Debug)]
+	#[derive(DeriveDecode, DeriveDecodeWithMemTracking, PartialEq, Eq, Debug)]
 	struct SmallArrays([u8; 2], [u8; 2]);
 
-	#[derive(DeriveDecode)]
+	#[derive(DeriveDecode, DeriveDecodeWithMemTracking)]
 	struct SmallArraysBox(Box<SmallArrays>);
 
 	let data = &[1, 2, 3, 4];
@@ -694,16 +711,16 @@ fn decoding_two_indirectly_boxed_arrays_works() {
 
 #[test]
 fn zero_sized_types_are_properly_decoded_in_a_transparent_boxed_struct() {
-	#[derive(DeriveDecode)]
+	#[derive(DeriveDecode, DeriveDecodeWithMemTracking)]
 	#[repr(transparent)]
 	struct ZstTransparent;
 
-	#[derive(DeriveDecode)]
+	#[derive(DeriveDecode, DeriveDecodeWithMemTracking)]
 	struct ZstNonTransparent;
 
 	struct ConsumeByte;
 
-	#[derive(DeriveDecode)]
+	#[derive(DeriveDecode, DeriveDecodeWithMemTracking)]
 	#[repr(transparent)]
 	struct NewtypeWithZst {
 		_zst_1: ConsumeByte,
@@ -713,8 +730,8 @@ fn zero_sized_types_are_properly_decoded_in_a_transparent_boxed_struct() {
 		_zst_4: ConsumeByte,
 	}
 
-	#[derive(DeriveDecode)]
-	struct NewtypeWithZstBox(Box<NewtypeWithZst>);
+	#[derive(DeriveDecode, DeriveDecodeWithMemTracking)]
+	struct NewtypeWithZstBox(#[allow(dead_code)] Box<NewtypeWithZst>);
 
 	impl Decode for ConsumeByte {
 		fn decode<I: parity_scale_codec::Input>(input: &mut I) -> Result<Self, Error> {
@@ -724,21 +741,23 @@ fn zero_sized_types_are_properly_decoded_in_a_transparent_boxed_struct() {
 		}
 	}
 
+	impl DecodeWithMemTracking for ConsumeByte {}
+
 	let data = &[1, 2, 3];
 	assert_eq!(NewtypeWithZst::decode(&mut data.as_slice()).unwrap().field, [2]);
 }
 
 #[test]
 fn boxed_zero_sized_newtype_with_everything_being_transparent_is_decoded_correctly() {
-	#[derive(DeriveDecode)]
+	#[derive(DeriveDecode, DeriveDecodeWithMemTracking)]
 	#[repr(transparent)]
 	struct Zst;
 
-	#[derive(DeriveDecode)]
+	#[derive(DeriveDecode, DeriveDecodeWithMemTracking)]
 	#[repr(transparent)]
 	struct NewtypeWithZst(Zst);
 
-	#[derive(DeriveDecode)]
+	#[derive(DeriveDecode, DeriveDecodeWithMemTracking)]
 	#[repr(transparent)]
 	struct NewtypeWithZstBox(Box<NewtypeWithZst>);
 
@@ -761,11 +780,11 @@ fn decoding_an_array_of_boxed_zero_sized_types_works() {
 #[test]
 fn incomplete_decoding_of_an_array_drops_partially_read_elements_if_reading_fails() {
 	thread_local! {
-		pub static COUNTER: core::cell::Cell<usize> = core::cell::Cell::new(0);
+		pub static COUNTER: core::cell::Cell<usize> = const { core::cell::Cell::new(0) };
 	}
 
-	#[derive(DeriveDecode)]
-	struct Foobar(u8);
+	#[derive(DeriveDecode, DeriveDecodeWithMemTracking)]
+	struct Foobar(#[allow(dead_code)] u8);
 
 	impl Drop for Foobar {
 		fn drop(&mut self) {
@@ -786,10 +805,10 @@ fn incomplete_decoding_of_an_array_drops_partially_read_elements_if_reading_fail
 #[test]
 fn incomplete_decoding_of_an_array_drops_partially_read_elements_if_reading_panics() {
 	thread_local! {
-		pub static COUNTER: core::cell::Cell<usize> = core::cell::Cell::new(0);
+		pub static COUNTER: core::cell::Cell<usize> = const { core::cell::Cell::new(0) };
 	}
 
-	struct Foobar(u8);
+	struct Foobar(#[allow(dead_code)] u8);
 
 	impl Decode for Foobar {
 		fn decode<I: parity_scale_codec::Input>(input: &mut I) -> Result<Self, Error> {
@@ -821,10 +840,11 @@ fn incomplete_decoding_of_an_array_drops_partially_read_elements_if_reading_pani
 
 #[test]
 fn deserializing_of_big_recursively_nested_enum_works() {
-	#[derive(PartialEq, Eq, DeriveDecode, DeriveEncode)]
+	#[derive(PartialEq, Eq, DeriveDecode, DeriveDecodeWithMemTracking, DeriveEncode)]
 	struct Data([u8; 1472]);
 
-	#[derive(PartialEq, Eq, DeriveDecode, DeriveEncode)]
+	#[derive(PartialEq, Eq, DeriveDecode, DeriveDecodeWithMemTracking, DeriveEncode)]
+	#[allow(clippy::large_enum_variant)]
 	enum Enum {
 		Nested(Vec<Enum>),
 		Data(Data),
