@@ -367,19 +367,17 @@ pub fn compact_as_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStr
 				let constructor = quote!( #name(#( #recurse, )*));
 				(&field.ty, quote!(&self.#id), constructor)
 			},
-			_ => {
+			_ =>
 				return Error::new(
 					data.fields.span(),
 					"Only structs with a single non-skipped field can derive CompactAs",
 				)
 				.to_compile_error()
-				.into()
-			},
+				.into(),
 		},
-		Data::Enum(syn::DataEnum { enum_token: syn::token::Enum { span }, .. })
-		| Data::Union(syn::DataUnion { union_token: syn::token::Union { span }, .. }) => {
-			return Error::new(span, "Only structs can derive CompactAs").to_compile_error().into()
-		},
+		Data::Enum(syn::DataEnum { enum_token: syn::token::Enum { span }, .. }) |
+		Data::Union(syn::DataUnion { union_token: syn::token::Union { span }, .. }) =>
+			return Error::new(span, "Only structs can derive CompactAs").to_compile_error().into(),
 	};
 
 	let impl_block = quote! {

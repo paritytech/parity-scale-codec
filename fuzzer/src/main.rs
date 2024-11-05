@@ -269,13 +269,12 @@ fn fuzz_encode<T: Encode + Decode + Clone + PartialEq + std::fmt::Debug>(data: T
 	let mut obj: &[u8] = &data.encode();
 	let decoded = <T>::decode(&mut obj);
 	match decoded {
-		Ok(object) => {
+		Ok(object) =>
 			if object != original {
 				println!("original object: {:?}", original);
 				println!("decoded object: {:?}", object);
 				panic!("Original object differs from decoded object")
-			}
-		},
+			},
 		Err(e) => {
 			println!("original object: {:?}", original);
 			println!("decoding error: {:?}", e);
