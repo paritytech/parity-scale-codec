@@ -77,9 +77,13 @@ impl<O: BitOrder, T: BitStore + Decode> Decode for BitVec<T, O> {
 	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
 		let Compact(bits) = <Compact<u32>>::decode(input)?;
 		let len = bitvec::mem::elts::<T>(bits as usize);
-		match T::encoded_fixed_size() {
-			Some(size) => input.skip(size * len),
-			None => Result::from_iter((0..len).map(|_| T::skip(input))),
+
+		// Attempt to get the fixed size and check for overflow
+		if let Some(size) = T::encoded_fixed_size().and_then(|size| size.checked_mul(len)) {
+			input.skip(size)
+		} else {
+			// Fallback when there is no fixed size or on overflow
+			Result::from_iter((0..len).map(|_| T::skip(input)))
 		}
 	}
 }

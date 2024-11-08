@@ -349,7 +349,7 @@ pub trait Decode: Sized {
 		unsafe { Ok(DecodeFinished::assert_decoding_finished()) }
 	}
 
-	/// Attempt to skip the encoded value from input.
+	/// Attempt to skip the encoded value from input without validating it.
 	///
 	/// The default implementation of this function is skipping the fixed encoded size
 	/// if it is known. Otherwise, it is just calling [`Decode::decode`].
@@ -474,7 +474,7 @@ impl Input for BytesCursor {
 
 	fn skip(&mut self, len: usize) -> Result<(), Error> {
 		if len > self.bytes.len() - self.position {
-			return Err("Not enough data to skip".into())
+			return Err("Not enough data to skip".into());
 		}
 
 		self.position += len;
@@ -770,8 +770,8 @@ impl<T: Decode, E: Decode> Decode for Result<T, E> {
 			.read_byte()
 			.map_err(|e| e.chain("Could not result variant byte for `Result`"))?
 		{
-			0 => T::skip(input),
-			1 => E::skip(input),
+			0 => T::skip(input).map_err(|e| e.chain("Could not skip `Result::Ok(T)`")),
+			1 => E::skip(input).map_err(|e| e.chain("Could not skip `Result::Error(E)`")),
 			_ => Err("unexpected first byte decoding Result".into()),
 		}
 	}
@@ -863,9 +863,13 @@ impl<T: Decode> Decode for Option<T> {
 			.map_err(|e| e.chain("Could not decode variant byte for `Option`"))?
 		{
 			0 => Ok(()),
-			1 => T::skip(input),
+			1 => T::skip(input).map_err(|e| e.chain("Could not skip `Option::Some(T)`")),
 			_ => Err("unexpected first byte decoding Option".into()),
 		}
+	}
+
+	fn encoded_fixed_size() -> Option<usize> {
+		Some(T::encoded_fixed_size()? + 1)
 	}
 }
 
@@ -999,16 +1003,16 @@ impl<T: Decode, const N: usize> Decode for [T; N] {
 	) -> Result<DecodeFinished, Error> {
 		let is_primitive = match <T as Decode>::TYPE_INFO {
 			| TypeInfo::U8 | TypeInfo::I8 => true,
-			| TypeInfo::U16 |
-			TypeInfo::I16 |
-			TypeInfo::U32 |
-			TypeInfo::I32 |
-			TypeInfo::U64 |
-			TypeInfo::I64 |
-			TypeInfo::U128 |
-			TypeInfo::I128 |
-			TypeInfo::F32 |
-			TypeInfo::F64 => cfg!(target_endian = "little"),
+			| TypeInfo::U16
+			| TypeInfo::I16
+			| TypeInfo::U32
+			| TypeInfo::I32
+			| TypeInfo::U64
+			| TypeInfo::I64
+			| TypeInfo::U128
+			| TypeInfo::I128
+			| TypeInfo::F32
+			| TypeInfo::F64 => cfg!(target_endian = "little"),
 			TypeInfo::Unknown => false,
 		};
 
@@ -1322,9 +1326,14 @@ impl<T: Decode> Decode for Vec<T> {
 
 	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
 		let Compact(len) = <Compact<u32>>::decode(input)?;
-		match T::encoded_fixed_size() {
-			Some(size) => input.skip(size * len as usize),
-			None => Result::from_iter((0..len).map(|_| T::skip(input))),
+
+		// Attempt to get the fixed size and check for overflow
+		if let Some(size) = T::encoded_fixed_size().and_then(|size| size.checked_mul(len as usize))
+		{
+			input.skip(size)
+		} else {
+			// Fallback when there is no fixed size or on overflow
+			Result::from_iter((0..len).map(|_| T::skip(input)))
 		}
 	}
 }
@@ -1376,6 +1385,10 @@ impl<K: Decode + Ord, V: Decode> Decode for BTreeMap<K, V> {
 			result
 		})
 	}
+
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		Vec::<(K, V)>::skip(input)
+	}
 }
 
 impl<K: DecodeWithMemTracking, V: DecodeWithMemTracking> DecodeWithMemTracking for BTreeMap<K, V> where
@@ -1397,6 +1410,10 @@ impl<T: Decode + Ord> Decode for BTreeSet<T> {
 			input.ascend_ref();
 			result
 		})
+	}
+
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		Vec::<T>::skip(input)
 	}
 }
 impl<T: DecodeWithMemTracking> DecodeWithMemTracking for BTreeSet<T> where BTreeSet<T>: Decode {}
@@ -1422,6 +1439,10 @@ impl<T: Decode> Decode for LinkedList<T> {
 			result
 		})
 	}
+
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		Vec::<T>::skip(input)
+	}
 }
 
 impl<T: DecodeWithMemTracking> DecodeWithMemTracking for LinkedList<T> where LinkedList<T>: Decode {}
@@ -1434,6 +1455,10 @@ impl_encode_for_collection! {
 impl<T: Decode + Ord> Decode for BinaryHeap<T> {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		Ok(Vec::decode(input)?.into())
+	}
+
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		Vec::<T>::skip(input)
 	}
 }
 impl<T: DecodeWithMemTracking> DecodeWithMemTracking for BinaryHeap<T> where BinaryHeap<T>: Decode {}
@@ -1797,6 +1822,10 @@ where
 		Ok(Range { start, end })
 	}
 
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		<(T, T)>::skip(input)
+	}
+
 	fn encoded_fixed_size() -> Option<usize> {
 		<(T, T)>::encoded_fixed_size()
 	}
@@ -1825,6 +1854,10 @@ where
 		let (start, end) =
 			<(T, T)>::decode(input).map_err(|e| e.chain("Could not decode `RangeInclusive<T>`"))?;
 		Ok(RangeInclusive::new(start, end))
+	}
+
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		<(T, T)>::skip(input)
 	}
 
 	fn encoded_fixed_size() -> Option<usize> {
