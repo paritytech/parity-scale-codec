@@ -38,6 +38,30 @@ where
 	})
 }
 
+pub fn const_eval_check_variant_indexes(
+	recurse_indices: impl Iterator<Item = TokenStream>,
+) -> TokenStream {
+	quote! {
+		const _: () = {
+			let indices = [#( #recurse_indices ,)*];
+			let len = indices.len();
+
+			// Check each pair for uniqueness
+			let mut i = 0;
+			while i < len {
+					let mut j = i + 1;
+					while j < len {
+							if indices[i] == indices[j] {
+									::core::panic!("Found Variants that have duplicate indexes. Use different indexes for each variant");
+							}
+							j += 1;
+					}
+					i += 1;
+			}
+		};
+	}
+}
+
 /// Look for a `#[scale(index = $int)]` attribute on a variant. If no attribute
 /// is found, fall back to the discriminant or just the variant index.
 pub fn variant_index(v: &Variant, i: usize) -> TokenStream {
@@ -47,7 +71,7 @@ pub fn variant_index(v: &Variant, i: usize) -> TokenStream {
 			if nv.path.is_ident("index") {
 				if let Expr::Lit(ExprLit { lit: Lit::Int(ref v), .. }) = nv.value {
 					let byte = v
-						.base10_parse::<u8>()
+						.base10_parse::<usize>()
 						.expect("Internal error, index attribute must have been checked");
 					return Some(byte);
 				}
