@@ -2381,4 +2381,331 @@ mod tests {
 		assert_eq!(range_inclusive.encode(), range_inclusive_bytes);
 		assert_eq!(RangeInclusive::decode(&mut &range_inclusive_bytes[..]), Ok(range_inclusive));
 	}
+
+	#[test]
+	fn input_skip() {
+		struct MyInput(Vec<u8>);
+		impl Input for MyInput {
+			fn remaining_len(&mut self) -> Result<Option<usize>, Error> {
+				Ok(None)
+			}
+			fn read(&mut self, into: &mut [u8]) -> Result<(), Error> {
+				let i = &mut &self.0[..];
+				let res = i.read(into);
+				self.0 = i.to_vec();
+				res
+			}
+		}
+
+		let mut input = MyInput(vec![1, 2, 3, 4, 5, 6]);
+		input.skip(2).unwrap();
+		assert_eq!(input.read_byte().unwrap(), 3);
+		input.skip(1).unwrap();
+		assert_eq!(input.read_byte().unwrap(), 5);
+		input.skip(2).unwrap_err();
+
+		let mut input = MyInput((0..MAX_PREALLOCATION * 2).map(|i| i as u8).collect());
+		input.skip(MAX_PREALLOCATION + 1).unwrap();
+		assert_eq!(input.read_byte().unwrap(), (MAX_PREALLOCATION + 1) as u8);
+		input.skip(1).unwrap();
+		assert_eq!(input.read_byte().unwrap(), (MAX_PREALLOCATION + 3) as u8);
+	}
+
+	#[test]
+	fn u8_slice_skip() {
+		let mut input = &[1, 2, 3, 4, 5, 6][..];
+		input.skip(2).unwrap();
+		assert_eq!(input.read_byte().unwrap(), 3);
+		input.skip(1).unwrap();
+		assert_eq!(input.read_byte().unwrap(), 5);
+		input.skip(2).unwrap_err();
+	}
+
+	#[test]
+	#[cfg(feature = "bytes")]
+	fn bytes_cursor_skip() {
+		let mut input =
+			BytesCursor { bytes: bytes::Bytes::from_static(&[1, 2, 3, 4, 5, 6]), position: 0 };
+
+		input.skip(2).unwrap();
+		assert_eq!(input.read_byte().unwrap(), 3);
+		input.skip(1).unwrap();
+		assert_eq!(input.read_byte().unwrap(), 5);
+		input.skip(2).unwrap_err();
+	}
+
+	#[test]
+	#[cfg(feature = "bytes")]
+	fn bytes_skip() {
+		let mut input = &(bytes::Bytes::from_static(&[1, 2]), 3u8).encode()[..];
+
+		bytes::Bytes::skip(&mut input).unwrap();
+		assert_eq!(u8::decode(&mut input).unwrap(), 3);
+	}
+
+	#[test]
+	fn skip_and_fixed_len_for_wrapper_type() {
+		let mut input = &(1u8, 2u8).encode()[..];
+
+		Arc::<u8>::skip(&mut input).unwrap();
+		assert_eq!(u8::decode(&mut input).unwrap(), 2);
+
+		assert_eq!(Arc::<u8>::encoded_fixed_size().unwrap(), 1);
+	}
+
+	#[test]
+	fn skip_result() {
+		type R = Result<u8, u16>;
+		let mut input = &(R::Ok(1u8), 2u8).encode()[..];
+
+		R::skip(&mut input).unwrap();
+		assert_eq!(u8::decode(&mut input).unwrap(), 2);
+
+		let mut input = &(R::Err(1u16), 2u8).encode()[..];
+
+		R::skip(&mut input).unwrap();
+		assert_eq!(u8::decode(&mut input).unwrap(), 2);
+	}
+
+	#[test]
+	fn skip_and_encoded_len_optionbool() {
+		assert_eq!(
+			OptionBool(Some(true)).encoded_size(),
+			OptionBool::encoded_fixed_size().unwrap()
+		);
+		assert_eq!(
+			OptionBool(Some(false)).encoded_size(),
+			OptionBool::encoded_fixed_size().unwrap()
+		);
+		assert_eq!(OptionBool(None).encoded_size(), OptionBool::encoded_fixed_size().unwrap());
+
+		let mut input = &(OptionBool(None), 2u8).encode()[..];
+
+		OptionBool::skip(&mut input).unwrap();
+		assert_eq!(u8::decode(&mut input).unwrap(), 2);
+	}
+
+	#[test]
+	fn skip_and_encoded_len_option() {
+		assert_eq!(Option::<u8>::encoded_fixed_size(), Some(2));
+		assert_eq!(Option::<Vec<u8>>::encoded_fixed_size(), None);
+
+		let mut input = &(Some(1u8), 2u8).encode()[..];
+
+		Option::<u8>::skip(&mut input).unwrap();
+		assert_eq!(u8::decode(&mut input).unwrap(), 2);
+
+		let mut input = &(Option::<u8>::None, 2u8).encode()[..];
+
+		Option::<u8>::skip(&mut input).unwrap();
+		assert_eq!(u8::decode(&mut input).unwrap(), 2);
+
+		let mut input = &(Some(vec![1u8, 2, 3]), 2u8).encode()[..];
+
+		Option::<Vec<u8>>::skip(&mut input).unwrap();
+		assert_eq!(u8::decode(&mut input).unwrap(), 2);
+	}
+
+	// Array
+	#[test]
+	fn skip_and_encoded_len_array() {
+		assert_eq!(<[u8; 32]>::encoded_fixed_size(), Some(32));
+		assert_eq!(<[u8; 0]>::encoded_fixed_size(), Some(0));
+		assert_eq!(<[Vec<u8>; 32]>::encoded_fixed_size(), None);
+
+		let mut input = &([1u8; 32], 2u8).encode()[..];
+
+		<[u8; 32]>::skip(&mut input).unwrap();
+		assert_eq!(u8::decode(&mut input).unwrap(), 2);
+
+		let mut input = &([vec![1u8, 2, 3], vec![1, 2]], 2u8).encode()[..];
+
+		<[Vec<u8>; 2]>::skip(&mut input).unwrap();
+		assert_eq!(u8::decode(&mut input).unwrap(), 2);
+	}
+
+	// Cow
+	#[test]
+	fn skip_and_encoded_len_cow() {
+		assert_eq!(Cow::<[u8]>::encoded_fixed_size(), None);
+		assert_eq!(Cow::<str>::encoded_fixed_size(), None);
+
+		let mut input = &(Cow::<[u8]>::Borrowed(&[1u8, 2, 3]), 2u8).encode()[..];
+
+		Cow::<[u8]>::skip(&mut input).unwrap();
+		assert_eq!(u8::decode(&mut input).unwrap(), 2);
+
+		let mut input = &(Cow::<str>::Borrowed("123"), 2u8).encode()[..];
+
+		Cow::<str>::skip(&mut input).unwrap();
+		assert_eq!(u8::decode(&mut input).unwrap(), 2);
+	}
+
+	// PhantomData
+	#[test]
+	fn skip_and_encoded_len_phantomdata() {
+		assert_eq!(PhantomData::<u8>::encoded_fixed_size(), Some(0));
+
+		let mut input = &(PhantomData::<u8>, 2u8).encode()[..];
+
+		PhantomData::<u8>::skip(&mut input).unwrap();
+		assert_eq!(u8::decode(&mut input).unwrap(), 2);
+	}
+
+	// String
+	#[test]
+	fn skip_and_encoded_len_string() {
+		assert_eq!(String::encoded_fixed_size(), None);
+
+		let mut input = &(String::from("123"), 2u8).encode()[..];
+
+		String::skip(&mut input).unwrap();
+		assert_eq!(u8::decode(&mut input).unwrap(), 2);
+	}
+
+	// Vec (vec of u8 and vec of vec)
+	#[test]
+	fn skip_and_encoded_len_vec() {
+		assert_eq!(Vec::<u8>::encoded_fixed_size(), None);
+		assert_eq!(Vec::<Vec<u8>>::encoded_fixed_size(), None);
+
+		let mut input = &(vec![1u8, 2, 3], 2u8).encode()[..];
+
+		Vec::<u8>::skip(&mut input).unwrap();
+		assert_eq!(u8::decode(&mut input).unwrap(), 2);
+
+		let mut input = &(vec![vec![1u8, 2, 3], vec![1, 2]], 2u8).encode()[..];
+
+		Vec::<Vec<u8>>::skip(&mut input).unwrap();
+		assert_eq!(u8::decode(&mut input).unwrap(), 2);
+	}
+
+	// BTreeMap
+	#[test]
+	fn skip_and_encoded_len_btreemap() {
+		assert_eq!(BTreeMap::<u8, u8>::encoded_fixed_size(), None);
+		assert_eq!(BTreeMap::<u8, Vec<u8>>::encoded_fixed_size(), None);
+
+		let mut input = &(BTreeMap::<u8, u8>::new(), 2u8).encode()[..];
+
+		BTreeMap::<u8, u8>::skip(&mut input).unwrap();
+		assert_eq!(u8::decode(&mut input).unwrap(), 2);
+
+		let mut input = &(BTreeMap::<u8, Vec<u8>>::new(), 2u8).encode()[..];
+
+		BTreeMap::<u8, Vec<u8>>::skip(&mut input).unwrap();
+		assert_eq!(u8::decode(&mut input).unwrap(), 2);
+	}
+
+	// BTreeSet
+	#[test]
+	fn skip_and_encoded_len_btreeset() {
+		assert_eq!(BTreeSet::<u8>::encoded_fixed_size(), None);
+		assert_eq!(BTreeSet::<Vec<u8>>::encoded_fixed_size(), None);
+
+		let mut input = &(BTreeSet::<u8>::new(), 2u8).encode()[..];
+
+		BTreeSet::<u8>::skip(&mut input).unwrap();
+		assert_eq!(u8::decode(&mut input).unwrap(), 2);
+
+		let mut input = &(BTreeSet::<Vec<u8>>::new(), 2u8).encode()[..];
+
+		BTreeSet::<Vec<u8>>::skip(&mut input).unwrap();
+		assert_eq!(u8::decode(&mut input).unwrap(), 2);
+	}
+
+	// BinaryHeap
+	#[test]
+	fn skip_and_encoded_len_binaryheap() {
+		assert_eq!(BinaryHeap::<u8>::encoded_fixed_size(), None);
+		assert_eq!(BinaryHeap::<Vec<u8>>::encoded_fixed_size(), None);
+
+		let mut input = &(BinaryHeap::<u8>::new(), 2u8).encode()[..];
+
+		BinaryHeap::<u8>::skip(&mut input).unwrap();
+		assert_eq!(u8::decode(&mut input).unwrap(), 2);
+
+		let mut input = &(BinaryHeap::<Vec<u8>>::new(), 2u8).encode()[..];
+
+		BinaryHeap::<Vec<u8>>::skip(&mut input).unwrap();
+		assert_eq!(u8::decode(&mut input).unwrap(), 2);
+	}
+
+	// VecDeque
+	#[test]
+	fn skip_and_encoded_len_vecdeque() {
+		assert_eq!(VecDeque::<u8>::encoded_fixed_size(), None);
+		assert_eq!(VecDeque::<Vec<u8>>::encoded_fixed_size(), None);
+
+		let mut input = &(VecDeque::<u8>::new(), 2u8).encode()[..];
+
+		VecDeque::<u8>::skip(&mut input).unwrap();
+		assert_eq!(u8::decode(&mut input).unwrap(), 2);
+
+		let mut input = &(VecDeque::<Vec<u8>>::new(), 2u8).encode()[..];
+
+		VecDeque::<Vec<u8>>::skip(&mut input).unwrap();
+		assert_eq!(u8::decode(&mut input).unwrap(), 2);
+	}
+
+	// ()
+	#[test]
+	fn skip_and_encoded_len_unit() {
+		assert_eq!(<()>::encoded_fixed_size(), Some(0));
+
+		let mut input = &((), 2u8).encode()[..];
+
+		<()>::skip(&mut input).unwrap();
+		assert_eq!(u8::decode(&mut input).unwrap(), 2);
+	}
+
+	// tuple
+	#[test]
+	fn skip_and_encoded_len_tuple() {
+		assert_eq!(<(u8, u8)>::encoded_fixed_size(), Some(2));
+		assert_eq!(<(u8, Vec<u8>)>::encoded_fixed_size(), None);
+
+		let mut input = &((1u8, 101u8), 2u8).encode()[..];
+
+		<(u8, u8)>::skip(&mut input).unwrap();
+		assert_eq!(u8::decode(&mut input).unwrap(), 2);
+
+		let mut input = &((1u8, vec![1u8, 2, 3]), 2u8).encode()[..];
+
+		<(u8, Vec<u8>)>::skip(&mut input).unwrap();
+		assert_eq!(u8::decode(&mut input).unwrap(), 2);
+	}
+
+	// Duration
+	#[test]
+	fn skip_and_encoded_len_duration() {
+		assert_eq!(Duration::encoded_fixed_size(), Some(12));
+
+		let mut input = &(Duration::new(1, 2), 2u8).encode()[..];
+
+		Duration::skip(&mut input).unwrap();
+		assert_eq!(u8::decode(&mut input).unwrap(), 2);
+	}
+
+	// Range
+	#[test]
+	fn skip_and_encoded_len_range() {
+		assert_eq!(Range::<u8>::encoded_fixed_size(), Some(2));
+
+		let mut input = &(Range { start: 1u8, end: 2 }, 2u8).encode()[..];
+
+		<Range<u8> as Decode>::skip(&mut input).unwrap();
+		assert_eq!(u8::decode(&mut input).unwrap(), 2);
+	}
+
+	// Range inclusive
+	#[test]
+	fn skip_and_encoded_len_range_inclusive() {
+		assert_eq!(RangeInclusive::<u8>::encoded_fixed_size(), Some(2));
+
+		let mut input = &(RangeInclusive::new(1u8, 2), 2u8).encode()[..];
+
+		<RangeInclusive<u8> as Decode>::skip(&mut input).unwrap();
+		assert_eq!(u8::decode(&mut input).unwrap(), 2);
+	}
 }

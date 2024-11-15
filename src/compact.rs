@@ -1120,14 +1120,24 @@ mod tests {
 	}
 
 	macro_rules! quick_check_roundtrip {
-		( $( $ty:ty : $test:ident ),* ) => {
+		( $( $ty:ty : $test1:ident, $test2:ident ),* ) => {
 			$(
 				quickcheck::quickcheck! {
-					fn $test(v: $ty) -> bool {
+					fn $test1(v: $ty) -> bool {
 						let encoded = Compact(v).encode();
 						let deencoded = <Compact<$ty>>::decode(&mut &encoded[..]).unwrap().0;
 
 						v == deencoded
+					}
+				}
+
+				quickcheck::quickcheck! {
+					fn $test2(v: $ty) -> bool {
+						let mut encoded = &(Compact(v), 23u8).encode()[..];
+						<Compact<$ty>>::skip(&mut encoded).unwrap();
+						let deencoded = u8::decode(&mut encoded).unwrap();
+
+						23u8 == deencoded
 					}
 				}
 			)*
@@ -1135,10 +1145,29 @@ mod tests {
 	}
 
 	quick_check_roundtrip! {
-		u8: u8_roundtrip,
-		u16: u16_roundtrip,
-		u32 : u32_roundtrip,
-		u64 : u64_roundtrip,
-		u128 : u128_roundtrip
+		u8: u8_roundtrip, u8_skip_roundtrip,
+		u16: u16_roundtrip, u16_skip_roundtrip,
+		u32 : u32_roundtrip, u32_skip_roundtrip,
+		u64 : u64_roundtrip, u64_skip_roundtrip,
+		u128 : u128_roundtrip, u128_skip_roundtrip
+	}
+
+	#[test]
+	fn skip_prefix_input() {
+		let mut input = PrefixInput { prefix: Some(1), input: &mut &vec![2, 3, 4][..] };
+		assert_eq!(input.remaining_len(), Ok(Some(4)));
+		input.skip(0).unwrap();
+		assert_eq!(input.remaining_len(), Ok(Some(4)));
+		input.skip(2).unwrap();
+		assert_eq!(input.remaining_len(), Ok(Some(2)));
+		assert_eq!(input.read_byte(), Ok(3));
+
+		let mut input = PrefixInput { prefix: None, input: &mut &vec![2, 3, 4][..] };
+		assert_eq!(input.remaining_len(), Ok(Some(3)));
+		input.skip(0).unwrap();
+		assert_eq!(input.remaining_len(), Ok(Some(3)));
+		input.skip(2).unwrap();
+		assert_eq!(input.remaining_len(), Ok(Some(1)));
+		assert_eq!(input.read_byte(), Ok(4));
 	}
 }

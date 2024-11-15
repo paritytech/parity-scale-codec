@@ -73,4 +73,27 @@ mod tests {
 		let encoded = test.encode();
 		assert_eq!(test, GenericArray::<u64, typenum::U1>::decode(&mut &encoded[..]).unwrap());
 	}
+
+	#[test]
+	fn skip_generic_array() {
+		let test = arr![u8; 3, 4, 5];
+		let mut encoded = &(test, 23u8).encode()[..];
+		GenericArray::<u8, typenum::U3>::skip(&mut encoded).unwrap();
+		assert_eq!(u8::decode(&mut encoded).unwrap(), 23);
+
+		let test = arr![u16; 3, 4, 5, 6, 7, 8, 0];
+		let mut encoded = &(test, 23u8).encode()[..];
+		GenericArray::<u16, typenum::U7>::skip(&mut encoded).unwrap();
+		assert_eq!(u8::decode(&mut encoded).unwrap(), 23);
+
+		let test = arr![u32; 3, 4, 5, 0, 1];
+		let mut encoded = &(test, 23u8).encode()[..];
+		GenericArray::<u32, typenum::U5>::skip(&mut encoded).unwrap();
+		assert_eq!(u8::decode(&mut encoded).unwrap(), 23);
+
+		let test = arr![u64; 3];
+		let mut encoded = &(test, 23u8).encode()[..];
+		GenericArray::<u64, typenum::U1>::skip(&mut encoded).unwrap();
+		assert_eq!(u8::decode(&mut encoded).unwrap(), 23);
+	}
 }
