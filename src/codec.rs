@@ -680,7 +680,12 @@ where
 	}
 
 	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
-		T::skip(input)
+		input.descend_ref()?;
+
+		T::skip(input)?;
+
+		input.ascend_ref();
+		Ok(())
 	}
 
 	fn encoded_fixed_size() -> Option<usize> {
@@ -1327,6 +1332,8 @@ impl<T: Decode> Decode for Vec<T> {
 	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
 		let Compact(len) = <Compact<u32>>::decode(input)?;
 
+		input.descend_ref()?;
+
 		// Attempt to get the fixed size and check for overflow
 		if let Some(size) = T::encoded_fixed_size().and_then(|size| size.checked_mul(len as usize))
 		{
@@ -1334,7 +1341,10 @@ impl<T: Decode> Decode for Vec<T> {
 		} else {
 			// Fallback when there is no fixed size or on overflow
 			Result::from_iter((0..len).map(|_| T::skip(input)))
-		}
+		}?;
+
+		input.ascend_ref();
+		Ok(())
 	}
 }
 
