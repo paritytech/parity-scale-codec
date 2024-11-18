@@ -2718,4 +2718,74 @@ mod tests {
 		<RangeInclusive<u8> as Decode>::skip(&mut input).unwrap();
 		assert_eq!(u8::decode(&mut input).unwrap(), 2);
 	}
+
+	#[test]
+	fn descend_ascend_when_skipping() {
+		struct TestingDepthTrackingInput<'a, I> {
+			input: &'a mut I,
+			depth: u32,
+			max_depth: u32,
+		}
+
+		impl<'a, I: Input> Input for TestingDepthTrackingInput<'a, I> {
+			fn remaining_len(&mut self) -> Result<Option<usize>, Error> {
+				self.input.remaining_len()
+			}
+
+			fn read(&mut self, into: &mut [u8]) -> Result<(), Error> {
+				self.input.read(into)
+			}
+
+			fn read_byte(&mut self) -> Result<u8, Error> {
+				self.input.read_byte()
+			}
+
+			fn skip(&mut self, len: usize) -> Result<(), Error> {
+				self.input.skip(len)
+			}
+
+			fn descend_ref(&mut self) -> Result<(), Error> {
+				self.input.descend_ref()?;
+				self.depth += 1;
+				if self.depth > self.max_depth {
+					Err("Depth limit reached".into())
+				} else {
+					Ok(())
+				}
+			}
+
+			fn ascend_ref(&mut self) {
+				self.input.ascend_ref();
+				self.depth -= 1;
+			}
+
+			fn on_before_alloc_mem(&mut self, size: usize) -> Result<(), Error> {
+				self.input.on_before_alloc_mem(size)
+			}
+		}
+
+		// Wrapper type
+		let input = (MyWrapper(Compact(3u32)), 2u8).encode();
+
+		let mut input_limited_1 =
+			TestingDepthTrackingInput { input: &mut &input[..], depth: 0, max_depth: 0 };
+		MyWrapper::skip(&mut input_limited_1).unwrap_err();
+
+		let mut input_limited_2 =
+			TestingDepthTrackingInput { input: &mut &input[..], depth: 0, max_depth: 1 };
+		MyWrapper::skip(&mut input_limited_2).unwrap();
+		assert_eq!(u8::decode(&mut input_limited_2).unwrap(), 2);
+
+		// Vec type
+		let input = (vec![1u8, 2, 3, 4, 5, 6], 2u8).encode();
+
+		let mut input_limited_1 =
+			TestingDepthTrackingInput { input: &mut &input[..], depth: 0, max_depth: 0 };
+		Vec::<u8>::skip(&mut input_limited_1).unwrap_err();
+
+		let mut input_limited_2 =
+			TestingDepthTrackingInput { input: &mut &input[..], depth: 0, max_depth: 1 };
+		Vec::<u8>::skip(&mut input_limited_2).unwrap();
+		assert_eq!(u8::decode(&mut input_limited_2).unwrap(), 2);
+	}
 }
