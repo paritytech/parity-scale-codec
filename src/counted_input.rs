@@ -40,16 +40,14 @@ impl<I: crate::Input> crate::Input for CountedInput<'_, I> {
 	}
 
 	fn read(&mut self, into: &mut [u8]) -> Result<(), crate::Error> {
-		self.input.read(into).map(|r| {
+		self.input.read(into).inspect(|_r| {
 			self.counter = self.counter.saturating_add(into.len().try_into().unwrap_or(u64::MAX));
-			r
 		})
 	}
 
 	fn read_byte(&mut self) -> Result<u8, crate::Error> {
-		self.input.read_byte().map(|r| {
+		self.input.read_byte().inspect(|_r| {
 			self.counter = self.counter.saturating_add(1);
-			r
 		})
 	}
 
