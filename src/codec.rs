@@ -595,6 +595,77 @@ impl<T> WrapperTypeDecode for Box<T> {
 
 impl<T: DecodeWithMemTracking> DecodeWithMemTracking for Box<T> {}
 
+impl<T: Decode> Decode for Box<[T]> {
+	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
+		let len = <Compact<u32>>::decode(input).map(|Compact(len)| len as usize)?;
+
+		input.descend_ref()?;
+
+		// Placement new is not yet stable, but we can just manually allocate a chunk of memory
+		// and convert it to a `Box` ourselves.
+		//
+		// The explicit types here are written out for clarity.
+		//
+		// TODO: Use `Box::new_uninit_slice` once that's stable.
+		let layout = core::alloc::Layout::array::<MaybeUninit<T>>(len)
+			.map_err(|_| Error::from("Item is too big and cannot be allocated"))?;
+
+		input.on_before_alloc_mem(layout.size())?;
+		let ptr: *mut MaybeUninit<T> = if layout.size() == 0 {
+			core::ptr::NonNull::dangling().as_ptr()
+		} else {
+			// SAFETY: Layout has a non-zero size so calling this is safe.
+			let ptr = unsafe { crate::alloc::alloc::alloc(layout) };
+
+			if ptr.is_null() {
+				crate::alloc::alloc::handle_alloc_error(layout);
+			}
+
+			ptr.cast()
+		};
+
+		// SAFETY: Constructing a `Box` from a piece of memory allocated with `std::alloc::alloc`
+		//         is explicitly allowed as long as it was allocated with the global allocator
+		//         and the memory layout matches.
+		//
+		//         Constructing a `Box` from `NonNull::dangling` is also always safe as long
+		//         as the underlying type is zero-sized.
+		let mut boxed_slice: Box<[MaybeUninit<T>]> = unsafe {
+			Box::from_raw(core::slice::from_raw_parts_mut(ptr, len))
+		};
+
+		for elem in &mut *boxed_slice {
+			T::decode_into(input, elem)?;
+		}
+
+		// Decoding succeeded, so let's get rid of `MaybeUninit`.
+		// TODO: Use `Box::assume_init` once that's stable.
+		let boxed_slice = Vec::from(boxed_slice)
+			.into_iter()
+			.map(|elem| unsafe { MaybeUninit::assume_init(elem) })
+			.collect();
+
+		input.ascend_ref();
+		Ok(boxed_slice)
+	}
+}
+
+impl<T: DecodeWithMemTracking> DecodeWithMemTracking for Box<[T]> {}
+
+impl Decode for Box<str> {
+	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
+		// Guaranteed to create a Vec with capacity == len
+		let vec = Vec::from(Box::<[u8]>::decode(input)?);
+		// Guaranteed not to reallocate the vec, only transmute to String
+		let str = String::from_utf8(vec).map_err(|_| "Invalid utf8 sequence")?;
+
+		assert_eq!(str.capacity(), str.len());
+		Ok(str.into_boxed_str())
+	}
+}
+
+impl DecodeWithMemTracking for Box<str> {}
+
 impl<T> WrapperTypeDecode for Rc<T> {
 	type Wrapped = T;
 
@@ -1711,6 +1782,39 @@ mod tests {
 		let encoded = (&x, &y).encode();
 
 		assert_eq!((x, y), Decode::decode(&mut &encoded[..]).unwrap());
+	}
+
+	#[test]
+	fn boxed_str_works() {
+		let s = "Hello world".to_owned();
+		let b = s.clone().into_boxed_str();
+
+		let encoded = b.encode();
+		assert_eq!(s.encode(), encoded);
+
+		assert_eq!(*b, *Box::<str>::decode(&mut &encoded[..]).unwrap());
+	}
+
+	#[test]
+	fn boxed_slice_of_primitives_works() {
+		let v = vec![1u32, 2, 3, 4, 5, 6];
+		let b = v.clone().into_boxed_slice();
+
+		let encoded = b.encode();
+		assert_eq!(v.encode(), encoded);
+
+		assert_eq!(*b, *Box::<[u32]>::decode(&mut &b.encode()[..]).unwrap());
+	}
+
+	#[test]
+	fn boxed_slice_of_strings_works() {
+		let v = vec!["mine".to_owned(), "yours".to_owned(), "his".to_owned()];
+		let b = v.clone().into_boxed_slice();
+
+		let encoded = b.encode();
+		assert_eq!(v.encode(), encoded);
+
+		assert_eq!(*b, *Box::<[String]>::decode(&mut &b.encode()[..]).unwrap());
 	}
 
 	#[test]
