@@ -16,14 +16,13 @@
 
 use arrayvec::ArrayVec;
 
-#[cfg(feature = "max-encoded-len")]
-use crate::MaxEncodedLen;
 use crate::{
 	alloc::vec::Vec,
 	codec::{Decode, Encode, EncodeAsRef, Input, Output},
 	encode_like::EncodeLike,
 	DecodeWithMemTracking, Error,
 };
+
 #[cfg(feature = "fuzz")]
 use arbitrary::Arbitrary;
 
@@ -239,24 +238,10 @@ where
 	}
 }
 
-/// Requires the presence of `MaxEncodedLen` when the `max-encoded-len` feature is active.
-// Remove this trait when the feature is removed.
-#[cfg(feature = "max-encoded-len")]
-pub trait MaybeMaxEncodedLen: MaxEncodedLen {}
-#[cfg(feature = "max-encoded-len")]
-impl<T: MaxEncodedLen> MaybeMaxEncodedLen for T {}
-
-/// Requires the presence of `MaxEncodedLen` when the `max-encoded-len` feature is active.
-// Remove this trait when the feature is removed.
-#[cfg(not(feature = "max-encoded-len"))]
-pub trait MaybeMaxEncodedLen {}
-#[cfg(not(feature = "max-encoded-len"))]
-impl<T> MaybeMaxEncodedLen for T {}
-
 /// Trait that tells you if a given type can be encoded/decoded in a compact way.
 pub trait HasCompact: Sized {
 	/// The compact type; this can be
-	type Type: for<'a> EncodeAsRef<'a, Self> + Decode + From<Self> + Into<Self> + MaybeMaxEncodedLen;
+	type Type: for<'a> EncodeAsRef<'a, Self> + Decode + From<Self> + Into<Self>;
 }
 
 impl<'a, T: 'a> EncodeAsRef<'a, T> for Compact<T>
@@ -266,21 +251,8 @@ where
 	type RefType = CompactRef<'a, T>;
 }
 
-#[cfg(feature = "max-encoded-len")]
-impl<T> MaxEncodedLen for Compact<T>
-where
-	T: CompactAs,
-	Compact<T::As>: MaxEncodedLen,
-	Compact<T>: Encode,
-{
-	fn max_encoded_len() -> usize {
-		Compact::<T::As>::max_encoded_len()
-	}
-}
-
-impl<T: 'static> HasCompact for T
-where
-	Compact<T>: for<'a> EncodeAsRef<'a, T> + Decode + From<Self> + Into<Self> + MaybeMaxEncodedLen,
+impl<T: 'static> HasCompact for T where
+	Compact<T>: for<'a> EncodeAsRef<'a, T> + Decode + From<Self> + Into<Self>
 {
 	type Type = Compact<T>;
 }
