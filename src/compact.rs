@@ -251,8 +251,9 @@ where
 	type RefType = CompactRef<'a, T>;
 }
 
-impl<T: 'static> HasCompact for T where
-	Compact<T>: for<'a> EncodeAsRef<'a, T> + Decode + From<Self> + Into<Self>
+impl<T: 'static> HasCompact for T
+where
+	Compact<T>: for<'a> EncodeAsRef<'a, T> + Decode + From<Self> + Into<Self>,
 {
 	type Type = Compact<T>;
 }

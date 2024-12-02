@@ -54,8 +54,16 @@ macro_rules! impl_primitives {
 impl_primitives!(u8, u16, u32, u64, u128, i8, i16, i32, i64, i128, bool);
 
 impl_primitives!(
-	NonZeroU8, NonZeroU16, NonZeroU32, NonZeroU64, NonZeroU128, NonZeroI8, NonZeroI16, NonZeroI32,
-	NonZeroI64, NonZeroI128
+	NonZeroU8,
+	NonZeroU16,
+	NonZeroU32,
+	NonZeroU64,
+	NonZeroU128,
+	NonZeroI8,
+	NonZeroI16,
+	NonZeroI32,
+	NonZeroI64,
+	NonZeroI128
 );
 
 macro_rules! impl_compact {
