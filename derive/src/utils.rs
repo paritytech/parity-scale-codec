@@ -17,9 +17,9 @@
 //! NOTE: attributes finder must be checked using check_attribute first,
 //! otherwise the macro can panic.
 
-use std::str::FromStr;
+use std::{collections::HashMap, str::FromStr};
 
-use proc_macro2::TokenStream;
+use proc_macro2::{Span, TokenStream};
 use quote::quote;
 use syn::{
 	parse::Parse, punctuated::Punctuated, spanned::Spanned, token, Attribute, Data, DataEnum,
@@ -38,11 +38,29 @@ where
 	})
 }
 
+/// check usage of variant indexes with #[scale(index = $int)] attribute or
+/// explicit  discriminant on the variant
+pub fn check_indexes<'a, I: Iterator<Item = &'a &'a Variant>>(values: I) -> syn::Result<()> {
+	let mut map: HashMap<u8, Span> = HashMap::new();
+	for (i, v) in values.enumerate() {
+		let index = variant_index(v, i)?;
+		if let Some(span) = map.insert(index, v.span()) {
+			let mut error = syn::Error::new(
+				v.span(),
+				"scale codec error: Invalid variant index, the variant index is duplicated.",
+			);
+			error.combine(syn::Error::new(span, "Variant index used here."));
+			return Err(error);
+		}
+	}
+	Ok(())
+}
+
 /// Look for a `#[scale(index = $int)]` attribute on a variant. If no attribute
 /// is found, fall back to the discriminant or just the variant index.
-pub fn variant_index(v: &Variant, i: usize) -> TokenStream {
+pub fn variant_index(v: &Variant, index: usize) -> syn::Result<u8> {
 	// first look for an attribute
-	let index = find_meta_item(v.attrs.iter(), |meta| {
+	let codec_index = find_meta_item(v.attrs.iter(), |meta| {
 		if let Meta::NameValue(ref nv) = meta {
 			if nv.path.is_ident("index") {
 				if let Expr::Lit(ExprLit { lit: Lit::Int(ref v), .. }) = nv.value {
@@ -56,14 +74,30 @@ pub fn variant_index(v: &Variant, i: usize) -> TokenStream {
 
 		None
 	});
-
-	// then fallback to discriminant or just index
-	index.map(|i| quote! { #i }).unwrap_or_else(|| {
-		v.discriminant
-			.as_ref()
-			.map(|(_, expr)| quote! { #expr })
-			.unwrap_or_else(|| quote! { #i })
-	})
+	if let Some(index) = codec_index {
+		Ok(index)
+	} else {
+		match v.discriminant.as_ref() {
+			Some((_, syn::Expr::Lit(ExprLit { lit: syn::Lit::Int(v), .. }))) => {
+				let byte = v.base10_parse::<u8>().expect(
+					"scale codec error: Invalid variant index, discriminant doesn't fit u8.",
+				);
+				Ok(byte)
+			},
+			Some((_, expr)) => Err(syn::Error::new(
+				expr.span(),
+				"scale codec error: Invalid discriminant, only int literal are accepted, e.g. \
+					`= 32`.",
+			)),
+			None => index.try_into().map_err(|_| {
+				syn::Error::new(
+					v.span(),
+					"scale codec error: Variant index is too large, only 256 variants are \
+					supported.",
+				)
+			}),
+		}
+	}
 }
 
 /// Look for a `#[codec(encoded_as = "SomeType")]` outer attribute on the given
