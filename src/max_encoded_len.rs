@@ -51,18 +51,9 @@ macro_rules! impl_primitives {
 	};
 }
 
+impl_primitives!(u8, u16, u32, u64, u128, i8, i16, i32, i64, i128, bool);
+
 impl_primitives!(
-	u8,
-	i8,
-	u16,
-	i16,
-	u32,
-	i32,
-	u64,
-	i64,
-	u128,
-	i128,
-	bool,
 	NonZeroU8,
 	NonZeroU16,
 	NonZeroU32,
