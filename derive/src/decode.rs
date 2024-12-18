@@ -44,10 +44,18 @@ pub fn quote(
 				Ok(variants) => variants,
 				Err(e) => return e.to_compile_error(),
 			};
-
-			let recurse = variants.iter().enumerate().map(|(i, v)| {
+			match utils::check_indexes(variants.iter()).map_err(|e| e.to_compile_error()) {
+				Ok(()) => (),
+				Err(e) => return e,
+			};
+			let mut items = vec![];
+			for (index, v) in variants.iter().enumerate() {
 				let name = &v.ident;
-				let index = utils::variant_index(v, i);
+				let index = match utils::variant_index(v, index).map_err(|e| e.into_compile_error())
+				{
+					Ok(i) => i,
+					Err(e) => return e,
+				};
 
 				let create = create_instance(
 					quote! { #type_name #type_generics :: #name },
@@ -57,7 +65,7 @@ pub fn quote(
 					crate_path,
 				);
 
-				quote_spanned! { v.span() =>
+				let item = quote_spanned! { v.span() =>
 					#[allow(clippy::unnecessary_cast)]
 					__codec_x_edqy if __codec_x_edqy == #index as ::core::primitive::u8 => {
 						// NOTE: This lambda is necessary to work around an upstream bug
@@ -68,8 +76,9 @@ pub fn quote(
 							#create
 						})();
 					},
-				}
-			});
+				};
+				items.push(item);
+			}
 
 			let read_byte_err_msg =
 				format!("Could not decode `{type_name}`, failed to read variant byte");
@@ -79,7 +88,7 @@ pub fn quote(
 				match #input.read_byte()
 					.map_err(|e| e.chain(#read_byte_err_msg))?
 				{
-					#( #recurse )*
+					#( #items )*
 					_ => {
 						#[allow(clippy::redundant_closure_call)]
 						return (move || {
