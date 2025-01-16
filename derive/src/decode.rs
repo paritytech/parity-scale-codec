@@ -71,7 +71,7 @@ pub fn quote(
 				}
 			});
 			let recurse_indices =
-				variants.iter().enumerate().map(|(i, v)| utils::variant_index(v, i));
+				variants.iter().enumerate().map(|(i, v)| (v.ident.clone(), utils::variant_index(v, i)));
 
 			let const_eval_check = utils::const_eval_check_variant_indexes(recurse_indices);
 

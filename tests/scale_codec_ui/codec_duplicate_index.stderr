@@ -2,7 +2,11 @@ error[E0080]: evaluation of constant value failed
  --> tests/scale_codec_ui/codec_duplicate_index.rs:1:10
   |
 1 | #[derive(::parity_scale_codec::Decode, ::parity_scale_codec::Encode)]
-  |          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the evaluated program panicked at 'Found Variants that have duplicate indexes. Use different indexes for each variant', $DIR/tests/scale_codec_ui/codec_duplicate_index.rs:1:10
+  |          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the evaluated program panicked at 'Found Variants that have duplicate indexes. Use different indexes for each variant.
+List of variants:
+    Index for variant `A` is `3`
+    Index for variant `B` is `3usize`
+', $DIR/tests/scale_codec_ui/codec_duplicate_index.rs:1:10
   |
   = note: this error originates in the macro `$crate::panic::panic_2021` which comes from the expansion of the macro `::core::panic` (in Nightly builds, run with -Z macro-backtrace for more info)
 
@@ -10,7 +14,11 @@ error[E0080]: evaluation of constant value failed
  --> tests/scale_codec_ui/codec_duplicate_index.rs:1:40
   |
 1 | #[derive(::parity_scale_codec::Decode, ::parity_scale_codec::Encode)]
-  |                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the evaluated program panicked at 'Found Variants that have duplicate indexes. Use different indexes for each variant', $DIR/tests/scale_codec_ui/codec_duplicate_index.rs:1:40
+  |                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the evaluated program panicked at 'Found Variants that have duplicate indexes. Use different indexes for each variant.
+List of variants:
+    Index for variant `A` is `3`
+    Index for variant `B` is `3usize`
+', $DIR/tests/scale_codec_ui/codec_duplicate_index.rs:1:40
   |
   = note: this error originates in the macro `$crate::panic::panic_2021` which comes from the expansion of the macro `::core::panic` (in Nightly builds, run with -Z macro-backtrace for more info)
 
@@ -18,7 +26,11 @@ error[E0080]: evaluation of constant value failed
  --> tests/scale_codec_ui/codec_duplicate_index.rs:9:10
   |
 9 | #[derive(::parity_scale_codec::Decode, ::parity_scale_codec::Encode)]
-  |          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the evaluated program panicked at 'Found Variants that have duplicate indexes. Use different indexes for each variant', $DIR/tests/scale_codec_ui/codec_duplicate_index.rs:9:10
+  |          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the evaluated program panicked at 'Found Variants that have duplicate indexes. Use different indexes for each variant.
+List of variants:
+    Index for variant `A` is `0usize`
+    Index for variant `B` is `0usize`
+', $DIR/tests/scale_codec_ui/codec_duplicate_index.rs:9:10
   |
   = note: this error originates in the macro `$crate::panic::panic_2021` which comes from the expansion of the macro `::core::panic` (in Nightly builds, run with -Z macro-backtrace for more info)
 
@@ -26,6 +38,10 @@ error[E0080]: evaluation of constant value failed
  --> tests/scale_codec_ui/codec_duplicate_index.rs:9:40
   |
 9 | #[derive(::parity_scale_codec::Decode, ::parity_scale_codec::Encode)]
-  |                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the evaluated program panicked at 'Found Variants that have duplicate indexes. Use different indexes for each variant', $DIR/tests/scale_codec_ui/codec_duplicate_index.rs:9:40
+  |                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the evaluated program panicked at 'Found Variants that have duplicate indexes. Use different indexes for each variant.
+List of variants:
+    Index for variant `A` is `0usize`
+    Index for variant `B` is `0usize`
+', $DIR/tests/scale_codec_ui/codec_duplicate_index.rs:9:40
   |
   = note: this error originates in the macro `$crate::panic::panic_2021` which comes from the expansion of the macro `::core::panic` (in Nightly builds, run with -Z macro-backtrace for more info)

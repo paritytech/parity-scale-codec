@@ -338,7 +338,7 @@ fn impl_encode(data: &Data, type_name: &Ident, crate_path: &syn::Path) -> TokenS
 							}
 						};
 
-						[hinting, encoding, index]
+						(hinting, encoding, index, name.clone())
 					},
 					Fields::Unnamed(ref fields) => {
 						let fields = &fields.unnamed;
@@ -371,7 +371,7 @@ fn impl_encode(data: &Data, type_name: &Ident, crate_path: &syn::Path) -> TokenS
 							}
 						};
 
-						[hinting, encoding, index]
+						(hinting, encoding, index, name.clone())
 					},
 					Fields::Unit => {
 						let hinting = quote_spanned! { f.span() =>
@@ -387,14 +387,14 @@ fn impl_encode(data: &Data, type_name: &Ident, crate_path: &syn::Path) -> TokenS
 							}
 						};
 
-						[hinting, encoding, index]
+						(hinting, encoding, index, name.clone())
 					},
 				}
 			});
 
-			let recurse_hinting = recurse.clone().map(|[hinting, _, _]| hinting);
-			let recurse_encoding = recurse.clone().map(|[_, encoding, _]| encoding);
-			let recurse_indices = recurse.clone().map(|[_, _, index]| index);
+			let recurse_hinting = recurse.clone().map(|(hinting, _, _, _)| hinting);
+			let recurse_encoding = recurse.clone().map(|(_, encoding, _, _)| encoding);
+			let recurse_variant_indices = recurse.clone().map(|(_, _, index, name)| (name, index));
 
 			let hinting = quote! {
 				// The variant index uses 1 byte.
@@ -404,7 +404,7 @@ fn impl_encode(data: &Data, type_name: &Ident, crate_path: &syn::Path) -> TokenS
 				}
 			};
 
-			let const_eval_check = const_eval_check_variant_indexes(recurse_indices);
+			let const_eval_check = const_eval_check_variant_indexes(recurse_variant_indices);
 
 			let encoding = quote! {
 				#const_eval_check

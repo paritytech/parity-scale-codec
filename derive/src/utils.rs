@@ -39,11 +39,26 @@ where
 }
 
 pub fn const_eval_check_variant_indexes(
-	recurse_indices: impl Iterator<Item = TokenStream>,
+	recurse_variant_indices: impl Iterator<Item = (syn::Ident, TokenStream)>,
 ) -> TokenStream {
+	let mut recurse_indices = vec![];
+	let mut variant_msg = vec![];
+	for (ident, index) in recurse_variant_indices {
+		variant_msg.push(format!("\tIndex for variant `{}` is `{}`\n", ident, index));
+		recurse_indices.push(index);
+	}
+	let len = recurse_indices.len();
+
+	let error_message = format!(
+		"Found Variants that have duplicate indexes. Use different indexes for each variant.\n\
+		List of variants:\n\
+		{}",
+		variant_msg.concat()
+	);
+
 	quote! {
 		const _: () = {
-			let indices = [#( #recurse_indices ,)*];
+			let indices: [usize; #len] = [#( #recurse_indices ,)*];
 			let len = indices.len();
 
 			// Check each pair for uniqueness
@@ -52,7 +67,7 @@ pub fn const_eval_check_variant_indexes(
 					let mut j = i + 1;
 					while j < len {
 							if indices[i] == indices[j] {
-									::core::panic!("Found Variants that have duplicate indexes. Use different indexes for each variant");
+									::core::panic!(#error_message);
 							}
 							j += 1;
 					}
