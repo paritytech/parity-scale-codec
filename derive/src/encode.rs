@@ -404,7 +404,7 @@ fn impl_encode(data: &Data, type_name: &Ident, crate_path: &syn::Path) -> TokenS
 				}
 			};
 
-			let const_eval_check = const_eval_check_variant_indexes(recurse_variant_indices);
+			let const_eval_check = const_eval_check_variant_indexes(recurse_variant_indices, crate_path);
 
 			let encoding = quote! {
 				#const_eval_check
