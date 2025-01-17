@@ -44,8 +44,7 @@ pub fn const_eval_check_variant_indexes(
 	let mut recurse_indices = vec![];
 	let mut variant_msg = vec![];
 	for (ident, index) in recurse_variant_indices {
-		variant_msg.push(format!("\tIndex for variant `{}` is `{}`\n", ident, index));
-		recurse_indices.push(index);
+		recurse_indices.push((index, ident));
 	}
 	let len = recurse_indices.len();
 
@@ -58,7 +57,7 @@ pub fn const_eval_check_variant_indexes(
 
 	quote! {
 		const _: () = {
-			let indices: [usize; #len] = [#( #recurse_indices ,)*];
+			let indices: [(usize, &'static str); #len] = [#( #recurse_indices ,)*];
 			let len = indices.len();
 
 			// Check each pair for uniqueness
