@@ -38,6 +38,61 @@ where
 	})
 }
 
+pub fn const_eval_check_variant_indexes(
+	recurse_variant_indices: impl Iterator<Item = (syn::Ident, TokenStream)>,
+	crate_path: &syn::Path,
+) -> TokenStream {
+	let mut recurse_indices = vec![];
+	for (ident, index) in recurse_variant_indices {
+		let ident_str = ident.to_string();
+		recurse_indices.push(quote! { (#index, #ident_str) });
+	}
+	let len = recurse_indices.len();
+
+	if len == 0 {
+		return quote! {};
+	}
+
+	quote! {
+		const _: () = {
+			const indices: [(usize, &'static str); #len] = [#( #recurse_indices ,)*];
+
+			// Returns if there is duplicate, and if there is some the duplicate indexes.
+			const fn duplicate_info(array: &[(usize, &'static str); #len]) -> (bool, usize, usize) {
+				let len = array.len();
+				let mut i = 0;
+				while i < len {
+						let mut j = i + 1;
+						while j < len {
+								if array[i].0 == array[j].0 {
+									return (true, i, j);
+								}
+								j += 1;
+						}
+						i += 1;
+				}
+				(false, 0, 0)
+			}
+
+			const DUP_INFO: (bool, usize, usize) = duplicate_info(&indices);
+
+			if DUP_INFO.0 {
+				let msg = #crate_path::__private::concatcp!(
+					"Found variants that have duplicate indexes. Both `",
+					indices[DUP_INFO.1].1,
+					"` and `",
+					indices[DUP_INFO.2].1,
+					"` have the index `",
+					indices[DUP_INFO.1].0,
+					"`. Use different indexes for each variant."
+				);
+
+				::core::panic!("{}", msg);
+			}
+		};
+	}
+}
+
 /// Look for a `#[scale(index = $int)]` attribute on a variant. If no attribute
 /// is found, fall back to the discriminant or just the variant index.
 pub fn variant_index(v: &Variant, i: usize) -> TokenStream {
@@ -47,7 +102,7 @@ pub fn variant_index(v: &Variant, i: usize) -> TokenStream {
 			if nv.path.is_ident("index") {
 				if let Expr::Lit(ExprLit { lit: Lit::Int(ref v), .. }) = nv.value {
 					let byte = v
-						.base10_parse::<u8>()
+						.base10_parse::<usize>()
 						.expect("Internal error, index attribute must have been checked");
 					return Some(byte);
 				}

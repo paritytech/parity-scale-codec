@@ -41,6 +41,14 @@ pub mod alloc {
 	pub use std::{alloc, borrow, boxed, collections, rc, string, sync, vec};
 }
 
+/// Private module to reexport items used by derive macros.
+// We don't feature gate this module with `derive` to avoid compilation error when
+// `parity-scale-codec-derive` is used on its own and this crate doesn't have the feature enabled.
+#[doc(hidden)]
+pub mod __private {
+	pub use const_format::concatcp;
+}
+
 #[cfg(feature = "bit-vec")]
 mod bit_vec;
 mod btree_utils;
