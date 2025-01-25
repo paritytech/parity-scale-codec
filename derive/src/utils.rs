@@ -39,24 +39,55 @@ where
 }
 
 pub fn const_eval_check_variant_indexes(
-	recurse_indices: impl Iterator<Item = TokenStream>,
+	recurse_variant_indices: impl Iterator<Item = (syn::Ident, TokenStream)>,
+	crate_path: &syn::Path,
 ) -> TokenStream {
+	let mut recurse_indices = vec![];
+	for (ident, index) in recurse_variant_indices {
+		let ident_str = ident.to_string();
+		recurse_indices.push(quote! { (#index, #ident_str) });
+	}
+	let len = recurse_indices.len();
+
+	if len == 0 {
+		return quote! {};
+	}
+
 	quote! {
 		const _: () = {
-			let indices = [#( #recurse_indices ,)*];
-			let len = indices.len();
+			const indices: [(usize, &'static str); #len] = [#( #recurse_indices ,)*];
 
-			// Check each pair for uniqueness
-			let mut i = 0;
-			while i < len {
-					let mut j = i + 1;
-					while j < len {
-							if indices[i] == indices[j] {
-									::core::panic!("Found Variants that have duplicate indexes. Use different indexes for each variant");
-							}
-							j += 1;
-					}
-					i += 1;
+			// Returns if there is duplicate, and if there is some the duplicate indexes.
+			const fn duplicate_info(array: &[(usize, &'static str); #len]) -> (bool, usize, usize) {
+				let len = array.len();
+				let mut i = 0;
+				while i < len {
+						let mut j = i + 1;
+						while j < len {
+								if array[i].0 == array[j].0 {
+									return (true, i, j);
+								}
+								j += 1;
+						}
+						i += 1;
+				}
+				(false, 0, 0)
+			}
+
+			const DUP_INFO: (bool, usize, usize) = duplicate_info(&indices);
+
+			if DUP_INFO.0 {
+				let msg = #crate_path::__private::concatcp!(
+					"Found variants that have duplicate indexes. Both `",
+					indices[DUP_INFO.1].1,
+					"` and `",
+					indices[DUP_INFO.2].1,
+					"` have the index `",
+					indices[DUP_INFO.1].0,
+					"`. Use different indexes for each variant."
+				);
+
+				::core::panic!("{}", msg);
 			}
 		};
 	}

@@ -70,10 +70,13 @@ pub fn quote(
 					},
 				}
 			});
-			let recurse_indices =
-				variants.iter().enumerate().map(|(i, v)| utils::variant_index(v, i));
+			let recurse_indices = variants
+				.iter()
+				.enumerate()
+				.map(|(i, v)| (v.ident.clone(), utils::variant_index(v, i)));
 
-			let const_eval_check = utils::const_eval_check_variant_indexes(recurse_indices);
+			let const_eval_check =
+				utils::const_eval_check_variant_indexes(recurse_indices, crate_path);
 
 			let read_byte_err_msg =
 				format!("Could not decode `{type_name}`, failed to read variant byte");
