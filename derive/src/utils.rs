@@ -123,7 +123,8 @@ pub fn variant_index(v: &Variant, i: usize) -> TokenStream {
 	let index = index.unwrap_or(i);
 
 	// output the index with no suffix (ie 1 rather than 1usize) so that these can be quoted into
-	// an array of usizes and will work regardless of what type the discriminant values actually are.
+	// an array of usizes and will work regardless of what type the discriminant values actually
+	// are.
 	let s = proc_macro2::Literal::usize_unsuffixed(index);
 	quote! { #s }
 }
