@@ -112,6 +112,17 @@ enum TestCompactAttributeEnum {
 	},
 }
 
+// Check that we can properly derive encode/decode when discriminants are set to u32.
+#[repr(u32)]
+#[derive(DeriveEncode, DeriveDecode)]
+enum DigestItemType {
+    Other = 0u32,
+    Consensus = 4u32,
+    Seal = 5u32,
+    PreRuntime = 6u32,
+    RuntimeEnvironmentUpdated = 8u32,
+}
+
 #[test]
 fn should_work_for_simple_enum() {
 	let a = EnumType::A;

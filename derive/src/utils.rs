@@ -97,7 +97,7 @@ pub fn const_eval_check_variant_indexes(
 /// is found, fall back to the discriminant or just the variant index.
 pub fn variant_index(v: &Variant, i: usize) -> TokenStream {
 	// first look for an attribute
-	let index = find_meta_item(v.attrs.iter(), |meta| {
+	let mut index = find_meta_item(v.attrs.iter(), |meta| {
 		if let Meta::NameValue(ref nv) = meta {
 			if nv.path.is_ident("index") {
 				if let Expr::Lit(ExprLit { lit: Lit::Int(ref v), .. }) = nv.value {
@@ -112,13 +112,22 @@ pub fn variant_index(v: &Variant, i: usize) -> TokenStream {
 		None
 	});
 
-	// then fallback to discriminant or just index
-	index.map(|i| quote! { #i }).unwrap_or_else(|| {
-		v.discriminant
-			.as_ref()
-			.map(|(_, expr)| quote! { #expr })
-			.unwrap_or_else(|| quote! { #i })
-	})
+	// if no attribute, use the discriminnant if there is one
+	if index.is_none() {
+		if let Some((_, discriminant_idx)) = &v.discriminant {
+			if let Expr::Lit(ExprLit { lit: Lit::Int(disc_lit), .. }) = discriminant_idx {
+				index = disc_lit.base10_parse().ok()
+			} 
+		}
+	}
+
+	// fall back to the provided index if none is found.
+	let index = index.unwrap_or(i);
+
+	// output the index with no suffix (ie 1 rather than 1usize) to cater for the user wanting
+	// different reprs and let the compiler dicide the concrete type.
+	let s = proc_macro2::Literal::usize_unsuffixed(index);
+	quote!{ #s }
 }
 
 /// Look for a `#[codec(encoded_as = "SomeType")]` outer attribute on the given
