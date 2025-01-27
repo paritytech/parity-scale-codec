@@ -134,14 +134,14 @@ where
 	}
 }
 
-impl<'a, T> EncodeLike for CompactRef<'a, T>
+impl<T> EncodeLike for CompactRef<'_, T>
 where
 	T: CompactAs,
 	for<'b> CompactRef<'b, T::As>: Encode,
 {
 }
 
-impl<'a, T> Encode for CompactRef<'a, T>
+impl<T> Encode for CompactRef<'_, T>
 where
 	T: CompactAs,
 	for<'b> CompactRef<'b, T::As>: Encode,
@@ -258,7 +258,7 @@ where
 	type Type = Compact<T>;
 }
 
-impl<'a> Encode for CompactRef<'a, ()> {
+impl Encode for CompactRef<'_, ()> {
 	fn encode_to<W: Output + ?Sized>(&self, _dest: &mut W) {}
 
 	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
@@ -270,7 +270,7 @@ impl<'a> Encode for CompactRef<'a, ()> {
 	}
 }
 
-impl<'a> Encode for CompactRef<'a, u8> {
+impl Encode for CompactRef<'_, u8> {
 	fn size_hint(&self) -> usize {
 		Compact::compact_len(self.0)
 	}
@@ -298,7 +298,7 @@ impl CompactLen<u8> for Compact<u8> {
 	}
 }
 
-impl<'a> Encode for CompactRef<'a, u16> {
+impl Encode for CompactRef<'_, u16> {
 	fn size_hint(&self) -> usize {
 		Compact::compact_len(self.0)
 	}
@@ -328,7 +328,7 @@ impl CompactLen<u16> for Compact<u16> {
 	}
 }
 
-impl<'a> Encode for CompactRef<'a, u32> {
+impl Encode for CompactRef<'_, u32> {
 	fn size_hint(&self) -> usize {
 		Compact::compact_len(self.0)
 	}
@@ -364,7 +364,7 @@ impl CompactLen<u32> for Compact<u32> {
 	}
 }
 
-impl<'a> Encode for CompactRef<'a, u64> {
+impl Encode for CompactRef<'_, u64> {
 	fn size_hint(&self) -> usize {
 		Compact::compact_len(self.0)
 	}
@@ -410,7 +410,7 @@ impl CompactLen<u64> for Compact<u64> {
 	}
 }
 
-impl<'a> Encode for CompactRef<'a, u128> {
+impl Encode for CompactRef<'_, u128> {
 	fn size_hint(&self) -> usize {
 		Compact::compact_len(self.0)
 	}

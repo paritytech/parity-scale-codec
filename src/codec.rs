@@ -110,7 +110,7 @@ pub trait Input {
 	}
 }
 
-impl<'a> Input for &'a [u8] {
+impl Input for &[u8] {
 	fn remaining_len(&mut self) -> Result<Option<usize>, Error> {
 		Ok(Some(self.len()))
 	}
@@ -383,10 +383,10 @@ impl<T: ?Sized + Encode> EncodeLike for &mut T {}
 impl<T: Encode> EncodeLike<T> for &mut T {}
 impl<T: Encode> EncodeLike<&mut T> for T {}
 
-impl<'a, T: ToOwned + ?Sized> WrapperTypeEncode for Cow<'a, T> {}
-impl<'a, T: ToOwned + Encode + ?Sized> EncodeLike for Cow<'a, T> {}
-impl<'a, T: ToOwned + Encode> EncodeLike<T> for Cow<'a, T> {}
-impl<'a, T: ToOwned + Encode> EncodeLike<Cow<'a, T>> for T {}
+impl<T: ToOwned + ?Sized> WrapperTypeEncode for Cow<'_, T> {}
+impl<T: ToOwned + Encode + ?Sized> EncodeLike for Cow<'_, T> {}
+impl<T: ToOwned + Encode> EncodeLike<T> for Cow<'_, T> {}
+impl<T: ToOwned + Encode> EncodeLike<Cow<'_, T>> for T {}
 
 impl<T: ?Sized> WrapperTypeEncode for Rc<T> {}
 impl<T: ?Sized + Encode> EncodeLike for Rc<T> {}
@@ -973,7 +973,7 @@ impl<T: Decode, const N: usize> Decode for [T; N] {
 			slice: &'a mut [MaybeUninit<T>; N],
 		}
 
-		impl<'a, T, const N: usize> Drop for State<'a, T, N> {
+		impl<T, const N: usize> Drop for State<'_, T, N> {
 			fn drop(&mut self) {
 				if !mem::needs_drop::<T>() {
 					// If the types don't actually need to be dropped then don't even
@@ -1050,7 +1050,7 @@ impl Encode for str {
 	}
 }
 
-impl<'a, T: ToOwned + ?Sized> Decode for Cow<'a, T>
+impl<T: ToOwned + ?Sized> Decode for Cow<'_, T>
 where
 	<T as ToOwned>::Owned: Decode,
 {
@@ -1979,7 +1979,7 @@ mod tests {
 
 		struct NoLimit<'a>(&'a [u8]);
 
-		impl<'a> Input for NoLimit<'a> {
+		impl Input for NoLimit<'_> {
 			fn remaining_len(&mut self) -> Result<Option<usize>, Error> {
 				Ok(None)
 			}
