@@ -116,11 +116,11 @@ enum TestCompactAttributeEnum {
 #[repr(u32)]
 #[derive(DeriveEncode, DeriveDecode)]
 enum DigestItemType {
-    Other = 0u32,
-    Consensus = 4u32,
-    Seal = 5u32,
-    PreRuntime = 6u32,
-    RuntimeEnvironmentUpdated = 8u32,
+	Other = 0u32,
+	Consensus = 4u32,
+	Seal = 5u32,
+	PreRuntime = 6u32,
+	RuntimeEnvironmentUpdated = 8u32,
 }
 
 #[test]

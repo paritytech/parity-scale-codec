@@ -117,7 +117,7 @@ pub fn variant_index(v: &Variant, i: usize) -> TokenStream {
 		if let Some((_, discriminant_idx)) = &v.discriminant {
 			if let Expr::Lit(ExprLit { lit: Lit::Int(disc_lit), .. }) = discriminant_idx {
 				index = disc_lit.base10_parse().ok()
-			} 
+			}
 		}
 	}
 
@@ -127,7 +127,7 @@ pub fn variant_index(v: &Variant, i: usize) -> TokenStream {
 	// output the index with no suffix (ie 1 rather than 1usize) to cater for the user wanting
 	// different reprs and let the compiler dicide the concrete type.
 	let s = proc_macro2::Literal::usize_unsuffixed(index);
-	quote!{ #s }
+	quote! { #s }
 }
 
 /// Look for a `#[codec(encoded_as = "SomeType")]` outer attribute on the given
