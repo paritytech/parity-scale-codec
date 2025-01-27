@@ -114,10 +114,8 @@ pub fn variant_index(v: &Variant, i: usize) -> TokenStream {
 
 	// if no attribute, use the discriminnant if there is one
 	if index.is_none() {
-		if let Some((_, discriminant_idx)) = &v.discriminant {
-			if let Expr::Lit(ExprLit { lit: Lit::Int(disc_lit), .. }) = discriminant_idx {
-				index = disc_lit.base10_parse().ok()
-			}
+		if let Some((_, Expr::Lit(ExprLit { lit: Lit::Int(disc_lit), .. }))) = &v.discriminant {
+			index = disc_lit.base10_parse().ok()
 		}
 	}
 
