@@ -2,7 +2,7 @@ error[E0277]: the trait bound `NotEncode: Encode` is not satisfied
  --> tests/max_encoded_len_ui/not_encode.rs:4:8
   |
 4 | struct NotEncode;
-  |        ^^^^^^^^^ the trait `WrapperTypeEncode` is not implemented for `NotEncode`
+  |        ^^^^^^^^^ the trait `WrapperTypeEncode` is not implemented for `NotEncode`, which is required by `NotEncode: Encode`
   |
   = help: the following other types implement trait `WrapperTypeEncode`:
             &T
