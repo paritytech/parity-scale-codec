@@ -396,7 +396,7 @@ pub fn check_attributes(input: &DeriveInput) -> syn::Result<()> {
 				}
 				// While we're checking things, also ensure that
 				// any explicit discriminants are within 0..=255
-				let discriminant = variant.discriminant.as_ref().map(|(_,d)| d);
+				let discriminant = variant.discriminant.as_ref().map(|(_, d)| d);
 				if let Some(expr) = discriminant {
 					check_variant_discriminant(&expr)?;
 				}
@@ -483,13 +483,13 @@ fn check_variant_attribute(attr: &Attribute) -> syn::Result<()> {
 // something in the range 0..255.
 fn check_variant_discriminant(discriminant: &Expr) -> syn::Result<()> {
 	if let Expr::Lit(ExprLit { lit: Lit::Int(lit_int), .. }) = discriminant {
-		lit_int.base10_parse::<u8>()
-			.map(|_| ())
-			.map_err(|_| syn::Error::new(lit_int.span(), "Discriminant index must be in the range 0..255"))
+		lit_int.base10_parse::<u8>().map(|_| ()).map_err(|_| {
+			syn::Error::new(lit_int.span(), "Discriminant index must be in the range 0..255")
+		})
 	} else {
 		Err(syn::Error::new(
 			discriminant.span(),
-			"Discriminant must be an integer literal in the range 0..255"
+			"Discriminant must be an integer literal in the range 0..255",
 		))
 	}
 }

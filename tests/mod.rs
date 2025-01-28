@@ -29,7 +29,7 @@ struct Unit;
 struct Indexed(u32, u64);
 
 #[derive(Debug, PartialEq, DeriveEncode, DeriveDecode, DeriveDecodeWithMemTracking, Default)]
-struct Struct<A, B, C> { 
+struct Struct<A, B, C> {
 	pub a: A,
 	pub b: B,
 	pub c: C,
