@@ -398,7 +398,7 @@ pub fn check_attributes(input: &DeriveInput) -> syn::Result<()> {
 				// any explicit discriminants are within 0..=255
 				let discriminant = variant.discriminant.as_ref().map(|(_, d)| d);
 				if let Some(expr) = discriminant {
-					check_variant_discriminant(&expr)?;
+					check_variant_discriminant(expr)?;
 				}
 			},
 		Data::Union(_) => (),
