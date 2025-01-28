@@ -112,14 +112,14 @@ pub fn variant_index(v: &Variant, i: usize) -> TokenStream {
 		None
 	});
 
-	// if no attribute, use the discriminant if there is one
+	// if no attribute, we fall back to an explicit discriminant (ie 'enum A { Foo = 1u32 }').
 	if index.is_none() {
 		if let Some((_, Expr::Lit(ExprLit { lit: Lit::Int(disc_lit), .. }))) = &v.discriminant {
-			index = disc_lit.base10_parse().ok()
+			index = disc_lit.base10_parse::<usize>().ok()
 		}
 	}
 
-	// fall back to the provided index if none is found.
+	// fall back to the variant index if no attribute or explicit discriminant is found.
 	let index = index.unwrap_or(i);
 
 	// output the index with no suffix (ie 1 rather than 1usize) so that these can be quoted into
@@ -394,6 +394,12 @@ pub fn check_attributes(input: &DeriveInput) -> syn::Result<()> {
 						check_field_attribute(attr)?;
 					}
 				}
+				// While we're checking things, also ensure that
+				// any explicit discriminants are within 0..=255
+				let discriminant = variant.discriminant.as_ref().map(|(_,d)| d);
+				if let Some(expr) = discriminant {
+					check_variant_discriminant(&expr)?;
+				}
 			},
 		Data::Union(_) => (),
 	}
@@ -470,6 +476,21 @@ fn check_variant_attribute(attr: &Attribute) -> syn::Result<()> {
 		}
 	} else {
 		Ok(())
+	}
+}
+
+// Ensure a variant discriminant, if provided, can be parsed into
+// something in the range 0..255.
+fn check_variant_discriminant(discriminant: &Expr) -> syn::Result<()> {
+	if let Expr::Lit(ExprLit { lit: Lit::Int(lit_int), .. }) = discriminant {
+		lit_int.base10_parse::<u8>()
+			.map(|_| ())
+			.map_err(|_| syn::Error::new(lit_int.span(), "Discriminant index must be in the range 0..255"))
+	} else {
+		Err(syn::Error::new(
+			discriminant.span(),
+			"Discriminant must be an integer literal in the range 0..255"
+		))
 	}
 }
 
