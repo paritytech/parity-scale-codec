@@ -112,6 +112,25 @@ enum TestCompactAttributeEnum {
 	},
 }
 
+// Check that we can properly derive encode/decode with custom repr
+#[repr(u32)]
+#[derive(DeriveEncode, DeriveDecode)]
+enum EnumWithU32Repr {
+	Other = 0u32,
+	Consensus = 4u32,
+	Seal = 5u32,
+	PreRuntime = 6u32,
+	RuntimeEnvironmentUpdated = 8u32,
+}
+
+// Check that we can properly derive encode/decode with custom repr
+#[repr(i32)]
+#[derive(DeriveEncode, DeriveDecode)]
+enum EnumWithI32Repr {
+	A = 1i32,
+	B = 2i32,
+}
+
 #[test]
 fn should_work_for_simple_enum() {
 	let a = EnumType::A;

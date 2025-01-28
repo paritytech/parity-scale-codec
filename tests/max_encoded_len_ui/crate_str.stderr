@@ -15,11 +15,11 @@ error[E0277]: the trait bound `Example: Encode` is not satisfied
             &mut T
             Arc<T>
             Box<T>
-            Cow<'a, T>
+            Cow<'_, T>
             Rc<T>
             String
             Vec<T>
-            parity_scale_codec::Ref<'a, T, U>
+            parity_scale_codec::Ref<'_, T, U>
   = note: required for `Example` to implement `Encode`
 note: required by a bound in `MaxEncodedLen`
  --> src/max_encoded_len.rs
@@ -38,11 +38,11 @@ error[E0277]: the trait bound `Example: Encode` is not satisfied
             &mut T
             Arc<T>
             Box<T>
-            Cow<'a, T>
+            Cow<'_, T>
             Rc<T>
             String
             Vec<T>
-            parity_scale_codec::Ref<'a, T, U>
+            parity_scale_codec::Ref<'_, T, U>
   = note: required for `Example` to implement `Encode`
 note: required by a bound in `max_encoded_len`
  --> src/max_encoded_len.rs

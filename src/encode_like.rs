@@ -87,7 +87,7 @@ pub trait EncodeLike<T: Encode = Self>: Sized + Encode {}
 /// }
 /// ```
 pub struct Ref<'a, T: EncodeLike<U>, U: Encode>(&'a T, core::marker::PhantomData<U>);
-impl<'a, T: EncodeLike<U>, U: Encode> core::ops::Deref for Ref<'a, T, U> {
+impl<T: EncodeLike<U>, U: Encode> core::ops::Deref for Ref<'_, T, U> {
 	type Target = T;
 	fn deref(&self) -> &Self::Target {
 		self.0
@@ -99,9 +99,9 @@ impl<'a, T: EncodeLike<U>, U: Encode> From<&'a T> for Ref<'a, T, U> {
 		Ref(x, Default::default())
 	}
 }
-impl<'a, T: EncodeLike<U>, U: Encode> crate::WrapperTypeEncode for Ref<'a, T, U> {}
-impl<'a, T: EncodeLike<U>, U: Encode> EncodeLike<U> for Ref<'a, T, U> {}
-impl<'a, T: EncodeLike<U>, U: Encode> EncodeLike<U> for &Ref<'a, T, U> {}
+impl<T: EncodeLike<U>, U: Encode> crate::WrapperTypeEncode for Ref<'_, T, U> {}
+impl<T: EncodeLike<U>, U: Encode> EncodeLike<U> for Ref<'_, T, U> {}
+impl<T: EncodeLike<U>, U: Encode> EncodeLike<U> for &Ref<'_, T, U> {}
 
 #[cfg(test)]
 mod tests {

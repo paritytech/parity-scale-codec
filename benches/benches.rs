@@ -65,7 +65,7 @@ fn vec_extend_from_slice(b: &mut Bencher) {
 
 struct NoLimitInput<'a>(&'a [u8]);
 
-impl<'a> Input for NoLimitInput<'a> {
+impl Input for NoLimitInput<'_> {
 	fn remaining_len(&mut self) -> Result<Option<usize>, Error> {
 		Ok(None)
 	}
@@ -121,7 +121,7 @@ where
 	let mut g = c.benchmark_group("vec_encode");
 	for vec_size in [1, 2, 5, 32, 1024, 2048, 16384] {
 		g.bench_with_input(
-			&format!("{}/{}", type_name::<T>(), vec_size),
+			format!("{}/{}", type_name::<T>(), vec_size),
 			&vec_size,
 			|b, &vec_size| {
 				let vec: Vec<T> =
@@ -137,7 +137,7 @@ where
 	let mut g = c.benchmark_group("vec_decode");
 	for vec_size in [1, 2, 5, 32, 1024, 2048, 16384] {
 		g.bench_with_input(
-			&format!("{}/{}", type_name::<T>(), vec_size),
+			format!("{}/{}", type_name::<T>(), vec_size),
 			&vec_size,
 			|b, &vec_size| {
 				let vec: Vec<T> =
@@ -157,7 +157,7 @@ where
 	let mut g = c.benchmark_group("vec_decode_no_limit");
 	for vec_size in [16384, 131072] {
 		g.bench_with_input(
-			&format!("vec_decode_no_limit_{}/{}", type_name::<T>(), vec_size),
+			format!("vec_decode_no_limit_{}/{}", type_name::<T>(), vec_size),
 			&vec_size,
 			|b, &vec_size| {
 				let vec: Vec<T> =
