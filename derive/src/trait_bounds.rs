@@ -109,6 +109,7 @@ fn find_type_paths_not_start_or_contain_ident(ty: &Type, ident: &Ident) -> Vec<T
 ///
 /// Arguments:
 /// * `bound_compact_type`: If true, the trait bound is added to the compact type
+///
 ///   ```ignore
 ///   where <#type as HasCompact>::Type: #codec_bound
 ///   ```
