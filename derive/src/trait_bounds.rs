@@ -164,9 +164,6 @@ pub fn add<N>(
 
 		compact_types.into_iter().for_each(|ty| {
 			where_clause.predicates.push(parse_quote!(#ty : #crate_path::HasCompact));
-			where_clause
-				.predicates
-				.push(parse_quote!(<#ty as #crate_path::HasCompact>::Type : #codec_bound));
 		});
 
 		skip_types.into_iter().for_each(|ty| {
