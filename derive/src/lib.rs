@@ -146,6 +146,7 @@ pub fn encode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 		None,
 		utils::has_dumb_trait_bound(&input.attrs),
 		&crate_path,
+		false,
 	) {
 		return e.to_compile_error().into();
 	}
@@ -196,6 +197,7 @@ pub fn decode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 		Some(parse_quote!(Default)),
 		utils::has_dumb_trait_bound(&input.attrs),
 		&crate_path,
+		false,
 	) {
 		return e.to_compile_error().into();
 	}
@@ -266,6 +268,7 @@ pub fn decode_with_mem_tracking_derive(input: proc_macro::TokenStream) -> proc_m
 		Some(parse_quote!(Default)),
 		utils::has_dumb_trait_bound(&input.attrs),
 		&crate_path,
+		true,
 	) {
 		return e.to_compile_error().into();
 	}
@@ -327,6 +330,7 @@ pub fn compact_as_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStr
 		None,
 		utils::has_dumb_trait_bound(&input.attrs),
 		&crate_path,
+		false,
 	) {
 		return e.to_compile_error().into();
 	}

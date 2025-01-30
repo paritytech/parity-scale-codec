@@ -5,6 +5,12 @@ All notable changes to this crate are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this crate adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Fixed
+
+- Fix added bounds in `Decode` and `Encode` derive macros. ([#689](https://github.com/paritytech/parity-scale-codec/pull/689))
+
 ## [3.7.0] - 2024-11-18
 
 ### Added
@@ -32,7 +38,7 @@ and this crate adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 
 ### Fixed
 
-- Provide full path to elements from `::core` in `Decode` derivation (caused compilation error when 
+- Provide full path to elements from `::core` in `Decode` derivation (caused compilation error when
   `no-implicit-prelude` was used).
 
 ## [3.6.2] - 2023-06-30
