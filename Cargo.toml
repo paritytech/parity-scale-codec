@@ -65,7 +65,7 @@ full = []
 members = ["derive", "fuzzer"]
 
 [workspace.package]
-version = "3.7.2"
+version = "3.7.3"
 authors = ["Parity Technologies <admin@parity.io>"]
 license = "Apache-2.0"
 repository = "https://github.com/paritytech/parity-scale-codec"
