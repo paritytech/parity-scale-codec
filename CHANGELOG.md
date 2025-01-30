@@ -5,6 +5,18 @@ All notable changes to this crate are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this crate adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.7.3]
+
+### Added
+
+- Added `DecodeWithMemLimit` trait and derive macro. [#616](https://github.com/paritytech/parity-scale-codec/pull/616)
+- `Encode` and `Decode` derive macros checks and enforce that enum variant indices are unique. [#653](https://github.com/paritytech/parity-scale-codec/pull/653)
+- `CountedInput` type, a wrapper of `Input` that tracks the number of byte read. [#630](https://github.com/paritytech/parity-scale-codec/pull/630)
+
+### Fixed
+
+- `MaxEncodedLen` no longer bound for skipped variants. [#622](https://github.com/paritytech/parity-scale-codec/pull/622)
+
 ## [3.6.4] - 2023-07-14
 
 ### Added
@@ -16,7 +28,7 @@ and this crate adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 
 ### Fixed
 
-- Provide full path to elements from `::core` in `Decode` derivation (caused compilation error when 
+- Provide full path to elements from `::core` in `Decode` derivation (caused compilation error when
   `no-implicit-prelude` was used).
 
 ## [3.6.2] - 2023-06-30
