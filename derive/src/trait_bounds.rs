@@ -108,8 +108,8 @@ fn find_type_paths_not_start_or_contain_ident(ty: &Type, ident: &Ident) -> Vec<T
 /// Add required trait bounds to all generic types.
 ///
 /// Arguments:
-///* `bound_compact_type`: If true, the trait bound is added to the compact type
-/// `<#type as HasCompact>::Type: #codec_bound`. Otherwise only `HasCompact` bound is added.
+/// * `bound_compact_type`: If true, the trait bound is added to the compact type
+///   `<#type as HasCompact>::Type: #codec_bound`. Otherwise only `HasCompact` bound is added.
 pub fn add<N>(
 	input_ident: &Ident,
 	generics: &mut Generics,
