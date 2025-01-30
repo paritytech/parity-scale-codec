@@ -44,7 +44,7 @@ impl<'a, I: Input> MemTrackingInput<'a, I> {
 	}
 }
 
-impl<'a, I: Input> Input for MemTrackingInput<'a, I> {
+impl<I: Input> Input for MemTrackingInput<'_, I> {
 	fn remaining_len(&mut self) -> Result<Option<usize>, Error> {
 		self.input.remaining_len()
 	}

@@ -1,20 +1,20 @@
 [package]
 name = "parity-scale-codec-derive"
 description = "Serialization and deserialization derive macro for Parity SCALE Codec"
-version = "3.6.8"
-authors = ["Parity Technologies <admin@parity.io>"]
-license = "Apache-2.0"
-edition = "2021"
-rust-version = "1.56.1"
-repository = "https://github.com/paritytech/parity-scale-codec"
+version.workspace = true
+authors.workspace = true
+license.workspace = true
+edition.workspace = true
+repository.workspace = true
+rust-version.workspace = true
 
 [lib]
 proc-macro = true
 
 [dependencies]
 syn = { version = "2", features = ["full", "visit"] }
-quote = "1.0.37"
-proc-macro2 = "1.0.89"
+quote = "1.0.38"
+proc-macro2 = "1.0.93"
 proc-macro-crate = "3.1.0"
 
 [dev-dependencies]
