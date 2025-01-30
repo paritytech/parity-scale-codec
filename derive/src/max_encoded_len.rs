@@ -44,6 +44,7 @@ pub fn derive_max_encoded_len(input: proc_macro::TokenStream) -> proc_macro::Tok
 		None,
 		has_dumb_trait_bound(&input.attrs),
 		&crate_path,
+		false,
 	) {
 		return e.to_compile_error().into();
 	}

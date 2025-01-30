@@ -106,6 +106,10 @@ fn find_type_paths_not_start_or_contain_ident(ty: &Type, ident: &Ident) -> Vec<T
 
 #[allow(clippy::too_many_arguments)]
 /// Add required trait bounds to all generic types.
+///
+/// Arguments:
+///* `bound_compact_type`: If true, the trait bound is added to the compact type
+/// `<#type as HasCompact>::Type: #codec_bound`. Otherwise only `HasCompact` bound is added.
 pub fn add<N>(
 	input_ident: &Ident,
 	generics: &mut Generics,
@@ -115,6 +119,7 @@ pub fn add<N>(
 	codec_skip_bound: Option<syn::Path>,
 	dumb_trait_bounds: bool,
 	crate_path: &syn::Path,
+	bound_compact_type: bool,
 ) -> Result<()> {
 	let skip_type_params = match custom_trait_bound {
 		Some(CustomTraitBound::SpecifiedBounds { bounds, .. }) => {
@@ -164,6 +169,11 @@ pub fn add<N>(
 
 		compact_types.into_iter().for_each(|ty| {
 			where_clause.predicates.push(parse_quote!(#ty : #crate_path::HasCompact));
+			if bound_compact_type {
+				where_clause
+					.predicates
+					.push(parse_quote!(<#ty as #crate_path::HasCompact>::Type : #codec_bound));
+			}
 		});
 
 		skip_types.into_iter().for_each(|ty| {
