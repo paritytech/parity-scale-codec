@@ -16,7 +16,7 @@ use parity_scale_codec::{Decode, Encode, HasCompact};
 use parity_scale_codec_derive::{Decode as DeriveDecode, Encode as DeriveEncode};
 
 #[test]
-fn ensure_derive_macro_derive_bounds_correctly() {
+fn ensure_derive_macro_derives_bounds_correctly() {
 	#[derive(DeriveEncode, DeriveDecode)]
 	pub struct Header<Number> {
 		#[codec(compact)]
