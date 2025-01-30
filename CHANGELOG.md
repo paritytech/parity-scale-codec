@@ -7,9 +7,9 @@ and this crate adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 
 ## Unreleased
 
-### Fixed
+### [3.7.3] - 2025-01-30
 
-- Fix added bounds in `Decode` and `Encode` derive macros. ([#689](https://github.com/paritytech/parity-scale-codec/pull/689))
+- Fix added bounds in `Encode` and other derive macros. ([#689](https://github.com/paritytech/parity-scale-codec/pull/689))
 
 ## [3.7.0] - 2024-11-18
 
