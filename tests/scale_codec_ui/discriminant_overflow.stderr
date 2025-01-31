@@ -13,4 +13,3 @@ error[E0080]: evaluation of constant value failed
   |                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the evaluated program panicked at 'Discriminant must be in the range 0..255, variant `A` index is `256`.', $DIR/tests/scale_codec_ui/discriminant_overflow.rs:1:40
   |
   = note: this error originates in the macro `$crate::panic::panic_2021` which comes from the expansion of the macro `::core::panic` (in Nightly builds, run with -Z macro-backtrace for more info)
-
