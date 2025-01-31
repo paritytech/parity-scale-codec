@@ -47,7 +47,7 @@ pub fn const_eval_check_variant_indexes(
 		let ident_str = ident.to_string();
 		// We convert to u8 same as in the generated code.
 		recurse_indices.push(quote_spanned! { ident.span() =>
-			(#index as ::core::primitive::u8, #ident_str)
+			(#index core::primitive::u8, #ident_str)
 		});
 	}
 	let len = recurse_indices.len();
@@ -58,35 +58,6 @@ pub fn const_eval_check_variant_indexes(
 
 	quote! {
 		const _: () = {
-			const indices: [(u8, &'static str); #len] = [#( #recurse_indices ,)*];
-
-			// Returns if there is overflow, and if there is some then the variant index.
-			const fn discriminant_overflow_u8(array: &[(u8, &'static str); #len]) -> (bool, usize) {
-				let len = array.len();
-				let mut i = 0;
-				while i < len {
-					if array[i].0 > 255 {
-						return (true, i);
-					}
-					i += 1;
-				}
-				(false, 0)
-			}
-
-			const OVERFLOW: (bool, usize) = discriminant_overflow_u8(&indices);
-
-			if OVERFLOW.0 {
-				let msg = #crate_path::__private::concatcp!(
-					"Discriminant must be in the range 0..255, variant `",
-					indices[OVERFLOW.1].1,
-					"` index is `",
-					indices[OVERFLOW.1].0,
-					"`."
-				);
-
-				::core::panic!("{}", msg);
-			}
-
 			// Returns if there is duplicate, and if there is some the duplicate indexes.
 			const fn duplicate_info(array: &[(u8, &'static str); #len]) -> (bool, usize, usize) {
 				let len = array.len();
