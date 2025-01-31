@@ -1,4 +1,4 @@
-use parity_scale_codec_derive::{Encode, Decode};
+use parity_scale_codec_derive::{Decode, Encode};
 
 #[enumflags2::bitflags]
 #[repr(u64)]
