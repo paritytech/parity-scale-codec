@@ -58,10 +58,10 @@ pub fn const_eval_check_variant_indexes(
 
 	quote! {
 		const _: () = {
-			const indices: [(usize, &'static str); #len] = [#( #recurse_indices ,)*];
+			const indices: [(u8, &'static str); #len] = [#( #recurse_indices ,)*];
 
 			// Returns if there is overflow, and if there is some then the variant index.
-			const fn discriminant_overflow_u8(array: &[(usize, &'static str); #len]) -> (bool, usize) {
+			const fn discriminant_overflow_u8(array: &[(u8, &'static str); #len]) -> (bool, usize) {
 				let len = array.len();
 				let mut i = 0;
 				while i < len {
@@ -88,7 +88,7 @@ pub fn const_eval_check_variant_indexes(
 			}
 
 			// Returns if there is duplicate, and if there is some the duplicate indexes.
-			const fn duplicate_info(array: &[(usize, &'static str); #len]) -> (bool, usize, usize) {
+			const fn duplicate_info(array: &[(u8, &'static str); #len]) -> (bool, usize, usize) {
 				let len = array.len();
 				let mut i = 0;
 				while i < len {
@@ -127,7 +127,7 @@ pub fn const_eval_check_variant_indexes(
 /// is found, fall back to the discriminant or just the variant index.
 pub fn variant_index(v: &Variant, i: usize) -> TokenStream {
 	// first look for an attribute
-	let mut index = find_meta_item(v.attrs.iter(), |meta| {
+	let index = find_meta_item(v.attrs.iter(), |meta| {
 		if let Meta::NameValue(ref nv) = meta {
 			if nv.path.is_ident("index") {
 				if let Expr::Lit(ExprLit { lit: Lit::Int(ref v), .. }) = nv.value {
