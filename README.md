@@ -233,6 +233,16 @@ Even though this crate supports deserialization of arbitrarily sized array (e.g.
 using such types is not recommended and will most likely result in a stack overflow. If you have a big
 array inside of your structure which you want to decode you should wrap it in a `Box`, e.g. `Box<[T; 1024 * 1024 * 1024]>`.
 
+## Release process
+
+1. Update the version `[workspace.package]` in `Cargo.toml`.
+2. Update the version of `parity-scale-codec-derive` dependency for `parity-scale-codec` in `Cargo.toml`.
+3. Test the new release on `polkadot-sdk`, ensure `parity-scale-codec-derive` is also update when testing.
+4. Update `CHANGELOG.md`.
+5. Merge all this changes to master.
+6. Add and push a git tag with the version number `git tag "vX.Y.Z"; git push --tags`.
+7. Publish on `crates.io`.
+
 -------------------------
 
 License: Apache-2.0
