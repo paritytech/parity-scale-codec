@@ -931,3 +931,13 @@ fn deserializing_of_big_recursively_nested_enum_works() {
 	let obj_d2 = Enum::decode_with_depth_limit(40, &mut &data[..]).unwrap();
 	assert!(obj == obj_d2);
 }
+
+#[test]
+fn non_literal_variant_discriminant() {
+	const A: isize = 1;
+	#[derive(PartialEq, Eq, DeriveDecode, DeriveDecodeWithMemTracking, DeriveEncode)]
+	enum Enum {
+		A = A,
+		B = A + 1,
+	}
+}
