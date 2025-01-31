@@ -46,7 +46,7 @@ pub fn const_eval_check_variant_indexes(
 	for (ident, index) in recurse_variant_indices {
 		let ident_str = ident.to_string();
 		// We convert to u8 same as in the generated code.
-		recurse_indices.push(quote_spanned! { ident.span() ->
+		recurse_indices.push(quote_spanned! { ident.span() =>
 			(#index as ::core::primitive::u8, #ident_str)
 		});
 	}
