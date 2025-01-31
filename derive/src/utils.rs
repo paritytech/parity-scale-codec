@@ -57,6 +57,33 @@ pub fn const_eval_check_variant_indexes(
 		const _: () = {
 			const indices: [(usize, &'static str); #len] = [#( #recurse_indices ,)*];
 
+			// Returns if there is overflow, and if there is some then the variant index.
+			const fn discriminant_overflow_u8(array: &[(usize, &'static str); #len]) -> (bool, usize) {
+				let len = array.len();
+				let mut i = 0;
+				while i < len {
+					if array[i].0 > 255 {
+						return (true, i);
+					}
+					i += 1;
+				}
+				(false, 0)
+			}
+
+			const OVERFLOW: (bool, usize) = discriminant_overflow_u8(&indices);
+
+			if OVERFLOW.0 {
+				let msg = #crate_path::__private::concatcp!(
+					"Discriminant must be in the range 0..255, variant `",
+					indices[OVERFLOW.1].1,
+					"` index is `",
+					indices[OVERFLOW.1].0,
+					"`."
+				);
+
+				::core::panic!("{}", msg);
+			}
+
 			// Returns if there is duplicate, and if there is some the duplicate indexes.
 			const fn duplicate_info(array: &[(usize, &'static str); #len]) -> (bool, usize, usize) {
 				let len = array.len();
@@ -394,12 +421,6 @@ pub fn check_attributes(input: &DeriveInput) -> syn::Result<()> {
 						check_field_attribute(attr)?;
 					}
 				}
-				// While we're checking things, also ensure that
-				// any explicit discriminants are within 0..=255
-				let discriminant = variant.discriminant.as_ref().map(|(_, d)| d);
-				if let Some(expr) = discriminant {
-					check_variant_discriminant(expr)?;
-				}
 			},
 		Data::Union(_) => (),
 	}
@@ -476,21 +497,6 @@ fn check_variant_attribute(attr: &Attribute) -> syn::Result<()> {
 		}
 	} else {
 		Ok(())
-	}
-}
-
-// Ensure a variant discriminant, if provided, can be parsed into
-// something in the range 0..255.
-fn check_variant_discriminant(discriminant: &Expr) -> syn::Result<()> {
-	if let Expr::Lit(ExprLit { lit: Lit::Int(lit_int), .. }) = discriminant {
-		lit_int.base10_parse::<u8>().map(|_| ()).map_err(|_| {
-			syn::Error::new(lit_int.span(), "Discriminant index must be in the range 0..255")
-		})
-	} else {
-		Err(syn::Error::new(
-			discriminant.span(),
-			"Discriminant must be an integer literal in the range 0..255",
-		))
 	}
 }
 
