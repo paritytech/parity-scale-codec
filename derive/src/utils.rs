@@ -146,7 +146,7 @@ pub fn variant_index(v: &Variant, i: usize) -> TokenStream {
 	index.map(|i| quote! { #i }).unwrap_or_else(|| {
 		v.discriminant
 			.as_ref()
-			.map(|(_, expr)| quote! { (#expr) as isize})
+			.map(|(_, expr)| quote! { #expr })
 			.unwrap_or_else(|| quote! { #i })
 	})
 }
