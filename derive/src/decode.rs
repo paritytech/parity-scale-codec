@@ -59,7 +59,7 @@ pub fn quote(
 
 				quote_spanned! { v.span() =>
 					#[allow(clippy::unnecessary_cast)]
-					__codec_x_edqy if __codec_x_edqy == #index as ::core::primitive::u8 => {
+					__codec_x_edqy if __codec_x_edqy == (#index) as ::core::primitive::u8 => {
 						// NOTE: This lambda is necessary to work around an upstream bug
 						// where each extra branch results in excessive stack usage:
 						//   https://github.com/rust-lang/rust/issues/34283

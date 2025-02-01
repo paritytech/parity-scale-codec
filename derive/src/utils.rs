@@ -47,7 +47,10 @@ pub fn const_eval_check_variant_indexes(
 		let ident_str = ident.to_string();
 		// We convert to u8 same as in the generated code.
 		recurse_indices.push(quote_spanned! { ident.span() =>
-			(#index as ::core::primitive::u8, #ident_str)
+			(
+				(#index) as ::core::primitive::u8,
+				#ident_str
+			)
 		});
 	}
 	let len = recurse_indices.len();
@@ -58,6 +61,7 @@ pub fn const_eval_check_variant_indexes(
 
 	quote! {
 		const _: () = {
+			#[allow(clippy::unnecessary_cast)]
 			const indices: [(u8, &'static str); #len] = [#( #recurse_indices ,)*];
 
 			// Returns if there is overflow, and if there is some then the variant index.
