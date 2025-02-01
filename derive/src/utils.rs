@@ -66,7 +66,7 @@ pub fn const_eval_check_variant_indexes(
 
 			// Returns if there is duplicate, and if there is some the duplicate indexes.
 			const fn duplicate_info(array: &[(u8, &'static str); #len]) -> (bool, usize, usize) {
-				let len = array.len();
+				let len = #len;
 				let mut i = 0;
 				while i < len {
 						let mut j = i + 1;
