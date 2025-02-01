@@ -17,7 +17,7 @@
 
 use crate::{
 	trait_bounds,
-	utils::{self, codec_crate_path, custom_mel_trait_bound, has_dumb_trait_bound, should_skip},
+	utils::{codec_crate_path, custom_mel_trait_bound, has_dumb_trait_bound, should_skip},
 };
 use quote::{quote, quote_spanned};
 use syn::{parse_quote, spanned::Spanned, Data, DeriveInput, Field, Fields};
@@ -85,14 +85,8 @@ fn fields_length_expr(fields: &Fields, crate_path: &syn::Path) -> proc_macro2::T
 	// caused the issue.
 	let expansion = fields_iter.map(|field| {
 		let ty = &field.ty;
-		if utils::is_compact(field) {
-			quote_spanned! {
-				ty.span() => .saturating_add(<#crate_path::Compact::<#ty> as #crate_path::MaxEncodedLen>::max_encoded_len())
-			}
-		} else {
-			quote_spanned! {
-				ty.span() => .saturating_add(<#ty as #crate_path::MaxEncodedLen>::max_encoded_len())
-			}
+		quote_spanned! {
+			ty.span() => .saturating_add(<#ty as #crate_path::MaxEncodedLen>::max_encoded_len())
 		}
 	});
 	quote! {
