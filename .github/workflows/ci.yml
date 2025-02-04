@@ -206,3 +206,20 @@ jobs:
 
       - name: Build for Linux (Ubuntu, AMD64)
         run: cargo build --verbose --release --features bit-vec,bytes,generic-array,derive
+
+  publish-dry-run:
+    runs-on: ubuntu-latest
+    needs: [ set-image, build-linux-ubuntu-amd64 ]
+    container: ${{ needs.set-image.outputs.IMAGE }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Cache Rust dependencies
+        uses: swatinem/rust-cache@v2
+        with:
+          key: ${{ runner.os }}-rust-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Dry Run Publish
+        if: github.event_name == 'pull_request'
+        run: cargo publish -p parity-scale-codec-derive --dry-run
