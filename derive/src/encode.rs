@@ -333,7 +333,8 @@ fn impl_encode(data: &Data, type_name: &Ident, crate_path: &syn::Path) -> TokenS
 						let encoding_names = names.clone();
 						let encoding = quote_spanned! { f.span() =>
 							#type_name :: #name { #( ref #encoding_names, )* } => {
-								#dest.push_byte(#index as ::core::primitive::u8);
+								#[allow(clippy::unnecessary_cast)]
+								#dest.push_byte((#index) as ::core::primitive::u8);
 								#encode_fields
 							}
 						};
@@ -366,7 +367,8 @@ fn impl_encode(data: &Data, type_name: &Ident, crate_path: &syn::Path) -> TokenS
 						let encoding_names = names.clone();
 						let encoding = quote_spanned! { f.span() =>
 							#type_name :: #name ( #( ref #encoding_names, )* ) => {
-								#dest.push_byte(#index as ::core::primitive::u8);
+								#[allow(clippy::unnecessary_cast)]
+								#dest.push_byte((#index) as ::core::primitive::u8);
 								#encode_fields
 							}
 						};
@@ -383,7 +385,7 @@ fn impl_encode(data: &Data, type_name: &Ident, crate_path: &syn::Path) -> TokenS
 						let encoding = quote_spanned! { f.span() =>
 							#type_name :: #name => {
 								#[allow(clippy::unnecessary_cast)]
-								#dest.push_byte(#index as ::core::primitive::u8);
+								#dest.push_byte((#index) as ::core::primitive::u8);
 							}
 						};
 

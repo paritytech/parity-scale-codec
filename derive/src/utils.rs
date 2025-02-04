@@ -45,7 +45,13 @@ pub fn const_eval_check_variant_indexes(
 	let mut recurse_indices = vec![];
 	for (ident, index) in recurse_variant_indices {
 		let ident_str = ident.to_string();
-		recurse_indices.push(quote! { (#index, #ident_str) });
+		// We convert to u8 same as in the generated code.
+		recurse_indices.push(quote_spanned! { ident.span() =>
+			(
+				(#index) as ::core::primitive::u8,
+				#ident_str
+			)
+		});
 	}
 	let len = recurse_indices.len();
 
@@ -55,11 +61,12 @@ pub fn const_eval_check_variant_indexes(
 
 	quote! {
 		const _: () = {
-			const indices: [(usize, &'static str); #len] = [#( #recurse_indices ,)*];
+			#[allow(clippy::unnecessary_cast)]
+			const indices: [(u8, &'static str); #len] = [#( #recurse_indices ,)*];
 
 			// Returns if there is duplicate, and if there is some the duplicate indexes.
-			const fn duplicate_info(array: &[(usize, &'static str); #len]) -> (bool, usize, usize) {
-				let len = array.len();
+			const fn duplicate_info(array: &[(u8, &'static str); #len]) -> (bool, usize, usize) {
+				let len = #len;
 				let mut i = 0;
 				while i < len {
 						let mut j = i + 1;
@@ -97,7 +104,7 @@ pub fn const_eval_check_variant_indexes(
 /// is found, fall back to the discriminant or just the variant index.
 pub fn variant_index(v: &Variant, i: usize) -> TokenStream {
 	// first look for an attribute
-	let mut index = find_meta_item(v.attrs.iter(), |meta| {
+	let index = find_meta_item(v.attrs.iter(), |meta| {
 		if let Meta::NameValue(ref nv) = meta {
 			if nv.path.is_ident("index") {
 				if let Expr::Lit(ExprLit { lit: Lit::Int(ref v), .. }) = nv.value {
@@ -112,21 +119,13 @@ pub fn variant_index(v: &Variant, i: usize) -> TokenStream {
 		None
 	});
 
-	// if no attribute, we fall back to an explicit discriminant (ie 'enum A { Foo = 1u32 }').
-	if index.is_none() {
-		if let Some((_, Expr::Lit(ExprLit { lit: Lit::Int(disc_lit), .. }))) = &v.discriminant {
-			index = disc_lit.base10_parse::<usize>().ok()
-		}
-	}
-
-	// fall back to the variant index if no attribute or explicit discriminant is found.
-	let index = index.unwrap_or(i);
-
-	// output the index with no suffix (ie 1 rather than 1usize) so that these can be quoted into
-	// an array of usizes and will work regardless of what type the discriminant values actually
-	// are.
-	let s = proc_macro2::Literal::usize_unsuffixed(index);
-	quote! { #s }
+	// then fallback to discriminant or just index
+	index.map(|i| quote! { #i }).unwrap_or_else(|| {
+		v.discriminant
+			.as_ref()
+			.map(|(_, expr)| quote! { #expr })
+			.unwrap_or_else(|| quote! { #i })
+	})
 }
 
 /// Look for a `#[codec(encoded_as = "SomeType")]` outer attribute on the given
@@ -394,12 +393,6 @@ pub fn check_attributes(input: &DeriveInput) -> syn::Result<()> {
 						check_field_attribute(attr)?;
 					}
 				}
-				// While we're checking things, also ensure that
-				// any explicit discriminants are within 0..=255
-				let discriminant = variant.discriminant.as_ref().map(|(_, d)| d);
-				if let Some(expr) = discriminant {
-					check_variant_discriminant(expr)?;
-				}
 			},
 		Data::Union(_) => (),
 	}
@@ -476,21 +469,6 @@ fn check_variant_attribute(attr: &Attribute) -> syn::Result<()> {
 		}
 	} else {
 		Ok(())
-	}
-}
-
-// Ensure a variant discriminant, if provided, can be parsed into
-// something in the range 0..255.
-fn check_variant_discriminant(discriminant: &Expr) -> syn::Result<()> {
-	if let Expr::Lit(ExprLit { lit: Lit::Int(lit_int), .. }) = discriminant {
-		lit_int.base10_parse::<u8>().map(|_| ()).map_err(|_| {
-			syn::Error::new(lit_int.span(), "Discriminant index must be in the range 0..255")
-		})
-	} else {
-		Err(syn::Error::new(
-			discriminant.span(),
-			"Discriminant must be an integer literal in the range 0..255",
-		))
 	}
 }
 
