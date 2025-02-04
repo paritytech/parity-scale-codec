@@ -20,4 +20,6 @@ jobs:
           key: ${{ runner.os }}-rust-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Publish Crate
-        run: cargo publish --token ${{ secrets.CARGO_REGISTRY_TOKEN }} -p parity-scale-codec
+        run: |
+          cargo publish --token ${{ secrets.CARGO_REGISTRY_TOKEN }} -p parity-scale-codec-derive
+          cargo publish --token ${{ secrets.CARGO_REGISTRY_TOKEN }} -p parity-scale-codec
