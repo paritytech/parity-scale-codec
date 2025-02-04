@@ -1,7 +1,6 @@
 # Parity SCALE Codec
 
 Rust implementation of the SCALE (Simple Concatenated Aggregate Little-Endian) data format
-
 for types used in the Parity Substrate framework.
 
 SCALE is a light-weight format which allows encoding (and decoding) which makes it highly
