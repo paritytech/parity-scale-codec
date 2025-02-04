@@ -222,4 +222,4 @@ jobs:
 
       - name: Dry Run Publish
         if: github.event_name == 'pull_request'
-        run: cargo publish -p parity-scale-codec --dry-run
+        run: cargo publish -p parity-scale-codec-derive --dry-run
