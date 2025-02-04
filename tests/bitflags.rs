@@ -15,7 +15,6 @@
 use parity_scale_codec_derive::{Decode, Encode};
 
 // test for regression
-//
 #[enumflags2::bitflags]
 #[repr(u64)]
 #[derive(Copy, Clone, Encode, Decode)]
