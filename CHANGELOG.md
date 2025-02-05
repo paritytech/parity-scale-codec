@@ -7,7 +7,15 @@ and this crate adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 
 ## Unreleased
 
+### [3.7.4] - 2025-02-05
+
+### Added
+
+- Disallow duplicate indexes using constant evaluation ([#653](https://github.com/paritytech/parity-scale-codec/pull/653))
+
 ### [3.7.3] - 2025-01-30
+
+### Added
 
 - Fix added bounds in `Encode` and other derive macros. ([#689](https://github.com/paritytech/parity-scale-codec/pull/689))
 
