@@ -908,7 +908,7 @@ mod compact_primitives {
 
 #[cfg(not(feature = "jam"))]
 #[cfg(test)]
-mod tests_ext {
+pub(crate) mod tests_ext {
 	use super::*;
 	use compact_primitives::*;
 
@@ -1000,116 +1000,209 @@ mod tests_ext {
 			check_bound_high!(i, [(u128, U128_OUT_OF_RANGE)]);
 		}
 	}
+
+	pub const COMPACT_U8_CASES: &[(u8, usize)] = &[(0, 1), (63, 1), (64, 2), (255, 2)];
+
+	pub const COMPACT_U16_CASES: &[(u16, usize)] =
+		&[(0, 1), (63, 1), (64, 2), (16383, 2), (16384, 4), (65535, 4)];
+
+	pub const COMPACT_U32_CASES: &[(u32, usize)] = &[
+		(0, 1),
+		(63, 1),
+		(64, 2),
+		(16383, 2),
+		(16384, 4),
+		(1073741823, 4),
+		(1073741824, 5),
+		(u32::MAX, 5),
+	];
+
+	pub const COMPACT_U64_CASES: &[(u64, usize)] = &[
+		(0, 1),
+		(63, 1),
+		(64, 2),
+		(16383, 2),
+		(16384, 4),
+		(1073741823, 4),
+		(1073741824, 5),
+		((1 << 32) - 1, 5),
+		(1 << 32, 6),
+		(1 << 40, 7),
+		(1 << 48, 8),
+		((1 << 56) - 1, 8),
+		(1 << 56, 9),
+		(u64::MAX, 9),
+	];
+
+	pub const COMPACT_U128_CASES: &[(u128, usize)] = &[
+		(0, 1),
+		(63, 1),
+		(64, 2),
+		(16383, 2),
+		(16384, 4),
+		(1073741823, 4),
+		(1073741824, 5),
+		((1 << 32) - 1, 5),
+		(1 << 32, 6),
+		(1 << 40, 7),
+		(1 << 48, 8),
+		((1 << 56) - 1, 8),
+		(1 << 56, 9),
+		((1 << 64) - 1, 9),
+		(1 << 64, 10),
+		(1 << 72, 11),
+		(1 << 80, 12),
+		(1 << 88, 13),
+		(1 << 96, 14),
+		(1 << 104, 15),
+		(1 << 112, 16),
+		((1 << 120) - 1, 16),
+		(1 << 120, 17),
+		(u128::MAX, 17),
+	];
+
+	pub const INTEGERS_ENCODING_EXP: &[(u64, &str)] = &[
+		(0, "00"),
+		(63, "fc"),
+		(64, "01 01"),
+		(16383, "fd ff"),
+		(16384, "02 00 01 00"),
+		(1073741823, "fe ff ff ff"),
+		(1073741824, "03 00 00 00 40"),
+		((1 << 32) - 1, "03 ff ff ff ff"),
+		(1 << 32, "07 00 00 00 00 01"),
+		(1 << 40, "0b 00 00 00 00 00 01"),
+		(1 << 48, "0f 00 00 00 00 00 00 01"),
+		((1 << 56) - 1, "0f ff ff ff ff ff ff ff"),
+		(1 << 56, "13 00 00 00 00 00 00 00 01"),
+		(u64::MAX, "13 ff ff ff ff ff ff ff ff"),
+	];
+}
+
+#[cfg(feature = "jam")]
+#[cfg(test)]
+mod tests_ext {
+	pub const COMPACT_U8_CASES: &[(u8, usize)] = &[(0, 1), (63, 1), (64, 1), (255, 2)];
+
+	pub const COMPACT_U16_CASES: &[(u16, usize)] =
+		&[(0, 1), (63, 1), (64, 1), (16383, 2), (16384, 3), (65535, 3)];
+
+	pub const COMPACT_U32_CASES: &[(u32, usize)] = &[
+		(0, 1),
+		(63, 1),
+		(64, 1),
+		(16383, 2),
+		(16384, 3),
+		(1073741823, 5),
+		(1073741824, 5),
+		(u32::MAX, 5),
+	];
+
+	pub const COMPACT_U64_CASES: &[(u64, usize)] = &[
+		(0, 1),
+		(63, 1),
+		(64, 1),
+		(16383, 2),
+		(16384, 3),
+		(1073741823, 5),
+		(1073741824, 5),
+		((1 << 32) - 1, 5),
+		(1 << 32, 5),
+		(1 << 40, 6),
+		(1 << 48, 7),
+		((1 << 56) - 1, 8),
+		(1 << 56, 9),
+		(u64::MAX, 9),
+	];
+
+	pub const COMPACT_U128_CASES: &[(u128, usize)] = &[
+		(0, 2),
+		(63, 2),
+		(64, 2),
+		(16383, 3),
+		(16384, 4),
+		(1073741823, 6),
+		(1073741824, 6),
+		((1 << 32) - 1, 6),
+		(1 << 32, 6),
+		(1 << 40, 7), //10
+		(1 << 48, 8),
+		((1 << 56) - 1, 9),
+		(1 << 56, 10),
+		((1 << 64) - 1, 10),
+		(1 << 64, 2),
+		(1 << 72, 3),
+		(1 << 80, 4),
+		(1 << 88, 5),
+		(1 << 96, 6),
+		(1 << 104, 7), //20
+		(1 << 112, 8),
+		((1 << 120) - 1, 17),
+		(1 << 120, 10),
+		(u128::MAX, 18),
+	];
+
+	pub const INTEGERS_ENCODING_EXP: &[(u64, &str)] = &[
+		(0, "00"),
+		(63, "3f"),
+		(64, "40"),
+		(16383, "bf ff"),
+		(16384, "c0 00 40"),
+		(1073741823, "f0 ff ff ff 3f"),
+		(1073741824, "f0 00 00 00 40"),
+		((1 << 32) - 1, "f0 ff ff ff ff"),
+		(1 << 32, "f1 00 00 00 00"),
+		(1 << 40, "f9 00 00 00 00 00"),
+		(1 << 48, "fd 00 00 00 00 00 00"),
+		((1 << 56) - 1, "fe ff ff ff ff ff ff ff"),
+		(1 << 56, "ff 00 00 00 00 00 00 00 01"),
+		(u64::MAX, "ff ff ff ff ff ff ff ff ff"),
+	];
 }
 
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use tests_ext::*;
 
-	#[test]
-	fn compact_128_encoding_works() {
-		let tests = [
-			(0u128, 1usize),
-			(63, 1),
-			(64, 2),
-			(16383, 2),
-			(16384, 4),
-			(1073741823, 4),
-			(1073741824, 5),
-			((1 << 32) - 1, 5),
-			(1 << 32, 6),
-			(1 << 40, 7),
-			(1 << 48, 8),
-			((1 << 56) - 1, 8),
-			(1 << 56, 9),
-			((1 << 64) - 1, 9),
-			(1 << 64, 10),
-			(1 << 72, 11),
-			(1 << 80, 12),
-			(1 << 88, 13),
-			(1 << 96, 14),
-			(1 << 104, 15),
-			(1 << 112, 16),
-			((1 << 120) - 1, 16),
-			(1 << 120, 17),
-			(u128::MAX, 17),
-		];
-		for &(n, l) in &tests {
+	fn compact_encoding_works<T>(cases: &[(T, usize)])
+	where
+		T: std::fmt::Debug + PartialEq + Eq + Copy,
+		Compact<T>: Encode + Decode + CompactLen<T>,
+	{
+		for &(n, l) in cases {
 			let encoded = Compact(n).encode();
 			assert_eq!(encoded.len(), l);
 			assert_eq!(Compact::compact_len(&n), l);
-			assert_eq!(<Compact<u128>>::decode(&mut &encoded[..]).unwrap().0, n);
+			assert_eq!(<Compact<T>>::decode(&mut &encoded[..]).unwrap().0, n);
 		}
-	}
-
-	#[test]
-	fn compact_64_encoding_works() {
-		let tests = [
-			(0u64, 1usize),
-			(63, 1),
-			(64, 2),
-			(16383, 2),
-			(16384, 4),
-			(1073741823, 4),
-			(1073741824, 5),
-			((1 << 32) - 1, 5),
-			(1 << 32, 6),
-			(1 << 40, 7),
-			(1 << 48, 8),
-			((1 << 56) - 1, 8),
-			(1 << 56, 9),
-			(u64::MAX, 9),
-		];
-		for &(n, l) in &tests {
-			let encoded = Compact(n).encode();
-			assert_eq!(encoded.len(), l);
-			assert_eq!(Compact::compact_len(&n), l);
-			assert_eq!(<Compact<u64>>::decode(&mut &encoded[..]).unwrap().0, n);
-		}
-	}
-
-	#[test]
-	fn compact_32_encoding_works() {
-		let tests = [
-			(0u32, 1usize),
-			(63, 1),
-			(64, 2),
-			(16383, 2),
-			(16384, 4),
-			(1073741823, 4),
-			(1073741824, 5),
-			(u32::MAX, 5),
-		];
-		for &(n, l) in &tests {
-			let encoded = Compact(n).encode();
-			assert_eq!(encoded.len(), l);
-			assert_eq!(Compact::compact_len(&n), l);
-			assert_eq!(<Compact<u32>>::decode(&mut &encoded[..]).unwrap().0, n);
-		}
-	}
-
-	#[test]
-	fn compact_16_encoding_works() {
-		let tests = [(0u16, 1usize), (63, 1), (64, 2), (16383, 2), (16384, 4), (65535, 4)];
-		for &(n, l) in &tests {
-			let encoded = Compact(n).encode();
-			assert_eq!(encoded.len(), l);
-			assert_eq!(Compact::compact_len(&n), l);
-			assert_eq!(<Compact<u16>>::decode(&mut &encoded[..]).unwrap().0, n);
-		}
-		assert!(<Compact<u16>>::decode(&mut &Compact(65536u32).encode()[..]).is_err());
 	}
 
 	#[test]
 	fn compact_8_encoding_works() {
-		let tests = [(0u8, 1usize), (63, 1), (64, 2), (255, 2)];
-		for &(n, l) in &tests {
-			let encoded = Compact(n).encode();
-			assert_eq!(encoded.len(), l);
-			assert_eq!(Compact::compact_len(&n), l);
-			assert_eq!(<Compact<u8>>::decode(&mut &encoded[..]).unwrap().0, n);
-		}
+		compact_encoding_works::<u8>(COMPACT_U8_CASES);
 		assert!(<Compact<u8>>::decode(&mut &Compact(256u32).encode()[..]).is_err());
+	}
+
+	#[test]
+	fn compact_16_encoding_works() {
+		compact_encoding_works::<u16>(COMPACT_U16_CASES);
+		assert!(<Compact<u16>>::decode(&mut &Compact(65536u32).encode()[..]).is_err());
+	}
+
+	#[test]
+	fn compact_32_encoding_works() {
+		compact_encoding_works::<u32>(COMPACT_U32_CASES);
+	}
+
+	#[test]
+	fn compact_64_encoding_works() {
+		compact_encoding_works::<u64>(COMPACT_U64_CASES);
+	}
+
+	#[test]
+	fn compact_128_encoding_works() {
+		compact_encoding_works::<u128>(COMPACT_U128_CASES);
 	}
 
 	fn hexify(bytes: &[u8]) -> String {
@@ -1122,23 +1215,7 @@ mod tests {
 
 	#[test]
 	fn compact_integers_encoded_as_expected() {
-		let tests = [
-			(0u64, "00"),
-			(63, "fc"),
-			(64, "01 01"),
-			(16383, "fd ff"),
-			(16384, "02 00 01 00"),
-			(1073741823, "fe ff ff ff"),
-			(1073741824, "03 00 00 00 40"),
-			((1 << 32) - 1, "03 ff ff ff ff"),
-			(1 << 32, "07 00 00 00 00 01"),
-			(1 << 40, "0b 00 00 00 00 00 01"),
-			(1 << 48, "0f 00 00 00 00 00 00 01"),
-			((1 << 56) - 1, "0f ff ff ff ff ff ff ff"),
-			(1 << 56, "13 00 00 00 00 00 00 00 01"),
-			(u64::MAX, "13 ff ff ff ff ff ff ff ff"),
-		];
-		for &(n, s) in &tests {
+		for &(n, s) in INTEGERS_ENCODING_EXP {
 			// Verify u64 encoding
 			let encoded = Compact(n).encode();
 			assert_eq!(hexify(&encoded), s);
@@ -1188,8 +1265,7 @@ mod tests {
 
 	#[test]
 	fn compact_as_8_encoding_works() {
-		let tests = [(0u8, 1usize), (63, 1), (64, 2), (255, 2)];
-		for &(n, l) in &tests {
+		for &(n, l) in COMPACT_U8_CASES {
 			let compact: Compact<Wrapper> = Wrapper(n).into();
 			let encoded = compact.encode();
 			assert_eq!(encoded.len(), l);
