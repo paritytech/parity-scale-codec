@@ -49,6 +49,7 @@ derive = ["parity-scale-codec-derive"]
 std = ["serde/std", "bitvec?/std", "byte-slice-cast/std", "chain-error"]
 bit-vec = ["bitvec"]
 fuzz = ["std", "arbitrary"]
+jam = []
 
 # Enables the new `MaxEncodedLen` trait.
 # NOTE: This is still considered experimental and is exempt from the usual
