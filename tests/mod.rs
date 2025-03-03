@@ -180,18 +180,14 @@ fn should_work_for_enum_with_discriminant() {
 }
 
 #[test]
-fn should_derive_encode() {
+fn should_derive_encode_decode() {
 	let v = TestType::new(15, 9, b"Hello world".to_vec());
+	let expected =
+		[b"\x0f\0\0\0\x09\0\0\0\0\0\0\0", &Compact(11_u32).encode()[..], b"Hello world"].concat();
+	let encoded = v.encode();
+	assert_eq!(encoded, expected);
 
-	v.using_encoded(|ref slice| assert_eq!(slice, &b"\x0f\0\0\0\x09\0\0\0\0\0\0\0\x2cHello world"));
-}
-
-#[test]
-fn should_derive_decode() {
-	let slice = b"\x0f\0\0\0\x09\0\0\0\0\0\0\0\x2cHello world".to_vec();
-
-	let v = TestType::decode(&mut &*slice);
-
+	let v = TestType::decode(&mut &*encoded);
 	assert_eq!(v, Ok(TestType::new(15, 9, b"Hello world".to_vec())));
 }
 
@@ -252,39 +248,79 @@ fn correct_error_for_named_struct_2() {
 	Struct::<u32, u32, u32>::decode(&mut wrong).unwrap();
 }
 
-const U64_TEST_COMPACT_VALUES: &[(u64, usize)] = &[
-	(0u64, 1usize),
-	(63, 1),
-	(64, 2),
-	(16383, 2),
-	(16384, 4),
-	(1073741823, 4),
-	(1073741824, 5),
-	(1 << (32 - 1), 5),
-	(1 << 32, 6),
-	(1 << 40, 7),
-	(1 << 48, 8),
-	(1 << (56 - 1), 8),
-	(1 << 56, 9),
-	(u64::MAX, 9),
-];
+#[cfg(not(feature = "jam"))]
+mod test_compact_values {
+	pub const U64_TEST_COMPACT_VALUES: &[(u64, usize)] = &[
+		(0, 1),
+		(63, 1),
+		(64, 2),
+		(16383, 2),
+		(16384, 4),
+		(1073741823, 4),
+		(1073741824, 5),
+		(1 << (32 - 1), 5),
+		(1 << 32, 6),
+		(1 << 40, 7),
+		(1 << 48, 8),
+		(1 << (56 - 1), 8),
+		(1 << 56, 9),
+		(u64::MAX, 9),
+	];
 
-const U64_TEST_COMPACT_VALUES_FOR_ENUM: &[(u64, usize)] = &[
-	(0u64, 2usize),
-	(63, 2),
-	(64, 3),
-	(16383, 3),
-	(16384, 5),
-	(1073741823, 5),
-	(1073741824, 6),
-	(1 << (32 - 1), 6),
-	(1 << 32, 7),
-	(1 << 40, 8),
-	(1 << 48, 9),
-	(1 << (56 - 1), 9),
-	(1 << 56, 10),
-	(u64::MAX, 10),
-];
+	pub const U64_TEST_COMPACT_VALUES_FOR_ENUM: &[(u64, usize)] = &[
+		(0, 2),
+		(63, 2),
+		(64, 3),
+		(16383, 3),
+		(16384, 5),
+		(1073741823, 5),
+		(1073741824, 6),
+		(1 << (32 - 1), 6),
+		(1 << 32, 7),
+		(1 << 40, 8),
+		(1 << 48, 9),
+		(1 << (56 - 1), 9),
+		(1 << 56, 10),
+		(u64::MAX, 10),
+	];
+}
+#[cfg(feature = "jam")]
+mod test_compact_values {
+	pub const U64_TEST_COMPACT_VALUES: &[(u64, usize)] = &[
+		(0u64, 1usize),
+		(63, 1),
+		(64, 1),
+		(16383, 2),
+		(16384, 3),
+		(1073741823, 5),
+		(1073741824, 5),
+		(1 << (32 - 1), 5),
+		(1 << 32, 5),
+		(1 << 40, 6),
+		(1 << 48, 7),
+		(1 << (56 - 1), 8),
+		(1 << 56, 9),
+		(u64::MAX, 9),
+	];
+
+	pub const U64_TEST_COMPACT_VALUES_FOR_ENUM: &[(u64, usize)] = &[
+		(0u64, 2usize),
+		(63, 2),
+		(64, 2),
+		(16383, 3),
+		(16384, 4),
+		(1073741823, 6),
+		(1073741824, 6),
+		(1 << (32 - 1), 6),
+		(1 << 32, 6),
+		(1 << 40, 7),
+		(1 << 48, 8),
+		(1 << (56 - 1), 9),
+		(1 << 56, 10),
+		(u64::MAX, 10),
+	];
+}
+use test_compact_values::*;
 
 #[test]
 fn encoded_as_with_has_compact_works() {

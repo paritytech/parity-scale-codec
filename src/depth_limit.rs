@@ -90,7 +90,7 @@ impl<T: Decode> DecodeLimit for T {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::Encode;
+	use crate::{Compact, Encode};
 
 	#[test]
 	fn decode_limit_works() {
@@ -110,8 +110,10 @@ mod tests {
 		let encoded = nested.encode();
 		let encoded_slice = &mut encoded.as_slice();
 
+		println!("{:?}", encoded);
 		let decoded = Vec::<u8>::decode_with_depth_limit(1, encoded_slice).unwrap();
-		assert_eq!(decoded, vec![4]);
+		let expected = Compact(1_u32).encode();
+		assert_eq!(decoded, expected);
 		assert!(NestedVec::decode_with_depth_limit(3, encoded_slice).is_err());
 	}
 

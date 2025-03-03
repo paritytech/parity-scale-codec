@@ -49,6 +49,7 @@ derive = ["parity-scale-codec-derive"]
 std = ["serde/std", "bitvec?/std", "byte-slice-cast/std", "chain-error"]
 bit-vec = ["bitvec"]
 fuzz = ["std", "arbitrary"]
+# JAM compact unsigned integers
 jam = []
 
 # Enables the new `MaxEncodedLen` trait.
@@ -67,7 +68,7 @@ full = []
 members = ["derive", "fuzzer"]
 
 [workspace.package]
-version = "3.7.4"
+version = "3.8.0"
 authors = ["Parity Technologies <admin@parity.io>"]
 license = "Apache-2.0"
 repository = "https://github.com/paritytech/parity-scale-codec"

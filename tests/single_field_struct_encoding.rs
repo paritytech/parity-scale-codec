@@ -109,6 +109,7 @@ where
 #[test]
 fn test_encoding() {
 	let x = 3u32;
+	let x_compact_encoded = Compact(x).encode()[0];
 	let s = S { x };
 	let s_skip = SSkip { x, s1: Default::default(), s2: Default::default() };
 	let sc = Sc { x };
@@ -124,16 +125,16 @@ fn test_encoding() {
 
 	let mut s_encoded: &[u8] = &[3, 0, 0, 0];
 	let mut s_skip_encoded: &[u8] = &[3, 0, 0, 0];
-	let mut sc_encoded: &[u8] = &[12];
-	let mut sh_encoded: &[u8] = &[12];
+	let mut sc_encoded: &[u8] = &[x_compact_encoded];
+	let mut sh_encoded: &[u8] = &[x_compact_encoded];
 	let mut u_encoded: &[u8] = &[3, 0, 0, 0];
 	let mut u_skip_encoded: &[u8] = &[3, 0, 0, 0];
-	let mut uc_encoded: &[u8] = &[12];
-	let mut ucom_encoded: &[u8] = &[12];
-	let mut ucas_encoded: &[u8] = &[12];
-	let mut u_skip_cas_encoded: &[u8] = &[12];
-	let mut s_skip_cas_encoded: &[u8] = &[12];
-	let mut uh_encoded: &[u8] = &[12];
+	let mut uc_encoded: &[u8] = &[x_compact_encoded];
+	let mut ucom_encoded: &[u8] = &[x_compact_encoded];
+	let mut ucas_encoded: &[u8] = &[x_compact_encoded];
+	let mut u_skip_cas_encoded: &[u8] = &[x_compact_encoded];
+	let mut s_skip_cas_encoded: &[u8] = &[x_compact_encoded];
+	let mut uh_encoded: &[u8] = &[x_compact_encoded];
 
 	assert_eq!(s.encode(), s_encoded);
 	assert_eq!(s_skip.encode(), s_skip_encoded);
