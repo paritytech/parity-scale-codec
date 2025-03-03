@@ -1700,7 +1700,9 @@ mod tests {
 	#[test]
 	fn vec_is_sliceable() {
 		let v = b"Hello world".to_vec();
-		v.using_encoded(|ref slice| assert_eq!(slice, &b"\x2cHello world"));
+		let mut exp = Compact(v.len() as u32).encode();
+		exp.extend_from_slice(&v[..]);
+		v.using_encoded(|slice| assert_eq!(slice, &exp));
 	}
 
 	#[test]
@@ -1733,35 +1735,37 @@ mod tests {
 		assert_eq!(*z, *x);
 	}
 
-	fn hexify(bytes: &[u8]) -> String {
-		bytes
-			.iter()
-			.map(|ref b| format!("{:02x}", b))
-			.collect::<Vec<String>>()
-			.join(" ")
-	}
-
 	#[test]
 	fn string_encoded_as_expected() {
 		let value = String::from("Hello, World!");
+		let mut expected = Compact(value.len() as u32).encode();
+		expected.extend_from_slice(&[
+			0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x2c, 0x20, 0x57, 0x6f, 0x72, 0x6c, 0x64, 0x21,
+		]);
 		let encoded = value.encode();
-		assert_eq!(hexify(&encoded), "34 48 65 6c 6c 6f 2c 20 57 6f 72 6c 64 21");
+		assert_eq!(encoded, expected);
 		assert_eq!(<String>::decode(&mut &encoded[..]).unwrap(), value);
 	}
 
 	#[test]
 	fn vec_of_u8_encoded_as_expected() {
 		let value = vec![0u8, 1, 1, 2, 3, 5, 8, 13, 21, 34];
+		let mut expected = Compact(value.len() as u32).encode();
+		expected.extend_from_slice(&[0x00, 0x01, 0x01, 0x02, 0x03, 0x05, 0x08, 0x0d, 0x15, 0x22]);
 		let encoded = value.encode();
-		assert_eq!(hexify(&encoded), "28 00 01 01 02 03 05 08 0d 15 22");
+		assert_eq!(encoded, expected);
 		assert_eq!(<Vec<u8>>::decode(&mut &encoded[..]).unwrap(), value);
 	}
 
 	#[test]
 	fn vec_of_i16_encoded_as_expected() {
 		let value = vec![0i16, 1, -1, 2, -2, 3, -3];
+		let mut expected = Compact(value.len() as u32).encode();
+		expected.extend_from_slice(&[
+			0x00, 0x00, 0x01, 0x00, 0xff, 0xff, 0x02, 0x00, 0xfe, 0xff, 0x03, 0x00, 0xfd, 0xff,
+		]);
 		let encoded = value.encode();
-		assert_eq!(hexify(&encoded), "1c 00 00 01 00 ff ff 02 00 fe ff 03 00 fd ff");
+		assert_eq!(encoded, expected);
 		assert_eq!(<Vec<i16>>::decode(&mut &encoded[..]).unwrap(), value);
 	}
 
@@ -1769,7 +1773,9 @@ mod tests {
 	fn vec_of_option_int_encoded_as_expected() {
 		let value = vec![Some(1i8), Some(-1), None];
 		let encoded = value.encode();
-		assert_eq!(hexify(&encoded), "0c 01 01 01 ff 00");
+		let mut expected = Compact(value.len() as u32).encode();
+		expected.extend_from_slice(&[0x01, 0x01, 0x01, 0xff, 0x00]);
+		assert_eq!(encoded, expected);
 		assert_eq!(<Vec<Option<i8>>>::decode(&mut &encoded[..]).unwrap(), value);
 	}
 
@@ -1777,7 +1783,9 @@ mod tests {
 	fn vec_of_option_bool_encoded_as_expected() {
 		let value = vec![OptionBool(Some(true)), OptionBool(Some(false)), OptionBool(None)];
 		let encoded = value.encode();
-		assert_eq!(hexify(&encoded), "0c 01 02 00");
+		let mut expected = Compact(value.len() as u32).encode();
+		expected.extend_from_slice(&[0x01, 0x02, 0x00]);
+		assert_eq!(encoded, expected);
 		assert_eq!(<Vec<OptionBool>>::decode(&mut &encoded[..]).unwrap(), value);
 	}
 
@@ -1785,7 +1793,8 @@ mod tests {
 	fn vec_of_empty_tuples_encoded_as_expected() {
 		let value = vec![(), (), (), (), ()];
 		let encoded = value.encode();
-		assert_eq!(hexify(&encoded), "14");
+		let expected = Compact(value.len() as u32).encode();
+		assert_eq!(encoded, expected);
 		assert_eq!(<Vec<()>>::decode(&mut &encoded[..]).unwrap(), value);
 	}
 
@@ -1867,13 +1876,15 @@ mod tests {
 			"أَلْف لَيْلَة وَلَيْلَة‎".to_owned(),
 		];
 		let encoded = value.encode();
-		assert_eq!(
-			hexify(&encoded),
-			"10 18 48 61 6d 6c 65 74 50 d0 92 d0 be d0 b9 d0 bd d0 b0 20 d0 \
-			b8 20 d0 bc d0 b8 d1 80 30 e4 b8 89 e5 9b bd e6 bc 94 e4 b9 89 bc d8 a3 d9 8e d9 84 d9 92 \
-			d9 81 20 d9 84 d9 8e d9 8a d9 92 d9 84 d9 8e d8 a9 20 d9 88 d9 8e d9 84 d9 8e d9 8a d9 92 \
-			d9 84 d9 8e d8 a9 e2 80 8e"
-		);
+
+		let mut expected = vec![];
+		expected.extend_from_slice(&Compact(value.len() as u32).encode()[..]);
+		value.iter().for_each(|s| {
+			expected.extend_from_slice(&Compact(s.len() as u32).encode()[..]);
+			expected.extend_from_slice(s.as_bytes());
+		});
+
+		assert_eq!(encoded, expected);
 		assert_eq!(<Vec<String>>::decode(&mut &encoded[..]).unwrap(), value);
 	}
 
@@ -1898,8 +1909,7 @@ mod tests {
 
 	#[test]
 	fn should_work_for_wrapper_types() {
-		let result = vec![0b1100];
-
+		let result = Compact(3_u32).encode();
 		assert_eq!(MyWrapper(3u32.into()).encode(), result);
 		assert_eq!(MyWrapper::decode(&mut &*result).unwrap(), MyWrapper(3_u32.into()));
 	}
