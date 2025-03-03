@@ -7,13 +7,19 @@ and this crate adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 
 ## Unreleased
 
-### [3.7.4] - 2025-02-05
+## [3.8.0] - 2025-03-03
+
+### Added
+
+- Compact integer codec compatible with JAM specification enabled via `jam` feature.
+
+## [3.7.4] - 2025-02-05
 
 ### Added
 
 - Disallow duplicate indexes using constant evaluation ([#653](https://github.com/paritytech/parity-scale-codec/pull/653))
 
-### [3.7.3] - 2025-01-30
+## [3.7.3] - 2025-01-30
 
 ### Added
 
