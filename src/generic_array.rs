@@ -37,6 +37,17 @@ impl<T: Decode, L: generic_array::ArrayLength<T>> Decode for generic_array::Gene
 			None => Err("array length does not match definition".into()),
 		}
 	}
+
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		match Self::encoded_fixed_size() {
+			Some(len) => input.skip(len),
+			None => Result::from_iter((0..L::to_usize()).map(|_| T::skip(input))),
+		}
+	}
+
+	fn encoded_fixed_size() -> Option<usize> {
+		Some(T::encoded_fixed_size()? * L::to_usize())
+	}
 }
 
 #[cfg(test)]
@@ -61,5 +72,28 @@ mod tests {
 		let test = arr![u64; 3];
 		let encoded = test.encode();
 		assert_eq!(test, GenericArray::<u64, typenum::U1>::decode(&mut &encoded[..]).unwrap());
+	}
+
+	#[test]
+	fn skip_generic_array() {
+		let test = arr![u8; 3, 4, 5];
+		let mut encoded = &(test, 23u8).encode()[..];
+		GenericArray::<u8, typenum::U3>::skip(&mut encoded).unwrap();
+		assert_eq!(u8::decode(&mut encoded).unwrap(), 23);
+
+		let test = arr![u16; 3, 4, 5, 6, 7, 8, 0];
+		let mut encoded = &(test, 23u8).encode()[..];
+		GenericArray::<u16, typenum::U7>::skip(&mut encoded).unwrap();
+		assert_eq!(u8::decode(&mut encoded).unwrap(), 23);
+
+		let test = arr![u32; 3, 4, 5, 0, 1];
+		let mut encoded = &(test, 23u8).encode()[..];
+		GenericArray::<u32, typenum::U5>::skip(&mut encoded).unwrap();
+		assert_eq!(u8::decode(&mut encoded).unwrap(), 23);
+
+		let test = arr![u64; 3];
+		let mut encoded = &(test, 23u8).encode()[..];
+		GenericArray::<u64, typenum::U1>::skip(&mut encoded).unwrap();
+		assert_eq!(u8::decode(&mut encoded).unwrap(), 23);
 	}
 }
