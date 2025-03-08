@@ -45,10 +45,10 @@ pub fn const_eval_check_variant_indexes(
 	let mut recurse_indices = vec![];
 	for (ident, index) in recurse_variant_indices {
 		let ident_str = ident.to_string();
-		// We convert to u8 same as in the generated code.
+		// We convert to usize same as in the generated code.
 		recurse_indices.push(quote_spanned! { ident.span() =>
 			(
-				(#index) as ::core::primitive::u8,
+				(#index) as ::core::primitive::usize,
 				#ident_str
 			)
 		});
@@ -60,14 +60,15 @@ pub fn const_eval_check_variant_indexes(
 	}
 
 	quote! {
+		#[automatically_derived]
 		const _: () = {
 			#[allow(clippy::unnecessary_cast)]
-			const indices: [(u8, &'static str); #len] = [#( #recurse_indices ,)*];
+			const indices: [(usize, &'static str); #len] = [#( #recurse_indices ,)*];
 
 			// Returns if there is duplicate, and if there is some the duplicate indexes.
-			const fn duplicate_info(array: &[(u8, &'static str); #len]) -> (bool, usize, usize) {
+			const fn duplicate_info(array: &[(usize, &'static str); #len]) -> (bool, usize, usize) {
 				let len = #len;
-				let mut i = 0;
+				let mut i = 0usize;
 				while i < len {
 						let mut j = i + 1;
 						while j < len {
