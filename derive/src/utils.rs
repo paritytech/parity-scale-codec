@@ -65,6 +65,32 @@ pub fn const_eval_check_variant_indexes(
 			#[allow(clippy::unnecessary_cast)]
 			const indices: [(usize, &'static str); #len] = [#( #recurse_indices ,)*];
 
+			const fn search_for_invalid_index(array: &[(usize, &'static str); #len]) -> (bool, usize) {
+				let mut i = 0;
+				while i < #len {
+					if array[i].0 > 255 {
+						return (true, i);
+					}
+
+					i += 1;
+				}
+
+				(false, 0)
+			}
+
+			const INVALID_INDEX: (bool, usize) = search_for_invalid_index(&indices);
+
+			if INVALID_INDEX.0 {
+				let msg = #crate_path::__private::concatcp!(
+					"Found variant `",
+					indices[INVALID_INDEX.1].1,
+					"` with invalid index: `",
+					indices[INVALID_INDEX.1].0,
+					"`. Max supported index is 255.",
+				);
+				::core::panic!("{}", msg);
+			}
+
 			// Returns if there is duplicate, and if there is some the duplicate indexes.
 			const fn duplicate_info(array: &[(usize, &'static str); #len]) -> (bool, usize, usize) {
 				let len = #len;
@@ -459,12 +485,9 @@ fn check_variant_attribute(attr: &Attribute) -> syn::Result<()> {
 
 			Meta::NameValue(MetaNameValue {
 				path,
-				value: Expr::Lit(ExprLit { lit: Lit::Int(lit_int), .. }),
+				value: Expr::Lit(ExprLit { lit: Lit::Int(_), .. }),
 				..
-			}) if path.get_ident().map_or(false, |i| i == "index") => lit_int
-				.base10_parse::<u8>()
-				.map(|_| ())
-				.map_err(|_| syn::Error::new(lit_int.span(), "Index must be in 0..255")),
+			}) if path.get_ident().map_or(false, |i| i == "index") => Ok(()),
 
 			elt => Err(syn::Error::new(elt.span(), variant_error)),
 		}
