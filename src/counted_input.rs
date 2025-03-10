@@ -58,6 +58,10 @@ impl<I: crate::Input> crate::Input for CountedInput<'_, I> {
 	fn descend_ref(&mut self) -> Result<(), crate::Error> {
 		self.input.descend_ref()
 	}
+
+	fn on_before_alloc_mem(&mut self, size: usize) -> Result<(), crate::Error> {
+		self.input.on_before_alloc_mem(size)
+	}
 }
 
 #[cfg(test)]
