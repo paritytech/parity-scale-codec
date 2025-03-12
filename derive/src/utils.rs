@@ -63,6 +63,7 @@ pub fn const_eval_check_variant_indexes(
 		#[automatically_derived]
 		const _: () = {
 			#[allow(clippy::unnecessary_cast)]
+			#[allow(clippy::cast_possible_truncation)]
 			const indices: [(usize, &'static str); #len] = [#( #recurse_indices ,)*];
 
 			const fn search_for_invalid_index(array: &[(usize, &'static str); #len]) -> (bool, usize) {
