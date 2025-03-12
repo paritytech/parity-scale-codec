@@ -45,7 +45,7 @@ pub fn const_eval_check_variant_indexes(
 	let mut recurse_indices = vec![];
 	for (ident, index) in recurse_variant_indices {
 		let ident_str = ident.to_string();
-		// We convert to usize same as in the generated code.
+		// We convert to usize, index should fit in usize.
 		recurse_indices.push(quote_spanned! { ident.span() =>
 			(
 				(#index) as ::core::primitive::usize,
