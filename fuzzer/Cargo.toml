@@ -8,6 +8,6 @@ publish = false
 
 [dependencies]
 parity-scale-codec = { path = "..", features = ["derive", "bit-vec", "fuzz"] }
-honggfuzz = "0.5.56"
+honggfuzz = "0.5.57"
 arbitrary = { version = "1.4.1", features = ["derive"] }
 bitvec = { version = "1", features = ["alloc"] }
