@@ -7,6 +7,12 @@ and this crate adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 
 ## Unreleased
 
+### [3.7.5] - 2025-03-17
+
+### Added
+
+- Make `mem_size_of_btree` pub so it can be reused externally with the `btree-utils` feature ([#721](https://github.com/paritytech/parity-scale-codec/pull/721)).
+
 ### [3.7.4] - 2025-02-05
 
 ### Added
