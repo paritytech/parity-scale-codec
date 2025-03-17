@@ -95,6 +95,12 @@ pub use const_encoded_len::ConstEncodedLen;
 #[cfg(feature = "max-encoded-len")]
 pub use max_encoded_len::MaxEncodedLen;
 
+/// Function to estimate the memory size of a BTree.
+///
+/// Should not be considered stable.
+#[cfg(feature = "btree-utils")]
+pub use btree_utils::mem_size_of_btree;
+
 /// Derive macro for [`MaxEncodedLen`][max_encoded_len::MaxEncodedLen].
 ///
 /// # Examples
