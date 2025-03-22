@@ -502,7 +502,7 @@ fn check_top_attribute(attr: &Attribute) -> syn::Result<()> {
 	let top_error = "Invalid attribute: only `#[codec(dumb_trait_bound)]`, \
 		`#[codec(crate = path::to::crate)]`, `#[codec(encode_bound(T: Encode))]`, \
 		`#[codec(decode_bound(T: Decode))]`, \
-		`#[codec(decode_bound_with_mem_tracking_bound(T: DecodeWithMemTracking))]` or \
+		`#[codec(decode_with_mem_tracking_bound(T: DecodeWithMemTracking))]` or \
 		`#[codec(mel_bound(T: MaxEncodedLen))]` are accepted as top attribute";
 	if attr.path().is_ident("codec") &&
 		attr.parse_args::<CustomTraitBound<encode_bound>>().is_err() &&
