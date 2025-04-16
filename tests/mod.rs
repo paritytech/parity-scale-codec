@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::borrow::Cow;
+
 use parity_scale_codec::{
 	Compact, CompactAs, Decode, DecodeWithMemTracking, Encode, EncodeAsRef, Error, HasCompact,
 	Output,
@@ -940,4 +942,34 @@ fn non_literal_variant_discriminant() {
 		A = A,
 		B = A + 1,
 	}
+}
+
+#[test]
+fn derive_decode_for_enum_with_lifetime_param_and_struct_like_variant() {
+	// An enum that has a lifetime parameter and a struct-like variant.
+	#[derive(PartialEq, Eq, Debug, DeriveDecode, DeriveEncode)]
+	enum Enum<'a> {
+		StructLike {
+			val: u8
+		},
+		// For completeness, also check a struct-like variant that actually uses the lifetime,
+		// as well as the corresponding tuple-like variants.
+		StructLikeCow {
+			val: Cow<'a, u8>
+		},
+		TupleLike(u8),
+		TupleLikeCow(Cow<'a, u8>)
+	}
+
+	let val = 123;
+	let objs = vec![
+		Enum::StructLike { val: 234},
+		Enum::StructLikeCow { val: Cow::Borrowed(&val) },
+		Enum::TupleLike(234),
+		Enum::TupleLikeCow(Cow::Borrowed(&val)),
+	];
+
+	let data = objs.encode();
+	let objs_d = Vec::<Enum>::decode(&mut &data[..]).unwrap();
+	assert_eq!(objs_d, objs);
 }

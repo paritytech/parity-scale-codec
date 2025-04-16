@@ -50,7 +50,7 @@ pub fn quote(
 				let index = utils::variant_index(v, i);
 
 				let create = create_instance(
-					quote! { #type_name #type_generics :: #name },
+					quote! { #type_name :: #name #type_generics },
 					&format!("{}::{}", type_name, name),
 					input,
 					&v.fields,
