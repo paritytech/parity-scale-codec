@@ -949,21 +949,17 @@ fn derive_decode_for_enum_with_lifetime_param_and_struct_like_variant() {
 	// An enum that has a lifetime parameter and a struct-like variant.
 	#[derive(PartialEq, Eq, Debug, DeriveDecode, DeriveEncode)]
 	enum Enum<'a> {
-		StructLike {
-			val: u8
-		},
+		StructLike { val: u8 },
 		// For completeness, also check a struct-like variant that actually uses the lifetime,
 		// as well as the corresponding tuple-like variants.
-		StructLikeCow {
-			val: Cow<'a, u8>
-		},
+		StructLikeCow { val: Cow<'a, u8> },
 		TupleLike(u8),
-		TupleLikeCow(Cow<'a, u8>)
+		TupleLikeCow(Cow<'a, u8>),
 	}
 
 	let val = 123;
 	let objs = vec![
-		Enum::StructLike { val: 234},
+		Enum::StructLike { val: 234 },
 		Enum::StructLikeCow { val: Cow::Borrowed(&val) },
 		Enum::TupleLike(234),
 		Enum::TupleLikeCow(Cow::Borrowed(&val)),
