@@ -1,7 +1,7 @@
-# Parity SCALE Codec
+# Parity JAM Codec
 
-Rust implementation of the SCALE (Simple Concatenated Aggregate Little-Endian) data format
-for types used in the Parity Substrate framework.
+Rust implementation of the JAM binary codec, a revision of SCALE with enhanced
+compact encoding.
 
 SCALE is a light-weight format which allows encoding (and decoding) which makes it highly
 suitable for resource-constrained execution environments like blockchain runtimes and low-power,
