@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use parity_scale_codec::Decode;
-use parity_scale_codec_derive::Decode as DeriveDecode;
+use jam_codec::Decode;
+use jam_codec_derive::Decode as DeriveDecode;
 
 #[derive(DeriveDecode, Debug)]
 struct Wrapper<T>(T);

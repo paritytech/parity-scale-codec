@@ -1,4 +1,4 @@
-use parity_scale_codec::{MaxEncodedLen};
+use jam_codec::{MaxEncodedLen};
 
 #[derive(MaxEncodedLen)]
 struct NotEncode;

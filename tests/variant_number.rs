@@ -1,5 +1,5 @@
-use parity_scale_codec::Encode;
-use parity_scale_codec_derive::Encode as DeriveEncode;
+use jam_codec::Encode;
+use jam_codec_derive::Encode as DeriveEncode;
 
 #[test]
 fn skipped_variant_not_counted_in_default_index() {

@@ -22,7 +22,7 @@ use crate::codec::Encode;
 /// # Example
 ///
 /// ```
-/// # use parity_scale_codec::{EncodeLike, Encode};
+/// # use jam_codec::{EncodeLike, Encode};
 /// fn encode_like<T: Encode, R: EncodeLike<T>>(data: &R) {
 ///     data.encode(); // Valid `T` encoded value.
 /// }
@@ -51,7 +51,7 @@ use crate::codec::Encode;
 /// combination or use [`Ref`](./struct.Ref.html) reference wrapper or define your own wrapper
 /// and implement `EncodeLike` on it as such:
 /// ```
-/// # use parity_scale_codec::{EncodeLike, Encode, WrapperTypeEncode};
+/// # use jam_codec::{EncodeLike, Encode, WrapperTypeEncode};
 /// fn encode_like<T: Encode, R: EncodeLike<T>>(data: &R) {
 ///     data.encode(); // Valid `T` encoded value.
 /// }
@@ -62,8 +62,8 @@ use crate::codec::Encode;
 ///     fn deref(&self) -> &Self::Target { &self.0 }
 /// }
 ///
-/// impl<'a> parity_scale_codec::WrapperTypeEncode for MyWrapper<'a> {}
-/// impl<'a> parity_scale_codec::EncodeLike<(u32, u32)> for MyWrapper<'a> {}
+/// impl<'a> jam_codec::WrapperTypeEncode for MyWrapper<'a> {}
+/// impl<'a> jam_codec::EncodeLike<(u32, u32)> for MyWrapper<'a> {}
 ///
 /// fn main() {
 ///     let v = (Box::new(Box::new(0)), 0);
@@ -77,7 +77,7 @@ pub trait EncodeLike<T: Encode = Self>: Sized + Encode {}
 /// # Example
 ///
 /// ```rust
-/// # use parity_scale_codec::{EncodeLike, Ref};
+/// # use jam_codec::{EncodeLike, Ref};
 /// fn foo<T: EncodeLike<u8>>(t: T) -> T {
 ///     store_t(Ref::from(&t)); // Store t without moving it, but only using a reference.
 ///     t

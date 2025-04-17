@@ -1,6 +1,6 @@
 [package]
-name = "parity-scale-codec"
-description = "SCALE - Simple Concatenating Aggregated Little Endians"
+name = "jam-codec"
+description = "Lightweight, efficient, binary codec for JAM"
 version.workspace = true
 authors.workspace = true
 license.workspace = true
@@ -13,7 +13,7 @@ rust-version.workspace = true
 [dependencies]
 arrayvec = { version = "0.7", default-features = false }
 serde = { version = "1.0.219", default-features = false, optional = true }
-parity-scale-codec-derive = { path = "derive", version = "=3.7.4", default-features = false, optional = true }
+jam-codec-derive = { path = "derive", version = "=0.1.0", default-features = false, optional = true }
 bitvec = { version = "1", default-features = false, features = ["alloc"], optional = true }
 bytes = { version = "1", default-features = false, optional = true }
 byte-slice-cast = { version = "1.2.3", default-features = false }
@@ -25,11 +25,12 @@ const_format = { version = "0.2.34" }
 [dev-dependencies]
 criterion = "0.5.1"
 serde_derive = { version = "1.0" }
-parity-scale-codec-derive = { path = "derive", default-features = false }
+jam-codec-derive = { path = "derive", default-features = false }
 quickcheck = "1.0"
 proptest = "1.6.0"
 trybuild = "1.0.104"
 paste = "1"
+hex = "0.4.3"
 rustversion = "1"
 enumflags2 = "0.7.11"
 
@@ -45,7 +46,7 @@ bench = false
 
 [features]
 default = ["std"]
-derive = ["parity-scale-codec-derive"]
+derive = ["jam-codec-derive"]
 std = ["serde/std", "bitvec?/std", "byte-slice-cast/std", "chain-error"]
 bit-vec = ["bitvec"]
 fuzz = ["std", "arbitrary"]
@@ -53,7 +54,7 @@ fuzz = ["std", "arbitrary"]
 # Enables the new `MaxEncodedLen` trait.
 # NOTE: This is still considered experimental and is exempt from the usual
 # SemVer guarantees. We do not guarantee no code breakage when using this.
-max-encoded-len = ["parity-scale-codec-derive?/max-encoded-len"]
+max-encoded-len = ["jam-codec-derive?/max-encoded-len"]
 
 # Make error fully descriptive with chaining error message.
 # Should not be used in a constrained environment.
@@ -62,14 +63,17 @@ chain-error = []
 # This does not do anthing anymore. Remove with the next major release.
 full = []
 
+# Dump test vectors during testing
+dump-test-vectors = []
+
 [workspace]
 members = ["derive", "fuzzer"]
 
 [workspace.package]
-version = "3.7.4"
+version = "0.1.0"
 authors = ["Parity Technologies <admin@parity.io>"]
 license = "Apache-2.0"
-repository = "https://github.com/paritytech/parity-scale-codec"
+repository = "https://github.com/paritytech/jam-codec"
 categories = ["encoding"]
 edition = "2021"
 rust-version = "1.79.0"

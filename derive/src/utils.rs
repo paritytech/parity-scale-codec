@@ -227,7 +227,7 @@ pub fn has_dumb_trait_bound(attrs: &[Attribute]) -> bool {
 fn crate_access() -> syn::Result<proc_macro2::Ident> {
 	use proc_macro2::{Ident, Span};
 	use proc_macro_crate::{crate_name, FoundCrate};
-	const DEF_CRATE: &str = "parity-scale-codec";
+	const DEF_CRATE: &str = "jam-codec";
 	match crate_name(DEF_CRATE) {
 		Ok(FoundCrate::Itself) => {
 			let name = DEF_CRATE.to_string().replace('-', "_");

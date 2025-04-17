@@ -21,8 +21,8 @@ use std::{
 #[cfg(feature = "bit-vec")]
 use bitvec::{order::Lsb0, vec::BitVec};
 use criterion::{black_box, criterion_group, criterion_main, Bencher, Criterion};
-use parity_scale_codec::*;
-use parity_scale_codec_derive::{Decode, Encode};
+use jam_codec::*;
+use jam_codec_derive::{Decode, Encode};
 
 fn array_vec_write_u128(b: &mut Bencher) {
 	b.iter(|| {

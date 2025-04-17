@@ -14,14 +14,14 @@
 // limitations under the License.
 
 use core::fmt::Debug;
-use parity_scale_codec::{
+use jam_codec::{
 	alloc::{
 		collections::{BTreeMap, BTreeSet, LinkedList, VecDeque},
 		rc::Rc,
 	},
 	DecodeWithMemLimit, DecodeWithMemTracking, Encode, Error, MemTrackingInput,
 };
-use parity_scale_codec_derive::{
+use jam_codec_derive::{
 	Decode as DeriveDecode, DecodeWithMemTracking as DeriveDecodeWithMemTracking,
 	Encode as DeriveEncode,
 };
@@ -80,7 +80,7 @@ fn decode_simple_objects_works() {
 	assert!(decode_object(Box::new(ARRAY), usize::MAX, 1000).is_ok());
 	#[cfg(target_has_atomic = "ptr")]
 	{
-		use parity_scale_codec::alloc::sync::Arc;
+		use jam_codec::alloc::sync::Arc;
 		assert!(decode_object(Arc::new(ARRAY), usize::MAX, 1000).is_ok());
 	}
 	assert!(decode_object(Rc::new(ARRAY), usize::MAX, 1000).is_ok());

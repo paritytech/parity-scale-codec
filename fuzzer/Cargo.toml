@@ -1,13 +1,12 @@
 [package]
-name = "codec-fuzzer"
+name = "jam-codec-fuzzer"
 version = "0.1.0"
 authors = ["Parity Technologies <admin@parity.io>", "Vincent Ulitzsch <vincent@srlabs.de>"]
 edition = "2021"
-rust-version = "1.56.1"
 publish = false
 
 [dependencies]
-parity-scale-codec = { path = "..", features = ["derive", "bit-vec", "fuzz"] }
+jam-codec = { path = "..", features = ["derive", "bit-vec", "fuzz"] }
 honggfuzz = "0.5.57"
 arbitrary = { version = "1.4.1", features = ["derive"] }
 bitvec = { version = "1", features = ["alloc"] }

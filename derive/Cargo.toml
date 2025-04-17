@@ -1,6 +1,6 @@
 [package]
-name = "parity-scale-codec-derive"
-description = "Serialization and deserialization derive macro for Parity SCALE Codec"
+name = "jam-codec-derive"
+description = "Serialization and deserialization derive macro for JAM Codec"
 version.workspace = true
 authors.workspace = true
 license.workspace = true
@@ -18,7 +18,7 @@ proc-macro2 = "1.0.94"
 proc-macro-crate = "3.1.0"
 
 [dev-dependencies]
-parity-scale-codec = { path = "..", features = ["derive", "max-encoded-len"] }
+jam-codec = { path = "..", features = ["derive", "max-encoded-len"] }
 
 [features]
 # Enables the new `MaxEncodedLen` trait.

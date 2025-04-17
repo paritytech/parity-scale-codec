@@ -1,12 +1,12 @@
-#[derive(::parity_scale_codec::Decode, ::parity_scale_codec::Encode)]
-#[codec(crate = ::parity_scale_codec)]
+#[derive(::jam_codec::Decode, ::jam_codec::Encode)]
+#[codec(crate = ::jam_codec)]
 enum T {
 	A = 1,
 	B,
 }
 
-#[derive(::parity_scale_codec::Decode, ::parity_scale_codec::Encode)]
-#[codec(crate = ::parity_scale_codec)]
+#[derive(::jam_codec::Decode, ::jam_codec::Encode)]
+#[codec(crate = ::jam_codec)]
 enum T2 {
 	#[codec(index = 1)]
 	A,

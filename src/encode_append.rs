@@ -33,7 +33,7 @@ pub trait EncodeAppend {
 	/// # Example
 	///
 	/// ```
-	/// # use parity_scale_codec::EncodeAppend;
+	/// # use jam_codec::EncodeAppend;
 	///
 	/// // Some encoded data
 	/// let data = Vec::new();

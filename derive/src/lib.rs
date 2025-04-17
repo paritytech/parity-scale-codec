@@ -49,7 +49,7 @@ fn wrap_with_dummy_const(
 	generated.into()
 }
 
-/// Derive `parity_scale_codec::Encode` and `parity_scale_codec::EncodeLike` for struct and enum.
+/// Derive `jam_codec::Encode` and `jam_codec::EncodeLike` for struct and enum.
 ///
 /// # Top level attributes
 ///
@@ -67,15 +67,15 @@ fn wrap_with_dummy_const(
 /// Fields can have some attributes:
 /// * `#[codec(skip)]`: the field is not encoded. It must derive `Default` if Decode is derived.
 /// * `#[codec(compact)]`: the field is encoded in its compact representation i.e. the field must
-///   implement `parity_scale_codec::HasCompact` and will be encoded as `HasCompact::Type`.
+///   implement `jam_codec::HasCompact` and will be encoded as `HasCompact::Type`.
 /// * `#[codec(encoded_as = "$EncodeAs")]`: the field is encoded as an alternative type. $EncodedAs
-///   type must implement `parity_scale_codec::EncodeAsRef<'_, $FieldType>` with $FieldType the type
+///   type must implement `jam_codec::EncodeAsRef<'_, $FieldType>` with $FieldType the type
 ///   of the field with the attribute. This is intended to be used for types implementing
 ///   `HasCompact` as shown in the example.
 ///
 /// ```
-/// # use parity_scale_codec_derive::Encode;
-/// # use parity_scale_codec::{Encode as _, HasCompact};
+/// # use jam_codec_derive::Encode;
+/// # use jam_codec::{Encode as _, HasCompact};
 /// #[derive(Encode)]
 /// struct StructType {
 ///     #[codec(skip)]
@@ -104,8 +104,8 @@ fn wrap_with_dummy_const(
 /// field attributes: same as struct fields attributes.
 ///
 /// ```
-/// # use parity_scale_codec_derive::Encode;
-/// # use parity_scale_codec::Encode as _;
+/// # use jam_codec_derive::Encode;
+/// # use jam_codec::Encode as _;
 /// #[derive(Encode)]
 /// enum EnumType {
 ///     #[codec(index = 15)]
@@ -169,7 +169,7 @@ pub fn encode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 	wrap_with_dummy_const(input, impl_block)
 }
 
-/// Derive `parity_scale_codec::Decode` for struct and enum.
+/// Derive `jam_codec::Decode` for struct and enum.
 ///
 /// see derive `Encode` documentation.
 #[proc_macro_derive(Decode, attributes(codec))]
@@ -242,7 +242,7 @@ pub fn decode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 	wrap_with_dummy_const(input, impl_block)
 }
 
-/// Derive `parity_scale_codec::DecodeWithMemTracking` for struct and enum.
+/// Derive `jam_codec::DecodeWithMemTracking` for struct and enum.
 #[proc_macro_derive(DecodeWithMemTracking, attributes(codec))]
 pub fn decode_with_mem_tracking_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 	let mut input: DeriveInput = match syn::parse(input) {
@@ -291,7 +291,7 @@ pub fn decode_with_mem_tracking_derive(input: proc_macro::TokenStream) -> proc_m
 	wrap_with_dummy_const(input, impl_block)
 }
 
-/// Derive `parity_scale_codec::Compact` and `parity_scale_codec::CompactAs` for struct with single
+/// Derive `jam_codec::Compact` and `jam_codec::CompactAs` for struct with single
 /// field.
 ///
 /// Attribute skip can be used to skip other fields.
@@ -299,8 +299,8 @@ pub fn decode_with_mem_tracking_derive(input: proc_macro::TokenStream) -> proc_m
 /// # Example
 ///
 /// ```
-/// # use parity_scale_codec_derive::CompactAs;
-/// # use parity_scale_codec::{Encode, HasCompact};
+/// # use jam_codec_derive::CompactAs;
+/// # use jam_codec::{Encode, HasCompact};
 /// # use std::marker::PhantomData;
 /// #[derive(CompactAs)]
 /// struct MyWrapper<T>(u32, #[codec(skip)] PhantomData<T>);
@@ -411,15 +411,15 @@ pub fn compact_as_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStr
 	wrap_with_dummy_const(input, impl_block)
 }
 
-/// Derive `parity_scale_codec::MaxEncodedLen` for struct and enum.
+/// Derive `jam_codec::MaxEncodedLen` for struct and enum.
 ///
 /// # Top level attribute
 ///
 /// By default the macro will try to bound the types needed to implement `MaxEncodedLen`, but the
 /// bounds can be specified manually with the top level attribute:
 /// ```
-/// # use parity_scale_codec_derive::Encode;
-/// # use parity_scale_codec::MaxEncodedLen;
+/// # use jam_codec_derive::Encode;
+/// # use jam_codec::MaxEncodedLen;
 /// # #[derive(Encode, MaxEncodedLen)]
 /// #[codec(mel_bound(T: MaxEncodedLen))]
 /// # struct MyWrapper<T>(T);

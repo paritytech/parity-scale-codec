@@ -16,7 +16,7 @@
 //! Tests for MaxEncodedLen derive macro
 #![cfg(all(feature = "derive", feature = "max-encoded-len"))]
 
-use parity_scale_codec::{Compact, Decode, Encode, MaxEncodedLen};
+use jam_codec::{Compact, Decode, Encode, MaxEncodedLen};
 
 #[derive(Encode, MaxEncodedLen)]
 struct Primitives {

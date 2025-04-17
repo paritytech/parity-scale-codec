@@ -1,5 +1,5 @@
-use parity_scale_codec::{Compact, Decode, DecodeWithMemTracking, Encode, HasCompact};
-use parity_scale_codec_derive::{
+use jam_codec::{Compact, Decode, DecodeWithMemTracking, Encode, HasCompact};
+use jam_codec_derive::{
 	CompactAs as DeriveCompactAs, Decode as DeriveDecode,
 	DecodeWithMemTracking as DeriveDecodeWithMemTracking, Encode as DeriveEncode,
 };
@@ -124,16 +124,16 @@ fn test_encoding() {
 
 	let mut s_encoded: &[u8] = &[3, 0, 0, 0];
 	let mut s_skip_encoded: &[u8] = &[3, 0, 0, 0];
-	let mut sc_encoded: &[u8] = &[12];
-	let mut sh_encoded: &[u8] = &[12];
+	let mut sc_encoded: &[u8] = &[3];
+	let mut sh_encoded: &[u8] = &[3];
 	let mut u_encoded: &[u8] = &[3, 0, 0, 0];
 	let mut u_skip_encoded: &[u8] = &[3, 0, 0, 0];
-	let mut uc_encoded: &[u8] = &[12];
-	let mut ucom_encoded: &[u8] = &[12];
-	let mut ucas_encoded: &[u8] = &[12];
-	let mut u_skip_cas_encoded: &[u8] = &[12];
-	let mut s_skip_cas_encoded: &[u8] = &[12];
-	let mut uh_encoded: &[u8] = &[12];
+	let mut uc_encoded: &[u8] = &[3];
+	let mut ucom_encoded: &[u8] = &[3];
+	let mut ucas_encoded: &[u8] = &[3];
+	let mut u_skip_cas_encoded: &[u8] = &[3];
+	let mut s_skip_cas_encoded: &[u8] = &[3];
+	let mut uh_encoded: &[u8] = &[3];
 
 	assert_eq!(s.encode(), s_encoded);
 	assert_eq!(s_skip.encode(), s_skip_encoded);
