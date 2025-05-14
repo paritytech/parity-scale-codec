@@ -1064,6 +1064,9 @@ impl<'a, T: ToOwned + DecodeWithMemTracking> DecodeWithMemTracking for Cow<'a, T
 {
 }
 
+// Special case for Cow<'static, str> since str is not implementing DecodeWithMemTracking
+impl DecodeWithMemTracking for Cow<'static, str> {}
+
 impl<T> EncodeLike for PhantomData<T> {}
 
 impl<T> Encode for PhantomData<T> {
