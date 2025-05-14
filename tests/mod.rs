@@ -15,8 +15,7 @@
 use std::borrow::Cow;
 
 use parity_scale_codec::{
-	Compact, CompactAs, Decode, DecodeWithMemTracking, Encode, EncodeAsRef, Error, HasCompact,
-	Output,
+	Compact, CompactAs, Decode, DecodeWithMemLimit, DecodeWithMemTracking, Encode, EncodeAsRef, Error, HasCompact, Output
 };
 use parity_scale_codec_derive::{
 	Decode as DeriveDecode, DecodeWithMemTracking as DeriveDecodeWithMemTracking,
@@ -968,4 +967,13 @@ fn derive_decode_for_enum_with_lifetime_param_and_struct_like_variant() {
 	let data = objs.encode();
 	let objs_d = Vec::<Enum>::decode(&mut &data[..]).unwrap();
 	assert_eq!(objs_d, objs);
+}
+
+#[test]
+fn cow_str_decode_with_mem_tracking() {
+	let data = Cow::<'static, str>::from("hello");
+	let encoded = data.encode();
+
+	let decoded = Cow::<'static, str>::decode_with_mem_limit(&mut &encoded[..], 6).unwrap();
+	assert_eq!(data, decoded);
 }
