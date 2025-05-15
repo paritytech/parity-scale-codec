@@ -15,7 +15,8 @@
 use std::borrow::Cow;
 
 use parity_scale_codec::{
-	Compact, CompactAs, Decode, DecodeWithMemLimit, DecodeWithMemTracking, Encode, EncodeAsRef, Error, HasCompact, Output
+	Compact, CompactAs, Decode, DecodeWithMemLimit, DecodeWithMemTracking, Encode, EncodeAsRef,
+	Error, HasCompact, Output,
 };
 use parity_scale_codec_derive::{
 	Decode as DeriveDecode, DecodeWithMemTracking as DeriveDecodeWithMemTracking,
