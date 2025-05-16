@@ -1059,8 +1059,10 @@ where
 	}
 }
 
-impl<'a, T: ToOwned + DecodeWithMemTracking> DecodeWithMemTracking for Cow<'a, T> where
-	Cow<'a, T>: Decode
+impl<'a, T: ToOwned + ?Sized> DecodeWithMemTracking for Cow<'a, T>
+where
+	Cow<'a, T>: Decode,
+	T::Owned: DecodeWithMemTracking,
 {
 }
 
