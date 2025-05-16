@@ -96,7 +96,7 @@ impl<O: BitOrder, T: BitStore + Decode> DecodeWithMemTracking for BitBox<T, O> {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::{codec::MAX_PREALLOCATION, CompactLen};
+	use crate::{codec::INITIAL_PREALLOCATION, CompactLen};
 	use bitvec::{
 		bitvec,
 		order::{Lsb0, Msb0},
@@ -128,10 +128,10 @@ mod tests {
 				bitvec![$inner_type, Msb0; 0; 63],
 				bitvec![$inner_type, Msb0; 1; 64],
 				bitvec![$inner_type, Msb0; 0; 65],
-				bitvec![$inner_type, Msb0; 1; MAX_PREALLOCATION * 8 + 1],
-				bitvec![$inner_type, Msb0; 0; MAX_PREALLOCATION * 9],
-				bitvec![$inner_type, Msb0; 1; MAX_PREALLOCATION * 32 + 1],
-				bitvec![$inner_type, Msb0; 0; MAX_PREALLOCATION * 33],
+				bitvec![$inner_type, Msb0; 1; INITIAL_PREALLOCATION * 8 + 1],
+				bitvec![$inner_type, Msb0; 0; INITIAL_PREALLOCATION * 9],
+				bitvec![$inner_type, Msb0; 1; INITIAL_PREALLOCATION * 32 + 1],
+				bitvec![$inner_type, Msb0; 0; INITIAL_PREALLOCATION * 33],
 			]
 		)
 	}
