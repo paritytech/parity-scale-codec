@@ -23,7 +23,7 @@ impl-trait-for-tuples = "0.2.3"
 const_format = { version = "0.2.34" }
 
 [dev-dependencies]
-criterion = "0.5.1"
+criterion = "0.6.0"
 serde_derive = { version = "1.0" }
 parity-scale-codec-derive = { path = "derive", default-features = false }
 quickcheck = "1.0"
