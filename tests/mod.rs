@@ -978,3 +978,22 @@ fn cow_str_decode_with_mem_tracking() {
 	let decoded = Cow::<'static, str>::decode_with_mem_limit(&mut &encoded[..], 6).unwrap();
 	assert_eq!(data, decoded);
 }
+
+#[test]
+fn issue_747_enum_with_group_id_compiles() {
+	// Test case for issue #747: Clippy errors with 'casting usize to u8 may truncate the value'
+	pub type GroupId = u32;
+
+	#[derive(Debug, Clone, PartialEq, DeriveEncode, DeriveDecode, Default)]
+	pub enum PostVisibility {
+		#[default]
+		Public,
+		Supporter,
+		Group(GroupId),
+	}
+
+	let visibility = PostVisibility::Group(123);
+	let encoded = visibility.encode();
+	let decoded = PostVisibility::decode(&mut &encoded[..]).unwrap();
+	assert_eq!(visibility, decoded);
+}
