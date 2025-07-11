@@ -624,6 +624,7 @@ impl<T> WrapperTypeDecode for Arc<T> {
 }
 
 // `Arc<T>` uses `Box::<T>::decode()` internally, so it supports `DecodeWithMemTracking`.
+#[cfg(target_has_atomic = "ptr")]
 impl<T: DecodeWithMemTracking> DecodeWithMemTracking for Arc<T> {}
 
 impl<T, X> Decode for X
