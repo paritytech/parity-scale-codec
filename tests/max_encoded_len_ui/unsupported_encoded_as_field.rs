@@ -4,6 +4,7 @@ use parity_scale_codec::{Encode, EncodeAsRef, MaxEncodedLen};
 struct NotMel;
 
 impl<'a> EncodeAsRef<'a, u32> for NotMel {
+	// Obviously broken but will do for this test
 	type RefType = &'a u32;
 }
 
