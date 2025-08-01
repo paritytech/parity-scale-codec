@@ -17,10 +17,13 @@
 
 use crate::{
 	trait_bounds,
-	utils::{codec_crate_path, custom_mel_trait_bound, has_dumb_trait_bound, should_skip},
+	utils::{
+		codec_crate_path, custom_mel_trait_bound, get_compact_type, get_encoded_as_type,
+		has_dumb_trait_bound, should_skip,
+	},
 };
-use quote::{quote, quote_spanned};
-use syn::{parse_quote, spanned::Spanned, Data, DeriveInput, Field, Fields};
+use quote::{quote, ToTokens};
+use syn::{parse_quote, spanned::Spanned, Data, DeriveInput, Error, Field, Fields};
 
 /// impl for `#[derive(MaxEncodedLen)]`
 pub fn derive_max_encoded_len(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
@@ -79,19 +82,21 @@ fn fields_length_expr(fields: &Fields, crate_path: &syn::Path) -> proc_macro2::T
 	//   0
 	//     .saturating_add(<type of first field>::max_encoded_len())
 	//     .saturating_add(<type of second field>::max_encoded_len())
-	//
-	// We match the span of each field to the span of the corresponding
-	// `max_encoded_len` call. This way, if one field's type doesn't implement
-	// `MaxEncodedLen`, the compiler's error message will underline which field
-	// caused the issue.
-	let expansion = fields_iter.map(|field| {
-		let ty = &field.ty;
-		quote_spanned! {
-			ty.span() => .saturating_add(<#ty as #crate_path::MaxEncodedLen>::max_encoded_len())
+	let types = fields_iter.map(|field| {
+		match (get_encoded_as_type(field), get_compact_type(field, crate_path)) {
+			(Some(encoded_as), None) => encoded_as,
+			(None, Some(compact)) => compact,
+			(None, None) => field.ty.to_token_stream(),
+			(Some(_), Some(_)) =>
+				return Error::new(
+					field.span(),
+					"`encoded_as` and `compact` can not be used at the same time!",
+				)
+				.to_compile_error(),
 		}
 	});
 	quote! {
-		0_usize #( #expansion )*
+		0_usize #( .saturating_add(<#types as #crate_path::MaxEncodedLen>::max_encoded_len()) )*
 	}
 }
 
