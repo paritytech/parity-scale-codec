@@ -12,7 +12,7 @@ jobs:
     container: paritytech/ci-unified:bullseye-1.79.0
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Cache Rust dependencies
         uses: swatinem/rust-cache@v2
