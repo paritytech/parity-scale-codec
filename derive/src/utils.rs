@@ -164,7 +164,7 @@ pub fn get_encoded_as_type(field: &Field) -> Option<TokenStream> {
 			if nv.path.is_ident("encoded_as") {
 				if let Expr::Lit(ExprLit { lit: Lit::Str(ref s), .. }) = nv.value {
 					return Some(
-						TokenStream::from_str(&s.value())
+						s.parse()
 							.expect("Internal error, encoded_as attribute must have been checked"),
 					);
 				}

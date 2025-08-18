@@ -12,9 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::borrow::Cow;
+
 use jam_codec::{
-	Compact, CompactAs, Decode, DecodeWithMemTracking, Encode, EncodeAsRef, Error, HasCompact,
-	Output,
+	Compact, CompactAs, Decode, DecodeWithMemLimit, DecodeWithMemTracking, Encode, EncodeAsRef,
+	Error, HasCompact, Output,
 };
 use jam_codec_derive::{
 	Decode as DeriveDecode, DecodeWithMemTracking as DeriveDecodeWithMemTracking,
@@ -940,4 +942,58 @@ fn non_literal_variant_discriminant() {
 		A = A,
 		B = A + 1,
 	}
+}
+
+#[test]
+fn derive_decode_for_enum_with_lifetime_param_and_struct_like_variant() {
+	// An enum that has a lifetime parameter and a struct-like variant.
+	#[derive(PartialEq, Eq, Debug, DeriveDecode, DeriveEncode)]
+	enum Enum<'a> {
+		StructLike { val: u8 },
+		// For completeness, also check a struct-like variant that actually uses the lifetime,
+		// as well as the corresponding tuple-like variants.
+		StructLikeCow { val: Cow<'a, u8> },
+		TupleLike(u8),
+		TupleLikeCow(Cow<'a, u8>),
+	}
+
+	let val = 123;
+	let objs = vec![
+		Enum::StructLike { val: 234 },
+		Enum::StructLikeCow { val: Cow::Borrowed(&val) },
+		Enum::TupleLike(234),
+		Enum::TupleLikeCow(Cow::Borrowed(&val)),
+	];
+
+	let data = objs.encode();
+	let objs_d = Vec::<Enum>::decode(&mut &data[..]).unwrap();
+	assert_eq!(objs_d, objs);
+}
+
+#[test]
+fn cow_str_decode_with_mem_tracking() {
+	let data = Cow::<'static, str>::from("hello");
+	let encoded = data.encode();
+
+	let decoded = Cow::<'static, str>::decode_with_mem_limit(&mut &encoded[..], 6).unwrap();
+	assert_eq!(data, decoded);
+}
+
+#[test]
+fn issue_747_enum_with_group_id_compiles() {
+	// Test case for issue #747: Clippy errors with 'casting usize to u8 may truncate the value'
+	pub type GroupId = u32;
+
+	#[derive(Debug, Clone, PartialEq, DeriveEncode, DeriveDecode, Default)]
+	pub enum PostVisibility {
+		#[default]
+		Public,
+		Supporter,
+		Group(GroupId),
+	}
+
+	let visibility = PostVisibility::Group(123);
+	let encoded = visibility.encode();
+	let decoded = PostVisibility::decode(&mut &encoded[..]).unwrap();
+	assert_eq!(visibility, decoded);
 }

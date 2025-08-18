@@ -16,7 +16,7 @@
 //! Tests for MaxEncodedLen derive macro
 #![cfg(all(feature = "derive", feature = "max-encoded-len"))]
 
-use jam_codec::{Compact, Decode, Encode, MaxEncodedLen};
+use jam_codec::{Compact, Decode, Encode, EncodeAsRef, MaxEncodedLen};
 
 #[derive(Encode, MaxEncodedLen)]
 struct Primitives {
@@ -191,6 +191,65 @@ enum EnumMaxNotSum {
 #[test]
 fn enum_max_not_sum_max_length() {
 	assert_eq!(EnumMaxNotSum::max_encoded_len(), 1 + u32::max_encoded_len());
+}
+
+#[derive(Encode, MaxEncodedLen)]
+struct CompactField {
+	#[codec(compact)]
+	a: u32,
+	b: u32,
+}
+
+#[test]
+fn compact_field_max_length() {
+	assert_eq!(
+		CompactField::max_encoded_len(),
+		Compact::<u32>::max_encoded_len() + u32::max_encoded_len()
+	);
+}
+
+#[derive(Encode, MaxEncodedLen)]
+#[allow(unused)]
+enum CompactVariant {
+	A(u8),
+	B(#[codec(compact)] u32),
+}
+
+#[test]
+fn compact_variant_max_length() {
+	assert_eq!(CompactVariant::max_encoded_len(), 1 + Compact::<u32>::max_encoded_len());
+}
+
+#[derive(Encode, MaxEncodedLen)]
+struct U64(u64);
+
+impl<'a> EncodeAsRef<'a, u32> for U64 {
+	// Obviously broken but will do for this test
+	type RefType = &'a u32;
+}
+
+#[derive(Encode, MaxEncodedLen)]
+struct EncodedAsField {
+	a: u32,
+	#[codec(encoded_as = "U64")]
+	b: u32,
+}
+
+#[test]
+fn encoded_as_field_max_length() {
+	assert_eq!(EncodedAsField::max_encoded_len(), u32::max_encoded_len() + U64::max_encoded_len());
+}
+
+#[derive(Encode, MaxEncodedLen)]
+#[allow(unused)]
+enum EncodedAsVariant {
+	A(#[codec(encoded_as = "U64")] u32),
+	B(u32),
+}
+
+#[test]
+fn encoded_as_variant_max_length() {
+	assert_eq!(EncodedAsVariant::max_encoded_len(), 1 + U64::max_encoded_len());
 }
 
 #[test]

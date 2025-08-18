@@ -15,12 +15,13 @@
 use std::{
 	any::type_name,
 	convert::{TryFrom, TryInto},
+	hint::black_box,
 	time::Duration,
 };
 
 #[cfg(feature = "bit-vec")]
 use bitvec::{order::Lsb0, vec::BitVec};
-use criterion::{black_box, criterion_group, criterion_main, Bencher, Criterion};
+use criterion::{criterion_group, criterion_main, Bencher, Criterion};
 use jam_codec::*;
 use jam_codec_derive::{Decode, Encode};
 

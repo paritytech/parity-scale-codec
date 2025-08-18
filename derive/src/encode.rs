@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::str::from_utf8;
-
 use proc_macro2::{Ident, Span, TokenStream};
 use syn::{punctuated::Punctuated, spanned::Spanned, token::Comma, Data, Error, Field, Fields};
 
@@ -344,9 +342,8 @@ fn impl_encode(data: &Data, type_name: &Ident, crate_path: &syn::Path) -> TokenS
 					Fields::Unnamed(ref fields) => {
 						let fields = &fields.unnamed;
 						let field_name = |i, _: &Option<Ident>| {
-							let data = stringify(i as u8);
-							let ident = from_utf8(&data).expect("We never go beyond ASCII");
-							let ident = Ident::new(ident, Span::call_site());
+							let ident =
+								Ident::new(&format!("__unnamed_field_{i}__"), Span::call_site());
 							quote!(#ident)
 						};
 
@@ -444,14 +441,4 @@ pub fn quote(data: &Data, type_name: &Ident, crate_path: &syn::Path) -> TokenStr
 	} else {
 		impl_encode(data, type_name, crate_path)
 	}
-}
-
-pub fn stringify(id: u8) -> [u8; 2] {
-	const CHARS: &[u8] = b"abcdefghijklmnopqrstuvwxyz";
-	let len = CHARS.len() as u8;
-	let symbol = |id: u8| CHARS[(id % len) as usize];
-	let a = symbol(id);
-	let b = symbol(id / len);
-
-	[a, b]
 }

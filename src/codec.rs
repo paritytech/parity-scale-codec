@@ -48,7 +48,7 @@ use crate::{
 	DecodeFinished, Error,
 };
 
-pub(crate) const MAX_PREALLOCATION: usize = 16 * 1024;
+pub(crate) const INITIAL_PREALLOCATION: usize = 16 * 1024;
 const A_BILLION: u32 = 1_000_000_000;
 
 /// Trait that allows reading of data into a slice.
@@ -624,6 +624,7 @@ impl<T> WrapperTypeDecode for Arc<T> {
 }
 
 // `Arc<T>` uses `Box::<T>::decode()` internally, so it supports `DecodeWithMemTracking`.
+#[cfg(target_has_atomic = "ptr")]
 impl<T: DecodeWithMemTracking> DecodeWithMemTracking for Arc<T> {}
 
 impl<T, X> Decode for X
@@ -1059,8 +1060,10 @@ where
 	}
 }
 
-impl<'a, T: ToOwned + DecodeWithMemTracking> DecodeWithMemTracking for Cow<'a, T> where
-	Cow<'a, T>: Decode
+impl<'a, T: ToOwned + ?Sized> DecodeWithMemTracking for Cow<'a, T>
+where
+	Cow<'a, T>: Decode,
+	T::Owned: DecodeWithMemTracking,
 {
 }
 
@@ -1119,21 +1122,22 @@ fn decode_vec_chunked<T, I: Input, F>(
 where
 	F: FnMut(&mut I, &mut Vec<T>, usize) -> Result<(), Error>,
 {
-	// const { assert!(MAX_PREALLOCATION >= mem::size_of::<T>()) }
+	// const { assert!(INITIAL_PREALLOCATION >= mem::size_of::<T>()) }
 	// we have to account for the fact that `mem::size_of::<T>` can be 0 for types like `()`
 	// for example.
-	let chunk_len = MAX_PREALLOCATION.checked_div(mem::size_of::<T>()).unwrap_or(usize::MAX);
+	let mut chunk_len = INITIAL_PREALLOCATION.checked_div(mem::size_of::<T>()).unwrap_or(1);
 
 	let mut decoded_vec = vec![];
 	let mut num_undecoded_items = len;
 	while num_undecoded_items > 0 {
-		let chunk_len = chunk_len.min(num_undecoded_items);
-		input.on_before_alloc_mem(chunk_len.saturating_mul(mem::size_of::<T>()))?;
-		decoded_vec.reserve_exact(chunk_len);
+		let bounded_chunk_len = chunk_len.min(num_undecoded_items);
+		input.on_before_alloc_mem(bounded_chunk_len.saturating_mul(mem::size_of::<T>()))?;
+		decoded_vec.reserve_exact(bounded_chunk_len);
 
-		decode_chunk(input, &mut decoded_vec, chunk_len)?;
+		decode_chunk(input, &mut decoded_vec, bounded_chunk_len)?;
 
-		num_undecoded_items -= chunk_len;
+		num_undecoded_items -= bounded_chunk_len;
+		chunk_len = decoded_vec.len();
 	}
 
 	Ok(decoded_vec)
@@ -1142,7 +1146,7 @@ where
 /// Create a `Vec<T>` by casting directly from a buffer of read `u8`s
 ///
 /// The encoding of `T` must be equal to its binary representation, and size of `T` must be less
-/// or equal to [`MAX_PREALLOCATION`].
+/// or equal to [`INITIAL_PREALLOCATION`].
 fn read_vec_from_u8s<T, I>(input: &mut I, len: usize) -> Result<Vec<T>, Error>
 where
 	T: ToMutByteSlice + Default + Clone,
@@ -1989,7 +1993,7 @@ mod tests {
 			}
 		}
 
-		let len = MAX_PREALLOCATION * 2 + 1;
+		let len = INITIAL_PREALLOCATION * 2 + 1;
 		let mut i = Compact(len as u32).encode();
 		i.resize(i.len() + len, 0);
 		assert_eq!(<Vec<u8>>::decode(&mut NoLimit(&i[..])).unwrap(), vec![0u8; len]);

@@ -8,5 +8,5 @@ publish = false
 [dependencies]
 jam-codec = { path = "..", features = ["derive", "bit-vec", "fuzz"] }
 honggfuzz = "0.5.57"
-arbitrary = { version = "1.4.1", features = ["derive"] }
+arbitrary = { version = "1.4.2", features = ["derive"] }
 bitvec = { version = "1", features = ["alloc"] }

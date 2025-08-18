@@ -1,0 +1,16 @@
+error[E0277]: the trait bound `NotMel: MaxEncodedLen` is not satisfied
+  --> tests/max_encoded_len_ui/unsupported_encoded_as_field.rs:14:23
+   |
+14 |     #[codec(encoded_as = "NotMel")]
+   |                          ^^^^^^^^ the trait `MaxEncodedLen` is not implemented for `NotMel`
+   |
+   = help: the following other types implement trait `MaxEncodedLen`:
+             ()
+             (TupleElement0, TupleElement1)
+             (TupleElement0, TupleElement1, TupleElement2)
+             (TupleElement0, TupleElement1, TupleElement2, TupleElement3)
+             (TupleElement0, TupleElement1, TupleElement2, TupleElement3, TupleElement4)
+             (TupleElement0, TupleElement1, TupleElement2, TupleElement3, TupleElement4, TupleElement5)
+             (TupleElement0, TupleElement1, TupleElement2, TupleElement3, TupleElement4, TupleElement5, TupleElement6)
+             (TupleElement0, TupleElement1, TupleElement2, TupleElement3, TupleElement4, TupleElement5, TupleElement6, TupleElement7)
+           and $N others

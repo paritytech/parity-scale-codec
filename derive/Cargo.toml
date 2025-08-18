@@ -14,8 +14,8 @@ proc-macro = true
 [dependencies]
 syn = { version = "2", features = ["full", "visit"] }
 quote = "1.0.40"
-proc-macro2 = "1.0.94"
-proc-macro-crate = "3.1.0"
+proc-macro2 = "1.0.97"
+proc-macro-crate = "3.3.0"
 
 [dev-dependencies]
 jam-codec = { path = "..", features = ["derive", "max-encoded-len"] }

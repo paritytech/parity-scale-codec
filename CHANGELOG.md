@@ -7,6 +7,17 @@ and this crate adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 
 ## Unreleased
 
+### [3.7.5] - 2025-05-20
+
+### Fixed
+
+- Implement `on_before_alloc_mem()` for `CountedInput` [#716](https://github.com/paritytech/parity-scale-codec/pull/716)
+- Fix derive(Decode) for enums with lifetime parameters and struct-like variants
+  [#726](https://github.com/paritytech/parity-scale-codec/pull/726)
+- Fix performance regression ([#731](https://github.com/paritytech/parity-scale-codec/pull/731))
+- Fix `DecodeWithMemTracking` bounds for `Cow` [#735](https://github.com/paritytech/parity-scale-codec/pull/735)
+
+
 ### [3.7.4] - 2025-02-05
 
 ### Added
