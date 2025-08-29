@@ -30,11 +30,11 @@ quickcheck = "1.0"
 proptest = "1.7.0"
 trybuild = "1.0.110"
 paste = "1"
-rustversion = "1"
+rustversion = "1.0.6"
 enumflags2 = "0.7.12"
 
 [build-dependencies]
-rustversion = "1"
+rustversion = "1.0.6"
 
 [[bench]]
 name = "benches"
