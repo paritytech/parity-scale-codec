@@ -29,7 +29,7 @@ jobs:
     container: ${{ needs.set-image.outputs.IMAGE }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
       - name: Show Cargo version
         run: cargo +nightly -vV
@@ -43,7 +43,7 @@ jobs:
     container: ${{ needs.set-image.outputs.IMAGE }}
     steps:
       - name: Checkout code/.
-        uses: actions/checkout@v5
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
       - name: Show Rust version
         run: |
@@ -52,7 +52,7 @@ jobs:
           rustup show
 
       - name: Cache Rust dependencies
-        uses: swatinem/rust-cache@v2
+        uses: swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0 # v2.8.0
         with:
           key: ${{ runner.os }}-rust-${{ hashFiles('**/Cargo.lock') }}
 
@@ -68,7 +68,7 @@ jobs:
     container: ${{ needs.set-image.outputs.IMAGE }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
       - name: Show Rust version
         run: |
@@ -77,7 +77,7 @@ jobs:
           rustup show
 
       - name: Cache Rust dependencies
-        uses: swatinem/rust-cache@v2
+        uses: swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0 # v2.8.0
         with:
           key: ${{ runner.os }}-rust-${{ hashFiles('**/Cargo.lock') }}
 
@@ -106,7 +106,7 @@ jobs:
     container: ${{ needs.set-image.outputs.IMAGE }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
       - name: Show Rust version
         run: |
@@ -115,7 +115,7 @@ jobs:
           rustup show
 
       - name: Cache Rust dependencies
-        uses: swatinem/rust-cache@v2
+        uses: swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0 # v2.8.0
         with:
           key: ${{ runner.os }}-rust-${{ hashFiles('**/Cargo.lock') }}
 
@@ -154,10 +154,10 @@ jobs:
     container: ${{ needs.set-image.outputs.IMAGE }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
       - name: Cache Rust dependencies
-        uses: swatinem/rust-cache@v2
+        uses: swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0 # v2.8.0
         with:
           key: ${{ runner.os }}-rust-${{ hashFiles('**/Cargo.lock') }}
 
@@ -175,10 +175,10 @@ jobs:
     container: ${{ needs.set-image.outputs.IMAGE }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
       - name: Cache Rust dependencies
-        uses: swatinem/rust-cache@v2
+        uses: swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0 # v2.8.0
         with:
           key: ${{ runner.os }}-rust-${{ hashFiles('**/Cargo.lock') }}
 
@@ -197,10 +197,10 @@ jobs:
     container: ${{ needs.set-image.outputs.IMAGE }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
       - name: Cache Rust dependencies
-        uses: swatinem/rust-cache@v2
+        uses: swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0 # v2.8.0
         with:
           key: ${{ runner.os }}-rust-${{ hashFiles('**/Cargo.lock') }}
 
@@ -213,10 +213,10 @@ jobs:
     container: ${{ needs.set-image.outputs.IMAGE }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
       - name: Cache Rust dependencies
-        uses: swatinem/rust-cache@v2
+        uses: swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0 # v2.8.0
         with:
           key: ${{ runner.os }}-rust-${{ hashFiles('**/Cargo.lock') }}
 
