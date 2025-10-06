@@ -20,7 +20,7 @@ byte-slice-cast = { version = "1.2.3", default-features = false }
 generic-array = { version = "0.14.7", optional = true }
 arbitrary = { version = "1.4.2", features = ["derive"], optional = true }
 impl-trait-for-tuples = "0.2.3"
-const_format = { version = "0.2.34" }
+const_format = { version = "0.2.35" }
 
 [dev-dependencies]
 criterion = "0.7.0"
