@@ -50,6 +50,10 @@ impl<I: Input> Input for DepthTrackingInput<'_, I> {
 		self.input.read_byte()
 	}
 
+	fn skip(&mut self, len: usize) -> Result<(), Error> {
+		self.input.skip(len)
+	}
+
 	fn descend_ref(&mut self) -> Result<(), Error> {
 		self.input.descend_ref()?;
 		self.depth += 1;
