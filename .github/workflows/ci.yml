@@ -7,7 +7,7 @@ on:
   pull_request:
 
 env:
-  IMAGE: paritytech/ci-unified:bullseye-1.81.0
+  IMAGE: paritytech/ci-unified:bullseye-1.84.0
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
