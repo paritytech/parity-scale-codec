@@ -449,15 +449,15 @@ fn check_field_attribute(attr: &Attribute) -> syn::Result<()> {
 			return Err(syn::Error::new(attr.meta.span(), field_error));
 		}
 		match nested.first().expect("Just checked that there is one item; qed") {
-			Meta::Path(path) if path.get_ident().map_or(false, |i| i == "skip") => Ok(()),
+			Meta::Path(path) if path.get_ident().is_some_and(|i| i == "skip") => Ok(()),
 
-			Meta::Path(path) if path.get_ident().map_or(false, |i| i == "compact") => Ok(()),
+			Meta::Path(path) if path.get_ident().is_some_and(|i| i == "compact") => Ok(()),
 
 			Meta::NameValue(MetaNameValue {
 				path,
 				value: Expr::Lit(ExprLit { lit: Lit::Str(lit_str), .. }),
 				..
-			}) if path.get_ident().map_or(false, |i| i == "encoded_as") =>
+			}) if path.get_ident().is_some_and(|i| i == "encoded_as") =>
 				TokenStream::from_str(&lit_str.value())
 					.map(|_| ())
 					.map_err(|_e| syn::Error::new(lit_str.span(), "Invalid token stream")),
@@ -482,13 +482,13 @@ fn check_variant_attribute(attr: &Attribute) -> syn::Result<()> {
 			return Err(syn::Error::new(attr.meta.span(), variant_error));
 		}
 		match nested.first().expect("Just checked that there is one item; qed") {
-			Meta::Path(path) if path.get_ident().map_or(false, |i| i == "skip") => Ok(()),
+			Meta::Path(path) if path.get_ident().is_some_and(|i| i == "skip") => Ok(()),
 
 			Meta::NameValue(MetaNameValue {
 				path,
 				value: Expr::Lit(ExprLit { lit: Lit::Int(_), .. }),
 				..
-			}) if path.get_ident().map_or(false, |i| i == "index") => Ok(()),
+			}) if path.get_ident().is_some_and(|i| i == "index") => Ok(()),
 
 			elt => Err(syn::Error::new(elt.span(), variant_error)),
 		}
@@ -516,8 +516,7 @@ fn check_top_attribute(attr: &Attribute) -> syn::Result<()> {
 			return Err(syn::Error::new(attr.meta.span(), top_error));
 		}
 		match nested.first().expect("Just checked that there is one item; qed") {
-			Meta::Path(path) if path.get_ident().map_or(false, |i| i == "dumb_trait_bound") =>
-				Ok(()),
+			Meta::Path(path) if path.get_ident().is_some_and(|i| i == "dumb_trait_bound") => Ok(()),
 
 			elt => Err(syn::Error::new(elt.span(), top_error)),
 		}
