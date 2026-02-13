@@ -73,6 +73,19 @@ impl<O: BitOrder, T: BitStore + Decode> Decode for BitVec<T, O> {
 			Ok(result)
 		})
 	}
+
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		let Compact(bits) = <Compact<u32>>::decode(input)?;
+		let len = bitvec::mem::elts::<T>(bits as usize);
+
+		// Attempt to get the fixed size and check for overflow
+		if let Some(size) = T::encoded_fixed_size().and_then(|size| size.checked_mul(len)) {
+			input.skip(size)
+		} else {
+			// Fallback when there is no fixed size or on overflow
+			Result::from_iter((0..len).map(|_| T::skip(input)))
+		}
+	}
 }
 
 impl<O: BitOrder, T: BitStore + Decode> DecodeWithMemTracking for BitVec<T, O> {}
@@ -88,6 +101,10 @@ impl<O: BitOrder, T: BitStore + Encode> EncodeLike for BitBox<T, O> {}
 impl<O: BitOrder, T: BitStore + Decode> Decode for BitBox<T, O> {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		Ok(BitVec::<T, O>::decode(input)?.into())
+	}
+
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		BitVec::<T, O>::skip(input)
 	}
 }
 
@@ -145,6 +162,10 @@ mod tests {
 			let elements = bitvec::mem::elts::<u8>(v.len());
 			let compact_len = Compact::compact_len(&(v.len() as u32));
 			assert_eq!(compact_len + elements, encoded.len(), "{}", v);
+
+			let input = &mut &encoded[..];
+			BitVec::<u8, Msb0>::skip(input).unwrap();
+			assert_eq!(input.remaining_len().unwrap(), Some(0));
 		}
 	}
 
@@ -157,6 +178,10 @@ mod tests {
 			let elements = bitvec::mem::elts::<u16>(v.len());
 			let compact_len = Compact::compact_len(&(v.len() as u32));
 			assert_eq!(compact_len + elements * 2, encoded.len(), "{}", v);
+
+			let input = &mut &encoded[..];
+			BitVec::<u16, Msb0>::skip(input).unwrap();
+			assert_eq!(input.remaining_len().unwrap(), Some(0));
 		}
 	}
 
@@ -169,6 +194,10 @@ mod tests {
 			let elements = bitvec::mem::elts::<u32>(v.len());
 			let compact_len = Compact::compact_len(&(v.len() as u32));
 			assert_eq!(compact_len + elements * 4, encoded.len(), "{}", v);
+
+			let input = &mut &encoded[..];
+			BitVec::<u32, Msb0>::skip(input).unwrap();
+			assert_eq!(input.remaining_len().unwrap(), Some(0));
 		}
 	}
 
@@ -181,6 +210,10 @@ mod tests {
 			let elements = bitvec::mem::elts::<u64>(v.len());
 			let compact_len = Compact::compact_len(&(v.len() as u32));
 			assert_eq!(compact_len + elements * 8, encoded.len(), "{}", v);
+
+			let input = &mut &encoded[..];
+			BitVec::<u64, Msb0>::skip(input).unwrap();
+			assert_eq!(input.remaining_len().unwrap(), Some(0));
 		}
 	}
 
@@ -201,6 +234,10 @@ mod tests {
 		let encoded = bb.encode();
 		let decoded = BitBox::<u8, Msb0>::decode(&mut &encoded[..]).unwrap();
 		assert_eq!(bb, decoded);
+
+		let input = &mut &encoded[..];
+		BitBox::<u8, Msb0>::skip(input).unwrap();
+		assert_eq!(input.remaining_len().unwrap(), Some(0));
 	}
 
 	#[test]

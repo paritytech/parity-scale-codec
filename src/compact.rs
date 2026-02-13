@@ -74,6 +74,14 @@ impl<'a, T: 'a + Input> Input for PrefixInput<'a, T> {
 			_ => self.input.read(buffer),
 		}
 	}
+
+	fn skip(&mut self, len: usize) -> Result<(), Error> {
+		if len == 0 {
+			return Ok(());
+		}
+
+		self.input.skip(len - self.prefix.take().is_some() as usize)
+	}
 }
 
 /// Something that can return the compact encoded length for a given value.
@@ -171,6 +179,10 @@ where
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		let as_ = Compact::<T::As>::decode(input)?;
 		Ok(Compact(<T as CompactAs>::decode_from(as_.0)?))
+	}
+
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		Compact::<T::As>::skip(input)
 	}
 }
 
@@ -379,7 +391,7 @@ impl Encode for CompactRef<'_, u64> {
 				let bytes_needed = 8 - self.0.leading_zeros() / 8;
 				assert!(
 					bytes_needed >= 4,
-					"Previous match arm matches anyting less than 2^30; qed"
+					"Previous match arm matches anything less than 2^30; qed"
 				);
 				dest.push_byte(0b11 + ((bytes_needed - 4) << 2) as u8);
 				let mut v = *self.0;
@@ -460,6 +472,10 @@ impl Decode for Compact<()> {
 	fn decode<I: Input>(_input: &mut I) -> Result<Self, Error> {
 		Ok(Compact(()))
 	}
+
+	fn encoded_fixed_size() -> Option<usize> {
+		Some(0)
+	}
 }
 
 impl DecodeWithMemTracking for Compact<()> {}
@@ -469,6 +485,16 @@ const U16_OUT_OF_RANGE: &str = "out of range decoding Compact<u16>";
 const U32_OUT_OF_RANGE: &str = "out of range decoding Compact<u32>";
 const U64_OUT_OF_RANGE: &str = "out of range decoding Compact<u64>";
 const U128_OUT_OF_RANGE: &str = "out of range decoding Compact<u128>";
+
+fn skip_compact<I: Input>(input: &mut I) -> Result<(), Error> {
+	let prefix = input.read_byte()?;
+	match prefix % 4 {
+		1 => input.skip(1),
+		2 => input.skip(3),
+		3 => input.skip(((prefix >> 2) + 4) as usize),
+		_ => Ok(()),
+	}
+}
 
 impl Decode for Compact<u8> {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
@@ -485,6 +511,10 @@ impl Decode for Compact<u8> {
 			},
 			_ => return Err("unexpected prefix decoding Compact<u8>".into()),
 		}))
+	}
+
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		skip_compact(input)
 	}
 }
 
@@ -513,6 +543,10 @@ impl Decode for Compact<u16> {
 			},
 			_ => return Err("unexpected prefix decoding Compact<u16>".into()),
 		}))
+	}
+
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		skip_compact(input)
 	}
 }
 
@@ -555,6 +589,10 @@ impl Decode for Compact<u32> {
 			},
 			_ => unreachable!(),
 		}))
+	}
+
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		skip_compact(input)
 	}
 }
 
@@ -613,6 +651,10 @@ impl Decode for Compact<u64> {
 			},
 			_ => unreachable!(),
 		}))
+	}
+
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		skip_compact(input)
 	}
 }
 
@@ -680,6 +722,10 @@ impl Decode for Compact<u128> {
 			_ => unreachable!(),
 		}))
 	}
+
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		skip_compact(input)
+	}
 }
 
 impl DecodeWithMemTracking for Compact<u128> {}
@@ -696,6 +742,17 @@ mod tests {
 		assert_eq!(input.read(&mut empty_buf[..]), Ok(()));
 		assert_eq!(input.remaining_len(), Ok(Some(4)));
 		assert_eq!(input.read_byte(), Ok(1));
+	}
+
+	#[test]
+	fn prefix_input_skip() {
+		let mut input = PrefixInput { prefix: Some(1), input: &mut &vec![2, 3, 4][..] };
+		assert_eq!(input.remaining_len(), Ok(Some(4)));
+		input.skip(0).unwrap();
+		assert_eq!(input.remaining_len(), Ok(Some(4)));
+		input.skip(2).unwrap();
+		assert_eq!(input.remaining_len(), Ok(Some(2)));
+		assert_eq!(input.read_byte(), Ok(3));
 	}
 
 	#[test]
@@ -1036,14 +1093,24 @@ mod tests {
 	}
 
 	macro_rules! quick_check_roundtrip {
-		( $( $ty:ty : $test:ident ),* ) => {
+		( $( $ty:ty : $test1:ident, $test2:ident ),* ) => {
 			$(
 				quickcheck::quickcheck! {
-					fn $test(v: $ty) -> bool {
+					fn $test1(v: $ty) -> bool {
 						let encoded = Compact(v).encode();
 						let deencoded = <Compact<$ty>>::decode(&mut &encoded[..]).unwrap().0;
 
 						v == deencoded
+					}
+				}
+
+				quickcheck::quickcheck! {
+					fn $test2(v: $ty) -> bool {
+						let mut encoded = &(Compact(v), 23u8).encode()[..];
+						<Compact<$ty>>::skip(&mut encoded).unwrap();
+						let deencoded = u8::decode(&mut encoded).unwrap();
+
+						23u8 == deencoded
 					}
 				}
 			)*
@@ -1051,10 +1118,29 @@ mod tests {
 	}
 
 	quick_check_roundtrip! {
-		u8: u8_roundtrip,
-		u16: u16_roundtrip,
-		u32 : u32_roundtrip,
-		u64 : u64_roundtrip,
-		u128 : u128_roundtrip
+		u8: u8_roundtrip, u8_skip_roundtrip,
+		u16: u16_roundtrip, u16_skip_roundtrip,
+		u32 : u32_roundtrip, u32_skip_roundtrip,
+		u64 : u64_roundtrip, u64_skip_roundtrip,
+		u128 : u128_roundtrip, u128_skip_roundtrip
+	}
+
+	#[test]
+	fn skip_prefix_input() {
+		let mut input = PrefixInput { prefix: Some(1), input: &mut &vec![2, 3, 4][..] };
+		assert_eq!(input.remaining_len(), Ok(Some(4)));
+		input.skip(0).unwrap();
+		assert_eq!(input.remaining_len(), Ok(Some(4)));
+		input.skip(2).unwrap();
+		assert_eq!(input.remaining_len(), Ok(Some(2)));
+		assert_eq!(input.read_byte(), Ok(3));
+
+		let mut input = PrefixInput { prefix: None, input: &mut &vec![2, 3, 4][..] };
+		assert_eq!(input.remaining_len(), Ok(Some(3)));
+		input.skip(0).unwrap();
+		assert_eq!(input.remaining_len(), Ok(Some(3)));
+		input.skip(2).unwrap();
+		assert_eq!(input.remaining_len(), Ok(Some(1)));
+		assert_eq!(input.read_byte(), Ok(4));
 	}
 }

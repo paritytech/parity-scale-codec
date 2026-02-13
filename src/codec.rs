@@ -74,8 +74,25 @@ pub trait Input {
 		Ok(buf[0])
 	}
 
+	/// Skip the exact number of bytes in the input.
+	///
+	/// Note that the default implementation does an actual read and discards the bytes.
+	/// When possible, an implementation should provide a specialized implementation.
+	fn skip(&mut self, len: usize) -> Result<(), Error> {
+		let mut buf = vec![0u8; len.min(MAX_PREALLOCATION)];
+
+		let mut remains = len;
+		while remains > MAX_PREALLOCATION {
+			self.read(&mut buf[..])?;
+			remains -= buf.len();
+		}
+
+		self.read(&mut buf[..remains])?;
+		Ok(())
+	}
+
 	/// Descend into nested reference when decoding.
-	/// This is called when decoding a new refence-based instance,
+	/// This is called when decoding a new reference-based instance,
 	/// such as `Vec` or `Box`. Currently, all such types are
 	/// allocated on the heap.
 	fn descend_ref(&mut self) -> Result<(), Error> {
@@ -121,6 +138,14 @@ impl Input for &[u8] {
 		}
 		let len = into.len();
 		into.copy_from_slice(&self[..len]);
+		*self = &self[len..];
+		Ok(())
+	}
+
+	fn skip(&mut self, len: usize) -> Result<(), Error> {
+		if len > self.len() {
+			return Err("Not enough data to skip".into());
+		}
 		*self = &self[len..];
 		Ok(())
 	}
@@ -299,7 +324,7 @@ pub trait Decode: Sized {
 	#[doc(hidden)]
 	const TYPE_INFO: TypeInfo = TypeInfo::Unknown;
 
-	/// Attempt to deserialise the value from input.
+	/// Attempt to deserialize the value from input.
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error>;
 
 	/// Attempt to deserialize the value from input into a pre-allocated piece of memory.
@@ -324,12 +349,17 @@ pub trait Decode: Sized {
 		unsafe { Ok(DecodeFinished::assert_decoding_finished()) }
 	}
 
-	/// Attempt to skip the encoded value from input.
+	/// Attempt to skip the encoded value from input without validating it.
 	///
-	/// The default implementation of this function is just calling [`Decode::decode`].
+	/// The default implementation of this function is skipping the fixed encoded size
+	/// if it is known. Otherwise, it is just calling [`Decode::decode`].
 	/// When possible, an implementation should provide a specialized implementation.
 	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
-		Self::decode(input).map(|_| ())
+		if let Some(size) = Self::encoded_fixed_size() {
+			input.skip(size)
+		} else {
+			Self::decode(input).map(|_| ())
+		}
 	}
 
 	/// Returns the fixed encoded size of the type.
@@ -347,12 +377,12 @@ pub trait Decode: Sized {
 pub trait Codec: Decode + Encode {}
 impl<S: Decode + Encode> Codec for S {}
 
-/// Trait that bound `EncodeLike` along with `Encode`. Usefull for generic being used in function
+/// Trait that bound `EncodeLike` along with `Encode`. Useful for generic being used in function
 /// with `EncodeLike` parameters.
 pub trait FullEncode: Encode + EncodeLike {}
 impl<S: Encode + EncodeLike> FullEncode for S {}
 
-/// Trait that bound `EncodeLike` along with `Codec`. Usefull for generic being used in function
+/// Trait that bound `EncodeLike` along with `Codec`. Useful for generic being used in function
 /// with `EncodeLike` parameters.
 pub trait FullCodec: Decode + FullEncode {}
 impl<S: Decode + FullEncode> FullCodec for S {}
@@ -442,6 +472,15 @@ impl Input for BytesCursor {
 		Ok(())
 	}
 
+	fn skip(&mut self, len: usize) -> Result<(), Error> {
+		if len > self.bytes.len() - self.position {
+			return Err("Not enough data to skip".into());
+		}
+
+		self.position += len;
+		Ok(())
+	}
+
 	fn scale_internal_decode_bytes(&mut self) -> Result<bytes::Bytes, Error> {
 		let length = <Compact<u32>>::decode(self)?.0 as usize;
 
@@ -487,6 +526,10 @@ where
 impl Decode for bytes::Bytes {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		input.scale_internal_decode_bytes()
+	}
+
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		Vec::<u8>::skip(input)
 	}
 }
 
@@ -636,6 +679,19 @@ where
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		Self::decode_wrapped(input)
 	}
+
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		input.descend_ref()?;
+
+		T::skip(input)?;
+
+		input.ascend_ref();
+		Ok(())
+	}
+
+	fn encoded_fixed_size() -> Option<usize> {
+		T::encoded_fixed_size()
+	}
 }
 
 /// A macro that matches on a [`TypeInfo`] and expands a given macro per variant.
@@ -714,6 +770,17 @@ impl<T: Decode, E: Decode> Decode for Result<T, E> {
 			_ => Err("unexpected first byte decoding Result".into()),
 		}
 	}
+
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		match input
+			.read_byte()
+			.map_err(|e| e.chain("Could not result variant byte for `Result`"))?
+		{
+			0 => T::skip(input).map_err(|e| e.chain("Could not skip `Result::Ok(T)`")),
+			1 => E::skip(input).map_err(|e| e.chain("Could not skip `Result::Error(E)`")),
+			_ => Err("unexpected first byte decoding Result".into()),
+		}
+	}
 }
 
 impl<T: DecodeWithMemTracking, E: DecodeWithMemTracking> DecodeWithMemTracking for Result<T, E> {}
@@ -753,6 +820,10 @@ impl Decode for OptionBool {
 			_ => Err("unexpected first byte decoding OptionBool".into()),
 		}
 	}
+
+	fn encoded_fixed_size() -> Option<usize> {
+		Some(1)
+	}
 }
 
 impl DecodeWithMemTracking for OptionBool {}
@@ -791,6 +862,21 @@ impl<T: Decode> Decode for Option<T> {
 			_ => Err("unexpected first byte decoding Option".into()),
 		}
 	}
+
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		match input
+			.read_byte()
+			.map_err(|e| e.chain("Could not decode variant byte for `Option`"))?
+		{
+			0 => Ok(()),
+			1 => T::skip(input).map_err(|e| e.chain("Could not skip `Option::Some(T)`")),
+			_ => Err("unexpected first byte decoding Option".into()),
+		}
+	}
+
+	fn encoded_fixed_size() -> Option<usize> {
+		Some(T::encoded_fixed_size()? + 1)
+	}
 }
 
 impl<T: DecodeWithMemTracking> DecodeWithMemTracking for Option<T> {}
@@ -823,11 +909,28 @@ macro_rules! impl_for_non_zero {
 					Self::new(Decode::decode(input)?)
 						.ok_or_else(|| Error::from("cannot create non-zero number from 0"))
 				}
+
+				fn encoded_fixed_size() -> Option<usize> {
+					Some(mem::size_of::<$name>())
+				}
 			}
 
 			impl DecodeWithMemTracking for $name {}
 		)*
 	}
+}
+
+impl_for_non_zero! {
+	NonZeroI8,
+	NonZeroI16,
+	NonZeroI32,
+	NonZeroI64,
+	NonZeroI128,
+	NonZeroU8,
+	NonZeroU16,
+	NonZeroU32,
+	NonZeroU64,
+	NonZeroU128,
 }
 
 /// Encode the slice without prepending the len.
@@ -868,19 +971,6 @@ pub(crate) fn encode_slice_no_len<T: Encode, W: Output + ?Sized>(slice: &[T], de
 	}
 }
 
-impl_for_non_zero! {
-	NonZeroI8,
-	NonZeroI16,
-	NonZeroI32,
-	NonZeroI64,
-	NonZeroI128,
-	NonZeroU8,
-	NonZeroU16,
-	NonZeroU32,
-	NonZeroU64,
-	NonZeroU128,
-}
-
 impl<T: Encode, const N: usize> Encode for [T; N] {
 	fn size_hint(&self) -> usize {
 		mem::size_of::<T>() * N
@@ -919,7 +1009,7 @@ impl<T: Decode, const N: usize> Decode for [T; N] {
 	) -> Result<DecodeFinished, Error> {
 		let is_primitive = match <T as Decode>::TYPE_INFO {
 			| TypeInfo::U8 | TypeInfo::I8 => true,
-			| TypeInfo::U16 |
+			TypeInfo::U16 |
 			TypeInfo::I16 |
 			TypeInfo::U32 |
 			TypeInfo::I32 |
@@ -1013,15 +1103,10 @@ impl<T: Decode, const N: usize> Decode for [T; N] {
 	}
 
 	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
-		if Self::encoded_fixed_size().is_some() {
-			// Should skip the bytes, but Input does not support skip.
-			for _ in 0..N {
-				T::skip(input)?;
-			}
-		} else {
-			Self::decode(input)?;
+		match Self::encoded_fixed_size() {
+			Some(len) => input.skip(len),
+			None => Result::from_iter((0..N).map(|_| T::skip(input))),
 		}
-		Ok(())
 	}
 
 	fn encoded_fixed_size() -> Option<usize> {
@@ -1058,6 +1143,14 @@ where
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		Ok(Cow::Owned(Decode::decode(input)?))
 	}
+
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		T::Owned::skip(input)
+	}
+
+	fn encoded_fixed_size() -> Option<usize> {
+		T::Owned::encoded_fixed_size()
+	}
 }
 
 impl<'a, T: ToOwned + ?Sized> DecodeWithMemTracking for Cow<'a, T>
@@ -1077,6 +1170,10 @@ impl<T> Decode for PhantomData<T> {
 	fn decode<I: Input>(_input: &mut I) -> Result<Self, Error> {
 		Ok(PhantomData)
 	}
+
+	fn encoded_fixed_size() -> Option<usize> {
+		Some(0)
+	}
 }
 
 impl<T> DecodeWithMemTracking for PhantomData<T> where PhantomData<T>: Decode {}
@@ -1084,6 +1181,10 @@ impl<T> DecodeWithMemTracking for PhantomData<T> where PhantomData<T>: Decode {}
 impl Decode for String {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		Self::from_utf8(Vec::decode(input)?).map_err(|_| "Invalid utf8 sequence".into())
+	}
+
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		Vec::<u8>::skip(input)
 	}
 }
 
@@ -1231,6 +1332,24 @@ impl<T: Decode> Decode for Vec<T> {
 		<Compact<u32>>::decode(input)
 			.and_then(move |Compact(len)| decode_vec_with_len(input, len as usize))
 	}
+
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		let Compact(len) = <Compact<u32>>::decode(input)?;
+
+		input.descend_ref()?;
+
+		// Attempt to get the fixed size and check for overflow
+		if let Some(size) = T::encoded_fixed_size().and_then(|size| size.checked_mul(len as usize))
+		{
+			input.skip(size)
+		} else {
+			// Fallback when there is no fixed size or on overflow
+			Result::from_iter((0..len).map(|_| T::skip(input)))
+		}?;
+
+		input.ascend_ref();
+		Ok(())
+	}
 }
 
 impl<T: DecodeWithMemTracking> DecodeWithMemTracking for Vec<T> {}
@@ -1280,6 +1399,10 @@ impl<K: Decode + Ord, V: Decode> Decode for BTreeMap<K, V> {
 			result
 		})
 	}
+
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		Vec::<(K, V)>::skip(input)
+	}
 }
 
 impl<K: DecodeWithMemTracking, V: DecodeWithMemTracking> DecodeWithMemTracking for BTreeMap<K, V> where
@@ -1301,6 +1424,10 @@ impl<T: Decode + Ord> Decode for BTreeSet<T> {
 			input.ascend_ref();
 			result
 		})
+	}
+
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		Vec::<T>::skip(input)
 	}
 }
 impl<T: DecodeWithMemTracking> DecodeWithMemTracking for BTreeSet<T> where BTreeSet<T>: Decode {}
@@ -1326,6 +1453,10 @@ impl<T: Decode> Decode for LinkedList<T> {
 			result
 		})
 	}
+
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		Vec::<T>::skip(input)
+	}
 }
 
 impl<T: DecodeWithMemTracking> DecodeWithMemTracking for LinkedList<T> where LinkedList<T>: Decode {}
@@ -1338,6 +1469,10 @@ impl_encode_for_collection! {
 impl<T: Decode + Ord> Decode for BinaryHeap<T> {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		Ok(Vec::decode(input)?.into())
+	}
+
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		Vec::<T>::skip(input)
 	}
 }
 impl<T: DecodeWithMemTracking> DecodeWithMemTracking for BinaryHeap<T> where BinaryHeap<T>: Decode {}
@@ -1366,6 +1501,10 @@ impl<T: Decode> Decode for VecDeque<T> {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 		Ok(<Vec<T>>::decode(input)?.into())
 	}
+
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		Vec::<T>::skip(input)
+	}
 }
 
 impl<T: DecodeWithMemTracking> DecodeWithMemTracking for VecDeque<T> {}
@@ -1387,6 +1526,10 @@ impl Encode for () {
 impl Decode for () {
 	fn decode<I: Input>(_: &mut I) -> Result<(), Error> {
 		Ok(())
+	}
+
+	fn encoded_fixed_size() -> Option<usize> {
+		Some(0)
 	}
 }
 
@@ -1433,6 +1576,14 @@ macro_rules! tuple_impl {
 					Ok($one) => Ok(($one,)),
 				}
 			}
+
+			fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+				$one::skip(input)
+			}
+
+			fn encoded_fixed_size() -> Option<usize> {
+				$one::encoded_fixed_size()
+			}
 		}
 
 		impl<$one: DecodeLength> DecodeLength for ($one,) {
@@ -1477,6 +1628,16 @@ macro_rules! tuple_impl {
 						Err(e) => return Err(e),
 					},)+
 				))
+			}
+
+			fn skip<INPUT: Input>(input: &mut INPUT) -> Result<(), super::Error> {
+				$first::skip(input)?;
+				$($rest::skip(input)?;)+
+				Ok(())
+			}
+
+			fn encoded_fixed_size() -> Option<usize> {
+				Some( $first::encoded_fixed_size()? $( + $rest::encoded_fixed_size()? )+)
 			}
 		}
 
@@ -1576,6 +1737,10 @@ macro_rules! impl_one_byte {
 			fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
 				Ok(input.read_byte()? as $t)
 			}
+
+			fn encoded_fixed_size() -> Option<usize> {
+				Some(1)
+			}
 		}
 
 		impl DecodeWithMemTracking for $t {}
@@ -1638,6 +1803,10 @@ impl Decode for Duration {
 			Ok(Duration::new(secs, nanos))
 		}
 	}
+
+	fn encoded_fixed_size() -> Option<usize> {
+		<(u64, u32)>::encoded_fixed_size()
+	}
 }
 
 impl DecodeWithMemTracking for Duration {}
@@ -1666,6 +1835,14 @@ where
 			<(T, T)>::decode(input).map_err(|e| e.chain("Could not decode `Range<T>`"))?;
 		Ok(Range { start, end })
 	}
+
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		<(T, T)>::skip(input)
+	}
+
+	fn encoded_fixed_size() -> Option<usize> {
+		<(T, T)>::encoded_fixed_size()
+	}
 }
 
 impl<T: DecodeWithMemTracking> DecodeWithMemTracking for Range<T> {}
@@ -1691,6 +1868,14 @@ where
 		let (start, end) =
 			<(T, T)>::decode(input).map_err(|e| e.chain("Could not decode `RangeInclusive<T>`"))?;
 		Ok(RangeInclusive::new(start, end))
+	}
+
+	fn skip<I: Input>(input: &mut I) -> Result<(), Error> {
+		<(T, T)>::skip(input)
+	}
+
+	fn encoded_fixed_size() -> Option<usize> {
+		<(T, T)>::encoded_fixed_size()
 	}
 }
 
@@ -1972,6 +2157,16 @@ mod tests {
 	}
 
 	#[test]
+	fn io_reader_skip() {
+		let mut io_reader = IoReader(std::io::Cursor::new(&[1u8, 2, 3, 4][..]));
+
+		io_reader.skip(0).unwrap();
+		io_reader.skip(2).unwrap();
+		assert_eq!(io_reader.read_byte().unwrap(), 3);
+		assert_eq!(io_reader.skip(2), Err("io error: UnexpectedEof".into()));
+	}
+
+	#[test]
 	fn shared_references_implement_encode() {
 		Arc::new(10u32).encode();
 		Rc::new(10u32).encode();
@@ -2199,5 +2394,402 @@ mod tests {
 		let range_inclusive_bytes = (1, 100).encode();
 		assert_eq!(range_inclusive.encode(), range_inclusive_bytes);
 		assert_eq!(RangeInclusive::decode(&mut &range_inclusive_bytes[..]), Ok(range_inclusive));
+	}
+
+	#[test]
+	fn input_skip() {
+		struct MyInput(Vec<u8>);
+		impl Input for MyInput {
+			fn remaining_len(&mut self) -> Result<Option<usize>, Error> {
+				Ok(None)
+			}
+			fn read(&mut self, into: &mut [u8]) -> Result<(), Error> {
+				let i = &mut &self.0[..];
+				let res = i.read(into);
+				self.0 = i.to_vec();
+				res
+			}
+		}
+
+		let mut input = MyInput(vec![1, 2, 3, 4, 5, 6]);
+		input.skip(2).unwrap();
+		assert_eq!(input.read_byte().unwrap(), 3);
+		input.skip(1).unwrap();
+		assert_eq!(input.read_byte().unwrap(), 5);
+		input.skip(2).unwrap_err();
+
+		let mut input = MyInput((0..MAX_PREALLOCATION * 2).map(|i| i as u8).collect());
+		input.skip(MAX_PREALLOCATION + 1).unwrap();
+		assert_eq!(input.read_byte().unwrap(), (MAX_PREALLOCATION + 1) as u8);
+		input.skip(1).unwrap();
+		assert_eq!(input.read_byte().unwrap(), (MAX_PREALLOCATION + 3) as u8);
+	}
+
+	#[test]
+	fn u8_slice_skip() {
+		let mut input = &[1, 2, 3, 4, 5, 6][..];
+		input.skip(2).unwrap();
+		assert_eq!(input.read_byte().unwrap(), 3);
+		input.skip(1).unwrap();
+		assert_eq!(input.read_byte().unwrap(), 5);
+		input.skip(2).unwrap_err();
+	}
+
+	#[test]
+	#[cfg(feature = "bytes")]
+	fn bytes_cursor_skip() {
+		let mut input =
+			BytesCursor { bytes: bytes::Bytes::from_static(&[1, 2, 3, 4, 5, 6]), position: 0 };
+
+		input.skip(2).unwrap();
+		assert_eq!(input.read_byte().unwrap(), 3);
+		input.skip(1).unwrap();
+		assert_eq!(input.read_byte().unwrap(), 5);
+		input.skip(2).unwrap_err();
+	}
+
+	#[test]
+	#[cfg(feature = "bytes")]
+	fn bytes_skip() {
+		let mut input = &(bytes::Bytes::from_static(&[1, 2]), 3u8).encode()[..];
+
+		bytes::Bytes::skip(&mut input).unwrap();
+		assert_eq!(u8::decode(&mut input).unwrap(), 3);
+	}
+
+	#[test]
+	fn skip_and_fixed_len_for_wrapper_type() {
+		let mut input = &(1u8, 2u8).encode()[..];
+
+		Arc::<u8>::skip(&mut input).unwrap();
+		assert_eq!(u8::decode(&mut input).unwrap(), 2);
+
+		assert_eq!(Arc::<u8>::encoded_fixed_size().unwrap(), 1);
+	}
+
+	#[test]
+	fn skip_result() {
+		type R = Result<u8, u16>;
+		let mut input = &(R::Ok(1u8), 2u8).encode()[..];
+
+		R::skip(&mut input).unwrap();
+		assert_eq!(u8::decode(&mut input).unwrap(), 2);
+
+		let mut input = &(R::Err(1u16), 2u8).encode()[..];
+
+		R::skip(&mut input).unwrap();
+		assert_eq!(u8::decode(&mut input).unwrap(), 2);
+	}
+
+	#[test]
+	fn skip_and_encoded_len_optionbool() {
+		assert_eq!(
+			OptionBool(Some(true)).encoded_size(),
+			OptionBool::encoded_fixed_size().unwrap()
+		);
+		assert_eq!(
+			OptionBool(Some(false)).encoded_size(),
+			OptionBool::encoded_fixed_size().unwrap()
+		);
+		assert_eq!(OptionBool(None).encoded_size(), OptionBool::encoded_fixed_size().unwrap());
+
+		let mut input = &(OptionBool(None), 2u8).encode()[..];
+
+		OptionBool::skip(&mut input).unwrap();
+		assert_eq!(u8::decode(&mut input).unwrap(), 2);
+	}
+
+	#[test]
+	fn skip_and_encoded_len_option() {
+		assert_eq!(Option::<u8>::encoded_fixed_size(), Some(2));
+		assert_eq!(Option::<Vec<u8>>::encoded_fixed_size(), None);
+
+		let mut input = &(Some(1u8), 2u8).encode()[..];
+
+		Option::<u8>::skip(&mut input).unwrap();
+		assert_eq!(u8::decode(&mut input).unwrap(), 2);
+
+		let mut input = &(Option::<u8>::None, 2u8).encode()[..];
+
+		Option::<u8>::skip(&mut input).unwrap();
+		assert_eq!(u8::decode(&mut input).unwrap(), 2);
+
+		let mut input = &(Some(vec![1u8, 2, 3]), 2u8).encode()[..];
+
+		Option::<Vec<u8>>::skip(&mut input).unwrap();
+		assert_eq!(u8::decode(&mut input).unwrap(), 2);
+	}
+
+	// Array
+	#[test]
+	fn skip_and_encoded_len_array() {
+		assert_eq!(<[u8; 32]>::encoded_fixed_size(), Some(32));
+		assert_eq!(<[u8; 0]>::encoded_fixed_size(), Some(0));
+		assert_eq!(<[Vec<u8>; 32]>::encoded_fixed_size(), None);
+
+		let mut input = &([1u8; 32], 2u8).encode()[..];
+
+		<[u8; 32]>::skip(&mut input).unwrap();
+		assert_eq!(u8::decode(&mut input).unwrap(), 2);
+
+		let mut input = &([vec![1u8, 2, 3], vec![1, 2]], 2u8).encode()[..];
+
+		<[Vec<u8>; 2]>::skip(&mut input).unwrap();
+		assert_eq!(u8::decode(&mut input).unwrap(), 2);
+	}
+
+	// Cow
+	#[test]
+	fn skip_and_encoded_len_cow() {
+		assert_eq!(Cow::<[u8]>::encoded_fixed_size(), None);
+		assert_eq!(Cow::<str>::encoded_fixed_size(), None);
+
+		let mut input = &(Cow::<[u8]>::Borrowed(&[1u8, 2, 3]), 2u8).encode()[..];
+
+		Cow::<[u8]>::skip(&mut input).unwrap();
+		assert_eq!(u8::decode(&mut input).unwrap(), 2);
+
+		let mut input = &(Cow::<str>::Borrowed("123"), 2u8).encode()[..];
+
+		Cow::<str>::skip(&mut input).unwrap();
+		assert_eq!(u8::decode(&mut input).unwrap(), 2);
+	}
+
+	// PhantomData
+	#[test]
+	fn skip_and_encoded_len_phantomdata() {
+		assert_eq!(PhantomData::<u8>::encoded_fixed_size(), Some(0));
+
+		let mut input = &(PhantomData::<u8>, 2u8).encode()[..];
+
+		PhantomData::<u8>::skip(&mut input).unwrap();
+		assert_eq!(u8::decode(&mut input).unwrap(), 2);
+	}
+
+	// String
+	#[test]
+	fn skip_and_encoded_len_string() {
+		assert_eq!(String::encoded_fixed_size(), None);
+
+		let mut input = &(String::from("123"), 2u8).encode()[..];
+
+		String::skip(&mut input).unwrap();
+		assert_eq!(u8::decode(&mut input).unwrap(), 2);
+	}
+
+	// Vec (vec of u8 and vec of vec)
+	#[test]
+	fn skip_and_encoded_len_vec() {
+		assert_eq!(Vec::<u8>::encoded_fixed_size(), None);
+		assert_eq!(Vec::<Vec<u8>>::encoded_fixed_size(), None);
+
+		let mut input = &(vec![1u8, 2, 3], 2u8).encode()[..];
+
+		Vec::<u8>::skip(&mut input).unwrap();
+		assert_eq!(u8::decode(&mut input).unwrap(), 2);
+
+		let mut input = &(vec![vec![1u8, 2, 3], vec![1, 2]], 2u8).encode()[..];
+
+		Vec::<Vec<u8>>::skip(&mut input).unwrap();
+		assert_eq!(u8::decode(&mut input).unwrap(), 2);
+	}
+
+	// BTreeMap
+	#[test]
+	fn skip_and_encoded_len_btreemap() {
+		assert_eq!(BTreeMap::<u8, u8>::encoded_fixed_size(), None);
+		assert_eq!(BTreeMap::<u8, Vec<u8>>::encoded_fixed_size(), None);
+
+		let mut input = &(BTreeMap::<u8, u8>::new(), 2u8).encode()[..];
+
+		BTreeMap::<u8, u8>::skip(&mut input).unwrap();
+		assert_eq!(u8::decode(&mut input).unwrap(), 2);
+
+		let mut input = &(BTreeMap::<u8, Vec<u8>>::new(), 2u8).encode()[..];
+
+		BTreeMap::<u8, Vec<u8>>::skip(&mut input).unwrap();
+		assert_eq!(u8::decode(&mut input).unwrap(), 2);
+	}
+
+	// BTreeSet
+	#[test]
+	fn skip_and_encoded_len_btreeset() {
+		assert_eq!(BTreeSet::<u8>::encoded_fixed_size(), None);
+		assert_eq!(BTreeSet::<Vec<u8>>::encoded_fixed_size(), None);
+
+		let mut input = &(BTreeSet::<u8>::new(), 2u8).encode()[..];
+
+		BTreeSet::<u8>::skip(&mut input).unwrap();
+		assert_eq!(u8::decode(&mut input).unwrap(), 2);
+
+		let mut input = &(BTreeSet::<Vec<u8>>::new(), 2u8).encode()[..];
+
+		BTreeSet::<Vec<u8>>::skip(&mut input).unwrap();
+		assert_eq!(u8::decode(&mut input).unwrap(), 2);
+	}
+
+	// BinaryHeap
+	#[test]
+	fn skip_and_encoded_len_binaryheap() {
+		assert_eq!(BinaryHeap::<u8>::encoded_fixed_size(), None);
+		assert_eq!(BinaryHeap::<Vec<u8>>::encoded_fixed_size(), None);
+
+		let mut input = &(BinaryHeap::<u8>::new(), 2u8).encode()[..];
+
+		BinaryHeap::<u8>::skip(&mut input).unwrap();
+		assert_eq!(u8::decode(&mut input).unwrap(), 2);
+
+		let mut input = &(BinaryHeap::<Vec<u8>>::new(), 2u8).encode()[..];
+
+		BinaryHeap::<Vec<u8>>::skip(&mut input).unwrap();
+		assert_eq!(u8::decode(&mut input).unwrap(), 2);
+	}
+
+	// VecDeque
+	#[test]
+	fn skip_and_encoded_len_vecdeque() {
+		assert_eq!(VecDeque::<u8>::encoded_fixed_size(), None);
+		assert_eq!(VecDeque::<Vec<u8>>::encoded_fixed_size(), None);
+
+		let mut input = &(VecDeque::<u8>::new(), 2u8).encode()[..];
+
+		VecDeque::<u8>::skip(&mut input).unwrap();
+		assert_eq!(u8::decode(&mut input).unwrap(), 2);
+
+		let mut input = &(VecDeque::<Vec<u8>>::new(), 2u8).encode()[..];
+
+		VecDeque::<Vec<u8>>::skip(&mut input).unwrap();
+		assert_eq!(u8::decode(&mut input).unwrap(), 2);
+	}
+
+	// ()
+	#[test]
+	fn skip_and_encoded_len_unit() {
+		assert_eq!(<()>::encoded_fixed_size(), Some(0));
+
+		let mut input = &((), 2u8).encode()[..];
+
+		<()>::skip(&mut input).unwrap();
+		assert_eq!(u8::decode(&mut input).unwrap(), 2);
+	}
+
+	// tuple
+	#[test]
+	fn skip_and_encoded_len_tuple() {
+		assert_eq!(<(u8, u8)>::encoded_fixed_size(), Some(2));
+		assert_eq!(<(u8, Vec<u8>)>::encoded_fixed_size(), None);
+
+		let mut input = &((1u8, 101u8), 2u8).encode()[..];
+
+		<(u8, u8)>::skip(&mut input).unwrap();
+		assert_eq!(u8::decode(&mut input).unwrap(), 2);
+
+		let mut input = &((1u8, vec![1u8, 2, 3]), 2u8).encode()[..];
+
+		<(u8, Vec<u8>)>::skip(&mut input).unwrap();
+		assert_eq!(u8::decode(&mut input).unwrap(), 2);
+	}
+
+	// Duration
+	#[test]
+	fn skip_and_encoded_len_duration() {
+		assert_eq!(Duration::encoded_fixed_size(), Some(12));
+
+		let mut input = &(Duration::new(1, 2), 2u8).encode()[..];
+
+		Duration::skip(&mut input).unwrap();
+		assert_eq!(u8::decode(&mut input).unwrap(), 2);
+	}
+
+	// Range
+	#[test]
+	fn skip_and_encoded_len_range() {
+		assert_eq!(Range::<u8>::encoded_fixed_size(), Some(2));
+
+		let mut input = &(Range { start: 1u8, end: 2 }, 2u8).encode()[..];
+
+		<Range<u8> as Decode>::skip(&mut input).unwrap();
+		assert_eq!(u8::decode(&mut input).unwrap(), 2);
+	}
+
+	// Range inclusive
+	#[test]
+	fn skip_and_encoded_len_range_inclusive() {
+		assert_eq!(RangeInclusive::<u8>::encoded_fixed_size(), Some(2));
+
+		let mut input = &(RangeInclusive::new(1u8, 2), 2u8).encode()[..];
+
+		<RangeInclusive<u8> as Decode>::skip(&mut input).unwrap();
+		assert_eq!(u8::decode(&mut input).unwrap(), 2);
+	}
+
+	#[test]
+	fn descend_ascend_when_skipping() {
+		struct TestingDepthTrackingInput<'a, I> {
+			input: &'a mut I,
+			depth: u32,
+			max_depth: u32,
+		}
+
+		impl<'a, I: Input> Input for TestingDepthTrackingInput<'a, I> {
+			fn remaining_len(&mut self) -> Result<Option<usize>, Error> {
+				self.input.remaining_len()
+			}
+
+			fn read(&mut self, into: &mut [u8]) -> Result<(), Error> {
+				self.input.read(into)
+			}
+
+			fn read_byte(&mut self) -> Result<u8, Error> {
+				self.input.read_byte()
+			}
+
+			fn skip(&mut self, len: usize) -> Result<(), Error> {
+				self.input.skip(len)
+			}
+
+			fn descend_ref(&mut self) -> Result<(), Error> {
+				self.input.descend_ref()?;
+				self.depth += 1;
+				if self.depth > self.max_depth {
+					Err("Depth limit reached".into())
+				} else {
+					Ok(())
+				}
+			}
+
+			fn ascend_ref(&mut self) {
+				self.input.ascend_ref();
+				self.depth -= 1;
+			}
+
+			fn on_before_alloc_mem(&mut self, size: usize) -> Result<(), Error> {
+				self.input.on_before_alloc_mem(size)
+			}
+		}
+
+		// Wrapper type
+		let input = (MyWrapper(Compact(3u32)), 2u8).encode();
+
+		let mut input_limited_1 =
+			TestingDepthTrackingInput { input: &mut &input[..], depth: 0, max_depth: 0 };
+		MyWrapper::skip(&mut input_limited_1).unwrap_err();
+
+		let mut input_limited_2 =
+			TestingDepthTrackingInput { input: &mut &input[..], depth: 0, max_depth: 1 };
+		MyWrapper::skip(&mut input_limited_2).unwrap();
+		assert_eq!(u8::decode(&mut input_limited_2).unwrap(), 2);
+
+		// Vec type
+		let input = (vec![1u8, 2, 3, 4, 5, 6], 2u8).encode();
+
+		let mut input_limited_1 =
+			TestingDepthTrackingInput { input: &mut &input[..], depth: 0, max_depth: 0 };
+		Vec::<u8>::skip(&mut input_limited_1).unwrap_err();
+
+		let mut input_limited_2 =
+			TestingDepthTrackingInput { input: &mut &input[..], depth: 0, max_depth: 1 };
+		Vec::<u8>::skip(&mut input_limited_2).unwrap();
+		assert_eq!(u8::decode(&mut input_limited_2).unwrap(), 2);
 	}
 }
