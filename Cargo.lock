@@ -376,9 +376,9 @@ checksum = "e6d5a32815ae3f33302d95fdcb2ce17862f8c65363dcfd29360480ba1001fc9c"
 
 [[package]]
 name = "generic-array"
-version = "1.3.5"
+version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eaf57c49a95fd1fe24b90b3033bee6dc7e8f1288d51494cb44e627c295e38542"
+checksum = "e38154b42567e31b925d3859382888aa6f86e446d1f018c89ef337fc1726bcf2"
 dependencies = [
  "rustversion",
  "typenum",
