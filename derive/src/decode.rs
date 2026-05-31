@@ -332,7 +332,10 @@ pub fn quote_decode_with_mem_tracking_checks(data: &Data, crate_path: &syn::Path
 	});
 
 	quote! {
-		fn check_field<T: #crate_path::DecodeWithMemTracking>() {}
+		fn check_field<T>()
+		where
+			T: #crate_path::DecodeWithMemTracking,
+		{}
 
 		#(
 			check_field::<#processed_fields>();

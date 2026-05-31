@@ -73,10 +73,13 @@ fn encode_single_field(
 				#crate_path::Encode::size_hint(&#final_field_variable)
 			}
 
-			fn encode_to<__CodecOutputEdqy: #crate_path::Output + ?::core::marker::Sized>(
+			fn encode_to<__CodecOutputEdqy>(
 				&#i_self,
 				__codec_dest_edqy: &mut __CodecOutputEdqy
-			) {
+			)
+			where
+				__CodecOutputEdqy: #crate_path::Output + ?::core::marker::Sized,
+			{
 				#crate_path::Encode::encode_to(&#final_field_variable, __codec_dest_edqy)
 			}
 
@@ -84,12 +87,14 @@ fn encode_single_field(
 				#crate_path::Encode::encode(&#final_field_variable)
 			}
 
-			fn using_encoded<
-				__CodecOutputReturn,
+			fn using_encoded<__CodecOutputReturn, __CodecUsingEncodedCallback>(
+				&#i_self,
+				f: __CodecUsingEncodedCallback
+			) -> __CodecOutputReturn
+			where
 				__CodecUsingEncodedCallback: ::core::ops::FnOnce(
 					&[::core::primitive::u8]
-				) -> __CodecOutputReturn
-			>(&#i_self, f: __CodecUsingEncodedCallback) -> __CodecOutputReturn
+				) -> __CodecOutputReturn,
 			{
 				#crate_path::Encode::using_encoded(&#final_field_variable, f)
 			}
@@ -426,10 +431,13 @@ fn impl_encode(data: &Data, type_name: &Ident, crate_path: &syn::Path) -> TokenS
 			#hinting
 		}
 
-		fn encode_to<__CodecOutputEdqy: #crate_path::Output + ?::core::marker::Sized>(
+		fn encode_to<__CodecOutputEdqy>(
 			&#self_,
 			#dest: &mut __CodecOutputEdqy
-		) {
+		)
+		where
+			__CodecOutputEdqy: #crate_path::Output + ?::core::marker::Sized,
+		{
 			#encoding
 		}
 	}

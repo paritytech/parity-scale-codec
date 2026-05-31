@@ -215,10 +215,13 @@ pub fn decode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 
 	let impl_decode_into = if let Some(body) = decode_into_body {
 		quote! {
-			fn decode_into<__CodecInputEdqy: #crate_path::Input>(
+			fn decode_into<__CodecInputEdqy>(
 				#input_: &mut __CodecInputEdqy,
 				dst_: &mut ::core::mem::MaybeUninit<Self>,
-			) -> ::core::result::Result<#crate_path::DecodeFinished, #crate_path::Error> {
+			) -> ::core::result::Result<#crate_path::DecodeFinished, #crate_path::Error>
+			where
+				__CodecInputEdqy: #crate_path::Input,
+			{
 				#body
 			}
 		}
@@ -229,9 +232,12 @@ pub fn decode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 	let impl_block = quote! {
 		#[automatically_derived]
 		impl #impl_generics #crate_path::Decode for #name #ty_generics #where_clause {
-			fn decode<__CodecInputEdqy: #crate_path::Input>(
+			fn decode<__CodecInputEdqy>(
 				#input_: &mut __CodecInputEdqy
-			) -> ::core::result::Result<Self, #crate_path::Error> {
+			) -> ::core::result::Result<Self, #crate_path::Error>
+			where
+				__CodecInputEdqy: #crate_path::Input,
+			{
 				#decoding
 			}
 
