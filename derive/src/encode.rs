@@ -80,7 +80,7 @@ fn encode_single_field(
 			where
 				__CodecOutputEdqy: #crate_path::Output + ?::core::marker::Sized,
 			{
-				#crate_path::Encode::encode_to(&#final_field_variable, __codec_dest_edqy)
+				#crate_path::Encode::encode_to(&#final_field_variable, __codec_dest_edqy);
 			}
 
 			fn encode(&#i_self) -> #crate_path::alloc::vec::Vec<::core::primitive::u8> {
