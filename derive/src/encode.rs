@@ -80,7 +80,7 @@ fn encode_single_field(
 			where
 				__CodecOutputEdqy: #crate_path::Output + ?::core::marker::Sized,
 			{
-				#crate_path::Encode::encode_to(&#final_field_variable, __codec_dest_edqy)
+				#crate_path::Encode::encode_to(&#final_field_variable, __codec_dest_edqy);
 			}
 
 			fn encode(&#i_self) -> #crate_path::alloc::vec::Vec<::core::primitive::u8> {
@@ -328,14 +328,14 @@ fn impl_encode(data: &Data, type_name: &Ident, crate_path: &syn::Path) -> TokenS
 
 						let hinting_names = names.clone();
 						let hinting = quote_spanned! { f.span() =>
-							#type_name :: #name { #( ref #hinting_names, )* } => {
+							#type_name :: #name { #( #hinting_names, )* } => {
 								#size_hint_fields
 							}
 						};
 
 						let encoding_names = names.clone();
 						let encoding = quote_spanned! { f.span() =>
-							#type_name :: #name { #( ref #encoding_names, )* } => {
+							#type_name :: #name { #( #encoding_names, )* } => {
 								#[allow(clippy::unnecessary_cast)]
 								#dest.push_byte((#index) as ::core::primitive::u8);
 								#encode_fields
@@ -361,14 +361,14 @@ fn impl_encode(data: &Data, type_name: &Ident, crate_path: &syn::Path) -> TokenS
 
 						let hinting_names = names.clone();
 						let hinting = quote_spanned! { f.span() =>
-							#type_name :: #name ( #( ref #hinting_names, )* ) => {
+							#type_name :: #name ( #( #hinting_names, )* ) => {
 								#size_hint_fields
 							}
 						};
 
 						let encoding_names = names.clone();
 						let encoding = quote_spanned! { f.span() =>
-							#type_name :: #name ( #( ref #encoding_names, )* ) => {
+							#type_name :: #name ( #( #encoding_names, )* ) => {
 								#[allow(clippy::unnecessary_cast)]
 								#dest.push_byte((#index) as ::core::primitive::u8);
 								#encode_fields
@@ -403,7 +403,7 @@ fn impl_encode(data: &Data, type_name: &Ident, crate_path: &syn::Path) -> TokenS
 
 			let hinting = quote! {
 				// The variant index uses 1 byte.
-				1_usize + match *#self_ {
+				1_usize + match #self_ {
 					#( #recurse_hinting )*,
 					_ => 0_usize,
 				}
@@ -414,7 +414,7 @@ fn impl_encode(data: &Data, type_name: &Ident, crate_path: &syn::Path) -> TokenS
 
 			let encoding = quote! {
 				#const_eval_check
-				match *#self_ {
+				match #self_ {
 					#( #recurse_encoding )*,
 					_ => (),
 				}
