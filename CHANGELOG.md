@@ -7,6 +7,10 @@ and this crate adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 
 ## Unreleased
 
+### Fixed
+
+- Derived `Encode`/`Decode` for enums no longer fails under `#![deny(trivial_numeric_casts)]` ([#740](https://github.com/paritytech/parity-scale-codec/issues/740))
+
 ### [3.7.5] - 2025-05-20
 
 ### Fixed
