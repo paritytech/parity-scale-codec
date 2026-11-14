@@ -501,7 +501,7 @@ checksum = "62b02a5381cc465bd3041d84623d0fa3b66738b52b8e2fc3bab8ad63ab032f4a"
 
 [[package]]
 name = "jam-codec"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "arbitrary",
  "arrayvec",
@@ -526,7 +526,7 @@ dependencies = [
 
 [[package]]
 name = "jam-codec-derive"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "jam-codec",
  "proc-macro-crate",

@@ -242,19 +242,17 @@ impl Encode for CompactRef<'_, ()> {
 
 struct WrappedPrimitive<T>(T);
 
+#[inline(always)]
+fn compact_extra_bytes(x: u64) -> usize {
+	(0..8).find(|&l| x < 1 << (7 * (l + 1))).unwrap_or(8)
+}
+
 impl<T> CompactLen<T> for WrappedPrimitive<T>
 where
 	T: Copy + Into<u64>,
 {
 	fn compact_len(val: &T) -> usize {
-		let x = (*val).into();
-		1 + if x == 0 {
-			0
-		} else {
-			(0..8)
-				.find(|l| 2_u64.pow(7 * l) <= x && x < 2_u64.pow(7 * (l + 1)))
-				.unwrap_or(8)
-		} as usize
+		1 + compact_extra_bytes((*val).into())
 	}
 }
 
@@ -268,16 +266,10 @@ where
 
 	fn encode_to<W: Output + ?Sized>(&self, dest: &mut W) {
 		let x = self.0.into();
-		if x == 0 {
-			dest.push_byte(0);
-		} else if let Some(l) = (0..8).find(|l| 2_u64.pow(7 * l) <= x && x < 2_u64.pow(7 * (l + 1)))
-		{
-			dest.push_byte((2_u64.pow(8) - 2_u64.pow(8 - l) + (x / 2_u64.pow(8 * l))) as u8);
-			dest.write(&(x % 2_u64.pow(8 * l)).to_le_bytes()[..l as usize]);
-		} else {
-			dest.push_byte((2_u64.pow(8) - 1) as u8);
-			dest.write(&x.to_le_bytes());
-		}
+		let l = compact_extra_bytes(x);
+		let prefix = if l == 8 { 0xff } else { !(0xff >> l) | (x >> (8 * l)) as u8 };
+		dest.push_byte(prefix);
+		dest.write(&x.to_le_bytes()[..l]);
 	}
 
 	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
@@ -292,20 +284,16 @@ where
 	T: Copy + TryFrom<u64>,
 {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
-		const OUT_OF_RANGE: &str = "Out of range";
-		let v = match input.read_byte()? {
-			0 => 0,
-			0xff => u64::decode(input)?,
-			b => {
-				let l = (0..8).find(|&i| (b & (0b1000_0000 >> i)) == 0).unwrap();
-				let mut buf = [0u8; 8];
-				input.read(&mut buf[..l])?;
-				let rem = (b & ((1 << (7 - l)) - 1)) as u64;
-				u64::from_le_bytes(buf) + (rem << (8 * l))
-			},
-		};
-		let v = T::try_from(v).map_err(|_| Error::from(OUT_OF_RANGE))?;
-		Ok(Self(v))
+		let prefix = input.read_byte()?;
+		let l = prefix.leading_ones() as usize;
+		let mut buf = [0u8; 8];
+		input.read(&mut buf[..l])?;
+		let high = if l == 8 { 0 } else { u64::from(prefix & (0x7f >> l)) << (8 * l) };
+		let x = u64::from_le_bytes(buf) | high;
+		if compact_extra_bytes(x) != l {
+			return Err("Non-canonical compact encoding".into());
+		}
+		T::try_from(x).map(Self).map_err(|_| "Out of range".into())
 	}
 }
 
@@ -623,6 +611,28 @@ mod tests {
 				assert_eq!(<Compact<u64>>::decode(&mut &encoded[..]).unwrap().0, n);
 			}
 		}
+	}
+
+	// JAM decoding is the inverse of the encoding, which writes each value in one form only. A
+	// longer form must fail, or one value has two encodings and two hashes.
+	#[test]
+	fn compact_decode_rejects_non_canonical_encodings() {
+		for extra_bytes in 1..=8 {
+			let prefix = u8::MAX << (8 - extra_bytes);
+			let encode_with_length = |value: u64| {
+				let mut bytes = vec![prefix];
+				bytes.extend_from_slice(&value.to_le_bytes()[..extra_bytes]);
+				bytes
+			};
+			let smallest_value = 1u64 << (7 * extra_bytes);
+			for value in [0, smallest_value - 1] {
+				assert!(<Compact<u64>>::decode(&mut &encode_with_length(value)[..]).is_err());
+			}
+			let canonical = encode_with_length(smallest_value);
+			assert_eq!(canonical, Compact(smallest_value).encode());
+			assert_eq!(<Compact<u64>>::decode(&mut &canonical[..]).unwrap().0, smallest_value);
+		}
+		assert!(<Vec<u8>>::decode(&mut &[0x80, 0x00][..]).is_err());
 	}
 
 	#[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
