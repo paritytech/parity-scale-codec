@@ -29,7 +29,7 @@ struct ContainIdents<'a> {
 	idents: &'a [Ident],
 }
 
-impl<'a, 'ast> Visit<'ast> for ContainIdents<'a> {
+impl<'ast> Visit<'ast> for ContainIdents<'_> {
 	fn visit_ident(&mut self, i: &'ast Ident) {
 		if self.idents.iter().any(|id| id == i) {
 			self.result = true;
@@ -50,7 +50,7 @@ struct TypePathStartsWithIdent<'a> {
 	ident: &'a Ident,
 }
 
-impl<'a, 'ast> Visit<'ast> for TypePathStartsWithIdent<'a> {
+impl<'ast> Visit<'ast> for TypePathStartsWithIdent<'_> {
 	fn visit_type_path(&mut self, i: &'ast TypePath) {
 		if let Some(segment) = i.path.segments.first() {
 			if &segment.ident == self.ident {
@@ -85,7 +85,7 @@ struct FindTypePathsNotStartOrContainIdent<'a> {
 	ident: &'a Ident,
 }
 
-impl<'a, 'ast> Visit<'ast> for FindTypePathsNotStartOrContainIdent<'a> {
+impl<'ast> Visit<'ast> for FindTypePathsNotStartOrContainIdent<'_> {
 	fn visit_type_path(&mut self, i: &'ast TypePath) {
 		if type_path_or_sub_starts_with_ident(i, self.ident) {
 			visit::visit_type_path(self, i);

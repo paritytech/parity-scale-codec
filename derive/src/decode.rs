@@ -60,6 +60,7 @@ pub fn quote(
 				quote_spanned! { v.span() =>
 					#[allow(clippy::unnecessary_cast)]
 					#[allow(clippy::cast_possible_truncation)]
+					#[allow(trivial_numeric_casts)]
 					__codec_x_edqy if __codec_x_edqy == (#index) as ::core::primitive::u8 => {
 						// NOTE: This lambda is necessary to work around an upstream bug
 						// where each extra branch results in excessive stack usage:
@@ -332,7 +333,10 @@ pub fn quote_decode_with_mem_tracking_checks(data: &Data, crate_path: &syn::Path
 	});
 
 	quote! {
-		fn check_field<T: #crate_path::DecodeWithMemTracking>() {}
+		fn check_field<T>()
+		where
+			T: #crate_path::DecodeWithMemTracking,
+		{}
 
 		#(
 			check_field::<#processed_fields>();
