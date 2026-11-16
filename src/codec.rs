@@ -1275,7 +1275,14 @@ impl<K: Decode + Ord, V: Decode> Decode for BTreeMap<K, V> {
 		<Compact<u32>>::decode(input).and_then(move |Compact(len)| {
 			input.descend_ref()?;
 			input.on_before_alloc_mem(super::btree_utils::mem_size_of_btree::<(K, V)>(len))?;
-			let result = Result::from_iter((0..len).map(|_| Decode::decode(input)));
+			let result = (0..len).try_fold(BTreeMap::new(), |mut map, _| {
+				let (key, value) = Decode::decode(input)?;
+				if map.last_key_value().is_some_and(|(last, _)| key <= *last) {
+					return Err("BTreeMap keys are not strictly ascending".into());
+				}
+				map.insert(key, value);
+				Ok(map)
+			});
 			input.ascend_ref();
 			result
 		})
@@ -1297,7 +1304,14 @@ impl<T: Decode + Ord> Decode for BTreeSet<T> {
 		<Compact<u32>>::decode(input).and_then(move |Compact(len)| {
 			input.descend_ref()?;
 			input.on_before_alloc_mem(super::btree_utils::mem_size_of_btree::<T>(len))?;
-			let result = Result::from_iter((0..len).map(|_| Decode::decode(input)));
+			let result = (0..len).try_fold(BTreeSet::new(), |mut set, _| {
+				let value = Decode::decode(input)?;
+				if set.last().is_some_and(|last| value <= *last) {
+					return Err("BTreeSet values are not strictly ascending".into());
+				}
+				set.insert(value);
+				Ok(set)
+			});
 			input.ascend_ref();
 			result
 		})
@@ -1956,6 +1970,20 @@ mod tests {
 			Ok(t7.into_sorted_vec()),
 		);
 		assert_eq!(Decode::decode(&mut &t8.encode()[..]), Ok(t8));
+	}
+
+	#[test]
+	fn btree_decode_rejects_keys_not_strictly_ascending() {
+		assert_eq!(
+			BTreeMap::<u8, u8>::decode(&mut &[2, 1, 0, 2, 0][..]),
+			Ok(BTreeMap::from([(1, 0), (2, 0)]))
+		);
+		assert!(BTreeMap::<u8, u8>::decode(&mut &[2, 2, 0, 1, 0][..]).is_err());
+		assert!(BTreeMap::<u8, u8>::decode(&mut &[2, 1, 0, 1, 5][..]).is_err());
+
+		assert_eq!(BTreeSet::<u8>::decode(&mut &[2, 7, 9][..]), Ok(BTreeSet::from([7, 9])));
+		assert!(BTreeSet::<u8>::decode(&mut &[2, 9, 7][..]).is_err());
+		assert!(BTreeSet::<u8>::decode(&mut &[2, 7, 7][..]).is_err());
 	}
 
 	#[test]
