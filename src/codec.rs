@@ -2011,6 +2011,21 @@ mod tests {
 		);
 	}
 
+	// Under miri this is the only check of the chunked decode (`unsafe { set_len }`) for items
+	// wider than one byte: CI skips the large `bit_vec` tests there because they take hours.
+	#[test]
+	fn vec_decode_crosses_preallocation_chunks() {
+		fn check<T: Encode + Decode + PartialEq + fmt::Debug + From<u16>>() {
+			let len = 2 * INITIAL_PREALLOCATION / mem::size_of::<T>() + 1;
+			let data: Vec<T> = (0..len).map(|i| T::from(i as u16)).collect();
+			let encoded = data.encode();
+			assert_eq!(Vec::<T>::decode(&mut &encoded[..]).unwrap(), data);
+		}
+		check::<u16>();
+		check::<u32>();
+		check::<u64>();
+	}
+
 	#[test]
 	fn boolean() {
 		assert_eq!(true.encode(), vec![1]);

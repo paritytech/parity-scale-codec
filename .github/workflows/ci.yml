@@ -187,7 +187,10 @@ jobs:
           export RUST_BACKTRACE=1
           export RUSTFLAGS='-Cdebug-assertions=y -Dwarnings'
           export MIRIFLAGS='-Zmiri-disable-isolation'
-          time cargo +nightly miri test --features ${{ matrix.feature }} --release
+          # bitvec_u* take about 4 h under miri (large BitVecs). Normal test runs keep them.
+          time cargo +nightly miri test --features ${{ matrix.feature }} --release -- --exact \
+            --skip bit_vec::tests::bitvec_u8 --skip bit_vec::tests::bitvec_u16 \
+            --skip bit_vec::tests::bitvec_u32 --skip bit_vec::tests::bitvec_u64
 
   # Build
 
