@@ -1,4 +1,4 @@
-use parity_scale_codec::{Encode, EncodeAsRef, MaxEncodedLen};
+use jam_codec::{Encode, EncodeAsRef, MaxEncodedLen};
 
 #[derive(Encode)]
 struct NotMel;

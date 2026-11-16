@@ -26,14 +26,14 @@ pub extern crate alloc;
 #[cfg(feature = "derive")]
 #[allow(unused_imports)]
 #[macro_use]
-extern crate parity_scale_codec_derive;
+extern crate jam_codec_derive;
 
 #[cfg(all(feature = "std", test))]
 #[macro_use]
 extern crate serde_derive;
 
 #[cfg(feature = "derive")]
-pub use parity_scale_codec_derive::*;
+pub use jam_codec_derive::*;
 
 #[cfg(feature = "std")]
 #[doc(hidden)]
@@ -43,7 +43,7 @@ pub mod alloc {
 
 /// Private module to reexport items used by derive macros.
 // We don't feature gate this module with `derive` to avoid compilation error when
-// `parity-scale-codec-derive` is used on its own and this crate doesn't have the feature enabled.
+// `jam-codec-derive` is used on its own and this crate doesn't have the feature enabled.
 #[doc(hidden)]
 pub mod __private {
 	pub use const_format::concatcp;
@@ -100,13 +100,13 @@ pub use max_encoded_len::MaxEncodedLen;
 /// # Examples
 ///
 /// ```
-/// # use parity_scale_codec::{Encode, MaxEncodedLen};
+/// # use jam_codec::{Encode, MaxEncodedLen};
 /// #[derive(Encode, MaxEncodedLen)]
 /// struct Example;
 /// ```
 ///
 /// ```
-/// # use parity_scale_codec::{Encode, MaxEncodedLen};
+/// # use jam_codec::{Encode, MaxEncodedLen};
 /// #[derive(Encode, MaxEncodedLen)]
 /// struct TupleStruct(u8, u32);
 ///
@@ -114,7 +114,7 @@ pub use max_encoded_len::MaxEncodedLen;
 /// ```
 ///
 /// ```
-/// # use parity_scale_codec::{Encode, MaxEncodedLen};
+/// # use jam_codec::{Encode, MaxEncodedLen};
 /// #[derive(Encode, MaxEncodedLen)]
 /// enum GenericEnum<T> {
 ///     A,
@@ -128,19 +128,19 @@ pub use max_encoded_len::MaxEncodedLen;
 /// # Within other macros
 ///
 /// Sometimes the `MaxEncodedLen` trait and macro are used within another macro, and it can't
-/// be guaranteed that the `parity_scale_codec` module is available at the call site. In that
-/// case, the macro should reexport the `parity_scale_codec` module and specify the path to the
+/// be guaranteed that the `jam_codec` module is available at the call site. In that
+/// case, the macro should reexport the `jam_codec` module and specify the path to the
 /// reexport:
 ///
 /// ```ignore
-/// pub use parity_scale_codec as codec;
+/// pub use jam_codec as codec;
 ///
 /// #[derive(Encode, MaxEncodedLen)]
 /// #[codec(crate = $crate::codec)]
 /// struct Example;
 /// ```
 #[cfg(all(feature = "derive", feature = "max-encoded-len"))]
-pub use parity_scale_codec_derive::MaxEncodedLen;
+pub use jam_codec_derive::MaxEncodedLen;
 
 #[cfg(feature = "bytes")]
 pub use self::codec::decode_from_bytes;

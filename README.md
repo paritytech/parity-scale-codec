@@ -1,7 +1,7 @@
-# Parity SCALE Codec
+# Parity JAM Codec
 
-Rust implementation of the SCALE (Simple Concatenated Aggregate Little-Endian) data format
-for types used in the Parity Substrate framework.
+Rust implementation of the JAM binary codec, a revision of SCALE with enhanced
+compact encoding.
 
 SCALE is a light-weight format which allows encoding (and decoding) which makes it highly
 suitable for resource-constrained execution environments like blockchain runtimes and low-power,
@@ -76,9 +76,9 @@ Following are some examples to demonstrate usage of the codec.
 ```rust
 # // Import macros if derive feature is not used.
 # #[cfg(not(feature="derive"))]
-# use parity_scale_codec_derive::{Encode, Decode};
+# use jam_codec_derive::{Encode, Decode};
 
-use parity_scale_codec::{Encode, Decode};
+use jam_codec::{Encode, Decode};
 
 #[derive(Debug, PartialEq, Encode, Decode)]
 enum EnumType {
@@ -127,9 +127,9 @@ assert_eq!(EnumType::decode(&mut dz).ok(), None);
 ```rust
 # // Import macros if derive feature is not used.
 # #[cfg(not(feature="derive"))]
-# use parity_scale_codec_derive::{Encode, Decode};
+# use jam_codec_derive::{Encode, Decode};
 
-use parity_scale_codec::{Encode, Decode, Compact, HasCompact};
+use jam_codec::{Encode, Decode, Compact, HasCompact};
 
 #[derive(Debug, PartialEq, Encode, Decode)]
 struct Test1CompactHasCompact<T: HasCompact> {
@@ -157,10 +157,10 @@ assert_eq!(<Test1CompactHasCompact<u64>>::decode(&mut &encoded[..]).unwrap().bar
 ```rust
 # // Import macros if derive feature is not used.
 # #[cfg(not(feature="derive"))]
-# use parity_scale_codec_derive::{Encode, Decode};
+# use jam_codec_derive::{Encode, Decode};
 
 use serde_derive::{Serialize, Deserialize};
-use parity_scale_codec::{Encode, Decode, Compact, HasCompact, CompactAs, Error};
+use jam_codec::{Encode, Decode, Compact, HasCompact, CompactAs, Error};
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
 #[derive(PartialEq, Eq, Clone)]

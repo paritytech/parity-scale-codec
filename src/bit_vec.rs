@@ -69,6 +69,9 @@ impl<O: BitOrder, T: BitStore + Decode> Decode for BitVec<T, O> {
 			})?;
 
 			assert!(bits as usize <= result.len());
+			if result[bits as usize..].any() {
+				return Err("BitVec padding bits are not zero".into());
+			}
 			result.truncate(bits as usize);
 			Ok(result)
 		})
@@ -220,5 +223,21 @@ mod tests {
 		for (idx, (actual, expected)) in cases.into_iter().enumerate() {
 			assert_eq!(actual, expected, "case at index {} failed; encodings differ", idx);
 		}
+	}
+
+	#[test]
+	fn bitvec_decode_rejects_non_zero_padding() {
+		assert_eq!(BitVec::<u8, Lsb0>::decode(&mut &[1, 0x01][..]), Ok(bitvec![u8, Lsb0; 1]));
+		assert!(BitVec::<u8, Lsb0>::decode(&mut &[1, 0x03][..]).is_err());
+		assert!(BitVec::<u8, Lsb0>::decode(&mut &[1, 0x81][..]).is_err());
+
+		assert_eq!(BitVec::<u8, Msb0>::decode(&mut &[1, 0x80][..]), Ok(bitvec![u8, Msb0; 1]));
+		assert!(BitVec::<u8, Msb0>::decode(&mut &[1, 0x81][..]).is_err());
+
+		assert_eq!(
+			BitVec::<u16, Lsb0>::decode(&mut &[9, 0xff, 0x01][..]),
+			Ok(bitvec![u16, Lsb0; 1; 9])
+		);
+		assert!(BitVec::<u16, Lsb0>::decode(&mut &[9, 0xff, 0x03][..]).is_err());
 	}
 }

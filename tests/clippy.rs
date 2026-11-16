@@ -18,7 +18,7 @@
 
 #![deny(trivial_numeric_casts)]
 
-use parity_scale_codec_derive::{Decode, DecodeWithMemTracking, Encode};
+use jam_codec_derive::{Decode, DecodeWithMemTracking, Encode};
 
 #[repr(u8)]
 #[derive(Decode, DecodeWithMemTracking, Encode)]

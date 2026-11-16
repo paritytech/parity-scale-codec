@@ -59,7 +59,7 @@ jobs:
       - name: Run Clippy
         run: |
           cargo +stable clippy --locked -- -Dwarnings
-          cargo +stable clippy --locked -p parity-scale-codec-derive -- -Dwarnings
+          cargo +stable clippy --locked -p jam-codec-derive -- -Dwarnings
           cargo +stable clippy --locked --test clippy -- -Dwarnings
 
   checks:
@@ -187,7 +187,10 @@ jobs:
           export RUST_BACKTRACE=1
           export RUSTFLAGS='-Cdebug-assertions=y -Dwarnings'
           export MIRIFLAGS='-Zmiri-disable-isolation'
-          time cargo +nightly miri test --features ${{ matrix.feature }} --release
+          # bitvec_u* take about 4 h under miri (large BitVecs). Normal test runs keep them.
+          time cargo +nightly miri test --features ${{ matrix.feature }} --release -- --exact \
+            --skip bit_vec::tests::bitvec_u8 --skip bit_vec::tests::bitvec_u16 \
+            --skip bit_vec::tests::bitvec_u32 --skip bit_vec::tests::bitvec_u64
 
   # Build
 
@@ -222,4 +225,4 @@ jobs:
 
       - name: Dry Run Publish
         if: github.event_name == 'pull_request'
-        run: cargo publish -p parity-scale-codec-derive --dry-run
+        run: cargo publish -p jam-codec-derive --dry-run

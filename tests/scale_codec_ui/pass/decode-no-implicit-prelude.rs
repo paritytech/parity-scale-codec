@@ -1,7 +1,7 @@
 #![no_implicit_prelude]
 
-#[derive(::parity_scale_codec::Decode)]
-#[codec(crate = ::parity_scale_codec)]
+#[derive(::jam_codec::Decode)]
+#[codec(crate = ::jam_codec)]
 pub struct Struct {
     field_1: i8,
     field_2: i16,
@@ -9,14 +9,14 @@ pub struct Struct {
     field_4: i64,
 }
 
-#[derive(::parity_scale_codec::Decode)]
+#[derive(::jam_codec::Decode)]
 #[repr(transparent)]
 struct Transparent {
     a: u8
 }
 
-#[derive(::parity_scale_codec::Decode)]
-#[codec(crate = ::parity_scale_codec)]
+#[derive(::jam_codec::Decode)]
+#[codec(crate = ::jam_codec)]
 pub enum Enum {
     Variant1,
     Variant2(i8, i16, i32, i64),

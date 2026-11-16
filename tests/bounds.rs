@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use parity_scale_codec::{Decode, Encode, HasCompact};
-use parity_scale_codec_derive::{Decode as DeriveDecode, Encode as DeriveEncode};
+use jam_codec::{Decode, Encode, HasCompact};
+use jam_codec_derive::{Decode as DeriveDecode, Encode as DeriveEncode};
 
 #[test]
 fn ensure_derive_macro_derives_bounds_correctly() {

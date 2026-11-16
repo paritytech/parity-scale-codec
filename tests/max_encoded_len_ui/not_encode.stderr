@@ -13,7 +13,7 @@ error[E0277]: the trait bound `NotEncode: Encode` is not satisfied
             Rc<T>
             String
             Vec<T>
-            parity_scale_codec::Ref<'_, T, U>
+            jam_codec::Ref<'_, T, U>
   = note: required for `NotEncode` to implement `Encode`
 note: required by a bound in `MaxEncodedLen`
  --> src/max_encoded_len.rs

@@ -1,4 +1,4 @@
-use parity_scale_codec::{Decode, DecodeWithMemTracking};
+use jam_codec::{Decode, DecodeWithMemTracking};
 
 #[derive(Decode)]
 struct Base {}

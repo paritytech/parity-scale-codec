@@ -1,7 +1,7 @@
-use parity_scale_codec::{Encode, MaxEncodedLen};
+use jam_codec::{Encode, MaxEncodedLen};
 
 #[derive(Encode, MaxEncodedLen)]
-#[codec(crate = "parity_scale_codec")]
+#[codec(crate = "jam_codec")]
 struct Example;
 
 fn main() {

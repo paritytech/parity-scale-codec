@@ -12,7 +12,7 @@ use honggfuzz::{
 	arbitrary::{Arbitrary, Result as ArbResult, Unstructured},
 	fuzz,
 };
-use parity_scale_codec::{Compact, Decode, Encode};
+use jam_codec::{Compact, Decode, Encode};
 
 #[derive(Encode, Decode, Clone, PartialEq, Debug, Arbitrary)]
 pub struct MockStruct {
@@ -57,9 +57,9 @@ pub enum MockEnum {
 	NestedVec(Vec<Vec<Vec<Vec<Vec<Vec<Vec<Vec<Option<u8>>>>>>>>>),
 }
 
-/// `fuzz_flow` parameter can either be `round_trip` or `only_decode`.
+/// `fuzz_flow` parameter can either be `round_trip` or `round_trip_sorted`.
 /// `round_trip` will decode -> encode and compare the obtained encoded bytes with the original
-/// data. `only_decode` will only decode, without trying to encode the decoded object.
+/// data.
 /// `round_trip_sort` will decode -> encode and compare the obtained encoded SORTED bytes with the
 /// original SORTED data.
 macro_rules! fuzz_decoder {
@@ -143,22 +143,6 @@ macro_rules! fuzz_decoder {
 		}
 	)*
 	};
-	// only_decode flow arm.
-	(@INTERNAL
-		only_decode;
-		$data:ident;
-		$counter:expr;
-		{ $( $parsed:ty; $index:expr ),* }
-	) => {
-		let num = $counter;
-		$(
-			if $data[0] % num == $index {
-				// Check that decode doesn't panic
-				let _ = <$parsed>::decode(&mut &$data[1..]);
-				return
-			}
-		)*
-	};
 	// round_trip_sorted flow arm.
 	(@INTERNAL
 		round_trip_sorted;
@@ -234,6 +218,9 @@ fn fuzz_decode(data: &[u8]) {
 		Option<Vec<u8>>,
 		Vec<u32>,
 		LinkedList<u8>,
+		BTreeMap<String, Vec<u8>>,
+		BTreeMap<u8, u8>,
+		BTreeSet<u32>,
 		VecDeque<u8>,
 		MockStruct,
 		MockEnum,
@@ -246,14 +233,6 @@ fn fuzz_decode(data: &[u8]) {
 		round_trip_sorted;
 		data;
 		BinaryHeapWrapper,
-	};
-	// Types for which we only wish to decode.
-	fuzz_decoder! {
-		only_decode;
-		data;
-		BTreeMap<String, Vec<u8>>,
-		BTreeMap<u8, u8>,
-		BTreeSet<u32>,
 	};
 }
 

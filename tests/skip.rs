@@ -1,5 +1,5 @@
-use parity_scale_codec::{Decode, Encode};
-use parity_scale_codec_derive::{
+use jam_codec::{Decode, Encode};
+use jam_codec_derive::{
 	Decode as DeriveDecode, DecodeWithMemTracking as DeriveDecodeWithMemTracking,
 	Encode as DeriveEncode,
 };
@@ -12,7 +12,7 @@ fn enum_struct_test() {
 	#[derive(PartialEq, Debug)]
 	struct UncodecUndefaultType;
 
-	use parity_scale_codec_derive::{
+	use jam_codec_derive::{
 		Decode as DeriveDecode, DecodeWithMemTracking as DeriveDecodeWithMemTracking,
 		Encode as DeriveEncode,
 	};

@@ -1,5 +1,5 @@
-use parity_scale_codec::Encode;
-use parity_scale_codec_derive::Encode as DeriveEncode;
+use jam_codec::Encode;
+use jam_codec_derive::Encode as DeriveEncode;
 
 #[test]
 fn size_hint_for_struct() {

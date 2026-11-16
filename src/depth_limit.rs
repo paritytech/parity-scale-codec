@@ -111,7 +111,7 @@ mod tests {
 		let encoded_slice = &mut encoded.as_slice();
 
 		let decoded = Vec::<u8>::decode_with_depth_limit(1, encoded_slice).unwrap();
-		assert_eq!(decoded, vec![4]);
+		assert_eq!(decoded, vec![1]);
 		assert!(NestedVec::decode_with_depth_limit(3, encoded_slice).is_err());
 	}
 

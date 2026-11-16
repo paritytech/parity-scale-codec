@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use parity_scale_codec_derive::{Decode, Encode};
+use jam_codec_derive::{Decode, Encode};
 
 // test for regression
 #[enumflags2::bitflags]

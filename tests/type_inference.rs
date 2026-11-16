@@ -14,8 +14,8 @@
 
 //! Test for type inference issue in decode.
 
-use parity_scale_codec::Decode;
-use parity_scale_codec_derive::{
+use jam_codec::Decode;
+use jam_codec_derive::{
 	Decode as DeriveDecode, DecodeWithMemTracking as DeriveDecodeWithMemTracking,
 };
 

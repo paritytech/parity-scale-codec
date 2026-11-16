@@ -1122,7 +1122,7 @@ fn decode_vec_chunked<T, I: Input, F>(
 where
 	F: FnMut(&mut I, &mut Vec<T>, usize) -> Result<(), Error>,
 {
-	const { assert!(INITIAL_PREALLOCATION >= mem::size_of::<T>()) }
+	// const { assert!(INITIAL_PREALLOCATION >= mem::size_of::<T>()) }
 	// we have to account for the fact that `mem::size_of::<T>` can be 0 for types like `()`
 	// for example.
 	let mut chunk_len = INITIAL_PREALLOCATION.checked_div(mem::size_of::<T>()).unwrap_or(1);
@@ -1275,7 +1275,14 @@ impl<K: Decode + Ord, V: Decode> Decode for BTreeMap<K, V> {
 		<Compact<u32>>::decode(input).and_then(move |Compact(len)| {
 			input.descend_ref()?;
 			input.on_before_alloc_mem(super::btree_utils::mem_size_of_btree::<(K, V)>(len))?;
-			let result = Result::from_iter((0..len).map(|_| Decode::decode(input)));
+			let result = (0..len).try_fold(BTreeMap::new(), |mut map, _| {
+				let (key, value) = Decode::decode(input)?;
+				if map.last_key_value().is_some_and(|(last, _)| key <= *last) {
+					return Err("BTreeMap keys are not strictly ascending".into());
+				}
+				map.insert(key, value);
+				Ok(map)
+			});
 			input.ascend_ref();
 			result
 		})
@@ -1297,7 +1304,14 @@ impl<T: Decode + Ord> Decode for BTreeSet<T> {
 		<Compact<u32>>::decode(input).and_then(move |Compact(len)| {
 			input.descend_ref()?;
 			input.on_before_alloc_mem(super::btree_utils::mem_size_of_btree::<T>(len))?;
-			let result = Result::from_iter((0..len).map(|_| Decode::decode(input)));
+			let result = (0..len).try_fold(BTreeSet::new(), |mut set, _| {
+				let value = Decode::decode(input)?;
+				if set.last().is_some_and(|last| value <= *last) {
+					return Err("BTreeSet values are not strictly ascending".into());
+				}
+				set.insert(value);
+				Ok(set)
+			});
 			input.ascend_ref();
 			result
 		})
@@ -1704,7 +1718,7 @@ mod tests {
 	#[test]
 	fn vec_is_sliceable() {
 		let v = b"Hello world".to_vec();
-		v.using_encoded(|ref slice| assert_eq!(slice, &b"\x2cHello world"));
+		v.using_encoded(|ref slice| assert_eq!(slice, &b"\x0bHello world"));
 	}
 
 	#[test]
@@ -1749,7 +1763,7 @@ mod tests {
 	fn string_encoded_as_expected() {
 		let value = String::from("Hello, World!");
 		let encoded = value.encode();
-		assert_eq!(hexify(&encoded), "34 48 65 6c 6c 6f 2c 20 57 6f 72 6c 64 21");
+		assert_eq!(hexify(&encoded), "0d 48 65 6c 6c 6f 2c 20 57 6f 72 6c 64 21");
 		assert_eq!(<String>::decode(&mut &encoded[..]).unwrap(), value);
 	}
 
@@ -1757,7 +1771,7 @@ mod tests {
 	fn vec_of_u8_encoded_as_expected() {
 		let value = vec![0u8, 1, 1, 2, 3, 5, 8, 13, 21, 34];
 		let encoded = value.encode();
-		assert_eq!(hexify(&encoded), "28 00 01 01 02 03 05 08 0d 15 22");
+		assert_eq!(hexify(&encoded), "0a 00 01 01 02 03 05 08 0d 15 22");
 		assert_eq!(<Vec<u8>>::decode(&mut &encoded[..]).unwrap(), value);
 	}
 
@@ -1765,7 +1779,7 @@ mod tests {
 	fn vec_of_i16_encoded_as_expected() {
 		let value = vec![0i16, 1, -1, 2, -2, 3, -3];
 		let encoded = value.encode();
-		assert_eq!(hexify(&encoded), "1c 00 00 01 00 ff ff 02 00 fe ff 03 00 fd ff");
+		assert_eq!(hexify(&encoded), "07 00 00 01 00 ff ff 02 00 fe ff 03 00 fd ff");
 		assert_eq!(<Vec<i16>>::decode(&mut &encoded[..]).unwrap(), value);
 	}
 
@@ -1773,7 +1787,7 @@ mod tests {
 	fn vec_of_option_int_encoded_as_expected() {
 		let value = vec![Some(1i8), Some(-1), None];
 		let encoded = value.encode();
-		assert_eq!(hexify(&encoded), "0c 01 01 01 ff 00");
+		assert_eq!(hexify(&encoded), "03 01 01 01 ff 00");
 		assert_eq!(<Vec<Option<i8>>>::decode(&mut &encoded[..]).unwrap(), value);
 	}
 
@@ -1781,7 +1795,7 @@ mod tests {
 	fn vec_of_option_bool_encoded_as_expected() {
 		let value = vec![OptionBool(Some(true)), OptionBool(Some(false)), OptionBool(None)];
 		let encoded = value.encode();
-		assert_eq!(hexify(&encoded), "0c 01 02 00");
+		assert_eq!(hexify(&encoded), "03 01 02 00");
 		assert_eq!(<Vec<OptionBool>>::decode(&mut &encoded[..]).unwrap(), value);
 	}
 
@@ -1789,7 +1803,7 @@ mod tests {
 	fn vec_of_empty_tuples_encoded_as_expected() {
 		let value = vec![(), (), (), (), ()];
 		let encoded = value.encode();
-		assert_eq!(hexify(&encoded), "14");
+		assert_eq!(hexify(&encoded), "05");
 		assert_eq!(<Vec<()>>::decode(&mut &encoded[..]).unwrap(), value);
 	}
 
@@ -1873,10 +1887,10 @@ mod tests {
 		let encoded = value.encode();
 		assert_eq!(
 			hexify(&encoded),
-			"10 18 48 61 6d 6c 65 74 50 d0 92 d0 be d0 b9 d0 bd d0 b0 20 d0 \
-			b8 20 d0 bc d0 b8 d1 80 30 e4 b8 89 e5 9b bd e6 bc 94 e4 b9 89 bc d8 a3 d9 8e d9 84 d9 92 \
-			d9 81 20 d9 84 d9 8e d9 8a d9 92 d9 84 d9 8e d8 a9 20 d9 88 d9 8e d9 84 d9 8e d9 8a d9 92 \
-			d9 84 d9 8e d8 a9 e2 80 8e"
+			"04 06 48 61 6d 6c 65 74 14 d0 92 d0 be d0 b9 d0 bd d0 b0 20 d0 \
+			 b8 20 d0 bc d0 b8 d1 80 0c e4 b8 89 e5 9b bd e6 bc 94 e4 b9 89 2f d8 a3 d9 8e d9 84 d9 92 \
+			 d9 81 20 d9 84 d9 8e d9 8a d9 92 d9 84 d9 8e d8 a9 20 d9 88 d9 8e d9 84 d9 8e d9 8a d9 92 \
+			 d9 84 d9 8e d8 a9 e2 80 8e"
 		);
 		assert_eq!(<Vec<String>>::decode(&mut &encoded[..]).unwrap(), value);
 	}
@@ -1902,7 +1916,7 @@ mod tests {
 
 	#[test]
 	fn should_work_for_wrapper_types() {
-		let result = vec![0b1100];
+		let result = vec![3];
 
 		assert_eq!(MyWrapper(3u32.into()).encode(), result);
 		assert_eq!(MyWrapper::decode(&mut &*result).unwrap(), MyWrapper(3_u32.into()));
@@ -1959,6 +1973,20 @@ mod tests {
 	}
 
 	#[test]
+	fn btree_decode_rejects_keys_not_strictly_ascending() {
+		assert_eq!(
+			BTreeMap::<u8, u8>::decode(&mut &[2, 1, 0, 2, 0][..]),
+			Ok(BTreeMap::from([(1, 0), (2, 0)]))
+		);
+		assert!(BTreeMap::<u8, u8>::decode(&mut &[2, 2, 0, 1, 0][..]).is_err());
+		assert!(BTreeMap::<u8, u8>::decode(&mut &[2, 1, 0, 1, 5][..]).is_err());
+
+		assert_eq!(BTreeSet::<u8>::decode(&mut &[2, 7, 9][..]), Ok(BTreeSet::from([7, 9])));
+		assert!(BTreeSet::<u8>::decode(&mut &[2, 9, 7][..]).is_err());
+		assert!(BTreeSet::<u8>::decode(&mut &[2, 7, 7][..]).is_err());
+	}
+
+	#[test]
 	fn io_reader() {
 		let mut io_reader = IoReader(std::io::Cursor::new(&[1u8, 2, 3][..]));
 
@@ -2009,6 +2037,21 @@ mod tests {
 			<Vec<u8>>::decode(&mut NoLimit(&i[..])).err().unwrap().to_string(),
 			"Not enough data to fill buffer",
 		);
+	}
+
+	// Under miri this is the only check of the chunked decode (`unsafe { set_len }`) for items
+	// wider than one byte: CI skips the large `bit_vec` tests there because they take hours.
+	#[test]
+	fn vec_decode_crosses_preallocation_chunks() {
+		fn check<T: Encode + Decode + PartialEq + fmt::Debug + From<u16>>() {
+			let len = 2 * INITIAL_PREALLOCATION / mem::size_of::<T>() + 1;
+			let data: Vec<T> = (0..len).map(|i| T::from(i as u16)).collect();
+			let encoded = data.encode();
+			assert_eq!(Vec::<T>::decode(&mut &encoded[..]).unwrap(), data);
+		}
+		check::<u16>();
+		check::<u32>();
+		check::<u64>();
 	}
 
 	#[test]

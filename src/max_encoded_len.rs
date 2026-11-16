@@ -83,13 +83,13 @@ impl_compact!(
 	// github.com/paritytech/parity-scale-codec/blob/f0341dabb01aa9ff0548558abb6dcc5c31c669a1/src/compact.rs#L261
 	u8 => 2;
 	// github.com/paritytech/parity-scale-codec/blob/f0341dabb01aa9ff0548558abb6dcc5c31c669a1/src/compact.rs#L291
-	u16 => 4;
+	u16 => 3;
 	// github.com/paritytech/parity-scale-codec/blob/f0341dabb01aa9ff0548558abb6dcc5c31c669a1/src/compact.rs#L326
 	u32 => 5;
 	// github.com/paritytech/parity-scale-codec/blob/f0341dabb01aa9ff0548558abb6dcc5c31c669a1/src/compact.rs#L369
 	u64 => 9;
 	// github.com/paritytech/parity-scale-codec/blob/f0341dabb01aa9ff0548558abb6dcc5c31c669a1/src/compact.rs#L413
-	u128 => 17;
+	u128 => 18;
 );
 
 // impl_for_tuples for values 19 and higher fails because that's where the WrapperTypeEncode impl
